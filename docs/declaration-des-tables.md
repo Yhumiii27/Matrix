@@ -27,6 +27,7 @@ Le module de lecture du schéma a été exécuté sur les vraies bases :
 - la table est ajoutée au catalogue, marquée à documenter ;
 - elle est signalée comme doublon possible de `codex.change_requests` : 55 % de colonnes communes ;
 - une requête sans jeton est refusée (401) ;
+- une déclaration envoyée à travers l'authentification HTTP de l'hébergeur (identifiant et mot de passe dans `MATRIX_URL`) est acceptée ;
 - un second envoi identique est ignoré.
 
 ## Mise en place dans chaque outil
@@ -68,26 +69,23 @@ void declarerSchema({ app: 'cursus', tables: introspecterSqlite(db.sql) });
 
 | Variable | Rôle |
 |---|---|
-| `MATRIX_URL` | Adresse de Matrix, par exemple `http://matrix:3300`. Sans elle, rien n'est envoyé (cas des tests). |
-| `MATRIX_TOKEN` | Jeton partagé avec Matrix. |
+| `MATRIX_URL` | Adresse de Matrix, par exemple `https://matrix.votre-domaine`. Si Matrix est protégé par l'authentification HTTP de Coolify : `https://identifiant:mot-de-passe@matrix.votre-domaine`. Sans elle, rien n'est envoyé (cas des tests). |
+| `MATRIX_TOKEN` | Jeton partagé avec Matrix (même valeur que `MATRIX_TOKEN` sur le serveur Matrix), envoyé dans l'en-tête `X-Matrix-Token`. |
 | `MATRIX_DECLARATIONS_DIR` | Facultatif : écrit aussi la déclaration dans ce dossier (volume partagé, poste sans réseau). |
 
 ## Côté Matrix
 
-En attendant l'application Matrix, un serveur minimal reçoit les déclarations :
+Le serveur de Matrix (`serveur.mjs`, déployé comme les autres outils, voir le README) reçoit les déclarations :
+
+- `POST /api/declarations` : reçoit une déclaration (jeton dans `X-Matrix-Token` ou `Authorization: Bearer`), l'enregistre dans `/data/declarations/<outil>.json` et relance la comparaison. Sans `MATRIX_TOKEN` sur le serveur, la route répond 503.
+- `GET /api/declarations` : liste les dernières déclarations reçues (date, version, empreinte, nombre de tables).
+- `GET /api/catalogue` : le catalogue à jour.
+
+En local :
 
 ```bash
-MATRIX_TOKEN=… node outils/serveur-declarations.mjs        # écoute sur le port 3300 (MATRIX_PORT)
-```
-
-- `POST /api/declarations` : reçoit une déclaration, l'enregistre dans `declarations/<outil>.json` et relance la comparaison.
-- `GET /api/declarations` : liste les dernières déclarations reçues (date, empreinte, nombre de tables).
-
-Pour relire les schémas depuis le code des dépôts et reconstruire la maquette :
-
-```bash
-node outils/collecteur.mjs ..          # dossier contenant keystone/, codex/, cursus/, vigie/
-node outils/construire-maquette.mjs
+MATRIX_TOKEN=… npm start                 # http://localhost:3000
+node outils/collecteur.mjs ..            # relire les schémas dans les dépôts voisins
 ```
 
 ## Format `matrix.schema/1`

@@ -13,8 +13,9 @@
 //   await declarerSchema({ app: 'cursus', tables });
 //
 // Variables d'environnement lues par declarerSchema :
-//   MATRIX_URL               adresse de Matrix (ex. http://matrix:3300) ; si absente, rien n'est envoyé
-//   MATRIX_TOKEN             jeton partagé, envoyé en Authorization: Bearer
+//   MATRIX_URL               adresse de Matrix (ex. https://matrix.exemple.fr, ou https://user:mdp@… derrière une
+//                            authentification HTTP) ; si absente, rien n'est envoyé
+//   MATRIX_TOKEN             jeton partagé avec Matrix, envoyé dans l'en-tête X-Matrix-Token
 //   MATRIX_DECLARATIONS_DIR  dossier où écrire aussi la déclaration (utile sans réseau)
 //
 // L'envoi n'est jamais bloquant : en cas d'échec, l'outil démarre normalement et un avertissement est écrit.
@@ -105,12 +106,16 @@ export async function declarerSchema({ app, version, tables, env = process.env, 
       writeFileSync(join(env.MATRIX_DECLARATIONS_DIR, `${app}.json`), JSON.stringify(doc, null, 1));
     }
     if (env.MATRIX_URL) {
-      const res = await fetch(new URL('/api/declarations', env.MATRIX_URL), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...(env.MATRIX_TOKEN ? { authorization: `Bearer ${env.MATRIX_TOKEN}` } : {}) },
-        body: JSON.stringify(doc),
-        signal: AbortSignal.timeout(5000),
-      });
+      // MATRIX_URL peut contenir un identifiant et un mot de passe (https://user:mdp@matrix.exemple.fr) quand Matrix
+      // est protégé par l'authentification HTTP de l'hébergeur : ils partent en Basic, le jeton dans X-Matrix-Token.
+      const url = new URL('/api/declarations', env.MATRIX_URL);
+      const headers = { 'content-type': 'application/json' };
+      if (env.MATRIX_TOKEN) headers['x-matrix-token'] = env.MATRIX_TOKEN;
+      if (url.username) {
+        headers.authorization = 'Basic ' + Buffer.from(`${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`).toString('base64');
+        url.username = ''; url.password = '';
+      }
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(doc), signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error(`Matrix a répondu ${res.status} : ${await res.text()}`);
       const r = await res.json();
       if (r.nouvellesTables?.length) log.info?.(`[matrix] nouvelles tables déclarées : ${r.nouvellesTables.join(', ')}`);

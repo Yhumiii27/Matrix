@@ -1,0 +1,16 @@
+{
+  "name": "matrix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Matrix : référentiel des bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie)",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node serveur.mjs",
+    "collecter": "node outils/collecteur.mjs ..",
+    "maquette": "node outils/construire-maquette.mjs",
+    "doublons": "node outils/generer-liste-doublons.mjs"
+  },
+  "dependencies": {
+    "cytoscape": "3.33.1"
+  }
+}

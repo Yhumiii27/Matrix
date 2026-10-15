@@ -108,7 +108,7 @@ serveur PostgreSQL EPC2I
 Les tables de correspondance (personnes, projets, sites) tranchées dans la liste des doublons vivent dans le schéma `matrix` et sont publiées aux outils.
 
 **Technique.**
-- Même pile que Codex et Vigie : Next.js 16, Drizzle et PostgreSQL. Port 3300, déployé par Docker et Coolify.
+- Même pile que Codex et Vigie : Next.js 16, Drizzle et PostgreSQL. Port interne 3000, déployé par Docker et Coolify comme les autres outils.
 - Le graphe utilise Cytoscape.js.
 - L'authentification suivra le choix fait pour les autres outils (question O-02 de Codex, Entra ID proposé).
 

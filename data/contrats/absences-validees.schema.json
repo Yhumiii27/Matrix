@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:epc2i:contrats:absences-validees",
+  "title": "Absences validées : messages epc2i.absence.validee/1 et epc2i.absence.annulee/1",
+  "description": "Corps de POST {KEYSTONE_URL}/api/integrations/cursus/events envoyé par Cursus quand une absence est validée ou annulée (D07 : Cursus fait foi ; Keystone garde une copie en lecture). Le message porte une catégorie simple (congé ou absence) et jamais le motif (décision Keystone NEW-CURSUS-4). Les demandes en attente ne sont pas envoyées. Référence : docs/remplacement-lucca.md (dépôt Matrix). Toute évolution part de ce fichier.",
+  "oneOf": [
+    { "$ref": "#/$defs/absenceValidee" },
+    { "$ref": "#/$defs/absenceAnnulee" }
+  ],
+  "$defs": {
+    "messageId": {
+      "description": "Identifiant unique du message (UUID). Un même message renvoyé garde le même identifiant.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "source": {
+      "description": "Logiciel d'origine. \"lucca\" sert seulement si Lucca est conservé (retour arrière).",
+      "enum": ["cursus", "lucca"]
+    },
+    "horodatage": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "idAbsence": {
+      "description": "Identifiant de l'absence dans la source, en texte (Cursus : absences.id). Clé d'idempotence avec la source.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "matricule": {
+      "description": "Matricule du salarié (D01 : Cursus fait foi). Aujourd'hui EMP-0014, calculé depuis employes.id (shared/format.ts:21).",
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9-]{1,31}$"
+    },
+    "version": {
+      "description": "Version de l'absence : 1 à la validation, augmentée de 1 à l'annulation. Le récepteur ignore une version inférieure ou égale à la dernière reçue pour (source, id).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "semaine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lundi", "du", "au", "jours"],
+      "properties": {
+        "lundi": {
+          "description": "Lundi de la semaine (leave_entries.week_start).",
+          "$ref": "#/$defs/date"
+        },
+        "du": {
+          "description": "Premier jour de l'absence dans cette semaine.",
+          "$ref": "#/$defs/date"
+        },
+        "au": {
+          "description": "Dernier jour de l'absence dans cette semaine.",
+          "$ref": "#/$defs/date"
+        },
+        "jours": {
+          "description": "Jours décomptés dans la semaine, selon Domain.countDays de Cursus (week-ends, fériés et jours non travaillés du temps partiel exclus). Les semaines sans jour décompté ne sont pas envoyées.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        }
+      }
+    },
+    "absenceValidee": {
+      "title": "epc2i.absence.validee/1",
+      "description": "Absence validée par le manager ou les RH. Remplace les semaines déjà reçues pour la même absence si la version est supérieure.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "message_id", "type", "source", "emis_le", "absence"],
+      "properties": {
+        "schema": { "const": "epc2i.absence.validee/1" },
+        "message_id": { "$ref": "#/$defs/messageId" },
+        "type": { "const": "absence.validee" },
+        "source": { "$ref": "#/$defs/source" },
+        "emis_le": { "$ref": "#/$defs/horodatage" },
+        "absence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "matricule", "version", "valide_le", "categorie", "du", "au", "jours", "semaines"],
+          "properties": {
+            "id": { "$ref": "#/$defs/idAbsence" },
+            "matricule": { "$ref": "#/$defs/matricule" },
+            "version": { "$ref": "#/$defs/version" },
+            "valide_le": { "$ref": "#/$defs/horodatage" },
+            "categorie": {
+              "description": "conge pour CP, RTT et RECUP ; absence pour tout autre type que Cursus gérerait plus tard (le motif reste dans Cursus).",
+              "enum": ["conge", "absence"]
+            },
+            "du": { "$ref": "#/$defs/date" },
+            "au": { "$ref": "#/$defs/date" },
+            "jours": {
+              "description": "Total des jours décomptés ; égal à la somme des jours des semaines.",
+              "type": "integer",
+              "minimum": 1
+            },
+            "semaines": {
+              "description": "Ventilation par semaine, calculée en un seul parcours de du à au (même règle que Domain.countDays), chaque jour décompté étant rangé dans sa semaine.",
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/semaine" }
+            }
+          }
+        }
+      }
+    },
+    "absenceAnnulee": {
+      "title": "epc2i.absence.annulee/1",
+      "description": "Absence validée puis annulée dans Cursus (action absence.annuler). Le récepteur supprime les semaines de l'absence si la version est supérieure.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "message_id", "type", "source", "emis_le", "absence"],
+      "properties": {
+        "schema": { "const": "epc2i.absence.annulee/1" },
+        "message_id": { "$ref": "#/$defs/messageId" },
+        "type": { "const": "absence.annulee" },
+        "source": { "$ref": "#/$defs/source" },
+        "emis_le": { "$ref": "#/$defs/horodatage" },
+        "absence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "matricule", "version", "annule_le"],
+          "properties": {
+            "id": { "$ref": "#/$defs/idAbsence" },
+            "matricule": { "$ref": "#/$defs/matricule" },
+            "version": { "$ref": "#/$defs/version" },
+            "annule_le": { "$ref": "#/$defs/horodatage" }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema": "epc2i.absence.validee/1",
+      "message_id": "5a7e9c10-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "type": "absence.validee",
+      "source": "cursus",
+      "emis_le": "2026-10-01T09:00:02+02:00",
+      "absence": {
+        "id": "57",
+        "matricule": "EMP-0014",
+        "version": 1,
+        "valide_le": "2026-10-01T09:00:00+02:00",
+        "categorie": "conge",
+        "du": "2026-11-05",
+        "au": "2026-11-13",
+        "jours": 6,
+        "semaines": [
+          { "lundi": "2026-11-02", "du": "2026-11-05", "au": "2026-11-06", "jours": 2 },
+          { "lundi": "2026-11-09", "du": "2026-11-09", "au": "2026-11-13", "jours": 4 }
+        ]
+      }
+    },
+    {
+      "schema": "epc2i.absence.annulee/1",
+      "message_id": "6b8f0d21-3c4e-4f60-9bac-1d2e3f405b6c",
+      "type": "absence.annulee",
+      "source": "cursus",
+      "emis_le": "2026-10-12T14:30:01+02:00",
+      "absence": {
+        "id": "57",
+        "matricule": "EMP-0014",
+        "version": 2,
+        "annule_le": "2026-10-12T14:30:00+02:00"
+      }
+    }
+  ]
+}

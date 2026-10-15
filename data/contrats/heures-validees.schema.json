@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:epc2i:contrats:heures-validees",
+  "title": "Heures validées : messages epc2i.heures.validees/1 et epc2i.heures.annulees/1",
+  "description": "Corps de POST {KEYSTONE_URL}/api/integrations/cursus/events envoyé par Cursus à chaque validation ou réouverture d'une feuille de temps. Contrat indépendant de la source : un adaptateur Lucca produirait les mêmes messages avec source = \"lucca\". La définition #/$defs/heuresSiteMois décrit la réponse de GET {CURSUS_URL}/api/integrations/vigie/heures-travaillees, lue par Vigie. Référence : docs/remplacement-lucca.md (dépôt Matrix). Toute évolution part de ce fichier.",
+  "oneOf": [
+    { "$ref": "#/$defs/heuresValidees" },
+    { "$ref": "#/$defs/heuresAnnulees" }
+  ],
+  "$defs": {
+    "messageId": {
+      "description": "Identifiant unique du message (UUID). Un même message renvoyé garde le même identifiant.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "source": {
+      "description": "Logiciel d'origine des heures. \"lucca\" sert seulement si Lucca est conservé (retour arrière).",
+      "enum": ["cursus", "lucca"]
+    },
+    "horodatage": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "idFeuille": {
+      "description": "Identifiant de la feuille dans la source, en texte (Cursus : feuilles.id). Clé d'idempotence avec la source.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "matricule": {
+      "description": "Matricule du salarié (D01 : Cursus fait foi). Aujourd'hui EMP-0018, calculé depuis employes.id (shared/format.ts:21).",
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9-]{1,31}$"
+    },
+    "semaine": {
+      "description": "Lundi de la semaine de la feuille.",
+      "$ref": "#/$defs/date"
+    },
+    "version": {
+      "description": "Version de la feuille, augmentée de 1 à chaque validation et à chaque réouverture. Le récepteur ignore une version inférieure ou égale à la dernière reçue pour (source, id).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "codeProjet": {
+      "description": "Code projet Keystone (projects.code : HLT-026), codes internes compris après D02 option B. Null seulement pour une source qui ne connaît que le code analytique.",
+      "type": ["string", "null"],
+      "pattern": "^[A-Z0-9][A-Z0-9-]{1,19}$"
+    },
+    "codeAnalytique": {
+      "description": "Code analytique Sage (projects.analytic_code, format XXX000 attendu : HAV004). Null si le projet n'en a pas.",
+      "type": ["string", "null"],
+      "pattern": "^[A-Z0-9]{3,12}$"
+    },
+    "numeroTache": {
+      "description": "Numéro de la tâche Keystone (tasks.number : T-2314), proposé par Keystone au moment de la saisie (D05). Null pour une ligne ajoutée à la main.",
+      "type": ["string", "null"],
+      "pattern": "^T-[0-9]{1,9}$"
+    },
+    "codeSite": {
+      "description": "Code de site de la liste publiée par Matrix (D14).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$"
+    },
+    "heuresJour": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "heures"],
+      "properties": {
+        "date": {
+          "description": "Jour travaillé, entre le lundi de la semaine et le dimanche suivant.",
+          "$ref": "#/$defs/date"
+        },
+        "heures": {
+          "description": "Heures du jour sur cette ligne, au centième. Les jours à zéro ne sont pas envoyés.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 24
+        }
+      }
+    },
+    "ligne": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ligne", "projet", "analytique", "tache", "jours"],
+      "properties": {
+        "ligne": {
+          "description": "Rang de la ligne dans la feuille, à partir de 1. Sert à désigner une anomalie.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "projet": { "$ref": "#/$defs/codeProjet" },
+        "analytique": { "$ref": "#/$defs/codeAnalytique" },
+        "tache": { "$ref": "#/$defs/numeroTache" },
+        "jours": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 7,
+          "items": { "$ref": "#/$defs/heuresJour" }
+        }
+      },
+      "anyOf": [
+        { "properties": { "projet": { "type": "string" } } },
+        { "properties": { "analytique": { "type": "string" } } }
+      ]
+    },
+    "heuresValidees": {
+      "title": "epc2i.heures.validees/1",
+      "description": "Feuille validée. Remplace toutes les lignes déjà reçues pour la même feuille si la version est supérieure.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "message_id", "type", "source", "emis_le", "feuille"],
+      "properties": {
+        "schema": { "const": "epc2i.heures.validees/1" },
+        "message_id": { "$ref": "#/$defs/messageId" },
+        "type": { "const": "heures.validees" },
+        "source": { "$ref": "#/$defs/source" },
+        "emis_le": { "$ref": "#/$defs/horodatage" },
+        "feuille": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "matricule", "semaine", "version", "valide_le", "type_contrat", "total_h", "lignes"],
+          "properties": {
+            "id": { "$ref": "#/$defs/idFeuille" },
+            "matricule": { "$ref": "#/$defs/matricule" },
+            "semaine": { "$ref": "#/$defs/semaine" },
+            "version": { "$ref": "#/$defs/version" },
+            "valide_le": { "$ref": "#/$defs/horodatage" },
+            "type_contrat": {
+              "description": "Type de contrat figé sur la feuille (feuilles.contrat.typeContrat). Les intérimaires et les cadres dirigeants sont inclus, alors que Sage Paie les exclut.",
+              "enum": ["cdi", "cdd", "interim", "alternance"]
+            },
+            "total_h": {
+              "description": "Somme des heures de toutes les lignes. Le récepteur la vérifie (écart supérieur à 0,01 h : réponse 400).",
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 168
+            },
+            "lignes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/ligne" }
+            }
+          }
+        }
+      }
+    },
+    "heuresAnnulees": {
+      "title": "epc2i.heures.annulees/1",
+      "description": "Feuille rouverte par les RH dans Cursus. Le récepteur retire les heures de la feuille si la version est supérieure et garde l'en-tête de la feuille, marqué annulé.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "message_id", "type", "source", "emis_le", "feuille"],
+      "properties": {
+        "schema": { "const": "epc2i.heures.annulees/1" },
+        "message_id": { "$ref": "#/$defs/messageId" },
+        "type": { "const": "heures.annulees" },
+        "source": { "$ref": "#/$defs/source" },
+        "emis_le": { "$ref": "#/$defs/horodatage" },
+        "feuille": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "matricule", "semaine", "version", "annule_le"],
+          "properties": {
+            "id": { "$ref": "#/$defs/idFeuille" },
+            "matricule": { "$ref": "#/$defs/matricule" },
+            "semaine": { "$ref": "#/$defs/semaine" },
+            "version": { "$ref": "#/$defs/version" },
+            "annule_le": { "$ref": "#/$defs/horodatage" }
+          }
+        }
+      }
+    },
+    "heuresSiteMois": {
+      "title": "epc2i.heures.site_mois/1",
+      "description": "Réponse de GET {CURSUS_URL}/api/integrations/vigie/heures-travaillees?depuis=AAAA-MM&jusqua=AAAA-MM (en-tête X-Api-Key). Heures des feuilles validées, chaque jour rangé dans son mois, par site figé sur la feuille à la soumission. Recalculée à chaque appel.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "source", "calcule_le", "mois"],
+      "properties": {
+        "schema": { "const": "epc2i.heures.site_mois/1" },
+        "source": { "$ref": "#/$defs/source" },
+        "calcule_le": { "$ref": "#/$defs/horodatage" },
+        "mois": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mois", "site", "heures_salaries", "heures_interim", "heures_ecole", "feuilles_attendues", "feuilles_validees", "complet"],
+            "properties": {
+              "mois": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" },
+              "site": {
+                "description": "Site de la feuille ; null pour les feuilles d'un salarié sans site (anomalie à corriger dans Cursus).",
+                "anyOf": [{ "$ref": "#/$defs/codeSite" }, { "type": "null" }]
+              },
+              "heures_salaries": {
+                "description": "Heures des salariés hors intérim, hors codes de cours en CFA (ECOLE).",
+                "type": "number",
+                "minimum": 0
+              },
+              "heures_interim": {
+                "description": "Heures des intérimaires, hors codes de cours en CFA.",
+                "type": "number",
+                "minimum": 0
+              },
+              "heures_ecole": {
+                "description": "Heures imputées sur les codes de cours en CFA (ECOLE), tous contrats.",
+                "type": "number",
+                "minimum": 0
+              },
+              "feuilles_attendues": {
+                "description": "Couples (salarié rattaché au site, semaine) ayant au moins un jour ouvré du mois sous contrat, hors semaines entièrement couvertes par des absences validées ou des fériés.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "feuilles_validees": {
+                "description": "Parmi les feuilles attendues, celles qui sont validées.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "complet": {
+                "description": "Vrai quand feuilles_validees = feuilles_attendues. Vigie affiche le mois comme provisoire sinon.",
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema": "epc2i.heures.validees/1",
+      "message_id": "3f0c6a1e-6b7d-4c39-9a0e-2d1f7b0c5e11",
+      "type": "heures.validees",
+      "source": "cursus",
+      "emis_le": "2026-10-05T10:00:03+02:00",
+      "feuille": {
+        "id": "412",
+        "matricule": "EMP-0018",
+        "semaine": "2026-09-28",
+        "version": 3,
+        "valide_le": "2026-10-05T10:00:00+02:00",
+        "type_contrat": "cdi",
+        "total_h": 44,
+        "lignes": [
+          {
+            "ligne": 1,
+            "projet": "HLT-026",
+            "analytique": "HAV004",
+            "tache": "T-2314",
+            "jours": [
+              { "date": "2026-09-28", "heures": 10 },
+              { "date": "2026-09-29", "heures": 10 },
+              { "date": "2026-09-30", "heures": 8 },
+              { "date": "2026-10-01", "heures": 8 },
+              { "date": "2026-10-02", "heures": 7 }
+            ]
+          },
+          {
+            "ligne": 2,
+            "projet": "INT-MAINT",
+            "analytique": null,
+            "tache": null,
+            "jours": [{ "date": "2026-09-30", "heures": 1 }]
+          }
+        ]
+      }
+    },
+    {
+      "schema": "epc2i.heures.annulees/1",
+      "message_id": "9b1d2c3e-4f50-4a61-8b72-c3d4e5f60718",
+      "type": "heures.annulees",
+      "source": "cursus",
+      "emis_le": "2026-10-07T08:15:02+02:00",
+      "feuille": {
+        "id": "412",
+        "matricule": "EMP-0018",
+        "semaine": "2026-09-28",
+        "version": 4,
+        "annule_le": "2026-10-07T08:15:00+02:00"
+      }
+    }
+  ]
+}

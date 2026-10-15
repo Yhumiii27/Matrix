@@ -1,0 +1,1204 @@
+<title>Matrix</title>
+<meta name="description" content="Matrix : bibliothèque et graphe des bases de données de Keystone, Codex, Cursus et Vigie">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Mise en page : coque Codex (barre latérale 224 px + en-tête), écrans en trois volets.
+   Design system Nocturne (sombre uniquement, comme Keystone, Codex et Vigie). */
+:root {
+  color-scheme: dark;
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-accent: #9184d9;
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --color-neutral-100: #f3f5fe; --color-neutral-300: #cfd3e5; --color-neutral-500: #9397ab;
+  --color-neutral-600: #75798c; --color-neutral-700: #595d6c; --color-neutral-800: #3f424d; --color-neutral-900: #292b31;
+  --color-accent-100: #f5f4ff; --color-accent-300: #d2cefd; --color-accent-400: #b5abfc;
+  --color-accent-700: #5d5294; --color-accent-800: #423a6a; --color-accent-900: #2b2741;
+  /* Couleurs des applications : peu saturées, pour le graphe et les pastilles. */
+  --app-keystone: #7fa6d6; --app-codex: #a99de6; --app-cursus: #d6a77f; --app-vigie: #79c2a2; --app-externe: #75798c;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px;
+  --shadow-sm: 0 0 0 1px #3f424d;
+  --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0,0,0,0.55);
+  --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0,0,0,0.65);
+  --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
+  --rule: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+html, body { height: 100%; margin: 0; }
+body { background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: 13px; line-height: 1.45; overflow: hidden; }
+*, *::before, *::after { box-sizing: border-box; }
+h1, h2, h3, h4, h5, h6 { font-weight: 500; line-height: 1.12; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+p { margin: 0; }
+a { color: var(--color-accent); text-underline-offset: 3px; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--color-neutral-800); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+.text-muted { color: var(--muted); }
+.tabnum { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); font-size: 0.94em; letter-spacing: -0.01em; }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { font-size: 11px; }
+.nowrap { white-space: nowrap; }
+
+/* Boutons, champs, segments, étiquettes (Nocturne) */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; text-decoration: none; font: inherit; font-weight: 500; font-size: 13px; line-height: 1.2; color: var(--color-text); background: transparent; border: 1px solid transparent; padding: 6px 10px; border-radius: var(--radius-md); white-space: nowrap; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { color: var(--color-accent); border-color: var(--color-accent); }
+.btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.btn-primary:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+.btn-secondary { border-color: var(--color-divider); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.btn-ghost { color: var(--color-accent); padding-inline: 4px; }
+.btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.btn-icon { width: 32px; height: 32px; padding: 0; }
+.btn-sm { font-size: 12px; padding: 4px 8px; }
+.input { width: 100%; min-height: 34px; padding: 6px 10px; font: inherit; font-size: 13px; color: var(--color-text); caret-color: var(--color-accent); background: var(--color-surface); border: 1px solid var(--color-divider); border-radius: var(--radius-md); }
+.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+select.input { appearance: none; width: auto; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+select.input option { background: var(--color-surface); color: var(--color-text); }
+.search { position: relative; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: .6; pointer-events: none; }
+.search .input { padding-left: 32px; }
+.seg { display: inline-flex; overflow-x: auto; scrollbar-width: none; border: 1px solid var(--color-divider); border-radius: var(--radius-md); flex: none; max-width: 100%; }
+.list-head > div, .toolbar > div { min-width: 0; max-width: 100%; }
+.seg button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; font: inherit; font-size: 12px; color: inherit; background: transparent; border: 0; cursor: pointer; white-space: nowrap; }
+.seg button + button { border-left: 1px solid var(--color-divider); }
+.seg button[aria-pressed="true"] { color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.seg button:not([aria-pressed="true"]):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.seg button:focus-visible { outline-offset: -2px; }
+.seg .n { color: var(--muted); font-size: 11px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; letter-spacing: .02em; padding: 2px 8px; border-radius: 6px; white-space: nowrap; line-height: 1.5; }
+.tag-accent { background: var(--color-accent-800); color: var(--color-accent-100); }
+.tag-neutral { background: var(--color-neutral-800); color: var(--color-neutral-100); }
+.tag-outline { box-shadow: inset 0 0 0 1px var(--color-accent); color: var(--color-accent-300); }
+.tag-ghost { box-shadow: inset 0 0 0 1px var(--color-divider); color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+.card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-surface); }
+.card-kicker { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-accent); }
+.card-meta { font-size: 11px; color: var(--muted); }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.sec-title { opacity: .7; }
+.sec-link { font-size: 12px; text-decoration: none; white-space: nowrap; background: none; border: 0; color: var(--color-accent); cursor: pointer; font: inherit; font-size: 12px; padding: 0; }
+.hairline { border-bottom: 1px solid var(--rule); }
+
+/* Tableaux : filets qui s'estompent aux deux bouts */
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { text-align: left; font-size: 10.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); padding: 6px 8px; white-space: nowrap; }
+.table td { padding: 7px 8px; vertical-align: top; }
+.table thead tr { background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
+.table tbody tr { background: linear-gradient(to right, transparent, var(--rule) 48px, var(--rule) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
+.table tbody tr.click { cursor: pointer; }
+.table tbody tr.click:hover { background: linear-gradient(color-mix(in srgb, var(--color-text) 4%, transparent), color-mix(in srgb, var(--color-text) 4%, transparent)) no-repeat 0 0 / 100% 100%, linear-gradient(to right, transparent, var(--rule) 48px, var(--rule) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
+.table tbody tr[aria-selected="true"] { box-shadow: inset 2px 0 0 var(--color-accent); }
+.table tbody tr[aria-selected="true"] .t-name { color: var(--color-accent-300); }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; min-width: 0; }
+
+/* Coque */
+.app { display: grid; grid-template-columns: 224px minmax(0, 1fr); height: 100%; }
+.side { display: flex; flex-direction: column; padding: 14px 10px; border-right: 1px solid var(--color-divider); min-height: 0; overflow: auto; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 20px; }
+.logo { width: 28px; height: 28px; flex: none; border-radius: var(--radius-md); border: 1px solid var(--color-accent); display: grid; place-items: center; color: var(--color-accent); box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 35%, transparent); }
+.brand-name { font-size: 16px; font-weight: 500; line-height: 1.1; }
+.nav-items { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--radius-md); font-size: 13px; color: inherit; text-decoration: none; border-left: 2px solid transparent; }
+.nav-item:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+.nav-item[aria-current="page"] { color: var(--color-accent); border-left-color: var(--color-accent); }
+.nav-item .tag { margin-left: auto; padding: 0 6px; font-size: 10px; }
+.side-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 18px; }
+.overline { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 8px 2px; }
+.linked { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 8px; color: inherit; }
+.mark { width: 18px; height: 18px; flex: none; border-radius: 4px; border: 1px solid currentColor; display: inline-grid; vertical-align: middle; place-items: center; font-size: 9px; font-weight: 600; }
+.user { display: flex; align-items: center; gap: 10px; padding: 10px 8px 2px; border-top: 1px solid var(--color-divider); margin-top: 6px; }
+.avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--color-accent-800); color: var(--color-accent-100); display: grid; place-items: center; font-size: 11px; font-weight: 500; }
+.app-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.header { display: flex; align-items: center; gap: 14px; padding: 9px 18px; border-bottom: 1px solid var(--color-divider); }
+.header h5 { font-size: 15px; min-width: 190px; }
+.header .search { flex: 1; max-width: 520px; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.app-main { flex: 1; min-height: 0; position: relative; }
+.screen { position: absolute; inset: 0; overflow: auto; }
+.pad { padding: 22px 24px 32px; }
+.wrap { max-width: 1180px; }
+
+/* Accueil */
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.hello { font-size: 26px; margin-bottom: 4px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 26px; }
+.kpi { text-align: left; border: 0; cursor: pointer; color: inherit; font: inherit; gap: 2px; }
+.kpi:hover { box-shadow: var(--shadow-sm); }
+.kpi-value { font-size: 30px; line-height: 1.1; font-weight: 500; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 28px; }
+.col { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
+.app-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 0; cursor: pointer; }
+.app-row:hover .app-name { color: var(--color-accent-300); }
+.app-badge { width: 34px; height: 34px; border-radius: var(--radius-md); display: grid; place-items: center; font-weight: 600; font-size: 12px; border: 1px solid currentColor; }
+.app-stats { display: flex; gap: 16px; font-variant-numeric: tabular-nums; text-align: right; }
+.app-stats b { display: block; font-weight: 500; font-size: 14px; }
+.alert-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
+.bar { height: 6px; border-radius: 3px; background: var(--color-neutral-800); overflow: hidden; display: flex; }
+.bar span { display: block; height: 100%; }
+
+/* Volets */
+.panes { position: absolute; inset: 0; display: flex; min-height: 0; }
+.tree { width: 244px; flex: none; border-right: 1px solid var(--color-divider); display: flex; flex-direction: column; min-height: 0; }
+.tree-head { padding: 14px 16px 8px; }
+.tree-body { flex: 1; overflow: auto; padding: 0 8px 14px; display: flex; flex-direction: column; gap: 1px; }
+.node { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; font: inherit; font-size: 13px; padding: 6px 8px 6px 8px; border-radius: var(--radius-md); cursor: pointer; background: transparent; color: inherit; }
+.node:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+.node[aria-current="true"] { background: color-mix(in srgb, var(--color-accent) 10%, transparent); color: var(--color-accent); }
+.node .count { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.node.child { font-size: 12px; padding: 5px 8px 5px 30px; }
+.node .chev { width: 12px; flex: none; opacity: .7; }
+.list { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.list-head { display: flex; align-items: center; gap: 10px; padding: 12px 20px 8px; flex-wrap: wrap; }
+.crumb { margin-right: auto; min-width: 0; }
+.crumb .sub { color: var(--muted); }
+.crumb-title { font-size: 16px; font-weight: 500; }
+.list-body { flex: 1; overflow: auto; padding: 0 12px 12px; }
+.list-foot { padding: 8px 20px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--color-divider); }
+.quick { width: 380px; flex: none; border-left: 1px solid var(--color-divider); overflow: auto; padding: 16px 18px 24px; display: flex; flex-direction: column; gap: 14px; background: var(--color-bg); }
+.quick-head { display: flex; align-items: flex-start; gap: 10px; }
+.quick-title { font-size: 16px; font-weight: 500; word-break: break-word; flex: 1; min-width: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: 12px; margin: 0; }
+.dl dt { color: var(--muted); }
+.dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.mini-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mini-kpis div { padding: 8px 10px; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+.mini-kpis b { display: block; font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.mini-kpis span { font-size: 11px; color: var(--muted); }
+.cols-list { display: flex; flex-direction: column; }
+.col-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 12px; }
+.col-row .mono { overflow-wrap: anywhere; }
+.col-type { color: var(--muted); font-size: 11px; text-align: right; }
+.col-flags { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+.col-flags .tag { font-size: 10px; padding: 0 6px; }
+.link-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; font-size: 12px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--color-accent-300); cursor: pointer; text-align: left; }
+.link-btn:hover { text-decoration: underline; }
+.block-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+.empty { color: var(--muted); padding: 16px 8px; }
+.empty-pane { margin: auto 0; text-align: center; color: var(--muted); padding: 30px 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.map-table td { font-size: 12px; overflow-wrap: anywhere; }
+.map-table { table-layout: fixed; }
+.map-table td.arrow { width: 22px; }
+.map-table th:nth-child(2) { width: 22px; }
+.arrow { color: var(--muted); padding-inline: 2px; }
+
+/* Graphe */
+.graph-area { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; flex-wrap: wrap; border-bottom: 1px solid var(--color-divider); }
+.toolbar .spacer { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; font: inherit; font-size: 12px; color: inherit; background: transparent; border: 1px solid var(--color-divider); cursor: pointer; }
+.chip[aria-pressed="false"] { opacity: .45; }
+.chip:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.canvas-wrap { flex: 1; position: relative; min-height: 0; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-surface) 70%, transparent), var(--color-bg) 70%); }
+#cy { position: absolute; inset: 0; }
+.legend { position: absolute; left: 14px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-bg) 85%, transparent); box-shadow: var(--shadow-sm); font-size: 11px; pointer-events: none; }
+.legend div { display: flex; align-items: center; gap: 8px; }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2px solid; }
+.graph-hint { position: absolute; right: 14px; bottom: 12px; font-size: 11px; color: var(--muted); }
+.graph-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+
+/* Référentiels, flux */
+.matrix-grid { display: grid; grid-template-columns: 90px repeat(4, minmax(0, 1fr)); gap: 4px; font-size: 12px; margin: 4px 0 16px; max-width: 560px; }
+.matrix-grid div { padding: 6px 8px; border-radius: 6px; }
+.matrix-grid .h { color: var(--muted); font-size: 11px; }
+.matrix-grid .c { background: var(--color-surface); text-align: center; font-variant-numeric: tabular-nums; }
+.matrix-grid .c.z { background: transparent; box-shadow: inset 0 0 0 1px var(--rule); color: var(--muted); }
+.matrix-grid .c.x { background: transparent; color: var(--color-neutral-700); }
+.note { font-size: 12px; padding: 10px 12px; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--color-divider); }
+.prose { font-size: 13px; max-width: 64ch; }
+.perm { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; }
+.perm.on { color: var(--color-accent); }
+.perm.off { color: var(--color-neutral-700); }
+.option { display: flex; flex-direction: column; gap: 4px; text-align: left; font: inherit; color: inherit; background: transparent; border: 1px solid var(--color-divider); border-radius: var(--radius-md); padding: 9px 11px; cursor: pointer; }
+.option:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.option[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 25%, transparent); }
+.option-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.option-id { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--color-neutral-600); display: grid; place-items: center; font-size: 10.5px; font-weight: 600; }
+.option[aria-pressed="true"] .option-id { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-bg); }
+.code { font-family: var(--font-mono); font-size: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); overflow-x: auto; white-space: pre; }
+.toasts { position: fixed; right: max(20px, env(safe-area-inset-right, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--color-surface); box-shadow: var(--shadow-md); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; }
+
+@media (max-width: 1180px) {
+  .quick { width: 330px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  body { overflow: auto; }
+  .app { display: flex; flex-direction: column; height: auto; min-height: 100%; }
+  .side { flex-direction: row; align-items: center; gap: 4px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); border-right: 0; border-bottom: 1px solid var(--color-divider); overflow-x: auto; }
+  .brand { padding: 0 10px 0 0; }
+  .brand .sub { display: none; }
+  .nav-items { flex-direction: row; }
+  .nav-item { border-left: 0; padding: 6px 8px; }
+  .nav-item span.label { white-space: nowrap; }
+  .side-bottom { display: none; }
+  .header { flex-wrap: wrap; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+  .header h5 { min-width: 0; }
+  .header .search { flex-basis: 100%; max-width: none; order: 3; }
+  .app-main { flex: none; }
+  .screen { position: static; overflow: visible; }
+  .screen[hidden] { display: none !important; }
+  .pad { padding: 18px max(16px, env(safe-area-inset-right, 0px)) 28px max(16px, env(safe-area-inset-left, 0px)); }
+  .panes { position: static; flex-direction: column; }
+  .tree, .quick { width: auto; border: 0; border-bottom: 1px solid var(--color-divider); }
+  .tree-body { max-height: 220px; }
+  .quick { border-top: 1px solid var(--color-divider); }
+  .list-head, .list-foot { padding-left: 16px; padding-right: 16px; }
+  .list-body { max-height: 60vh; padding-inline: 8px; }
+  .canvas-wrap { height: 70vh; flex: none; }
+  .kpis { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .app-row { grid-template-columns: 34px minmax(0, 1fr); }
+  .app-stats { grid-column: 2; text-align: left; }
+  .legend { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="app">
+  <nav class="side" aria-label="Navigation principale">
+    <div class="brand">
+      <div class="logo" data-icon="matrix" data-size="15"></div>
+      <div><div class="brand-name">Matrix</div><div class="sub text-muted">Référentiel des données</div></div>
+    </div>
+    <div class="nav-items" id="nav"></div>
+    <div class="side-bottom">
+      <div class="overline">Applications reliées</div>
+      <div id="linked"></div>
+      <div class="user">
+        <div class="avatar">SI</div>
+        <div style="min-width:0"><div class="ellipsis">Service informatique</div><div class="sub text-muted">Administrateur des données</div></div>
+      </div>
+    </div>
+  </nav>
+  <div class="app-col">
+    <header class="header">
+      <h5 id="screen-title">Tableau de bord</h5>
+      <form class="search" id="global-search" role="search">
+        <span data-icon="search" data-size="15"></span>
+        <input class="input" id="global-q" type="search" placeholder="Rechercher une table, une colonne, un flux…" autocomplete="off" aria-label="Rechercher dans le catalogue">
+      </form>
+      <div class="header-right">
+        <span class="tag tag-ghost" id="collect-tag" title="Date de la dernière lecture des schémas"></span>
+      </div>
+    </header>
+    <main class="app-main">
+      <section class="screen pad" id="s-accueil" data-title="Tableau de bord"></section>
+      <section class="screen" id="s-bibliotheque" data-title="Bibliothèque des bases" hidden></section>
+      <section class="screen" id="s-graphe" data-title="Graphe des liens" hidden></section>
+      <section class="screen" id="s-flux" data-title="Flux entre logiciels" hidden></section>
+      <section class="screen" id="s-doublons" data-title="Doublons à trancher" hidden></section>
+      <section class="screen pad" id="s-qualite" data-title="Qualité des schémas" hidden></section>
+      <section class="screen pad" id="s-administration" data-title="Administration" hidden></section>
+    </main>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
+<script id="matrix-data" type="application/json">/*DONNEES*/</script>
+<script>
+(() => {
+'use strict';
+const DATA = JSON.parse(document.getElementById('matrix-data').textContent);
+const CAT = DATA.catalogue, FLUX = DATA.flux, USAGES = DATA.usages, DOUBLONS = DATA.doublons.groupes, HIST = DATA.historique.evenements;
+
+// ── Icônes (tracés Codex + quelques ajouts) ─────────────────────────────
+const ICONS = {
+  home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
+  db: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
+  table: 'M4 5h16v14H4zM4 10h16M4 15h16M10 5v14',
+  graph: 'M5 7a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 5a2 2 0 1 0 4 0 2 2 0 1 0-4 0M13 18a2 2 0 1 0 4 0 2 2 0 1 0-4 0M9 6.6l6-1.2M8.4 8.7l5.4 7.6',
+  flux: 'M4 8h14l-3-3M20 16H6l3 3',
+  ref: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+  pulse: 'M3 12h4l3-7 4 14 3-7h4',
+  shield: 'M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6zM9 12l2 2 4-4',
+  matrix: 'M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6.5h6M6.5 9v6M17.5 9v6M9 17.5h6',
+  close: 'M6 6l12 12M18 6L6 18',
+  chevronRight: 'M9 6l6 6-6 6', chevronDown: 'M6 9l6 6 6-6',
+  key: 'M14.5 4a5.5 5.5 0 1 1-4.3 8.9L4 19v-3h2v-2h2l2-2A5.5 5.5 0 0 1 14.5 4zM16 8.5h.01',
+  link: 'M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z',
+  tick: 'M5 12l5 5L20 7', dash: 'M8 12h8',
+  fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+  refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7',
+};
+const icon = (name, size = 16, sw = 1.6) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
+const hydrateIcons = root => root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon, +(el.dataset.size || 16)); el.removeAttribute('data-icon'); });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = n => n.toLocaleString('fr-FR');
+const $ = id => document.getElementById(id);
+
+// ── Applications ────────────────────────────────────────────────────────
+const APPS = {
+  keystone: { nom: 'Keystone', role: 'Gestion de projets et de portefeuille', moteur: 'PostgreSQL embarqué (PGlite)', orm: 'Drizzle', port: 3000, init: 'K', donnees: 'KEYSTONE_DATA_DIR/pg' },
+  codex: { nom: 'Codex', role: 'GED du groupe', moteur: 'PostgreSQL embarqué (PGlite)', orm: 'Drizzle', port: 3100, init: 'C', donnees: 'CODEX_DATA_DIR/pglite' },
+  cursus: { nom: 'Cursus', role: 'RH : formations, temps, déplacements', moteur: 'SQLite (node:sqlite)', orm: 'aucun', port: 3210, init: 'Cu', donnees: 'CURSUS_DB (data/cursus.db)' },
+  vigie: { nom: 'Vigie', role: 'QHSE : événements, risques, prévention', moteur: 'PostgreSQL embarqué (PGlite)', orm: 'Drizzle', port: 3200, init: 'V', donnees: 'VIGIE_DATA_DIR' },
+};
+const APP_IDS = Object.keys(APPS);
+const css = getComputedStyle(document.documentElement);
+const cssv = v => css.getPropertyValue(v).trim();
+APP_IDS.forEach(a => APPS[a].couleur = cssv('--app-' + a));
+const appMark = (a, size = 18) => `<span class="mark" style="color:${APPS[a].couleur};width:${size}px;height:${size}px">${APPS[a].init}</span>`;
+const appTag = a => `<span class="tag tag-ghost"><span class="dot" style="background:${APPS[a].couleur}"></span>${APPS[a].nom}</span>`;
+
+const STATUT = {
+  reel: ['Réel', 'tag-accent', 'Implémenté des deux côtés'],
+  partiel: ['Partiel', 'tag-outline', 'Un seul côté est construit'],
+  simule: ['Simulé', 'tag-neutral', 'Remplacé par une écriture locale'],
+  copie: ['Copie de démo', 'tag-neutral', 'Données recopiées, sans synchronisation'],
+  propose: ['Proposé', 'tag-neutral', 'Contrat écrit, rien de construit'],
+  prevu: ['Prévu', 'tag-neutral', 'Annoncé dans l’interface'],
+};
+const GRAV = { critique: ['Critique', 'tag-accent'], majeur: ['Majeur', 'tag-outline'], mineur: ['Mineur', 'tag-neutral'] };
+const statutTag = s => `<span class="tag ${STATUT[s][1]}" title="${esc(STATUT[s][2])}">${STATUT[s][0]}</span>`;
+const gravTag = g => `<span class="tag ${GRAV[g][1]}">${GRAV[g][0]}</span>`;
+
+// ── Index du catalogue ──────────────────────────────────────────────────
+const T = new Map();               // "app.table" → fiche
+const key = (a, t) => a + '.' + t;
+for (const app of CAT.apps) for (const t of app.tables) {
+  T.set(key(app.id, t.name), { ...t, app: app.id, key: key(app.id, t.name), in: [], lit: [], ecrit: [], flux: [], refs: [] });
+}
+for (const t of T.values()) for (const fk of t.fks) {
+  const target = T.get(key(t.app, fk.table));
+  if (target) target.in.push({ from: t.key, columns: fk.columns, refColumns: fk.refColumns, declared: fk.declared });
+}
+for (const a of APP_IDS) for (const s of USAGES[a] || []) {
+  s.lit.forEach(n => T.get(key(a, n))?.lit.push(s.ecran));
+  s.ecrit.forEach(n => T.get(key(a, n))?.ecrit.push(s.ecran));
+}
+for (const f of FLUX.flux) {
+  f.source.forEach(n => T.get(key(f.de, n))?.flux.push({ f, sens: 'source' }));
+  f.cible.forEach(n => T.get(key(f.vers, n))?.flux.push({ f, sens: 'cible' }));
+}
+for (const g of DOUBLONS) for (const o of g.tables) T.get(key(o.app, o.table))?.refs.push(g);
+const FUSION = new Set(['doublon', 'miroir', 'chevauchement']);
+const NATURE = { doublon: ['Doublon', 'tag-accent'], miroir: ['Miroir', 'tag-outline'], chevauchement: ['Chevauchement', 'tag-outline'], homonyme: ['Homonyme', 'tag-neutral'], technique: ['Technique', 'tag-neutral'] };
+const natureTag = n => `<span class="tag ${NATURE[n][1]}">${NATURE[n][0]}</span>`;
+
+// Décisions sur les doublons : propres à ce navigateur, à copier pour les transmettre.
+const Decisions = (() => {
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem('matrix.decisions') || '{}') || {}; } catch { d = {}; }
+  return {
+    get: id => d[id] || DOUBLONS.find(g => g.id === id)?.decision?.option || null,
+    officielle: id => DOUBLONS.find(g => g.id === id)?.decision || null,
+    set(id, v) { if (v && v !== DOUBLONS.find(g => g.id === id)?.decision?.option) d[id] = v; else delete d[id]; try { localStorage.setItem('matrix.decisions', JSON.stringify(d)); } catch { /* stockage indisponible */ } navBadge(); },
+    count: () => DOUBLONS.filter(g => d[g.id] || g.decision).length,
+  };
+})();
+const tablesOf = a => [...T.values()].filter(t => t.app === a);
+const linkCount = t => t.fks.length + t.in.length;
+
+const STATS = (() => {
+  const all = [...T.values()];
+  const fks = all.reduce((n, t) => n + t.fks.length, 0);
+  const logical = all.reduce((n, t) => n + t.fks.filter(f => !f.declared).length, 0);
+  const cols = all.reduce((n, t) => n + t.columns.length, 0);
+  return { tables: all.length, fks, logical, cols, flux: FLUX.flux.length, reels: FLUX.flux.filter(f => f.statut === 'reel').length };
+})();
+
+// ── Navigation ──────────────────────────────────────────────────────────
+const NAV = [
+  ['accueil', 'Accueil', 'home'],
+  ['bibliotheque', 'Bibliothèque', 'db'],
+  ['graphe', 'Graphe des liens', 'graph'],
+  ['flux', 'Flux entre logiciels', 'flux'],
+  ['doublons', 'Doublons', 'ref'],
+  ['qualite', 'Qualité des schémas', 'pulse'],
+  ['administration', 'Administration', 'shield'],
+];
+$('nav').innerHTML = NAV.map(([id, label, ic]) => `<a class="nav-item" href="#${id}" data-screen="${id}">${icon(ic)}<span class="label">${label}</span>${id === 'doublons' ? '<span class="tag tag-accent" id="nav-doublons"></span>' : ''}</a>`).join('');
+function navBadge() { const el = $('nav-doublons'); if (el) { const n = DOUBLONS.length - Decisions.count(); el.textContent = n; el.hidden = !n; el.title = n + ' groupe(s) à trancher'; } }
+navBadge();
+$('linked').innerHTML = APP_IDS.map(a => `<div class="linked">${appMark(a)}<span>${APPS[a].nom}</span><span class="sub text-muted" style="margin-left:auto">:${APPS[a].port}</span></div>`).join('');
+$('collect-tag').textContent = 'Schémas lus le ' + new Date(CAT.generatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+hydrateIcons(document);
+
+const rendered = {};
+let current = null;
+function show(screen) {
+  if (!NAV.some(n => n[0] === screen)) screen = 'accueil';
+  current = screen;
+  document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== 's-' + screen);
+  document.querySelectorAll('.nav-item').forEach(a => a.toggleAttribute('aria-current', a.dataset.screen === screen) || a.dataset.screen === screen && a.setAttribute('aria-current', 'page'));
+  $('screen-title').textContent = $('s-' + screen).dataset.title;
+  if (!rendered[screen]) { rendered[screen] = true; RENDER[screen](); }
+  if (screen === 'graphe') Graph.ensure();
+}
+function go(screen) { if (location.hash !== '#' + screen) location.hash = screen; else show(screen); }
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+
+function toast(msg) {
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
+  $('toasts').appendChild(el); setTimeout(() => el.remove(), 3200);
+}
+function copy(text) {
+  try { navigator.clipboard.writeText(text).then(() => toast('Copié : ' + text), () => toast(text)); } catch { toast(text); }
+}
+const seg = (name, options, value) => `<div class="seg" role="group" data-seg="${name}">${options.map(([v, l, n]) => `<button type="button" data-v="${esc(v)}" aria-pressed="${v === value}">${l}${n != null ? ` <span class="n">${n}</span>` : ''}</button>`).join('')}</div>`;
+
+// ── Fiche d'une table (bibliothèque et graphe) ──────────────────────────
+function tableSheet(t, tab = 'colonnes', opts = {}) {
+  const sens = new Set(t.sensitive || []);
+  const fkByCol = {}; t.fks.forEach(f => f.columns.forEach(c => fkByCol[c] = f));
+  const screens = new Set([...t.lit, ...t.ecrit]);
+  let body = '';
+  if (tab === 'colonnes') {
+    body = `<div class="cols-list">${t.columns.map(c => {
+      const fk = fkByCol[c.name]; const flags = [];
+      if (c.pk || t.pk.includes(c.name)) flags.push('<span class="tag tag-accent">clé primaire</span>');
+      if (fk) flags.push(`<span class="tag ${fk.declared ? 'tag-outline' : 'tag-ghost'}">→ ${esc(fk.table)}.${esc(fk.refColumns.join(', '))}${fk.declared ? '' : ' · logique'}</span>`);
+      if (!c.nullable && !c.pk) flags.push('<span class="tag tag-ghost">obligatoire</span>');
+      if (sens.has(c.name)) flags.push('<span class="tag tag-outline">' + icon('lock', 10) + ' sensible</span>');
+      return `<div class="col-row"><span class="mono">${esc(c.name)}</span><span class="col-type mono">${esc(c.type)}</span>${flags.length ? `<div class="col-flags">${flags.join('')}</div>` : ''}</div>`;
+    }).join('')}</div>`;
+  } else if (tab === 'liens') {
+    const out = t.fks.map(f => `<div class="link-row"><span class="mono">${esc(f.columns.join(', '))}</span><span class="arrow">→</span><button class="link-btn mono" data-open="${esc(key(t.app, f.table))}">${esc(f.table)}</button><span class="text-muted mono">.${esc(f.refColumns.join(', '))}</span>${f.declared ? '' : '<span class="tag tag-ghost">logique</span>'}</div>`).join('');
+    const inn = t.in.map(i => { const s = T.get(i.from); return `<div class="link-row"><button class="link-btn mono" data-open="${esc(i.from)}">${esc(s.name)}</button><span class="text-muted mono">.${esc(i.columns.join(', '))}</span>${i.declared ? '' : '<span class="tag tag-ghost">logique</span>'}</div>`; }).join('');
+    const refs = t.refs.map(g => `<div class="link-row"><button class="link-btn" data-doublon="${g.id}">${esc(g.id)} · ${esc(g.objet)}</button>${natureTag(g.nature)}<span class="text-muted">· ${g.tables.filter(o => o.table !== '—' && key(o.app, o.table) !== t.key).map(o => APPS[o.app].nom + '.' + o.table).join(', ')}</span></div>`).join('');
+    const sim = (t.doublonsPossibles || []).map(d => `<div class="link-row"><button class="link-btn mono" data-open="${esc(key(d.app, d.table))}">${APPS[d.app].nom}.${esc(d.table)}</button><span class="text-muted">· ${Math.round(d.score * 100)} % de colonnes communes${d.memeNom ? ' · même nom' : ''}</span></div>`).join('');
+    body = `<div><div class="block-title">Pointe vers <span>${t.fks.length}</span></div>${out || '<p class="text-muted sub">Aucun lien sortant.</p>'}</div>
+      <div><div class="block-title">Référencée par <span>${t.in.length}</span></div>${inn || '<p class="text-muted sub">Aucune table ne pointe vers celle-ci.</p>'}</div>
+      ${refs ? `<div><div class="block-title">Doublons relevés</div>${refs}</div>` : ''}
+      ${sim ? `<div><div class="block-title">Doublons possibles (détection automatique)</div>${sim}</div>` : ''}`;
+  } else {
+    const fx = t.flux.map(({ f, sens }) => {
+      const other = sens === 'source' ? f.vers : f.de;
+      return `<div class="link-row"><button class="link-btn" data-flux="${f.id}">${esc(f.id)} · ${esc(f.nom)}</button><span class="text-muted">${sens === 'source' ? 'lue par' : 'alimentée par'} ${APPS[other].nom}</span>${statutTag(f.statut)}</div>`;
+    }).join('');
+    const ext = FLUX.externes.filter(e => e.app === t.app && e.tables.includes(t.name)).map(e => `<div class="link-row"><span>${esc(e.nom)}</span><span class="text-muted">· ${esc(e.sens)}</span>${statutTag(e.statut)}</div>`).join('');
+    body = `<div><div class="block-title">Écrans de ${APPS[t.app].nom} <span>${screens.size}</span></div>
+      ${[...screens].map(s => `<div class="link-row"><span>${esc(s)}</span><span class="text-muted" style="margin-left:auto">${t.lit.includes(s) ? 'lit' : ''}${t.lit.includes(s) && t.ecrit.includes(s) ? ' · ' : ''}${t.ecrit.includes(s) ? 'écrit' : ''}</span></div>`).join('') || '<p class="text-muted sub">Aucun écran relevé. La table peut être lue par un calcul ou une tâche de fond.</p>'}</div>
+      <div><div class="block-title">Autres logiciels <span>${t.flux.length + (ext ? 1 : 0)}</span></div>${fx + ext || '<p class="text-muted sub">Aucun autre logiciel ne lit ni n’alimente cette table.</p>'}</div>`;
+  }
+  return `
+    <div class="quick-head">
+      <div class="quick-title mono">${esc(t.name)}</div>
+      ${opts.close ? `<button class="btn btn-ghost btn-icon" data-close aria-label="Fermer l’aperçu">${icon('close', 14)}</button>` : ''}
+    </div>
+    <div class="tags">${appTag(t.app)}<span class="tag tag-neutral">${esc(t.domain)}</span>${t.sensitive ? `<span class="tag tag-outline">${icon('lock', 10)} Données sensibles</span>` : ''}${t.flux.length ? `<span class="tag tag-accent">Échangée</span>` : ''}${t.nouvelle ? `<span class="tag tag-outline">Nouvelle · à documenter</span>` : ''}</div>
+    ${t.description ? `<p class="text-muted" style="font-size:12.5px">${esc(t.description)}</p>` : ''}
+    <div class="mini-kpis"><div><b>${t.columns.length}</b><span>colonnes</span></div><div><b>${linkCount(t)}</b><span>liens</span></div><div><b>${screens.size + t.flux.length}</b><span>usages</span></div></div>
+    <dl class="dl"><dt>Clé</dt><dd class="mono">${esc(t.pk.join(', ') || '—')}</dd>${t.uniques.length ? `<dt>Unicité</dt><dd class="mono">${t.uniques.map(u => esc(u.join(' + '))).join(' · ')}</dd>` : ''}<dt>Base</dt><dd>${esc(APPS[t.app].moteur)}</dd></dl>
+    ${seg('tab', [['colonnes', 'Colonnes', t.columns.length], ['liens', 'Liens', linkCount(t)], ['usages', 'Usages', screens.size + t.flux.length]], tab)}
+    <div style="display:flex;flex-direction:column;gap:14px">${body}</div>
+    ${opts.actions !== false ? `<div class="actions"><button class="btn btn-primary" data-graph="${esc(t.key)}">${icon('graph', 14)} Voir dans le graphe</button><button class="btn btn-secondary" data-copy="${esc(t.name)}">${icon('copy', 14)} Copier le nom</button></div>` : ''}`;
+}
+
+function fluxSheet(f, opts = {}) {
+  const tl = (a, list) => list.length ? list.map(n => `<button class="link-btn mono" data-open="${esc(key(a, n))}">${esc(n)}</button>`).join(', ') : '<span class="text-muted">aucune table aujourd’hui</span>';
+  return `
+    <div class="quick-head"><div class="quick-title">${esc(f.nom)}</div>${opts.close ? `<button class="btn btn-ghost btn-icon" data-close aria-label="Fermer">${icon('close', 14)}</button>` : ''}</div>
+    <div class="tags"><span class="tag tag-ghost">${esc(f.id)}</span>${statutTag(f.statut)}<span class="tag tag-neutral">${esc(f.mode)}</span></div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${appTag(f.de)}<span class="arrow">→</span>${appTag(f.vers)}</div>
+    <dl class="dl"><dt>Point d’accès</dt><dd class="mono">${esc(f.point)}</dd><dt>Sécurité</dt><dd>${esc(f.auth)}</dd>
+      <dt>Lit dans ${APPS[f.de].nom}</dt><dd>${tl(f.de, f.source)}</dd><dt>Écrit dans ${APPS[f.vers].nom}</dt><dd>${tl(f.vers, f.cible)}</dd></dl>
+    <div><div class="block-title">Informations extraites <span>${f.champs.length}</span></div>
+      <div class="table-wrap"><table class="table map-table"><thead><tr><th>${APPS[f.de].nom}</th><th></th><th>${APPS[f.vers].nom}</th></tr></thead>
+      <tbody>${f.champs.map(([s, c]) => `<tr><td class="mono">${esc(s)}</td><td class="arrow">→</td><td class="mono">${esc(c)}</td></tr>`).join('')}</tbody></table></div></div>
+    <p class="note">${esc(f.note)}</p>
+    ${opts.actions !== false ? `<div class="actions"><button class="btn btn-primary" data-graph-flux="${f.id}">${icon('graph', 14)} Voir dans le graphe</button></div>` : ''}`;
+}
+
+// Délégation des clics communs aux fiches
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-open],[data-flux],[data-graph],[data-graph-flux],[data-copy],[data-go],[data-doublon]');
+  if (!el) return;
+  if (el.dataset.open) Library.open(el.dataset.open);
+  else if (el.dataset.flux) Flows.open(el.dataset.flux);
+  else if (el.dataset.graph) Graph.focusTable(el.dataset.graph);
+  else if (el.dataset.graphFlux) Graph.focusFlux(el.dataset.graphFlux);
+  else if (el.dataset.copy) copy(el.dataset.copy);
+  else if (el.dataset.go) go(el.dataset.go);
+  else if (el.dataset.doublon) Dups.open(el.dataset.doublon);
+});
+function onSeg(root, name, fn) {
+  root.addEventListener('click', e => {
+    const b = e.target.closest(`[data-seg="${name}"] button`); if (!b) return;
+    b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    fn(b.dataset.v);
+  });
+}
+
+// ── Accueil ─────────────────────────────────────────────────────────────
+const RENDER = {};
+RENDER.accueil = () => {
+  const crit = DOUBLONS.filter(g => g.gravite === 'critique').length;
+  const nouvelles = [...T.values()].filter(t => t.nouvelle);
+  const byStatut = Object.keys(STATUT).map(s => [s, FLUX.flux.filter(f => f.statut === s).length]).filter(x => x[1]);
+  const fluxIn = a => FLUX.flux.filter(f => f.vers === a).length, fluxOut = a => FLUX.flux.filter(f => f.de === a).length;
+  const date = new Date(CAT.generatedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('s-accueil').innerHTML = `<div class="wrap">
+    <div class="top">
+      <div><h2 class="hello">Bonjour</h2><p class="text-muted">${date[0].toUpperCase() + date.slice(1)} · Voici l’état des bases de la suite EPC2i.</p></div>
+      <div class="actions"><button class="btn btn-primary" data-go="bibliotheque">${icon('db', 14)} Ouvrir la bibliothèque</button><button class="btn btn-secondary" data-go="graphe">${icon('graph', 14)} Graphe des liens</button></div>
+    </div>
+    <div class="kpis">
+      <button class="card kpi" data-go="bibliotheque"><span class="card-kicker">Tables</span><span class="kpi-value">${fmt(STATS.tables)}</span><span class="card-meta">${fmt(STATS.cols)} colonnes dans 4 bases</span></button>
+      <button class="card kpi" data-go="graphe"><span class="card-kicker">Liens entre tables</span><span class="kpi-value">${fmt(STATS.fks)}</span><span class="card-meta">dont ${STATS.logical} non déclarés en base</span></button>
+      <button class="card kpi" data-go="flux"><span class="card-kicker">Flux entre logiciels</span><span class="kpi-value">${STATS.flux}</span><span class="card-meta">${STATS.reels} réels · ${STATS.flux - STATS.reels} à construire ou à fiabiliser</span></button>
+      <button class="card kpi" data-go="doublons"><span class="card-kicker">Doublons à trancher</span><span class="kpi-value">${DOUBLONS.length}</span><span class="card-meta">${DOUBLONS.reduce((n, g) => n + g.tables.filter(o => o.table !== '—').length, 0)} tables concernées · ${crit} critiques</span></button>
+    </div>
+    <div class="cols">
+      <div class="col">
+        <div><div class="sec-head"><h6 class="sec-title">Applications</h6><button class="sec-link" data-go="administration">Connexions</button></div>
+          ${APP_IDS.map(a => { const ts = tablesOf(a); return `<div class="app-row hairline" data-app="${a}" tabindex="0" role="button" aria-label="Voir les tables de ${APPS[a].nom}">
+            <span class="app-badge" style="color:${APPS[a].couleur}">${APPS[a].init}</span>
+            <div style="min-width:0"><div class="app-name">${APPS[a].nom} <span class="text-muted sub">· ${esc(APPS[a].role)}</span></div><div class="sub text-muted">${esc(APPS[a].moteur)} · ORM ${esc(APPS[a].orm)} · port ${APPS[a].port}</div></div>
+            <div class="app-stats"><div><b>${ts.length}</b><span class="sub text-muted">tables</span></div><div><b>${fmt(ts.reduce((n, t) => n + t.columns.length, 0))}</b><span class="sub text-muted">colonnes</span></div><div><b>${fluxOut(a)} / ${fluxIn(a)}</b><span class="sub text-muted">flux sortants / entrants</span></div></div>
+          </div>`; }).join('')}
+        </div>
+        <div><div class="sec-head"><h6 class="sec-title">Flux par état</h6><button class="sec-link" data-go="flux">Tout voir</button></div>
+          <div class="bar" style="margin:6px 0 12px">${byStatut.map(([s, n]) => `<span style="width:${n / STATS.flux * 100}%;background:${s === 'reel' ? 'var(--color-accent)' : s === 'partiel' ? 'var(--color-accent-700)' : 'var(--color-neutral-600)'};opacity:${s === 'reel' || s === 'partiel' ? 1 : .35 + .1 * Object.keys(STATUT).indexOf(s)}"></span>`).join('')}</div>
+          ${byStatut.map(([s, n]) => `<div class="alert-row hairline" style="padding:7px 0;align-items:center">${statutTag(s)}<span class="text-muted" style="flex:1">${esc(STATUT[s][2])}</span><b class="tabnum" style="font-weight:500">${n}</b></div>`).join('')}
+        </div>
+      </div>
+      <div class="col">
+        <div><div class="sec-head"><h6 class="sec-title">À traiter</h6><button class="sec-link" data-go="qualite">Tout voir</button></div>
+          ${[...DOUBLONS.filter(g => g.gravite === 'critique').map(g => ({ g: g.gravite, t: g.objet + ' : ' + NATURE[g.nature][0].toLowerCase() + ' dans ' + new Set(g.tables.map(o => o.app)).size + ' outils', d: g.contenu, doublon: g.id })),
+             ...FLUX.alertes.filter(a => a.gravite === 'critique').map(a => ({ g: a.gravite, t: a.titre, d: a.detail, go: 'qualite' }))]
+            .map(x => `<div class="alert-row hairline">${gravTag(x.g)}<div style="min-width:0;flex:1"><div>${esc(x.t)}</div><div class="sub text-muted">${esc(x.d)}</div></div><button class="btn btn-ghost btn-sm" ${x.doublon ? `data-doublon="${x.doublon}"` : `data-go="${x.go}"`}>Ouvrir</button></div>`).join('')}
+        </div>
+        <div><div class="sec-head"><h6 class="sec-title">Nouvelles tables déclarées</h6><button class="sec-link" data-go="administration">Historique</button></div>
+          ${nouvelles.length ? `<table class="table"><tbody>${nouvelles.map(t => `<tr class="click" data-open="${t.key}"><td><span class="mono t-name">${esc(t.name)}</span><div class="sub text-muted">${new Date(t.nouvelle.le).toLocaleDateString('fr-FR')} · ${esc(t.nouvelle.source)}</div></td><td>${appTag(t.app)}</td><td>${(t.doublonsPossibles || []).length ? `<span class="tag tag-outline" title="${esc(t.doublonsPossibles.map(d => d.app + '.' + d.table).join(', '))}">doublon possible</span>` : '<span class="tag tag-neutral">à documenter</span>'}</td></tr>`).join('')}</tbody></table>`
+            : `<p class="text-muted">Aucune nouvelle table depuis la collecte du ${new Date(CAT.generatedAt).toLocaleDateString('fr-FR')}. Quand un outil crée une table, il la déclare à Matrix au démarrage : elle apparaît ici, à documenter, avec les doublons possibles.</p>`}
+        </div>
+        <div><div class="sec-head"><h6 class="sec-title">Tables les plus reliées</h6><button class="sec-link" data-go="graphe">Graphe</button></div>
+          <table class="table"><tbody>${[...T.values()].sort((a, b) => linkCount(b) - linkCount(a)).slice(0, 6).map(t => `<tr class="click" data-open="${t.key}"><td><span class="mono t-name">${esc(t.name)}</span></td><td>${appTag(t.app)}</td><td class="num">${linkCount(t)} liens</td></tr>`).join('')}</tbody></table>
+        </div>
+      </div>
+    </div></div>`;
+  $('s-accueil').addEventListener('click', e => { const r = e.target.closest('[data-app]'); if (r) Library.select({ app: r.dataset.app }); });
+  $('s-accueil').addEventListener('keydown', e => { const r = e.target.closest('[data-app]'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); Library.select({ app: r.dataset.app }); } });
+};
+
+// ── Bibliothèque ────────────────────────────────────────────────────────
+const Library = (() => {
+  const st = { app: null, domain: null, filtre: 'toutes', q: '', sel: null, tab: 'colonnes', open: new Set() };
+  let root;
+  const FILTRES = {
+    toutes: ['Toutes', () => true],
+    echangees: ['Échangées', t => t.flux.length > 0],
+    partagees: ['En double', t => t.refs.some(g => FUSION.has(g.nature))],
+    nouvelles: ['À documenter', t => !!t.nouvelle],
+    sensibles: ['Sensibles', t => !!t.sensitive],
+    isolees: ['Isolées', t => linkCount(t) === 0],
+  };
+  function matches(t) {
+    if (st.app && t.app !== st.app) return false;
+    if (st.domain && t.domain !== st.domain) return false;
+    if (!FILTRES[st.filtre][1](t)) return false;
+    if (st.q) {
+      const q = st.q.toLowerCase();
+      return t.name.includes(q) || (t.description || '').toLowerCase().includes(q) || t.columns.some(c => c.name.includes(q)) || t.domain.toLowerCase().includes(q);
+    }
+    return true;
+  }
+  function render() {
+    root = $('s-bibliotheque');
+    root.innerHTML = `<div class="panes">
+      <aside class="tree"><div class="tree-head"><h6 class="sec-title">Bases et domaines</h6></div><div class="tree-body" id="lib-tree"></div></aside>
+      <div class="list">
+        <div class="list-head">
+          <div class="crumb" id="lib-crumb"></div>
+          <div class="search" style="width:220px"><span>${icon('search', 14)}</span><input class="input" id="lib-q" type="search" placeholder="Filtrer : table, colonne…" aria-label="Filtrer les tables"></div>
+          <div id="lib-filtres"></div>
+        </div>
+        <div class="list-body table-wrap"><table class="table"><thead><tr><th>Table</th><th>Domaine</th><th class="num">Colonnes</th><th class="num">Liens</th><th class="num">Écrans</th><th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
+        <div class="list-foot" id="lib-foot"></div>
+      </div>
+      <aside class="quick" id="lib-quick"></aside>
+    </div>`;
+    $('lib-q').addEventListener('input', e => { st.q = e.target.value.trim(); update(); });
+    root.addEventListener('click', e => {
+      const n = e.target.closest('[data-node]');
+      if (n) {
+        const [a, d] = n.dataset.node.split('|');
+        if (a && !d && st.app === a && !st.domain) { st.open.has(a) ? st.open.delete(a) : st.open.add(a); }
+        else if (a) st.open.add(a);
+        st.app = a || null; st.domain = d || null; update(); return;
+      }
+      const row = e.target.closest('tr[data-sel]');
+      if (row && !e.target.closest('button')) { st.sel = row.dataset.sel; st.tab = 'colonnes'; update(); }
+      if (e.target.closest('[data-close]')) { st.sel = null; update(); }
+    });
+    root.addEventListener('dblclick', e => { const row = e.target.closest('tr[data-sel]'); if (row) Graph.focusTable(row.dataset.sel); });
+    root.addEventListener('keydown', e => { const row = e.target.closest('tr[data-sel]'); if (row && e.key === 'Enter') { st.sel = row.dataset.sel; update(); } });
+    onSeg(root, 'filtre', v => { st.filtre = v; update(); });
+    onSeg(root, 'tab', v => { st.tab = v; renderQuick(); });
+    update();
+  }
+  function update() {
+    if (!root) return;
+    // Arbre
+    const domains = a => [...new Set(tablesOf(a).map(t => t.domain))].sort((x, y) => x.localeCompare(y, 'fr'));
+    $('lib-tree').innerHTML = `<button class="node" data-node="" aria-current="${!st.app}">${icon('db', 14)}<span>Toutes les bases</span><span class="count">${STATS.tables}</span></button>` +
+      APP_IDS.map(a => {
+        const open = st.open.has(a);
+        return `<button class="node" data-node="${a}" aria-current="${st.app === a && !st.domain}" aria-expanded="${open}"><span class="chev">${icon(open ? 'chevronDown' : 'chevronRight', 12, 1.8)}</span><span class="dot" style="background:${APPS[a].couleur}"></span><span>${APPS[a].nom}</span><span class="count">${tablesOf(a).length}</span></button>` +
+          (open ? domains(a).map(d => `<button class="node child" data-node="${a}|${esc(d)}" aria-current="${st.app === a && st.domain === d}"><span class="ellipsis">${esc(d)}</span><span class="count">${tablesOf(a).filter(t => t.domain === d).length}</span></button>`).join('') : '');
+      }).join('');
+    // En-tête
+    const base = [...T.values()].filter(t => (!st.app || t.app === st.app) && (!st.domain || t.domain === st.domain));
+    $('lib-crumb').innerHTML = `<div class="sub">Toutes les bases${st.app ? ' › ' + APPS[st.app].nom : ''}${st.domain ? ' › ' + esc(st.domain) : ''}</div><div class="crumb-title">${st.domain ? esc(st.domain) : st.app ? APPS[st.app].nom + ' <span class="text-muted sub">· ' + esc(APPS[st.app].role) + '</span>' : 'Toutes les bases'}</div>`;
+    $('lib-filtres').innerHTML = seg('filtre', Object.entries(FILTRES).map(([k, [l, fn]]) => [k, l, base.filter(fn).length]), st.filtre);
+    // Lignes
+    const rows = [...T.values()].filter(matches).sort((a, b) => APP_IDS.indexOf(a.app) - APP_IDS.indexOf(b.app) || a.domain.localeCompare(b.domain, 'fr') || a.name.localeCompare(b.name));
+    $('lib-rows').innerHTML = rows.length ? rows.map(t => `<tr class="click" data-sel="${t.key}" tabindex="0" aria-selected="${st.sel === t.key}">
+      <td style="min-width:220px"><div style="display:flex;gap:8px;align-items:flex-start"><span class="dot" style="background:${APPS[t.app].couleur};margin-top:6px" title="${APPS[t.app].nom}"></span><div style="min-width:0"><div class="mono t-name">${esc(t.name)}</div>${t.description ? `<div class="sub text-muted ellipsis" style="max-width:340px">${esc(t.description)}</div>` : ''}</div></div></td>
+      <td class="text-muted nowrap">${esc(t.domain)}</td>
+      <td class="num">${t.columns.length}</td><td class="num">${linkCount(t)}</td><td class="num">${new Set([...t.lit, ...t.ecrit]).size || '<span class="text-muted">—</span>'}</td>
+      <td class="nowrap">${t.flux.length ? `<span class="tag tag-accent" title="Lue ou alimentée par un autre logiciel">${icon('flux', 10)} ${t.flux.length}</span> ` : ''}${t.refs.some(g => FUSION.has(g.nature)) ? `<span class="tag tag-outline" title="${esc(t.refs.map(g => g.id + ' ' + g.objet).join(' · '))}">double</span> ` : t.refs.some(g => g.nature === 'homonyme') ? '<span class="tag tag-ghost" title="Même nom qu’une table d’un autre outil, objet différent">homonyme</span> ' : ''}${t.nouvelle ? '<span class="tag tag-outline" title="Table apparue depuis la dernière collecte">nouvelle</span> ' : ''}${t.sensitive ? `<span class="tag tag-outline" title="Contient des données sensibles">${icon('lock', 10)}</span>` : ''}</td>
+    </tr>`).join('') : `<tr><td colspan="6" class="empty">Aucune table ne correspond à ces critères. Effacez le filtre ou choisissez une autre base.</td></tr>`;
+    $('lib-foot').textContent = `${rows.length} table${rows.length > 1 ? 's' : ''} · ${fmt(rows.reduce((n, t) => n + t.columns.length, 0))} colonnes`;
+    renderQuick();
+  }
+  function renderQuick() {
+    const q = $('lib-quick'); const t = st.sel && T.get(st.sel);
+    q.innerHTML = t ? tableSheet(t, st.tab, { close: true }) : `<div class="empty-pane">${icon('table', 22)}<div>Sélectionnez une table pour voir ses colonnes, ses liens et les logiciels qui l’utilisent.</div><div class="sub">Double-clic : ouvrir dans le graphe.</div></div>`;
+  }
+  return {
+    render,
+    open(k) { st.sel = k; st.tab = 'colonnes'; const t = T.get(k); if (t) { st.open.add(t.app); if (st.app && st.app !== t.app) { st.app = null; st.domain = null; } } if (current !== 'bibliotheque') go('bibliotheque'); if (rendered.bibliotheque) update(); setTimeout(() => document.querySelector(`#lib-rows tr[data-sel="${CSS.escape(k)}"]`)?.scrollIntoView({ block: 'center' }), 0); },
+    select({ app = null, domain = null, q = '' }) { st.app = app; st.domain = domain; st.q = q; st.filtre = 'toutes'; if (app) st.open.add(app); go('bibliotheque'); if (rendered.bibliotheque) { $('lib-q').value = q; update(); } },
+    search(q) { st.app = null; st.domain = null; st.q = q; st.filtre = 'toutes'; go('bibliotheque'); if (rendered.bibliotheque) { $('lib-q').value = q; update(); } },
+    _st: st,
+  };
+})();
+RENDER.bibliotheque = () => { Library.render(); if (Library._st.q) $('lib-q').value = Library._st.q; };
+
+$('global-search').addEventListener('submit', e => { e.preventDefault(); Library.search($('global-q').value.trim()); });
+
+// ── Graphe ──────────────────────────────────────────────────────────────
+const Graph = (() => {
+  const st = { vue: 'tables', apps: new Set(APP_IDS), liens: 'tous', refs: false, focus: null, depth: '1', ecransApp: 'vigie', sel: null };
+  let cy = null, root, built = false;
+  const C = { text: cssv('--color-text'), muted: cssv('--color-neutral-500'), rule: cssv('--color-neutral-800'), surface: cssv('--color-surface'), bg: cssv('--color-bg'), accent: cssv('--color-accent'), accent3: cssv('--color-accent-300'), n600: cssv('--color-neutral-600'), n700: cssv('--color-neutral-700'), ext: cssv('--app-externe') };
+  const statColor = s => s === 'reel' ? C.accent : s === 'partiel' ? C.accent3 : C.n600;
+
+  function render() {
+    root = $('s-graphe');
+    root.innerHTML = `<div class="panes">
+      <div class="graph-area">
+        <div class="toolbar">
+          ${seg('vue', [['tables', 'Liens entre tables'], ['reseau', 'Échanges entre logiciels'], ['ecrans', 'Écrans → tables']], st.vue)}
+          <div id="g-opts" style="display:contents"></div>
+          <span class="spacer"></span>
+          <button class="btn btn-secondary btn-icon" id="g-fit" title="Ajuster à la fenêtre" aria-label="Ajuster à la fenêtre">${icon('fit', 14)}</button>
+          <button class="btn btn-secondary btn-icon" id="g-relayout" title="Réorganiser" aria-label="Réorganiser">${icon('refresh', 14)}</button>
+        </div>
+        <div class="toolbar" id="g-opts2" style="padding-top:8px;padding-bottom:8px"></div>
+        <div class="canvas-wrap"><div id="cy" aria-label="Graphe des liens"></div><div class="legend" id="g-legend"></div><div class="graph-hint">Molette : zoom · glisser : déplacer · clic : détail</div><div class="graph-loading" id="g-loading" hidden></div></div>
+      </div>
+      <aside class="quick" id="g-quick"></aside>
+    </div>`;
+    onSeg(root, 'vue', v => { st.vue = v; st.sel = null; if (v !== 'tables') st.focus = null; options(); draw(); });
+    onSeg(root, 'liens', v => { st.liens = v; draw(); });
+    onSeg(root, 'depth', v => { st.depth = v; draw(); });
+    onSeg(root, 'ecransApp', v => { st.ecransApp = v; st.sel = null; options(); draw(); });
+    onSeg(root, 'tab', v => { if (st.sel?.type === 'table') { st.sel.tab = v; panel(); } });
+    root.addEventListener('click', e => {
+      const chip = e.target.closest('[data-chip]');
+      if (chip) { const a = chip.dataset.chip; if (st.apps.has(a) && st.apps.size > 1) st.apps.delete(a); else st.apps.add(a); options(); draw(); }
+      if (e.target.closest('#g-refs')) { st.refs = !st.refs; options(); draw(); }
+      if (e.target.closest('#g-clear')) { st.focus = null; options(); draw(); }
+      if (e.target.closest('#g-fit')) cy?.animate({ fit: { padding: 40 } }, { duration: 250 });
+      if (e.target.closest('#g-relayout')) layout(true);
+      if (e.target.closest('#g-quick [data-close]')) { st.sel = null; cy?.elements().unselect(); panel(); }
+    });
+    options(); panel();
+  }
+  function options() {
+    const o1 = $('g-opts'), o2 = $('g-opts2');
+    if (st.vue === 'tables') {
+      o1.innerHTML = seg('liens', [['tous', 'Tous les liens'], ['inter', 'Entre logiciels']], st.liens);
+      o2.innerHTML = APP_IDS.map(a => `<button class="chip" data-chip="${a}" aria-pressed="${st.apps.has(a)}"><span class="dot" style="background:${APPS[a].couleur}"></span>${APPS[a].nom} <span class="text-muted sub">${tablesOf(a).length}</span></button>`).join('') +
+        `<button class="chip" id="g-refs" aria-pressed="${st.refs}" title="Relie les tables en double d’un outil à l’autre">${icon('ref', 12)} Doublons</button>
+         <span class="spacer" style="flex:1"></span>
+         <form class="search" id="g-focus-form" style="width:240px"><span>${icon('search', 14)}</span><input class="input" id="g-focus" list="g-tables" placeholder="Centrer sur une table…" value="${esc(st.focus ? T.get(st.focus).name + ' · ' + APPS[T.get(st.focus).app].nom : '')}" aria-label="Centrer le graphe sur une table"></form>
+         <datalist id="g-tables">${[...T.values()].map(t => `<option value="${esc(t.name)} · ${APPS[t.app].nom}">`).join('')}</datalist>
+         ${st.focus ? seg('depth', [['1', '1 saut'], ['2', '2 sauts'], ['tout', 'Tout']], st.depth) + `<button class="btn btn-ghost btn-sm" id="g-clear">Tout afficher</button>` : ''}`;
+      $('g-focus-form').addEventListener('submit', e => { e.preventDefault(); pickFocus($('g-focus').value); });
+      $('g-focus').addEventListener('change', e => pickFocus(e.target.value));
+    } else if (st.vue === 'reseau') {
+      o1.innerHTML = '';
+      o2.innerHTML = `<span class="text-muted sub">Chaque losange est un flux : il relie les tables lues dans un logiciel aux tables alimentées dans un autre. Cliquez dessus pour voir les informations extraites.</span>`;
+    } else {
+      o1.innerHTML = seg('ecransApp', APP_IDS.map(a => [a, APPS[a].nom]), st.ecransApp);
+      o2.innerHTML = `<span class="text-muted sub">Écrans de ${APPS[st.ecransApp].nom} et tables qu’ils lisent (trait fin) ou écrivent (trait plein accentué).</span>`;
+    }
+    legend();
+  }
+  function pickFocus(v) {
+    const [name, appName] = v.split(' · ');
+    const t = [...T.values()].find(x => x.name === name.trim() && (!appName || APPS[x.app].nom === appName.trim()));
+    if (t) { st.focus = t.key; st.apps.add(t.app); st.depth = '1'; st.sel = { type: 'table', key: t.key, tab: 'liens' }; options(); draw(); panel(); }
+    else toast('Aucune table ne porte ce nom.');
+  }
+  function legend() {
+    const L = $('g-legend'); if (!L) return;
+    if (st.vue === 'tables') L.innerHTML = APP_IDS.filter(a => st.apps.has(a)).map(a => `<div><span class="dot" style="background:${APPS[a].couleur}"></span>${APPS[a].nom}</div>`).join('') +
+      `<div><i style="border-color:${C.n700}"></i>clé étrangère déclarée</div><div><i style="border-color:${C.n600};border-top-style:dashed"></i>lien logique (code)</div><div><i style="border-color:${C.accent}"></i>flux entre logiciels</div>${st.refs ? `<div><i style="border-color:${C.accent3};border-top-style:dotted"></i>doublon entre outils</div>` : ''}`;
+    else if (st.vue === 'reseau') L.innerHTML = Object.keys(STATUT).map(s => `<div><i style="border-color:${statColor(s)};${s === 'reel' || s === 'partiel' ? '' : 'border-top-style:dashed'}"></i>${STATUT[s][0]}</div>`).join('');
+    else L.innerHTML = `<div><i style="border-color:${C.n700}"></i>lit</div><div><i style="border-color:${C.accent}"></i>écrit</div>`;
+  }
+
+  // Éléments
+  function elementsTables() {
+    let keys = [...T.values()].filter(t => st.apps.has(t.app)).map(t => t.key);
+    const edges = [];
+    for (const t of T.values()) for (const f of t.fks) {
+      const tgt = key(t.app, f.table); if (!T.has(tgt) || tgt === t.key) continue;
+      edges.push({ s: t.key, t: tgt, kind: f.declared ? 'fk' : 'logique', label: f.columns.join(', ') });
+    }
+    for (const f of FLUX.flux) for (const s of f.source) for (const c of f.cible)
+      edges.push({ s: key(f.de, s), t: key(f.vers, c), kind: 'flux', label: f.id, flux: f.id, statut: f.statut });
+    if (st.refs) for (const g of DOUBLONS.filter(g => FUSION.has(g.nature))) {
+      const occ = g.tables.filter(o => o.table !== '—').map(o => key(o.app, o.table));
+      for (let i = 1; i < occ.length; i++) if (T.get(occ[i]).app !== T.get(occ[0]).app) edges.push({ s: occ[0], t: occ[i], kind: 'ref', label: g.id });
+    }
+    let shown = edges.filter(e => st.liens === 'tous' || e.kind === 'flux' || e.kind === 'ref');
+    if (st.focus) {
+      const depth = st.depth === 'tout' ? 99 : +st.depth;
+      let frontier = new Set([st.focus]), seen = new Set([st.focus]);
+      for (let d = 0; d < depth; d++) {
+        const next = new Set();
+        for (const e of shown) { if (frontier.has(e.s) && !seen.has(e.t)) next.add(e.t); if (frontier.has(e.t) && !seen.has(e.s)) next.add(e.s); }
+        next.forEach(k => seen.add(k)); frontier = next; if (!next.size) break;
+      }
+      keys = [...seen];
+    } else if (st.liens === 'inter') {
+      const used = new Set(shown.flatMap(e => [e.s, e.t])); keys = keys.filter(k => used.has(k));
+    }
+    const ks = new Set(keys);
+    shown = shown.filter(e => ks.has(e.s) && ks.has(e.t));
+    const deg = {}; shown.forEach(e => { deg[e.s] = (deg[e.s] || 0) + 1; deg[e.t] = (deg[e.t] || 0) + 1; });
+    const apps = new Set(keys.map(k => T.get(k).app));
+    return [
+      ...(st.focus ? [] : [...apps].map(a => ({ data: { id: 'app:' + a, label: APPS[a].nom, kind: 'app', color: APPS[a].couleur } }))),
+      ...keys.map(k => { const t = T.get(k); return { data: { id: k, label: t.name, parent: st.focus ? undefined : 'app:' + t.app, kind: 'table', color: APPS[t.app].couleur, size: 10 + Math.min(26, Math.sqrt(deg[k] || 0) * 5), focus: k === st.focus ? 1 : 0 } }; }),
+      ...shown.map((e, i) => ({ data: { id: 'e' + i, source: e.s, target: e.t, kind: e.kind, label: e.label, flux: e.flux, color: e.kind === 'flux' ? statColor(e.statut) : '' } })),
+    ];
+  }
+  function elementsReseau() {
+    const els = [], tbl = new Set();
+    for (const a of APP_IDS) els.push({ data: { id: 'app:' + a, label: APPS[a].nom + '\n' + APPS[a].role, kind: 'app', color: APPS[a].couleur } });
+    for (const f of FLUX.flux) {
+      const hub = 'flux:' + f.id;
+      els.push({ data: { id: hub, label: f.id, kind: 'hub', color: statColor(f.statut), statut: f.statut, flux: f.id } });
+      const addT = (a, n, dir) => { const k = key(a, n); if (!tbl.has(k)) { tbl.add(k); els.push({ data: { id: k, label: n, parent: 'app:' + a, kind: 'table', color: APPS[a].couleur, size: 12 } }); } els.push({ data: { id: hub + dir + k, source: dir === '>' ? k : hub, target: dir === '>' ? hub : k, kind: 'fluxe', color: statColor(f.statut), statut: f.statut, flux: f.id } }); };
+      f.source.forEach(n => addT(f.de, n, '>'));
+      f.cible.forEach(n => addT(f.vers, n, '<'));
+      if (!f.source.length) els.push({ data: { id: hub + 'src', source: 'app:' + f.de, target: hub, kind: 'fluxe', color: statColor(f.statut), statut: f.statut, flux: f.id } });
+      if (!f.cible.length) els.push({ data: { id: hub + 'dst', source: hub, target: 'app:' + f.vers, kind: 'fluxe', color: statColor(f.statut), statut: f.statut, flux: f.id } });
+    }
+    for (const e of FLUX.externes) {
+      const id = 'ext:' + e.id;
+      els.push({ data: { id, label: e.nom, kind: 'ext', color: C.ext, ext: e.id } });
+      for (const n of e.tables) {
+        const k = key(e.app, n);
+        if (!tbl.has(k)) { tbl.add(k); els.push({ data: { id: k, label: n, parent: 'app:' + e.app, kind: 'table', color: APPS[e.app].couleur, size: 12 } }); }
+        els.push({ data: { id: id + '-' + k, source: e.sens === 'entrée' ? id : k, target: e.sens === 'entrée' ? k : id, kind: 'exte', color: C.ext, statut: e.statut } });
+      }
+    }
+    return els;
+  }
+  function elementsEcrans() {
+    const a = st.ecransApp, els = [{ data: { id: 'grp:ecrans', label: 'Écrans', kind: 'grp' } }, { data: { id: 'grp:tables', label: 'Tables', kind: 'grp' } }], tbl = new Set();
+    (USAGES[a] || []).forEach((s, i) => {
+      const sid = 'ecran:' + i;
+      els.push({ data: { id: sid, label: s.ecran, kind: 'ecran', parent: 'grp:ecrans', route: s.route, idx: i } });
+      const rel = new Map(); s.lit.forEach(n => rel.set(n, 'lit')); s.ecrit.forEach(n => rel.set(n, 'ecrit'));
+      for (const [n, k] of rel) {
+        const tk = key(a, n);
+        if (!tbl.has(tk)) { tbl.add(tk); els.push({ data: { id: tk, label: n, parent: 'grp:tables', kind: 'table', color: APPS[a].couleur, size: 12 } }); }
+        els.push({ data: { id: sid + '-' + tk, source: sid, target: tk, kind: k } });
+      }
+    });
+    return els;
+  }
+
+  const STYLE = () => [
+    { selector: 'node', style: { 'label': 'data(label)', 'color': C.text, 'font-family': 'Inter, system-ui, sans-serif', 'font-size': 9, 'text-valign': 'bottom', 'text-margin-y': 3, 'min-zoomed-font-size': 7, 'text-outline-color': C.bg, 'text-outline-width': 2 } },
+    { selector: 'node[kind="table"]', style: { 'width': 'data(size)', 'height': 'data(size)', 'background-color': 'data(color)', 'border-width': 0, 'shape': 'round-rectangle', 'font-family': 'JetBrains Mono, ui-monospace, monospace', 'font-size': 8 } },
+    { selector: 'node[kind="table"][focus=1]', style: { 'border-width': 3, 'border-color': C.accent, 'font-size': 11, 'z-index': 10 } },
+    { selector: 'node[kind="app"]', style: { 'background-color': 'data(color)', 'background-opacity': 0.06, 'border-width': 1, 'border-color': 'data(color)', 'border-opacity': 0.5, 'shape': 'round-rectangle', 'text-valign': 'top', 'text-halign': 'center', 'text-margin-y': -6, 'font-size': 14, 'font-weight': 500, 'color': 'data(color)', 'text-wrap': 'wrap', 'padding': 18, 'min-zoomed-font-size': 0 } },
+    { selector: 'node[kind="app"]:childless', style: { 'width': 120, 'height': 60, 'text-valign': 'center', 'text-margin-y': 0, 'background-opacity': 0.15 } },
+    { selector: 'node[kind="grp"]', style: { 'background-opacity': 0, 'border-width': 1, 'border-color': C.rule, 'border-style': 'dashed', 'text-valign': 'top', 'text-margin-y': -6, 'color': C.muted, 'font-size': 11, 'shape': 'round-rectangle', 'padding': 14, 'min-zoomed-font-size': 0 } },
+    { selector: 'node[kind="hub"]', style: { 'shape': 'diamond', 'width': 22, 'height': 22, 'background-color': C.bg, 'border-width': 2, 'border-color': 'data(color)', 'font-size': 9, 'color': C.text, 'text-valign': 'center', 'text-margin-y': 0, 'text-outline-width': 0, 'min-zoomed-font-size': 0 } },
+    { selector: 'node[kind="hub"][statut="reel"]', style: { 'background-color': C.accent, 'color': C.bg } },
+    { selector: 'node[kind="ext"]', style: { 'shape': 'round-tag', 'width': 18, 'height': 18, 'background-color': C.ext, 'font-size': 10, 'color': C.muted } },
+    { selector: 'node[kind="ecran"]', style: { 'shape': 'round-rectangle', 'width': 132, 'height': 22, 'background-color': C.surface, 'border-width': 1, 'border-color': C.n700, 'text-valign': 'center', 'text-margin-y': 0, 'font-size': 10, 'text-outline-width': 0, 'min-zoomed-font-size': 0 } },
+    { selector: 'edge', style: { 'width': 1, 'line-color': C.n700, 'curve-style': 'haystack', 'haystack-radius': 0, 'opacity': 0.55 } },
+    { selector: 'edge[kind="logique"]', style: { 'line-style': 'dashed', 'line-color': C.n600 } },
+    { selector: 'edge[kind="flux"], edge[kind="fluxe"]', style: { 'width': 1.8, 'line-color': 'data(color)', 'opacity': 0.9, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': 'data(color)', 'arrow-scale': 0.7 } },
+    { selector: 'edge[kind="fluxe"][statut!="reel"][statut!="partiel"], edge[kind="flux"][statut!="reel"][statut!="partiel"]', style: { 'line-style': 'dashed' } },
+    { selector: 'edge[kind="exte"]', style: { 'line-color': C.ext, 'line-style': 'dotted', 'width': 1.4, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': C.ext, 'arrow-scale': 0.6 } },
+    { selector: 'edge[kind="ref"]', style: { 'line-color': C.accent3, 'line-style': 'dotted', 'width': 2, 'opacity': 0.8, 'curve-style': 'bezier' } },
+    { selector: 'edge[kind="lit"]', style: { 'line-color': C.n600, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': C.n600, 'arrow-scale': 0.5 } },
+    { selector: 'edge[kind="ecrit"]', style: { 'line-color': C.accent, 'width': 1.6, 'opacity': 0.85, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': C.accent, 'arrow-scale': 0.6 } },
+    { selector: '.dim', style: { 'opacity': 0.12 } },
+    { selector: 'edge.hl', style: { 'opacity': 1, 'width': 2.2, 'z-index': 9 } },
+    { selector: 'node:selected', style: { 'border-width': 3, 'border-color': C.accent } },
+  ];
+
+  function draw() {
+    if (!root || !window.cytoscape) return;
+    const els = st.vue === 'tables' ? elementsTables() : st.vue === 'reseau' ? elementsReseau() : elementsEcrans();
+    if (!cy) {
+      cy = cytoscape({ container: $('cy'), elements: els, style: STYLE(), minZoom: 0.03, maxZoom: 4, boxSelectionEnabled: false });
+      cy.on('tap', 'node', e => select(e.target));
+      cy.on('tap', 'edge', e => { const d = e.target.data(); if (d.flux) { st.sel = { type: 'flux', id: d.flux }; panel(); } });
+      cy.on('tap', e => { if (e.target === cy) { st.sel = null; cy.elements().removeClass('dim hl'); panel(); } });
+      cy.on('mouseover', 'node[kind="table"], node[kind="ecran"], node[kind="hub"]', e => highlight(e.target));
+      cy.on('mouseout', 'node', () => { if (!st.sel) cy.elements().removeClass('dim hl'); else if (st.sel.node) highlight(cy.getElementById(st.sel.node)); });
+    } else { cy.resize(); cy.elements().remove(); cy.add(els); }
+    legend();
+    layout(false);
+    panel();
+  }
+  function highlight(n) {
+    if (!n || !n.length) return;
+    const nb = n.closedNeighborhood().add(n.ancestors());
+    cy.elements().addClass('dim'); nb.removeClass('dim'); n.connectedEdges().addClass('hl');
+    cy.nodes('[kind="app"], [kind="grp"]').removeClass('dim');
+  }
+  function select(n) {
+    const d = n.data();
+    if (d.kind === 'table') st.sel = { type: 'table', key: d.id, tab: 'liens', node: d.id };
+    else if (d.kind === 'hub') st.sel = { type: 'flux', id: d.flux, node: d.id };
+    else if (d.kind === 'ecran') st.sel = { type: 'ecran', idx: d.idx, node: d.id };
+    else if (d.kind === 'ext') st.sel = { type: 'ext', id: d.ext, node: d.id };
+    else if (d.kind === 'app') st.sel = { type: 'app', id: d.id.slice(4) };
+    else return;
+    if (st.sel.node) highlight(n);
+    panel();
+  }
+  // Disposition calculée hors écran (instance sans affichage), puis recopiée : évite que la disposition
+  // globale, avec les groupes par outil, ne s'étale sur des dizaines de milliers de pixels.
+  function headless(nodes, edges, opts) {
+    const ids = new Set(nodes.map(n => n.id()));
+    const tmp = cytoscape({ headless: true, styleEnabled: true,
+      elements: [...nodes.map(n => ({ data: { id: n.id(), size: n.data('size') || 14 } })),
+        ...edges.filter(e => ids.has(e.source().id()) && ids.has(e.target().id()) && e.source().id() !== e.target().id()).map(e => ({ data: { id: 'h' + e.id(), source: e.source().id(), target: e.target().id() } }))],
+      style: [{ selector: 'node', style: { width: 'data(size)', height: 'data(size)' } }] });
+    tmp.layout({ animate: false, randomize: true, fit: false, ...opts }).run();
+    const bb = tmp.elements().boundingBox();
+    const pos = {}; tmp.nodes().forEach(n => { const p = n.position(); pos[n.id()] = { x: p.x - bb.x1, y: p.y - bb.y1 }; });
+    tmp.destroy();
+    return { pos, w: bb.w, h: bb.h };
+  }
+  const COSE = { name: 'cose', idealEdgeLength: 50, nodeRepulsion: 4500, gravity: 1, numIter: 1000, componentSpacing: 30, nodeOverlap: 8 };
+  function grid(nodes, cols, dx = 132, dy = 30) {
+    const pos = {}; nodes.forEach((n, i) => pos[n.id()] = { x: (i % cols) * dx, y: Math.floor(i / cols) * dy });
+    return { pos, w: (Math.min(cols, nodes.length) - 1) * dx, h: (Math.ceil(nodes.length / cols) - 1) * dy };
+  }
+  function layout(animate) {
+    if (!cy) return;
+    $('g-loading').hidden = true;
+    const pos = {};
+    const place = (blk, x, y) => { for (const [id, p] of Object.entries(blk.pos)) pos[id] = { x: p.x + x, y: p.y + y }; };
+    if (st.vue === 'ecrans') {
+      // Deux colonnes : écrans à gauche, tables à droite, ordonnées pour limiter les croisements.
+      const ecr = cy.nodes('[kind="ecran"]'), tbs = cy.nodes('[kind="table"]');
+      const rank = {}; tbs.forEach(t => { const src = t.incomers('node[kind="ecran"]'); rank[t.id()] = src.length ? src.map(s => s.data('idx')).reduce((x, y) => x + y, 0) / src.length : 0; });
+      const sorted = tbs.sort((x, y) => rank[x.id()] - rank[y.id()]);
+      const H = Math.max(ecr.length * 46, sorted.length * 22);
+      ecr.forEach((e, i) => pos[e.id()] = { x: 0, y: (i + 0.5) * H / ecr.length });
+      sorted.forEach((t, i) => pos[t.id()] = { x: 520, y: (i + 0.5) * H / sorted.length });
+    } else if (st.vue === 'tables' && st.focus) {
+      const blk = headless(cy.nodes('[kind="table"]'), cy.edges(), cy.nodes().length < 60
+        ? { name: 'concentric', concentric: n => n.id() === st.focus ? 2 : 1, levelWidth: () => 1, minNodeSpacing: 34 }
+        : COSE);
+      place(blk, 0, 0);
+    } else if (st.vue === 'tables') {
+      // Un bloc par outil : Keystone à gauche, les autres empilés à droite.
+      const blocks = APP_IDS.map(a => { const kids = cy.getElementById('app:' + a).children(); return kids.length ? { a, ...headless(kids, kids.connectedEdges(), COSE) } : null; }).filter(Boolean);
+      const big = blocks.find(b => b.a === 'keystone'), rest = blocks.filter(b => b !== big);
+      let x = 0;
+      if (big) { place(big, 0, 0); x = big.w + 160; }
+      let y = 0;
+      for (const b of rest) { if (big) { place(b, x, y); y += b.h + 140; } else { place(b, x, 0); x += b.w + 160; } }
+    } else {
+      // Échanges : un outil par coin, les flux (losanges) entre les deux outils qu'ils relient.
+      const blocks = {};
+      for (const a of APP_IDS) { const kids = cy.getElementById('app:' + a).children(); blocks[a] = grid(kids.sort((p, q) => p.data('label').localeCompare(q.data('label'))), a === 'keystone' ? 4 : 3); }
+      const G = 380;
+      const colW = Math.max(blocks.keystone.w, blocks.cursus.w), rowH = Math.max(blocks.keystone.h, blocks.codex.h);
+      const origin = { keystone: [0, 0], codex: [colW + G, 0], cursus: [0, rowH + G], vigie: [colW + G, rowH + G] };
+      const center = {};
+      for (const a of APP_IDS) { place(blocks[a], ...origin[a]); center[a] = { x: origin[a][0] + blocks[a].w / 2, y: origin[a][1] + blocks[a].h / 2 }; }
+      const pairs = {};
+      for (const f of FLUX.flux) (pairs[[f.de, f.vers].sort().join('|')] ??= []).push(f);
+      for (const list of Object.values(pairs)) list.forEach((f, i) => {
+        const A = center[f.de], B = center[f.vers];
+        const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
+        const off = (i - (list.length - 1) / 2) * 52;
+        pos['flux:' + f.id] = { x: (A.x + B.x) / 2 - dy / len * off, y: (A.y + B.y) / 2 + dx / len * off };
+      });
+      const extSide = { lucca: [-1, 0], x3: [-1, 0.6], sharepoint: [0, -1], sage: [0, 1], trackdechets: [0, 1] };
+      const extCount = {};
+      for (const e of FLUX.externes) {
+        const c = center[e.app], b = blocks[e.app], [sx, sy] = extSide[e.id] || [1, 0];
+        const k = extCount[e.app] = (extCount[e.app] || 0) + 1;
+        pos['ext:' + e.id] = { x: c.x + sx * (b.w / 2 + 170) + (sy ? (k - 1) * 120 : 0), y: c.y + sy * (b.h / 2 + 120) + (sx ? (k - 1) * 70 : 0) };
+      }
+    }
+    cy.layout({ name: 'preset', positions: n => pos[n.id()], fit: true, padding: 40, animate: !!animate, animationDuration: 300 }).run();
+    if (cy.zoom() > 1.3) { cy.zoom(1.3); cy.center(); }
+    cy.elements().unselect().removeClass('dim hl');
+    if (st.sel?.node) { const n = cy.getElementById(st.sel.node); if (n.length) { n.select(); highlight(n); } }
+  }
+  function panel() {
+    const q = $('g-quick'); if (!q) return;
+    const s = st.sel;
+    if (!s) {
+      const info = st.vue === 'tables'
+        ? `<p>${cy ? cy.nodes('[kind="table"]').length : 0} tables et ${cy ? cy.edges().length : 0} liens affichés.</p><p class="sub">Cliquez sur une table pour voir ses colonnes et ses liens. Saisissez un nom dans « Centrer sur une table » pour n’afficher que son voisinage.</p>`
+        : st.vue === 'reseau' ? `<p>${FLUX.flux.length} flux entre les quatre logiciels, ${FLUX.externes.length} systèmes externes.</p><p class="sub">Cliquez sur un losange pour voir quelles informations un logiciel extrait d’une table d’un autre logiciel.</p>`
+        : `<p>${(USAGES[st.ecransApp] || []).length} écrans relevés dans ${APPS[st.ecransApp].nom}.</p><p class="sub">Cliquez sur un écran pour voir les tables qu’il lit et écrit.</p>`;
+      q.innerHTML = `<div class="empty-pane">${icon('graph', 22)}${info}</div>`; return;
+    }
+    if (s.type === 'table') q.innerHTML = tableSheet(T.get(s.key), s.tab, { close: true, actions: false }) + `<div class="actions"><button class="btn btn-primary" data-graph="${esc(s.key)}">${icon('graph', 14)} Centrer ici</button><button class="btn btn-secondary" data-open="${esc(s.key)}">${icon('db', 14)} Ouvrir dans la bibliothèque</button></div>`;
+    else if (s.type === 'flux') q.innerHTML = fluxSheet(FLUX.flux.find(f => f.id === s.id), { close: true, actions: false });
+    else if (s.type === 'ecran') {
+      const e = USAGES[st.ecransApp][s.idx];
+      q.innerHTML = `<div class="quick-head"><div class="quick-title">${esc(e.ecran)}</div><button class="btn btn-ghost btn-icon" data-close aria-label="Fermer">${icon('close', 14)}</button></div>
+        <div class="tags">${appTag(st.ecransApp)}<span class="tag tag-neutral mono">${esc(e.route)}</span></div>
+        <div><div class="block-title">Écrit <span>${e.ecrit.length}</span></div>${e.ecrit.map(n => `<div class="link-row"><button class="link-btn mono" data-open="${esc(key(st.ecransApp, n))}">${esc(n)}</button></div>`).join('') || '<p class="sub text-muted">Écran en lecture seule.</p>'}</div>
+        <div><div class="block-title">Lit <span>${e.lit.length}</span></div>${e.lit.map(n => `<div class="link-row"><button class="link-btn mono" data-open="${esc(key(st.ecransApp, n))}">${esc(n)}</button></div>`).join('')}</div>`;
+    } else if (s.type === 'ext') {
+      const e = FLUX.externes.find(x => x.id === s.id);
+      q.innerHTML = `<div class="quick-head"><div class="quick-title">${esc(e.nom)}</div><button class="btn btn-ghost btn-icon" data-close aria-label="Fermer">${icon('close', 14)}</button></div>
+        <div class="tags"><span class="tag tag-neutral">Système externe</span>${statutTag(e.statut)}</div>
+        <dl class="dl"><dt>Relié à</dt><dd>${APPS[e.app].nom}</dd><dt>Sens</dt><dd>${esc(e.sens)}</dd><dt>Tables</dt><dd>${e.tables.map(n => `<button class="link-btn mono" data-open="${esc(key(e.app, n))}">${esc(n)}</button>`).join(', ')}</dd></dl><p class="note">${esc(e.note)}</p>`;
+    } else if (s.type === 'app') {
+      const a = s.id, ts = tablesOf(a);
+      q.innerHTML = `<div class="quick-head"><div class="quick-title">${APPS[a].nom}</div><button class="btn btn-ghost btn-icon" data-close aria-label="Fermer">${icon('close', 14)}</button></div>
+        <p class="text-muted">${esc(APPS[a].role)}</p>
+        <div class="mini-kpis"><div><b>${ts.length}</b><span>tables</span></div><div><b>${FLUX.flux.filter(f => f.de === a).length}</b><span>flux sortants</span></div><div><b>${FLUX.flux.filter(f => f.vers === a).length}</b><span>flux entrants</span></div></div>
+        <dl class="dl"><dt>Base</dt><dd>${esc(APPS[a].moteur)}</dd><dt>Données</dt><dd class="mono">${esc(APPS[a].donnees)}</dd></dl>
+        <div class="actions"><button class="btn btn-secondary" data-app-lib="${a}">${icon('db', 14)} Voir ses tables</button></div>`;
+      q.querySelector('[data-app-lib]').addEventListener('click', () => Library.select({ app: a }));
+    }
+  }
+  function refresh() { st.redraw = true; if (current === 'graphe') Graph.ensure(); else go('graphe'); }
+  return {
+    render,
+    ensure() {
+      if (!window.cytoscape) { $('g-loading').hidden = false; $('g-loading').textContent = 'La bibliothèque de graphe n’a pas pu être chargée. Vérifiez l’accès à cdn.jsdelivr.net.'; return; }
+      root.querySelectorAll('[data-seg="vue"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === st.vue));
+      if (!built || st.redraw) { built = true; st.redraw = false; options(); requestAnimationFrame(() => draw()); }
+      else cy?.resize();
+    },
+    focusTable(k, o = {}) {
+      const t = T.get(k); if (!t) return;
+      Object.assign(st, { vue: 'tables', focus: k, depth: '1', sel: { type: 'table', key: k, tab: 'liens', node: k } });
+      if (o.doublons) st.refs = true;
+      st.apps.add(t.app);
+      refresh();
+    },
+    focusFlux(id) {
+      Object.assign(st, { vue: 'reseau', focus: null, sel: { type: 'flux', id, node: 'flux:' + id } });
+      refresh();
+    },
+  };
+})();
+RENDER.graphe = () => Graph.render();
+
+// ── Flux ────────────────────────────────────────────────────────────────
+const Flows = (() => {
+  const st = { sel: FLUX.flux[0].id, statut: 'tous' };
+  let root;
+  function render() {
+    root = $('s-flux');
+    root.innerHTML = `<div class="panes"><div class="list">
+      <div class="list-head"><div class="crumb"><div class="sub">Contrats d’interface</div><div class="crumb-title">Qui lit quoi, chez qui</div></div><div id="fl-seg"></div></div>
+      <div class="list-body">
+        <div style="padding:4px 8px 0"><div class="block-title">Nombre de flux · de (ligne) vers (colonne)</div>
+          <div class="matrix-grid" id="fl-matrix"></div></div>
+        <div class="table-wrap"><table class="table"><thead><tr><th>Flux</th><th>De → vers</th><th>Mode</th><th>Tables lues</th><th>État</th></tr></thead><tbody id="fl-rows"></tbody></table></div>
+        <div style="padding:22px 8px 0"><div class="block-title">Systèmes externes</div>
+          <div class="table-wrap"><table class="table"><tbody>${FLUX.externes.map(e => `<tr><td>${esc(e.nom)}</td><td>${appTag(e.app)}</td><td class="text-muted">${esc(e.sens)}</td><td class="mono text-muted">${e.tables.map(esc).join(', ')}</td><td>${statutTag(e.statut)}</td></tr>`).join('')}</tbody></table></div></div>
+      </div></div><aside class="quick" id="fl-quick"></aside></div>`;
+    $('fl-matrix').innerHTML = '<div></div>' + APP_IDS.map(a => `<div class="h">${APPS[a].nom}</div>`).join('') + APP_IDS.map(de => `<div class="h">${APPS[de].nom}</div>` + APP_IDS.map(vers => {
+      if (de === vers) return '<div class="c x">·</div>';
+      const fs = FLUX.flux.filter(f => f.de === de && f.vers === vers);
+      return `<div class="c ${fs.length ? '' : 'z'}" title="${fs.map(f => f.id + ' ' + f.nom).join('\n')}">${fs.length || 0}${fs.some(f => f.statut === 'reel') ? ' <span class="dot" style="background:var(--color-accent);width:6px;height:6px"></span>' : ''}</div>`;
+    }).join('')).join('');
+    root.addEventListener('click', e => { const r = e.target.closest('tr[data-f]'); if (r && !e.target.closest('button')) { st.sel = r.dataset.f; update(); } });
+    root.addEventListener('keydown', e => { const r = e.target.closest('tr[data-f]'); if (r && e.key === 'Enter') { st.sel = r.dataset.f; update(); } });
+    onSeg(root, 'statut', v => { st.statut = v; update(); });
+    update();
+  }
+  function update() {
+    const counts = Object.keys(STATUT).map(s => [s, STATUT[s][0], FLUX.flux.filter(f => f.statut === s).length]).filter(x => x[2]);
+    $('fl-seg').innerHTML = seg('statut', [['tous', 'Tous', FLUX.flux.length], ...counts], st.statut);
+    const rows = FLUX.flux.filter(f => st.statut === 'tous' || f.statut === st.statut);
+    $('fl-rows').innerHTML = rows.map(f => `<tr class="click" data-f="${f.id}" tabindex="0" aria-selected="${st.sel === f.id}">
+      <td style="min-width:220px"><div class="t-name">${esc(f.nom)}</div><div class="sub text-muted mono">${esc(f.id)} · ${esc(f.point)}</div></td>
+      <td class="nowrap"><span style="display:inline-flex;gap:6px;align-items:center">${appMark(f.de)}<span class="arrow">→</span>${appMark(f.vers)}</span></td>
+      <td class="text-muted nowrap">${esc(f.mode)}</td>
+      <td class="mono text-muted" style="font-size:11.5px">${f.source.length ? esc(f.source.slice(0, 3).join(', ')) + (f.source.length > 3 ? ` +${f.source.length - 3}` : '') : '—'}</td>
+      <td>${statutTag(f.statut)}</td></tr>`).join('');
+    const f = FLUX.flux.find(x => x.id === st.sel);
+    $('fl-quick').innerHTML = f ? fluxSheet(f) : '';
+  }
+  return { render, open(id) { st.sel = id; st.statut = 'tous'; go('flux'); if (rendered.flux) update(); } };
+})();
+RENDER.flux = () => Flows.render();
+
+// ── Doublons à trancher ─────────────────────────────────────────────────
+const Dups = (() => {
+  const st = { sel: DOUBLONS[0].id, filtre: 'tous' };
+  let root;
+  const FILTRES = {
+    tous: ['Tous', () => true],
+    attente: ['À trancher', g => !Decisions.get(g.id)],
+    tranches: ['Tranchés', g => !!Decisions.get(g.id)],
+    fusion: ['Fusion possible', g => FUSION.has(g.nature)],
+    garder: ['À garder séparés', g => !FUSION.has(g.nature)],
+  };
+  function render() {
+    root = $('s-doublons');
+    root.innerHTML = `<div class="panes"><div class="list">
+      <div class="list-head"><div class="crumb"><div class="sub">Tables en double entre les outils</div><div class="crumb-title">Doublons à trancher</div></div><div id="db-seg"></div>
+        <button class="btn btn-secondary btn-sm" id="db-copy">${icon('copy', 13)} Copier mes décisions</button></div>
+      <div class="list-body">
+        <p class="text-muted prose" style="padding:0 8px 12px">Chaque ligne regroupe des tables qui décrivent le même objet dans plusieurs outils. Les noms et colonnes de chaque paire de tables ont été comparés, puis le code et les données de démonstration ont été relus. Choisissez une option dans le détail de chaque groupe ; « Copier mes décisions » produit le texte à transmettre.</p>
+        <div class="table-wrap"><table class="table"><thead><tr><th>Objet</th><th>Outils</th><th class="num">Tables</th><th>Nature</th><th>Gravité</th><th>Proposé</th><th>Décision</th></tr></thead><tbody id="db-rows"></tbody></table></div>
+      </div><div class="list-foot" id="db-foot"></div></div>
+      <aside class="quick" id="db-quick"></aside></div>`;
+    root.addEventListener('click', e => {
+      const r = e.target.closest('tr[data-g]'); if (r && !e.target.closest('button')) { st.sel = r.dataset.g; update(); }
+      const opt = e.target.closest('[data-choix]'); if (opt) { const v = opt.dataset.choix; Decisions.set(st.sel, Decisions.get(st.sel) === v ? null : v); update(); toast(Decisions.get(st.sel) ? `${st.sel} : option ${v} retenue` : `${st.sel} : décision retirée`); }
+      if (e.target.closest('#db-copy')) copyDecisions();
+    });
+    root.addEventListener('keydown', e => { const r = e.target.closest('tr[data-g]'); if (r && e.key === 'Enter') { st.sel = r.dataset.g; update(); } });
+    onSeg(root, 'dfiltre', v => { st.filtre = v; update(); });
+    update();
+  }
+  function copyDecisions() {
+    const lines = DOUBLONS.map(g => {
+      const d = Decisions.get(g.id), o = g.options.find(x => x.id === d);
+      return `${g.id} ${g.objet} : ${o ? `option ${o.id} (${o.libelle})` : 'à trancher'}${g.decision && g.decision.option === d ? ` [décision ${g.decision.statut} du ${g.decision.le}]` : ''}${d && d !== g.recommandation ? ` [proposé : ${g.recommandation}]` : ''}`;
+    });
+    copy(`Décisions sur les doublons (${Decisions.count()}/${DOUBLONS.length})\n` + lines.join('\n'));
+  }
+  function update() {
+    $('db-seg').innerHTML = seg('dfiltre', Object.entries(FILTRES).map(([k, [l, fn]]) => [k, l, DOUBLONS.filter(fn).length]), st.filtre);
+    const rows = DOUBLONS.filter(FILTRES[st.filtre][1]);
+    $('db-rows').innerHTML = rows.map(g => { const d = Decisions.get(g.id); return `<tr class="click" data-g="${g.id}" tabindex="0" aria-selected="${st.sel === g.id}">
+      <td style="min-width:200px"><div class="t-name">${esc(g.objet)}</div><div class="sub text-muted mono">${g.id}</div></td>
+      <td class="nowrap">${[...new Set(g.tables.map(o => o.app))].map(a => appMark(a)).join(' ')}</td>
+      <td class="num">${g.tables.filter(o => o.table !== '—').length}</td>
+      <td>${natureTag(g.nature)}</td><td>${gravTag(g.gravite)}</td>
+      <td class="nowrap"><span class="tag tag-ghost">${g.recommandation}</span></td>
+      <td class="nowrap">${d ? `<span class="tag tag-accent" title="${g.decision && g.decision.option === d ? 'Décision ' + g.decision.statut + ' du ' + new Date(g.decision.le).toLocaleDateString('fr-FR') : 'Choix enregistré dans ce navigateur'}">${icon('tick', 10, 2)} ${d}${g.decision && g.decision.option === d && g.decision.statut === 'provisoire' ? ' · provisoire' : ''}</span>` : '<span class="text-muted sub">à trancher</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Aucun groupe dans ce filtre.</td></tr>`;
+    $('db-foot').textContent = `${Decisions.count()} décision(s) sur ${DOUBLONS.length} · ${DOUBLONS.filter(g => g.decision).length} enregistrée(s) dans Matrix, les autres choix restent dans ce navigateur`;
+    const g = DOUBLONS.find(x => x.id === st.sel); const d = Decisions.get(g.id);
+    $('db-quick').innerHTML = `<div class="quick-head"><div class="quick-title">${esc(g.objet)}</div></div>
+      <div class="tags"><span class="tag tag-ghost">${g.id}</span>${natureTag(g.nature)}${gravTag(g.gravite)}</div>
+      <div><div class="block-title">Ce que contiennent les tables</div><p>${esc(g.contenu)}</p></div>
+      <div><div class="block-title">Tables concernées <span>${g.tables.length}</span></div>
+        ${g.tables.map(o => `<div class="link-row" style="flex-direction:column;align-items:flex-start;gap:2px"><div style="display:flex;gap:8px;align-items:center">${appMark(o.app)}${o.table === '—' ? '<span class="text-muted">aucune table</span>' : `<button class="link-btn mono" data-open="${esc(key(o.app, o.table))}">${esc(o.table)}</button>`}</div><div>${esc(o.role)}</div>${o.contenu ? `<div class="sub text-muted">${esc(o.contenu)}</div>` : ''}</div>`).join('')}</div>
+      ${g.champs.length ? `<div><div class="block-title">Colonnes qui se correspondent</div>${g.champs.map(c => `<div class="link-row mono" style="font-size:11.5px">${esc(c)}</div>`).join('')}</div>` : ''}
+      <div><div class="block-title">Options <span>proposé : ${g.recommandation}</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px">${g.options.map(o => `<button type="button" class="option" data-choix="${o.id}" aria-pressed="${d === o.id}">
+          <span class="option-head"><span class="option-id">${o.id}</span><span>${esc(o.libelle)}</span>${o.id === g.recommandation ? '<span class="tag tag-ghost" style="margin-left:auto">proposé</span>' : ''}</span>
+          <span class="sub text-muted">${esc(o.effet)}</span></button>`).join('')}</div></div>
+      <p class="note"><b style="font-weight:500">Pourquoi ${g.recommandation} :</b> ${esc(g.raison)}</p>
+      ${g.decision ? `<div><div class="block-title">Décision ${esc(g.decision.statut)} du ${new Date(g.decision.le).toLocaleDateString('fr-FR')}</div><p class="note">« ${esc(g.decision.citation)} »<br><span class="text-muted">${esc(g.decision.effet)}</span></p></div>` : ''}
+      <div class="actions"><button class="btn btn-primary" id="db-graph">${icon('graph', 14)} Voir dans le graphe</button></div>`;
+    $('db-graph').addEventListener('click', () => { const f = g.tables.find(o => o.table !== '—'); Graph.focusTable(key(f.app, f.table), { doublons: true }); });
+  }
+  return { render, open(id) { st.sel = id; st.filtre = 'tous'; go('doublons'); if (rendered.doublons) update(); } };
+})();
+RENDER.doublons = () => Dups.render();
+
+// ── Qualité ─────────────────────────────────────────────────────────────
+RENDER.qualite = () => {
+  const m = APP_IDS.map(a => {
+    const ts = tablesOf(a);
+    const fks = ts.flatMap(t => t.fks);
+    return { a, tables: ts.length, cols: ts.reduce((n, t) => n + t.columns.length, 0), decl: fks.filter(f => f.declared).length, log: fks.filter(f => !f.declared).length,
+      iso: ts.filter(t => linkCount(t) === 0).length, json: ts.reduce((n, t) => n + t.columns.filter(c => /json/i.test(c.type)).length, 0),
+      sens: ts.reduce((n, t) => n + (t.sensitive || []).length, 0), sansEcran: ts.filter(t => !t.lit.length && !t.ecrit.length).length };
+  });
+  $('s-qualite').innerHTML = `<div class="wrap">
+    <div class="sec-head"><h6 class="sec-title">Indicateurs par base</h6><span class="sub text-muted">Calculés à partir des schémas lus</span></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th class="num">Tables</th><th class="num">Colonnes</th><th class="num">Clés étrangères</th><th class="num">Liens logiques</th><th class="num">Tables isolées</th><th class="num">Colonnes JSON</th><th class="num">Colonnes sensibles</th><th class="num">Tables sans écran relevé</th></tr></thead>
+    <tbody>${m.map(x => `<tr><td class="nowrap">${appMark(x.a)} ${APPS[x.a].nom}</td><td class="num">${x.tables}</td><td class="num">${fmt(x.cols)}</td><td class="num">${x.decl}</td><td class="num">${x.log ? `<span class="tag tag-outline">${x.log}</span>` : 0}</td><td class="num">${x.iso}</td><td class="num">${x.json}</td><td class="num">${x.sens}</td><td class="num">${x.sansEcran}</td></tr>`).join('')}</tbody></table></div>
+    <div class="sec-head" style="margin-top:30px"><h6 class="sec-title">Points d’attention</h6><span class="sub text-muted">${FLUX.alertes.length} relevés</span></div>
+    ${FLUX.alertes.map(a => `<div class="alert-row hairline">${gravTag(a.gravite)}<div style="min-width:0;flex:1"><div>${esc(a.titre)} <span class="text-muted sub">· ${a.app === 'toutes' ? 'toutes les bases' : APPS[a.app].nom}</span></div><div class="sub text-muted prose">${esc(a.detail)}</div></div></div>`).join('')}
+  </div>`;
+};
+
+// ── Administration ──────────────────────────────────────────────────────
+RENDER.administration = () => {
+  const root = $('s-administration'); let tab = 'connexions';
+  const ROLES = ['Administrateur des données', 'Responsable de domaine', 'Lecteur'];
+  const PERMS = [['Consulter le catalogue et le graphe', [1, 1, 1]], ['Voir un extrait des données', [1, 1, 0]], ['Voir les données sensibles', [1, 0, 0]], ['Documenter une table ou une colonne', [1, 1, 0]], ['Lancer une collecte', [1, 0, 0]], ['Exécuter une requête de modification', [1, 0, 0]], ['Gérer les connexions et les droits', [1, 0, 0]]];
+  const JOURNAL = [
+    ['15/10 09:12', 'Service informatique', 'Collecte des schémas', '4 bases · 289 tables'],
+    ['14/10 17:40', 'Service informatique', 'Description modifiée', 'cursus.employes'],
+    ['14/10 11:05', 'Responsable RH', 'Extrait consulté', 'cursus.formations (20 lignes)'],
+    ['13/10 16:22', 'Service informatique', 'Correspondance ajoutée', 'Personnes : EMP-0018 ↔ tnguyen'],
+  ];
+  const draw = () => {
+    let body = '';
+    if (tab === 'connexions') body = `<div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th>Aujourd’hui</th><th>Cible validée le 15/10/2026</th><th>Rôle de l’outil</th><th>Accès de Matrix</th></tr></thead><tbody>
+      ${APP_IDS.map(a => `<tr><td class="nowrap">${appMark(a)} ${APPS[a].nom}</td><td>${esc(APPS[a].moteur)}<div class="sub text-muted mono">${esc(APPS[a].donnees)}</div></td><td>Schéma <span class="mono">${a}</span> de la base <span class="mono">epc2i</span>${a === 'cursus' ? '<div class="sub text-muted">migration depuis SQLite, 37 clés étrangères à déclarer</div>' : ''}</td><td class="mono">${a}_app</td><td><span class="mono">matrix_lecture</span><div class="sub text-muted">lecture seule${a === 'cursus' || a === 'vigie' ? ', colonnes sensibles exclues' : ''}</div></td></tr>`).join('')}
+      <tr><td class="nowrap">${icon('matrix', 16)} Matrix</td><td class="text-muted">—</td><td>Schéma <span class="mono">matrix</span></td><td class="mono">matrix_app</td><td class="text-muted">catalogue, correspondances, historique</td></tr></tbody></table></div>
+      <p class="note" style="margin-top:14px">Serveur PostgreSQL commun avec un schéma par outil : validé le 15 octobre 2026. Chaque outil reste seul propriétaire de son schéma et ne voit pas ceux des autres. Matrix lit tout en lecture seule, sans les colonnes sensibles. En développement et dans l’application Mac, chaque outil garde sa base embarquée.</p>`;
+    else if (tab === 'collecte') {
+      const TYPES = { table_ajoutee: 'Table ajoutée', table_supprimee: 'Table supprimée', colonne_ajoutee: 'Colonne ajoutée', colonne_supprimee: 'Colonne supprimée' };
+      body = `<div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th>Source du schéma</th><th class="num">Tables</th><th class="num">À documenter</th></tr></thead><tbody>
+        ${CAT.apps.map(a => `<tr><td class="nowrap">${appMark(a.id)} ${APPS[a.id].nom}</td><td>${esc(a.source)}</td><td class="num">${a.tables.length}</td><td class="num">${a.tables.filter(t => t.nouvelle).length}</td></tr>`).join('')}</tbody></table></div>
+        <div class="block-title" style="margin-top:22px">Déclaration des nouvelles tables</div>
+        <ol class="prose" style="margin:4px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px">
+          <li>Au démarrage, après ses migrations, chaque outil lit le schéma réel de sa base et l’envoie à Matrix (<span class="mono">POST /api/declarations</span>, jeton partagé).</li>
+          <li>Matrix compare la déclaration à la collecte précédente. Une table inconnue est ajoutée à la bibliothèque, marquée « à documenter ».</li>
+          <li>La nouvelle table est comparée à celles des autres outils. Si elle ressemble à une table existante, elle est signalée comme doublon possible.</li>
+          <li>Tant qu’un outil n’envoie pas de déclaration, Matrix lit son schéma dans le code source (migrations).</li>
+        </ol>
+        <div class="block-title" style="margin-top:22px">Historique des schémas <span>${HIST.length}</span></div>
+        ${HIST.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Base</th><th>Changement</th><th>Objet</th></tr></thead><tbody>${HIST.slice().reverse().map(e => `<tr><td class="tabnum text-muted nowrap">${new Date(e.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td>${APPS[e.app].nom}</td><td>${TYPES[e.type]}${e.doublonsPossibles ? ` <span class="tag tag-outline">doublon possible : ${esc(e.doublonsPossibles.join(', '))}</span>` : ''}</td><td class="mono">${esc(e.table)}${e.colonne ? '.' + esc(e.colonne) : ''}</td></tr>`).join('')}</tbody></table></div>`
+          : `<p class="text-muted">Aucun changement depuis la première collecte du ${new Date(CAT.generatedAt).toLocaleDateString('fr-FR')}.</p>`}
+        <div class="block-title" style="margin-top:22px">Commandes</div><div class="code">node outils/collecteur.mjs ..          # relire les schémas et comparer
+node outils/serveur-declarations.mjs     # recevoir les déclarations des outils
+node outils/construire-maquette.mjs      # reconstruire cette maquette</div>`;
+    }
+    else if (tab === 'droits') body = `<div class="table-wrap"><table class="table"><thead><tr><th>Droit</th>${ROLES.map(r => `<th style="text-align:center">${r}</th>`).join('')}</tr></thead><tbody>${PERMS.map(([p, g]) => `<tr><td>${p}</td>${g.map(v => `<td style="text-align:center"><span class="perm ${v ? 'on' : 'off'}">${icon(v ? 'tick' : 'dash', 15, 1.8)}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="sub text-muted" style="margin-top:10px">Matrice proposée, à valider. L’authentification passera par le même fournisseur que les autres outils (question O-02 de Codex).</p>`;
+    else body = `<p class="sub text-muted" style="margin-bottom:8px">Exemple de journal, pour illustrer ce qui sera tracé.</p><div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Qui</th><th>Action</th><th>Objet</th></tr></thead><tbody>${JOURNAL.map(r => `<tr><td class="tabnum text-muted nowrap">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="mono">${r[3]}</td></tr>`).join('')}</tbody></table></div>`;
+    root.querySelector('#ad-body').innerHTML = body;
+  };
+  root.innerHTML = `<div class="wrap"><div style="margin-bottom:16px">${seg('ad', [['connexions', 'Connexions'], ['collecte', 'Collecte'], ['droits', 'Rôles & droits'], ['journal', 'Journal']], tab)}</div><div id="ad-body"></div></div>`;
+  onSeg(root, 'ad', v => { tab = v; draw(); });
+  draw();
+};
+
+show(location.hash.slice(1) || 'accueil');
+})();
+</script>

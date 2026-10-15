@@ -1,0 +1,361 @@
+{
+  "_lisezmoi": "Tables en doublon entre Keystone, Codex, Cursus et Vigie, relevées le 15 octobre 2026. Méthode : comparaison automatique des noms et des colonnes de chaque paire de tables entre deux bases (outils/collecteur.mjs), puis relecture du code et des jeux de démo. nature : doublon = même objet, saisi deux fois ; miroir = copie locale d'une table d'un autre outil ; chevauchement = objets voisins qui se recouvrent en partie ; homonyme = même nom, objets différents ; technique = table d'infrastructure propre à chaque outil. Le champ decision est rempli quand l'utilisateur a tranché (statut : definitive ou provisoire, avec sa citation exacte).",
+  "groupes": [
+    {
+      "id": "D01", "objet": "Personnes", "nature": "doublon", "gravite": "critique",
+      "tables": [
+        { "app": "cursus", "table": "employes", "role": "Fiche salarié RH (contrat, temps de travail, visite médicale)", "contenu": "24 salariés, matricule EMP-xxxx dérivé de l'id entier" },
+        { "app": "keystone", "table": "persons", "role": "Personnes des projets, y compris contacts client et rôles contractuels", "contenu": "id uuid, short_name unique ; mêmes noms que Codex" },
+        { "app": "codex", "table": "users", "role": "Utilisateurs de la GED et comptes système", "contenu": "25 personnes + comptes codex, keystone, vigie ; id texte" },
+        { "app": "vigie", "table": "people", "role": "Personnel suivi dans la matrice d'habilitations", "contenu": "12 personnes, noms provisoires entre crochets ([T. Nguyen])" }
+      ],
+      "contenu": "11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre.",
+      "champs": ["employes.nom ↔ persons.full_name ↔ users.name ↔ people.name", "employes.poste ↔ persons.job_title ↔ users.title ↔ people.job", "employes.equipe ↔ persons.department_id ↔ users.department", "— ↔ persons.email ↔ — ↔ —"],
+      "options": [
+        { "id": "A", "libelle": "Fusionner : Cursus fait foi pour les salariés", "effet": "Une seule fiche par salarié, identifiée par le matricule. Keystone, Codex et Vigie gardent une table locale réduite (matricule + données propres à l'outil). Keystone garde les personnes externes (contacts client)." },
+        { "id": "B", "libelle": "Fusionner : annuaire central dans Matrix", "effet": "Matrix tient la fiche Personne (alimentée par Entra ID et Cursus) et la diffuse aux quatre outils." },
+        { "id": "C", "libelle": "Garder les quatre tables et les rapprocher", "effet": "Matrix tient une table de correspondance des identifiants. Les doubles saisies continuent." }
+      ],
+      "recommandation": "A",
+      "raison": "Cursus est le seul outil qui connaît le contrat et l'entrée ou la sortie du salarié. Les autres n'ont besoin que d'une référence.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D01 Personnes : option A (Fusionner : Cursus fait foi pour les salariés)"}
+    },
+    {
+      "id": "D02", "objet": "Projets", "nature": "miroir", "gravite": "critique",
+      "tables": [
+        { "app": "keystone", "table": "projects", "role": "Projet de référence (code, client, phase, budget)", "contenu": "17 projets, codes HLT-026, NDC-031… et code analytique HAV004" },
+        { "app": "codex", "table": "projects", "role": "Copie locale pour rattacher les documents", "contenu": "3 projets, mêmes codes que Keystone (HLT-026, NDC-031, RCF-019)" },
+        { "app": "vigie", "table": "keystone_projects", "role": "Copie locale pour les listes de choix", "contenu": "10 projets K-2024-097… : aucun code n'existe dans Keystone" },
+        { "app": "cursus", "table": "projets", "role": "Codes à imputer sur les feuilles de temps", "contenu": "14 codes : projets K-26xx et codes internes INT-PROD, INT-HSE, ECOLE…" }
+      ],
+      "contenu": "Codex est cohérent avec Keystone. Vigie et Cursus utilisent des codes que Keystone ne connaît pas. Les codes internes de Cursus (INT-…) n'ont pas d'équivalent dans Keystone.",
+      "champs": ["projects.code ↔ projects.code ↔ keystone_projects.id ↔ projets.code", "projects.name ↔ projects.name ↔ keystone_projects.title ↔ projets.nom", "clients.name ↔ projects.client ↔ keystone_projects.client ↔ —"],
+      "options": [
+        { "id": "A", "libelle": "Garder Keystone seul ; les autres deviennent des miroirs synchronisés", "effet": "Mêmes codes partout. Les copies sont mises à jour par l'API Keystone et ne sont plus saisies." },
+        { "id": "B", "libelle": "Garder Keystone et ajouter les codes internes dans Keystone", "effet": "Comme A, et les codes hors projet (INT-…) deviennent des projets internes Keystone, avec leur code analytique." },
+        { "id": "C", "libelle": "Garder les tables actuelles", "effet": "Trois formats de code restent en circulation." }
+      ],
+      "recommandation": "B",
+      "raison": "Les heures imputées sur un code interne doivent aussi remonter dans Sage X3 et Lucca, comme celles des projets.",
+      "decision": {"option": "B", "statut": "definitive", "le": "2026-10-15", "citation": "D02 Projets : option B (Garder Keystone et ajouter les codes internes dans Keystone)"}
+    },
+    {
+      "id": "D03", "objet": "Chantiers (fiche site d'un projet)", "nature": "doublon", "gravite": "majeur",
+      "tables": [
+        { "app": "keystone", "table": "site_sheets", "role": "Fiche chantier : lieu, pays, dates, contraintes d'accès", "contenu": "1 fiche (HLT-026) ; cursus_chantier_id vide" },
+        { "app": "keystone", "table": "site_rotations", "role": "Équipe et rotations sur le chantier", "contenu": "6 rotations" },
+        { "app": "cursus", "table": "chantiers", "role": "Chantier, exigences d'habilitation et équipe pour le Go / No Go", "contenu": "5 chantiers K-26xx ; habs, certs, ressources en JSON" }
+      ],
+      "contenu": "Les deux outils décrivent le même chantier (lieu, pays, début, fin, chef, équipe), avec des codes différents. Cursus ajoute les habilitations exigées.",
+      "champs": ["site_sheets.site_name ↔ chantiers.lieu", "site_sheets.country ↔ chantiers.pays", "site_sheets.start_on / end_on ↔ chantiers.debut / fin", "site_rotations.person_id ↔ chantiers.ressources[]"],
+      "options": [
+        { "id": "A", "libelle": "Keystone fait foi, exigences comprises ; Cursus lit", "effet": "Keystone stocke les habilitations exigées par chantier. Cursus calcule le verdict à partir de cette fiche." },
+        { "id": "B", "libelle": "Keystone pour le chantier, Cursus pour les exigences", "effet": "Cursus garde une table réduite (code projet + exigences) et lit le reste dans Keystone." },
+        { "id": "C", "libelle": "Garder les deux", "effet": "Les dates et l'équipe sont saisies deux fois." }
+      ],
+      "recommandation": "B",
+      "raison": "Les exigences d'habilitation relèvent des RH ; le reste de la fiche relève du projet.",
+      "decision": {"option": "B", "statut": "definitive", "le": "2026-10-15", "citation": "D03 Chantiers (fiche site d'un projet) : option B (Keystone pour le chantier, Cursus pour les exigences)"}
+    },
+    {
+      "id": "D04", "objet": "Affectations des personnes aux projets", "nature": "miroir", "gravite": "majeur",
+      "tables": [
+        { "app": "keystone", "table": "allocations", "role": "Charge par personne, semaine et projet", "contenu": "64 lignes" },
+        { "app": "keystone", "table": "activity_assignments", "role": "Ressources affectées aux activités du planning", "contenu": "heures prévues et réalisées" },
+        { "app": "cursus", "table": "missions", "role": "Affectations recopiées de Keystone (alertes de congés)", "contenu": "14 missions" },
+        { "app": "vigie", "table": "keystone_assignments", "role": "Affectations recopiées de Keystone (alertes d'habilitation)", "contenu": "1 affectation" }
+      ],
+      "contenu": "Les tables de Cursus et de Vigie portent les mêmes champs (personne, projet, début, fin) et sont remplies uniquement par le jeu de démo.",
+      "champs": ["allocations.person_id ↔ missions.emp_id ↔ keystone_assignments.person_id", "allocations.project_id ↔ missions.projet ↔ keystone_assignments.project", "week_start ↔ du / au ↔ start_on / end_on"],
+      "options": [
+        { "id": "A", "libelle": "Keystone fait foi ; Cursus et Vigie lisent par API", "effet": "Suppression de missions et de keystone_assignments, remplacés par un appel à Keystone." },
+        { "id": "B", "libelle": "Keystone fait foi ; copies synchronisées", "effet": "Les tables restent comme cache, mises à jour par Keystone." }
+      ],
+      "recommandation": "B",
+      "raison": "Cursus et Vigie calculent des alertes en masse ; un cache local évite un appel par personne.",
+      "decision": {"option": "B", "statut": "definitive", "le": "2026-10-15", "citation": "D04 Affectations des personnes aux projets : option B (Keystone fait foi ; copies synchronisées)"}
+    },
+    {
+      "id": "D05", "objet": "Tâches et heures prévues", "nature": "miroir", "gravite": "mineur",
+      "tables": [
+        { "app": "keystone", "table": "tasks", "role": "Tâches du projet", "contenu": "27 tâches" },
+        { "app": "cursus", "table": "taches", "role": "Tâches Keystone et heures prévues par jour, pour pré-remplir les feuilles", "contenu": "32 lignes" }
+      ],
+      "contenu": "Cursus recopie les tâches pour proposer les lignes de la feuille de temps.",
+      "champs": ["tasks.person_id ↔ taches.emp_id", "tasks.activity_id → projet ↔ taches.projet", "tasks.title ↔ taches.tache"],
+      "options": [
+        { "id": "A", "libelle": "Keystone fait foi ; Cursus lit au moment de la saisie", "effet": "Suppression de taches ; Keystone expose « tâches d'une personne pour une semaine » (déjà demandé par Cursus)." },
+        { "id": "B", "libelle": "Garder la copie Cursus synchronisée", "effet": "La table reste, mise à jour par Keystone." }
+      ],
+      "recommandation": "A",
+      "raison": "La table ne sert qu'à une suggestion ; la lecture directe est plus simple.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D05 Tâches et heures prévues : option A (Keystone fait foi ; Cursus lit au moment de la saisie)"}
+    },
+    {
+      "id": "D06", "objet": "Temps passés", "nature": "doublon", "gravite": "critique",
+      "tables": [
+        { "app": "cursus", "table": "feuilles", "role": "Feuille de temps hebdomadaire validée par le manager, envoyée à Sage Paie", "contenu": "49 feuilles" },
+        { "app": "keystone", "table": "time_entries", "role": "Heures saisies sur une tâche", "contenu": "4 lignes" },
+        { "app": "keystone", "table": "hours_lines", "role": "Heures déclarées par personne et lot, importées de Lucca", "contenu": "10 lignes" },
+        { "app": "vigie", "table": "hours_worked", "role": "Heures travaillées par site et par mois (taux TF1 / TG)", "contenu": "24 lignes saisies" }
+      ],
+      "contenu": "Le temps est saisi à deux endroits (Cursus et Keystone) et importé d'un troisième (Lucca). Vigie ressaisit un total mensuel.",
+      "champs": ["feuilles.lignes[].h ↔ time_entries.hours ↔ hours_lines.declared_h", "feuilles.week ↔ time_entries.work_date ↔ hours_imports.period_start", "feuilles.lignes[].projet ↔ — ↔ hours_imports.analytic_code", "Σ feuilles ↔ hours_worked.hours"],
+      "options": [
+        { "id": "A", "libelle": "Cursus fait foi pour la saisie ; Keystone et Vigie reçoivent les heures validées", "effet": "Keystone remplit hours_lines depuis Cursus au lieu de Lucca et retire la saisie time_entries. Vigie calcule hours_worked depuis Cursus." },
+        { "id": "B", "libelle": "Lucca fait foi ; Cursus et Keystone importent", "effet": "Cursus abandonne la saisie des feuilles et garde la validation." },
+        { "id": "C", "libelle": "Keystone fait foi pour les heures projet ; Cursus pour la paie", "effet": "Deux saisies distinctes, à rapprocher chaque mois." }
+      ],
+      "recommandation": "A",
+      "raison": "Cursus valide déjà les feuilles et alimente la paie ; une seule saisie évite les écarts entre paie et coûts projet. Point à trancher avec la DRH : Lucca est-il remplacé par Cursus ?",
+      "decision": {"option": "A", "statut": "provisoire", "le": "2026-10-15", "citation": "D06 Temps passés : option A (Cursus fait foi pour la saisie ; Keystone et Vigie reçoivent les heures validées)", "citationPrecedente": "Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas.", "effet": "Option A retenue dans la liste des décisions. Le remplacement de Lucca reste à confirmer : tout est préparé (docs/remplacement-lucca.md), rien n'est retiré de Lucca avant confirmation."}
+    },
+    {
+      "id": "D07", "objet": "Absences et congés", "nature": "doublon", "gravite": "majeur",
+      "tables": [
+        { "app": "cursus", "table": "absences", "role": "Demandes et validation des CP, RTT et récupérations", "contenu": "9 absences" },
+        { "app": "keystone", "table": "leave_entries", "role": "Congés connus du planning de ressources", "contenu": "12 lignes ; colonnes source et external_id prévues pour un import" },
+        { "app": "keystone", "table": "leave_types", "role": "Types de congé", "contenu": "4 types" }
+      ],
+      "contenu": "Keystone prévoit déjà d'importer les congés (source, external_id). Cursus envoie l'événement absence.validee, sans destinataire pour l'instant.",
+      "champs": ["absences.emp_id ↔ leave_entries.person_id", "absences.du / au ↔ leave_entries.start_date / end_date", "absences.type ↔ leave_entries.leave_type", "absences.statut ↔ leave_entries.status"],
+      "options": [
+        { "id": "A", "libelle": "Cursus fait foi ; Keystone garde une copie en lecture", "effet": "leave_entries n'est plus saisi dans Keystone, seulement alimenté par Cursus." },
+        { "id": "B", "libelle": "Garder deux saisies", "effet": "Les congés sont déclarés deux fois." }
+      ],
+      "recommandation": "A",
+      "raison": "Le droit à congés (soldes, CET, reports) n'existe que dans Cursus.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D07 Absences et congés : option A (Cursus fait foi ; Keystone garde une copie en lecture)"}
+    },
+    {
+      "id": "D08", "objet": "Catalogue des formations et habilitations", "nature": "doublon", "gravite": "majeur",
+      "tables": [
+        { "app": "cursus", "table": "formations", "role": "Catalogue des formations (durée, organisme, coût, validité)", "contenu": "11 formations : sst, elec, atex, caces489, hauteur…" },
+        { "app": "cursus", "table": "habilitations", "role": "Types d'habilitation et prérequis", "contenu": "6 habilitations" },
+        { "app": "vigie", "table": "training_titles", "role": "Titres suivis dans la matrice QHSE", "contenu": "8 titres : sst, elec, atex, r489, hauteur…" }
+      ],
+      "contenu": "Mêmes codes et mêmes durées de validité : SST 24 mois, électricité 36, ATEX 36, hauteur 36, CACES R489 60. Vigie mélange formations et habilitations dans une seule liste et ajoute « Accueil sécurité » et « CACES R484 », absents de Cursus.",
+      "champs": ["formations.id ↔ training_titles.id", "formations.court ↔ training_titles.label", "formations.validite ↔ training_titles.validity_months"],
+      "options": [
+        { "id": "A", "libelle": "Cursus fait foi ; Vigie lit le catalogue", "effet": "training_titles devient un miroir du catalogue Cursus. Les titres propres au QHSE (accueil sécurité) sont ajoutés dans Cursus." },
+        { "id": "B", "libelle": "Catalogue unique dans Matrix", "effet": "Matrix publie les codes de titre et leur validité aux deux outils." }
+      ],
+      "recommandation": "A",
+      "raison": "Cursus porte déjà le coût, l'organisme et les sessions de chaque formation.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D08 Catalogue des formations et habilitations : option A (Cursus fait foi ; Vigie lit le catalogue)"}
+    },
+    {
+      "id": "D09", "objet": "Titres détenus par les personnes", "nature": "doublon", "gravite": "majeur",
+      "tables": [
+        { "app": "cursus", "table": "certifications", "role": "Formations suivies, avec date d'obtention", "contenu": "≈ 66 lignes" },
+        { "app": "cursus", "table": "hab_titres", "role": "Habilitations délivrées et signées", "contenu": "≈ 21 lignes" },
+        { "app": "vigie", "table": "qualifications", "role": "Titres détenus, date d'obtention et d'expiration", "contenu": "≈ 39 lignes" },
+        { "app": "keystone", "table": "certifications", "role": "Certifications d'une personne, en texte libre", "contenu": "8 lignes (« HV switching authorisation »…)" }
+      ],
+      "contenu": "Le même titre est enregistré dans deux ou trois outils. Keystone le saisit en texte libre, sans code. Les exigences par personne (vigie.qualification_requirements) et par chantier (cursus.chantiers.habs) sont deux tables différentes et restent distinctes.",
+      "champs": ["certifications.emp_id ↔ qualifications.person_id ↔ certifications.person_id", "certifications.f / hab_titres.h ↔ qualifications.title_id ↔ certifications.name", "certifications.obtenue ↔ qualifications.obtained_on", "— ↔ qualifications.expires_on ↔ certifications.expires_on"],
+      "options": [
+        { "id": "A", "libelle": "Cursus fait foi ; Vigie et Keystone lisent", "effet": "vigie.qualifications et keystone.certifications deviennent des lectures de Cursus. Vigie garde ses exigences par poste." },
+        { "id": "B", "libelle": "Garder Vigie pour le QHSE et Cursus pour les RH", "effet": "Deux registres à rapprocher." }
+      ],
+      "recommandation": "A",
+      "raison": "Le verdict Go / No Go de Cursus et les alertes de Vigie doivent reposer sur les mêmes titres.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D09 Titres détenus par les personnes : option A (Cursus fait foi ; Vigie et Keystone lisent)"}
+    },
+    {
+      "id": "D10", "objet": "Documents", "nature": "doublon", "gravite": "critique",
+      "tables": [
+        { "app": "codex", "table": "documents", "role": "GED du groupe (identifiant TYPE-CONTEXTE-SEQ)", "contenu": "62 documents, dont la « Politique qualité, sécurité et environnement »" },
+        { "app": "codex", "table": "revisions", "role": "Révisions A, B…", "contenu": "≈ 165 révisions" },
+        { "app": "codex", "table": "workflows", "role": "Circuits de validation", "contenu": "12 circuits" },
+        { "app": "keystone", "table": "documents", "role": "Index local des documents de projet", "contenu": "42 documents ; P&ID numéroté PID-HLT-026 (Codex : PID-HLT-026-001)" },
+        { "app": "keystone", "table": "document_revisions", "role": "Révisions dans Keystone", "contenu": "68 révisions" },
+        { "app": "keystone", "table": "document_approvals", "role": "Signatures dans Keystone", "contenu": "96 lignes" },
+        { "app": "vigie", "table": "documents", "role": "Documents maîtrisés QHSE", "contenu": "15 documents, dont POL-QHSE-001 « Politique QHSE »" },
+        { "app": "vigie", "table": "document_versions", "role": "Versions et approbations QHSE", "contenu": "36 versions" }
+      ],
+      "contenu": "La politique QHSE existe dans Codex et dans Vigie. Le P&ID du projet HLT-026 a deux numérotations (Keystone et Codex). Chaque outil a son propre circuit de validation.",
+      "champs": ["documents.id ↔ documents.number ↔ documents.id", "documents.title ↔ documents.title ↔ documents.title", "revisions.letter ↔ document_revisions.revision ↔ document_versions.version", "workflow_steps ↔ document_approvals ↔ document_versions.approver_id"],
+      "options": [
+        { "id": "A", "libelle": "Codex fait foi ; Keystone et Vigie référencent l'identifiant Codex", "effet": "Les documents de Vigie migrent dans Codex (département QUA / HSE). Keystone garde un index avec codex_id renseigné et supprime ses révisions et signatures." },
+        { "id": "B", "libelle": "Codex fait foi, sauf les documents QHSE qui restent dans Vigie", "effet": "Deux GED, avec la politique QHSE à supprimer de l'une des deux." }
+      ],
+      "recommandation": "A",
+      "raison": "Il est déjà décidé que Codex prend tout en charge, circuits compris.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D10 Documents : option A (Codex fait foi ; Keystone et Vigie référencent l'identifiant Codex)"}
+    },
+    {
+      "id": "D11", "objet": "Registre des types de document et circuits", "nature": "doublon", "gravite": "majeur",
+      "tables": [
+        { "app": "codex", "table": "doc_types", "role": "Registre des types (rétention, confidentialité, circuit)", "contenu": "69 types, 23 familles" },
+        { "app": "codex", "table": "function_holders", "role": "Titulaires des fonctions d'approbation", "contenu": "≈ 43 lignes" },
+        { "app": "keystone", "table": "document_types", "role": "Types de document de Keystone", "contenu": "28 types" },
+        { "app": "keystone", "table": "document_type_circuit_steps", "role": "Étapes de circuit par type", "contenu": "65 étapes" },
+        { "app": "keystone", "table": "document_approver_assignments", "role": "Approbateurs par rôle et projet", "contenu": "10 lignes" }
+      ],
+      "contenu": "Codex publie son registre (GET /api/registry). Keystone ne le lit pas et tient une liste plus courte.",
+      "champs": ["doc_types.code ↔ document_types.code", "doc_types.circuit ↔ document_type_circuit_steps.role", "function_holders ↔ document_approver_assignments"],
+      "options": [
+        { "id": "A", "libelle": "Codex fait foi ; Keystone lit /api/registry", "effet": "Les trois tables Keystone deviennent un cache du registre Codex." },
+        { "id": "B", "libelle": "Garder les deux registres", "effet": "Un même type peut avoir deux circuits différents." }
+      ],
+      "recommandation": "A",
+      "raison": "L'API existe déjà côté Codex.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D11 Registre des types de document et circuits : option A (Codex fait foi ; Keystone lit /api/registry)"}
+    },
+    {
+      "id": "D12", "objet": "Demandes et ordres de modification (ECR / ECO)", "nature": "chevauchement", "gravite": "majeur",
+      "tables": [
+        { "app": "codex", "table": "change_requests", "role": "Demandes de modification ou de retrait d'un document", "contenu": "3 demandes ECR-2026-…" },
+        { "app": "keystone", "table": "vigie_ecos", "role": "Miroir des ordres de modification de Vigie", "contenu": "6 ECO, avec approbations, articles, effectivité" },
+        { "app": "vigie", "table": "—", "role": "Aucune table", "contenu": "Vigie doit centraliser les ECR/ECO mais n'a ni table ni API" }
+      ],
+      "contenu": "Deux outils gardent une copie d'un objet qui n'existe pas dans son outil source.",
+      "champs": ["change_requests.eco_ref ↔ vigie_ecos.number", "change_requests.status ↔ vigie_ecos.status"],
+      "options": [
+        { "id": "A", "libelle": "Créer les tables ECR / ECO dans Vigie, qui fait foi", "effet": "Codex et Keystone gardent des miroirs alimentés par Vigie (décision déjà prise)." },
+        { "id": "B", "libelle": "Codex fait foi pour les ECR de document, Vigie pour les ECO", "effet": "Revient sur la décision de centraliser dans Vigie." }
+      ],
+      "recommandation": "A",
+      "raison": "C'est la décision déjà actée dans Codex ; il manque la construction côté Vigie.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D12 Demandes et ordres de modification (ECR / ECO) : option A (Créer les tables ECR / ECO dans Vigie, qui fait foi)"}
+    },
+    {
+      "id": "D13", "objet": "Non-conformités et éléments HSE de projet", "nature": "miroir", "gravite": "mineur",
+      "tables": [
+        { "app": "vigie", "table": "events", "role": "Événements (dont NC, presqu'accidents, accidents)", "contenu": "17 événements" },
+        { "app": "keystone", "table": "vigie_ncrs", "role": "Miroir des NC de Vigie", "contenu": "15 NC fictives" },
+        { "app": "keystone", "table": "vigie_hse_items", "role": "Miroir des éléments HSE (plans, permis)", "contenu": "5 lignes" }
+      ],
+      "contenu": "Les miroirs de Keystone sont remplis par un connecteur fictif ; leurs références ne correspondent à aucun événement de Vigie.",
+      "champs": ["events.id ↔ vigie_ncrs.vigie_ref", "events.keystone_project ↔ vigie_ncrs.project_code", "events.severity ↔ vigie_ncrs.severity"],
+      "options": [
+        { "id": "A", "libelle": "Vigie fait foi ; garder les miroirs Keystone", "effet": "Vigie publie /api/ncrs et /api/hse selon le contrat proposé par Keystone." }
+      ],
+      "recommandation": "A",
+      "raison": "Le miroir est voulu ; il manque l'API côté Vigie.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D13 Non-conformités et éléments HSE de projet : option A (Vigie fait foi ; garder les miroirs Keystone)"}
+    },
+    {
+      "id": "D14", "objet": "Sites et établissements", "nature": "doublon", "gravite": "majeur",
+      "tables": [
+        { "app": "codex", "table": "sites", "role": "Sites du groupe", "contenu": "lyon, le_havre, marseille" },
+        { "app": "vigie", "table": "sites", "role": "Sites industriels (classement Seveso)", "contenu": "ville-a, ville-b (noms provisoires)" }
+      ],
+      "contenu": "Aucune valeur commune. Vigie attend les vrais noms de site. Les sites de chantier de Keystone (project_sites) sont un autre objet et restent à part.",
+      "champs": ["sites.key ↔ sites.id", "sites.label ↔ sites.label"],
+      "options": [
+        { "id": "A", "libelle": "Une seule liste, publiée par Matrix", "effet": "Codex et Vigie lisent la même liste ; Vigie garde ses attributs Seveso." },
+        { "id": "B", "libelle": "Codex fait foi ; Vigie lit", "effet": "Même résultat, sans passer par Matrix." }
+      ],
+      "recommandation": "A",
+      "raison": "Keystone et Cursus auront aussi besoin de la liste (rattachement des salariés et des projets).",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D14 Sites et établissements : option A (Une seule liste, publiée par Matrix)"}
+    },
+    {
+      "id": "D15", "objet": "Organisation : départements et équipes", "nature": "chevauchement", "gravite": "majeur",
+      "tables": [
+        { "app": "codex", "table": "departments", "role": "Départements du groupe (code à 3 lettres)", "contenu": "15 départements : DIR, PRJ, QUA, HSE…" },
+        { "app": "keystone", "table": "departments", "role": "Services projet, avec responsable et capacité", "contenu": "services d'ingénierie" },
+        { "app": "cursus", "table": "equipes", "role": "Équipes du site et manager", "contenu": "6 équipes : Logistique, Maintenance, Production…" }
+      ],
+      "contenu": "Trois découpages qui ne se recoupent pas : départements du groupe (Codex), services projet (Keystone) et équipes d'usine (Cursus).",
+      "champs": ["departments.code ↔ departments.name ↔ equipes.nom"],
+      "options": [
+        { "id": "A", "libelle": "Organigramme unique à niveaux, publié par Matrix", "effet": "Département > service > équipe ; chaque outil choisit son niveau." },
+        { "id": "B", "libelle": "Garder trois listes et les rapprocher", "effet": "Table de correspondance dans Matrix." }
+      ],
+      "recommandation": "A",
+      "raison": "À trancher quand l'organigramme sera fourni (question O-04 de Codex).",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D15 Organisation : départements et équipes : option A (Organigramme unique à niveaux, publié par Matrix)"}
+    },
+    {
+      "id": "D16", "objet": "Clients, fournisseurs et entreprises extérieures", "nature": "chevauchement", "gravite": "mineur",
+      "tables": [
+        { "app": "keystone", "table": "clients", "role": "Clients", "contenu": "clients des projets" },
+        { "app": "keystone", "table": "suppliers", "role": "Fournisseurs (code X3, notes de performance)", "contenu": "31 fournisseurs" },
+        { "app": "vigie", "table": "contractors", "role": "Entreprises extérieures des plans de prévention", "contenu": "6 entreprises" }
+      ],
+      "contenu": "Une entreprise extérieure de Vigie peut aussi être un fournisseur de Keystone. Codex et Cursus stockent le client en texte libre.",
+      "champs": ["suppliers.name ↔ contractors.name"],
+      "options": [
+        { "id": "A", "libelle": "Keystone fait foi ; Vigie relie ses entreprises aux fournisseurs", "effet": "Ajout d'une colonne supplier_id dans contractors ; Vigie garde ses contacts HSE." },
+        { "id": "B", "libelle": "Garder séparé", "effet": "Pas de lien entre achats et prévention." }
+      ],
+      "recommandation": "A",
+      "raison": "Le taux de NC fournisseur (Keystone) et les incidents d'entreprise extérieure (Vigie) se recoupent.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D16 Clients, fournisseurs et entreprises extérieures : option A (Keystone fait foi ; Vigie relie ses entreprises aux fournisseurs)"}
+    },
+    {
+      "id": "D17", "objet": "Pays", "nature": "chevauchement", "gravite": "mineur",
+      "tables": [
+        { "app": "cursus", "table": "destinations", "role": "Pays et règles de voyage (visa, vaccins)", "contenu": "8 pays, code ISO à 2 lettres" },
+        { "app": "keystone", "table": "countries", "role": "Pays des projets (clé : nom)", "contenu": "pays par zone" },
+        { "app": "keystone", "table": "public_holidays", "role": "Jours fériés par pays", "contenu": "11 jours" }
+      ],
+      "contenu": "Keystone identifie un pays par son nom, Cursus par son code ISO.",
+      "champs": ["destinations.code ↔ countries.name", "destinations.pays ↔ countries.name"],
+      "options": [
+        { "id": "A", "libelle": "Liste des pays ISO publiée par Matrix", "effet": "Keystone ajoute le code ISO ; Cursus garde ses règles de voyage." },
+        { "id": "B", "libelle": "Garder séparé", "effet": "Rapprochement par le nom." }
+      ],
+      "recommandation": "A",
+      "raison": "Faible coût, évite les écarts d'orthographe.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D17 Pays : option A (Liste des pays ISO publiée par Matrix)"}
+    },
+    {
+      "id": "D18", "objet": "Journaux d'audit", "nature": "technique", "gravite": "mineur",
+      "tables": [
+        { "app": "keystone", "table": "audit_entries", "role": "Journal d'audit", "contenu": "" },
+        { "app": "codex", "table": "audit_log", "role": "Journal d'audit", "contenu": "" },
+        { "app": "cursus", "table": "journal", "role": "Journal d'audit et d'intégration", "contenu": "" }
+      ],
+      "contenu": "Chaque outil trace ses propres actions. Vigie n'a pas de journal.",
+      "champs": [],
+      "options": [
+        { "id": "A", "libelle": "Garder dans chaque outil ; Matrix les consulte ensemble", "effet": "Vue d'audit transverse dans Matrix, en lecture." },
+        { "id": "B", "libelle": "Journal central dans Matrix", "effet": "Chaque outil écrit dans Matrix." }
+      ],
+      "recommandation": "A",
+      "raison": "Le journal doit rester disponible même si Matrix est arrêté.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D18 Journaux d'audit : option A (Garder dans chaque outil ; Matrix les consulte ensemble)"}
+    },
+    {
+      "id": "D19", "objet": "Paramètres et fichiers joints", "nature": "technique", "gravite": "mineur",
+      "tables": [
+        { "app": "keystone", "table": "app_settings", "role": "Paramètres de Keystone", "contenu": "" },
+        { "app": "cursus", "table": "settings", "role": "Paramètres de Cursus", "contenu": "" },
+        { "app": "keystone", "table": "stored_files", "role": "Fichiers de Keystone", "contenu": "" },
+        { "app": "vigie", "table": "attachments", "role": "Pièces jointes de Vigie", "contenu": "" }
+      ],
+      "contenu": "Même structure, contenu propre à chaque outil. Ce ne sont pas des doublons.",
+      "champs": ["app_settings ↔ settings (clé / valeur)"],
+      "options": [
+        { "id": "A", "libelle": "Garder dans chaque outil", "effet": "Aucun changement. Les fichiers qui ont valeur de document vont dans Codex (voir D10)." }
+      ],
+      "recommandation": "A",
+      "raison": "Données de fonctionnement propres à chaque outil.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D19 Paramètres et fichiers joints : option A (Garder dans chaque outil)"}
+    },
+    {
+      "id": "D20", "objet": "Homonymes : même nom, objets différents", "nature": "homonyme", "gravite": "mineur",
+      "tables": [
+        { "app": "keystone", "table": "risks", "role": "Risques projet (probabilité, impact, EMV)", "contenu": "" },
+        { "app": "vigie", "table": "risks", "role": "Risques professionnels du DUERP", "contenu": "" },
+        { "app": "vigie", "table": "certifications", "role": "Certifications ISO du groupe", "contenu": "à ne pas confondre avec cursus.certifications (formations suivies)" },
+        { "app": "keystone", "table": "change_requests", "role": "Avenants et changements de projet", "contenu": "à ne pas confondre avec codex.change_requests (ECR)" },
+        { "app": "cursus", "table": "plan_actions", "role": "Lignes du plan de formation", "contenu": "à ne pas confondre avec vigie.actions (plan d'actions QHSE)" },
+        { "app": "cursus", "table": "reports", "role": "Reports de congés payés", "contenu": "à ne pas confondre avec keystone.status_reports" }
+      ],
+      "contenu": "Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration.",
+      "champs": [],
+      "options": [
+        { "id": "A", "libelle": "Garder et toujours nommer les tables avec leur outil", "effet": "Matrix affiche outil.table partout. Aucun changement de code." },
+        { "id": "B", "libelle": "Renommer lors du passage sur le serveur PostgreSQL commun", "effet": "Par exemple vigie.certifications → iso_certifications, cursus.reports → reports_conges." }
+      ],
+      "recommandation": "A",
+      "raison": "Le passage à un schéma par outil suffit à lever l'ambiguïté.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D20 Homonymes : même nom, objets différents : option A (Garder et toujours nommer les tables avec leur outil)"}
+    }
+  ]
+}

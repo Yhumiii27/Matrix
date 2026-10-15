@@ -129,7 +129,7 @@ function parseDrizzle(dir) {
     for (const stmt of sql.split('--> statement-breakpoint')) {
       const s = stmt.trim();
       let m;
-      if ((m = s.match(/^CREATE TABLE (?:IF NOT EXISTS )?"(\w+)" \(([\s\S]*)\);?$/))) {
+      if ((m = s.match(/^CREATE TABLE (?:IF NOT EXISTS )?(?:"\w+"\.)?"(\w+)" \(([\s\S]*)\);?$/))) {
         const t = { name: m[1], columns: [], fks: [], uniques: [], pk: [] };
         for (const raw of m[2].split(/,\n/)) {
           const line = raw.trim();
@@ -140,22 +140,22 @@ function parseDrizzle(dir) {
         }
         for (const col of t.columns) if (col.pk) t.pk = [col.name];
         tables.set(t.name, t);
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" ADD COLUMN "(\w+)" (.+?);?$/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" ADD COLUMN "(\w+)" (.+?);?$/))) {
         tables.get(m[1])?.columns.push(column(m[2], m[3]));
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" DROP COLUMN "(\w+)"/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" DROP COLUMN "(\w+)"/))) {
         const t = tables.get(m[1]);
         if (t) t.columns = t.columns.filter(c => c.name !== m[2]);
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" ADD CONSTRAINT "\w+" FOREIGN KEY \(([^)]*)\) REFERENCES "\w+"\."(\w+)"\(([^)]*)\) ON DELETE ([a-z ]+?) ON UPDATE/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" ADD CONSTRAINT "\w+" FOREIGN KEY \(([^)]*)\) REFERENCES "\w+"\."(\w+)"\(([^)]*)\) ON DELETE ([a-z ]+?) ON UPDATE/))) {
         tables.get(m[1])?.fks.push({
           columns: m[2].replace(/"/g, '').split(', '), table: m[3], refColumns: m[4].replace(/"/g, '').split(', '),
           onDelete: m[5], declared: true,
         });
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" ADD CONSTRAINT "\w+" UNIQUE(?: NULLS NOT DISTINCT)?\(([^)]*)\)/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" ADD CONSTRAINT "\w+" UNIQUE(?: NULLS NOT DISTINCT)?\(([^)]*)\)/))) {
         tables.get(m[1])?.uniques.push(m[2].replace(/"/g, '').split(','));
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" RENAME TO "(\w+)"/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" RENAME TO "(\w+)"/))) {
         const t = tables.get(m[1]);
         if (t) { tables.delete(m[1]); t.name = m[2]; tables.set(m[2], t); }
-      } else if ((m = s.match(/^DROP TABLE (?:IF EXISTS )?"(\w+)"/))) {
+      } else if ((m = s.match(/^DROP TABLE (?:IF EXISTS )?(?:"\w+"\.)?"(\w+)"/))) {
         tables.delete(m[1]);
       }
     }

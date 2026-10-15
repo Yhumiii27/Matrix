@@ -24,6 +24,7 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
     },
     "date": {
+      "description": "Date civile dans le fuseau Europe/Paris, sans heure (AAAA-MM-JJ). Cursus calcule en heure locale ; un émetteur qui part d'un horodatage le convertit d'abord en heure de Paris.",
       "type": "string",
       "format": "date",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
@@ -34,12 +35,12 @@
       "pattern": "^[A-Za-z0-9_-]{1,64}$"
     },
     "matricule": {
-      "description": "Matricule du salarié (D01 : Cursus fait foi). Aujourd'hui EMP-0014, calculé depuis employes.id (shared/format.ts:21).",
+      "description": "Matricule du salarié (D01 : Cursus fait foi) : EMP- suivi d'au moins 4 chiffres, calculé depuis employes.id (shared/format.ts:21). Même motif que keystone.persons.matricule (infra/postgres/partage/30-keystone.sql). À changer en même temps des deux côtés si la réponse à L-02 impose un autre identifiant.",
       "type": "string",
-      "pattern": "^[A-Z0-9][A-Z0-9-]{1,31}$"
+      "pattern": "^EMP-[0-9]{4,}$"
     },
     "version": {
-      "description": "Version de l'absence : 1 à la validation, augmentée de 1 à l'annulation. Le récepteur ignore une version inférieure ou égale à la dernière reçue pour (source, id).",
+      "description": "Version de l'absence : 1 à la validation, augmentée de 1 à l'annulation. Le récepteur ignore une version inférieure ou égale à la dernière reçue pour (source, id), gardée dans un en-tête qui survit à l'annulation (Keystone : hr_leave_headers), y compris au rejeu d'un message mis en attente.",
       "type": "integer",
       "minimum": 1
     },
@@ -61,7 +62,7 @@
           "$ref": "#/$defs/date"
         },
         "jours": {
-          "description": "Jours décomptés dans la semaine, selon Domain.countDays de Cursus (week-ends, fériés et jours non travaillés du temps partiel exclus). Les semaines sans jour décompté ne sont pas envoyées.",
+          "description": "Jours décomptés dans la semaine, selon Domain.countDays de Cursus : week-ends et fériés exclus ; jours non travaillés du temps partiel exclus, sauf pour un CP, où ils ne le sont qu'en début de période. Les semaines sans jour décompté ne sont pas envoyées.",
           "type": "integer",
           "minimum": 1,
           "maximum": 7

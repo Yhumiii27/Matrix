@@ -130,10 +130,10 @@ GRANT pg_read_all_data TO epc2i_sauvegarde;
 -- structure exceptionnelle, sans en hériter les droits au quotidien. Ses requêtes sont journalisées.
 GRANT keystone_app, codex_app, cursus_app, vigie_app, matrix_app TO matrix_admin WITH INHERIT FALSE, SET TRUE;
 
-COMMENT ON ROLE keystone_app IS 'Connexion de Keystone : propriétaire du schéma keystone, aucun accès aux autres schémas.';
-COMMENT ON ROLE codex_app IS 'Connexion de Codex : propriétaire du schéma codex, aucun accès aux autres schémas.';
-COMMENT ON ROLE cursus_app IS 'Connexion de Cursus : propriétaire du schéma cursus, aucun accès aux autres schémas.';
-COMMENT ON ROLE vigie_app IS 'Connexion de Vigie : propriétaire du schéma vigie, aucun accès aux autres schémas.';
+COMMENT ON ROLE keystone_app IS 'Connexion de Keystone : propriétaire du schéma keystone ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
+COMMENT ON ROLE codex_app IS 'Connexion de Codex : propriétaire du schéma codex ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
+COMMENT ON ROLE cursus_app IS 'Connexion de Cursus : propriétaire du schéma cursus ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
+COMMENT ON ROLE vigie_app IS 'Connexion de Vigie : propriétaire du schéma vigie ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE matrix_app IS 'Connexion de Matrix : propriétaire du schéma matrix, lit les outils par matrix_lecture.';
 COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, sauf les colonnes de droits.colonnes_sensibles.';
 COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les cinq schémas. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';

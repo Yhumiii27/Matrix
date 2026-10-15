@@ -2,8 +2,8 @@
 --
 -- Décisions : D01 personnes, D08 catalogue des titres, D09 titres détenus, D15 organigramme (unite_code),
 -- D14 sites (site_code), D18 journal, D19 horizon d'alerte.
--- Hors de ce fichier : D06 et D07 (heures et absences, vues *_v1 lues par matrix_lecture seulement, voir
--- docs/remplacement-lucca.md § 3.9).
+-- Hors de ce fichier : D06 et D07 (heures et absences, vues *_v1 réservées au groupe matrix_lecture, que Matrix
+-- utilise par matrix_app ; voir docs/remplacement-lucca.md § 3.9).
 -- Exécution : en tant que cursus_app, après cursus/schema.sql (voir README.md).
 --   psql "postgres://cursus_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/20-cursus.sql
 -- Rejouable. Les vues ne lisent que des tables du schéma cursus. Droits : 90-droits.sql.
@@ -32,8 +32,8 @@ ALTER TABLE cursus.employes
   ADD COLUMN IF NOT EXISTS site_code text
     CONSTRAINT employes_site_code_check CHECK (site_code ~ '^[a-z][a-z0-9_]{1,31}$');
 
--- D15 : unité de rattachement, code de matrix.pub_organigramme (niveau equipe). Remplace equipe, qui reste
--- pendant la transition puis disparaît avec la table equipes.
+-- D15 : unité de rattachement, code de matrix.pub_organigramme (niveau equipe). equipes reste comme cache de
+-- l'organigramme, avec ce code pour clé (repli SQLite de Cursus) ; employes.equipe est remplacé par unite_code.
 ALTER TABLE cursus.employes
   ADD COLUMN IF NOT EXISTS unite_code text
     CONSTRAINT employes_unite_code_check CHECK (unite_code ~ '^[A-Z]{3}(-[A-Z0-9]{2,12}){0,2}$');
@@ -70,9 +70,12 @@ ALTER TABLE cursus.journal ADD COLUMN IF NOT EXISTS objet_ref text;
 ALTER TABLE cursus.journal ADD COLUMN IF NOT EXISTS projet_code text;
 CREATE INDEX IF NOT EXISTS journal_at_index ON cursus.journal (at);
 
--- Non traités ici (changements de structure décidés, sans effet sur les vues) :
---   D03 chantiers réduit à (projet_code, habs, certs) ; D05 suppression de taches ; D02 suppression de projets ;
---   D17 suppression de destinations.pays (lu dans matrix.pub_pays) ; D15 suppression de equipes et de equipe.
+-- Non traités ici (changements de structure décidés, sans effet sur les vues ; docs/convergence-des-donnees.md) :
+--   D03 chantiers réduit à (projet_code, habs, certs, maj_le, maj_par) ; D05 suppression de taches ;
+--   D02 projets gardée comme cache de keystone.pub_projets (code, nom, nature, imputable, code_analytique) ;
+--   D04 missions gardée comme cache de keystone.pub_affectations ; D17 destinations.pays gardée comme cache de
+--   matrix.pub_pays ; D15 equipes gardée comme cache de matrix.pub_organigramme, employes.equipe remplacée par
+--   unite_code.
 
 -- ═══ Vues publiées ═══
 -- Contrat : on n'en retire ni ne renomme de colonne (sinon nouvelle vue _v2) ; ajout en fin de liste seulement.
@@ -81,10 +84,10 @@ CREATE INDEX IF NOT EXISTS journal_at_index ON cursus.journal (at);
 -- D01 · Salariés ─────────────────────────────────────────────────────────
 CREATE OR REPLACE VIEW cursus.pub_salaries WITH (security_barrier) AS
 SELECT e.matricule,   -- tous : clé de jointure (keystone.persons.matricule, codex.users.matricule, vigie.people.matricule)
-       e.nom,         -- Keystone : persons.full_name, short_name, initials (cache) ; Codex : v_users.name ; Vigie : v_people.name
-       e.poste,       -- Vigie : v_people.job. Keystone ne le synchronise pas (job_title reste local : clé de taux horaire)
+       e.nom,         -- Keystone : persons.full_name, short_name, initials (cache) ; Codex : users.name (cache) ; Vigie : people.name (cache)
+       e.poste,       -- Vigie : people.job (cache). Keystone ne le synchronise pas (job_title reste local : clé de taux horaire)
        e.unite_code,  -- Keystone : persons.department_id par l'organigramme ; Codex : département (droits « confidentiel »)
-       e.site_code,   -- Vigie : v_people.site_id (filtre de site de la matrice) ; Codex : v_users.site
+       e.site_code,   -- Vigie : people.site_id (cache, filtre de site de la matrice) ; Codex : users.site (cache)
        e.entree,      -- tous : historique, calcul de actif
        e.sortie,      -- tous : historique ; Codex : conservation employee_departure (registry.ts:670)
        ((e.entree IS NULL OR e.entree <= current_date)

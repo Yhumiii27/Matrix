@@ -24,6 +24,7 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
     },
     "date": {
+      "description": "Date civile dans le fuseau Europe/Paris, sans heure (AAAA-MM-JJ). Cursus calcule en heure locale ; un émetteur qui part d'un horodatage le convertit d'abord en heure de Paris.",
       "type": "string",
       "format": "date",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
@@ -34,16 +35,16 @@
       "pattern": "^[A-Za-z0-9_-]{1,64}$"
     },
     "matricule": {
-      "description": "Matricule du salarié (D01 : Cursus fait foi). Aujourd'hui EMP-0018, calculé depuis employes.id (shared/format.ts:21).",
+      "description": "Matricule du salarié (D01 : Cursus fait foi) : EMP- suivi d'au moins 4 chiffres, calculé depuis employes.id (shared/format.ts:21). Même motif que keystone.persons.matricule (infra/postgres/partage/30-keystone.sql). À changer en même temps des deux côtés si la réponse à L-02 impose un autre identifiant.",
       "type": "string",
-      "pattern": "^[A-Z0-9][A-Z0-9-]{1,31}$"
+      "pattern": "^EMP-[0-9]{4,}$"
     },
     "semaine": {
       "description": "Lundi de la semaine de la feuille.",
       "$ref": "#/$defs/date"
     },
     "version": {
-      "description": "Version de la feuille, augmentée de 1 à chaque validation et à chaque réouverture. Le récepteur ignore une version inférieure ou égale à la dernière reçue pour (source, id).",
+      "description": "Version de la feuille, augmentée de 1 à chaque validation et à chaque réouverture. Le récepteur ignore une version inférieure ou égale à la dernière reçue pour (source, id), gardée dans l'en-tête de la feuille (Keystone : hr_timesheets), y compris au rejeu d'un message mis en attente.",
       "type": "integer",
       "minimum": 1
     },
@@ -53,7 +54,7 @@
       "pattern": "^[A-Z0-9][A-Z0-9-]{1,19}$"
     },
     "codeAnalytique": {
-      "description": "Code analytique Sage (projects.analytic_code, format XXX000 attendu : HAV004). Null si le projet n'en a pas.",
+      "description": "Code analytique Sage (projects.analytic_code, format XXX000 attendu : HAV004). Null si le projet n'en a pas encore : le récepteur l'accepte (keystone.hours_imports.analytic_code est facultatif). Chaque projet interne doit en recevoir un (prérequis D02).",
       "type": ["string", "null"],
       "pattern": "^[A-Z0-9]{3,12}$"
     },
@@ -63,9 +64,9 @@
       "pattern": "^T-[0-9]{1,9}$"
     },
     "codeSite": {
-      "description": "Code de site de la liste publiée par Matrix (D14).",
+      "description": "Code de site de la liste publiée par Matrix (D14, matrix.pub_sites : lyon, le_havre…). Même motif que matrix.sites.code et cursus.employes.site_code.",
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$"
+      "pattern": "^[a-z][a-z0-9_]{1,31}$"
     },
     "heuresJour": {
       "type": "object",

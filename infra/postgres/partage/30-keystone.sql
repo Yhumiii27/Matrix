@@ -79,7 +79,9 @@ CREATE INDEX IF NOT EXISTS audit_entries_occurred_at_idx ON keystone.audit_entri
 CREATE INDEX IF NOT EXISTS activity_events_occurred_at_idx ON keystone.activity_events (occurred_at);
 
 -- Non traités ici : D03 suppression de site_sheets.cursus_chantier_id ; D10 documents.codex_id NOT NULL UNIQUE
--- (après la reprise) ; D09 suppression de certifications ; D11 suppression de document_types.
+-- (après la reprise) ; D09 suppression de certifications ; D11 document_types, document_type_circuit_steps et
+-- document_approver_assignments gardées comme caches de codex.pub_types_document, pub_circuits_type et
+-- pub_titulaires_fonction (clés documents.type_code et document_deposits.type_code inchangées).
 
 -- ═══ Vues publiées ═══
 -- Contrat : on n'en retire ni ne renomme de colonne (sinon nouvelle vue _v2) ; ajout en fin de liste seulement.
@@ -141,7 +143,7 @@ COMMENT ON VIEW keystone.pub_chantiers IS 'Contrat D03 v1 : une ligne par fiche 
 -- allocations est exclue : ses lignes n'ont pas de projet (totaux par semaine, seed/resources.ts:29-34).
 CREATE OR REPLACE VIEW keystone.pub_affectations WITH (security_barrier) AS
 SELECT 'rotation'::text      AS source,          -- Cursus : missions = source 'rotation' ; Vigie : les deux
-       r.id                  AS affectation_id,  -- Cursus : clé du cache SQLite pendant la transition
+       r.id                  AS affectation_id,  -- Cursus, Vigie : clé des caches cursus.missions et vigie.keystone_assignments
        pe.matricule,                             -- Cursus : employes.matricule ; Vigie : people.matricule
        coalesce(pe.full_name, r.person_name) AS personne_nom,  -- Vigie : affichage
        p.code                AS projet_code,     -- Cursus : missions.projet ; Vigie : libellé « code · client »
@@ -184,7 +186,7 @@ COMMENT ON VIEW keystone.pub_affectations IS 'Contrat D04 v1 : rotations de chan
 -- estimate_h réparti uniformément sur les jours ouvrés (lundi à vendredi) entre start_date et due_date. Cursus
 -- met ensuite à zéro fériés, absences et jours non travaillés (shared/rules/temps.ts:94-100).
 CREATE OR REPLACE VIEW keystone.pub_taches_jours WITH (security_barrier) AS
-SELECT t.number              AS tache_numero,    -- Cursus : LigneTemps.tacheRef, envoi des heures par tâche (D06)
+SELECT t.number              AS tache_numero,    -- Cursus : LigneTemps.tacheKeystone, envoi des heures par tâche (D06)
        pe.matricule,                             -- Cursus : filtre matricule = $1
        p.code                AS projet_code,     -- Cursus : ligne.projet
        p.name                AS projet_nom,      -- Cursus : affichage

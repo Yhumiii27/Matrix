@@ -1,0 +1,6127 @@
+--- a/drizzle.config.ts
++++ b/drizzle.config.ts
+@@ -4,4 +4,6 @@
+   dialect: 'postgresql',
+   schema: './src/db/schema.ts',
+   out: './drizzle',
++  schemaFilter: ['vigie'],
++  migrations: { schema: 'vigie', table: '__drizzle_migrations' },
+ });
+--- a/package.json
++++ b/package.json
+@@ -15,12 +15,14 @@
+     "@anthropic-ai/sdk": "^0.131.0",
+     "@electric-sql/pglite": "^0.5.8",
+     "@phosphor-icons/web": "^2.1.2",
++    "@types/pg": "^8.23.1",
+     "drizzle-orm": "^0.45.3",
+     "fast-xml-parser": "^5.11.2",
+     "fflate": "^0.8.3",
+     "next": "16.4.0",
+     "pdf-lib": "^1.17.1",
+     "pdfjs-dist": "^6.4.299",
++    "pg": "^8.23.1",
+     "react": "19.3.0",
+     "react-dom": "19.3.0",
+     "server-only": "^0.0.1",
+@@ -33,6 +35,7 @@
+     "drizzle-kit": "^0.31.11",
+     "eslint": "^9",
+     "eslint-config-next": "16.4.0",
++    "tsx": "^4.23.15",
+     "typescript": "^5"
+   }
+ }
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -11,12 +11,14 @@
+         "@anthropic-ai/sdk": "^0.131.0",
+         "@electric-sql/pglite": "^0.5.8",
+         "@phosphor-icons/web": "^2.1.2",
++        "@types/pg": "^8.23.1",
+         "drizzle-orm": "^0.45.3",
+         "fast-xml-parser": "^5.11.2",
+         "fflate": "^0.8.3",
+         "next": "16.4.0",
+         "pdf-lib": "^1.17.1",
+         "pdfjs-dist": "^6.4.299",
++        "pg": "^8.23.1",
+         "react": "19.3.0",
+         "react-dom": "19.3.0",
+         "server-only": "^0.0.1",
+@@ -29,6 +31,7 @@
+         "drizzle-kit": "^0.31.11",
+         "eslint": "^9",
+         "eslint-config-next": "16.4.0",
++        "tsx": "^4.23.15",
+         "typescript": "^5"
+       }
+     },
+@@ -1548,9 +1551,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1567,9 +1567,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1586,9 +1583,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1605,9 +1599,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1624,9 +1615,6 @@
+       "cpu": [
+         "s390x"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1643,9 +1631,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1662,9 +1647,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1681,9 +1663,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1700,9 +1679,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1725,9 +1701,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1750,9 +1723,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1775,9 +1745,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1800,9 +1767,6 @@
+       "cpu": [
+         "s390x"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1825,9 +1789,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1850,9 +1811,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1875,9 +1833,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -2152,9 +2107,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2175,9 +2127,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2198,9 +2147,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2221,9 +2167,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2244,9 +2187,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2410,9 +2350,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2429,9 +2366,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2448,9 +2382,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2467,9 +2398,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2653,12 +2581,22 @@
+       "version": "20.19.43",
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-20.19.43.tgz",
+       "integrity": "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "undici-types": "~6.21.0"
+       }
+     },
++    "node_modules/@types/pg": {
++      "version": "8.23.1",
++      "resolved": "https://registry.npmjs.org/@types/pg/-/pg-8.23.1.tgz",
++      "integrity": "sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==",
++      "license": "MIT",
++      "dependencies": {
++        "@types/node": "*",
++        "pg-protocol": "*",
++        "pg-types": "^2.2.0"
++      }
++    },
+     "node_modules/@types/react": {
+       "version": "19.3.0",
+       "resolved": "https://registry.npmjs.org/@types/react/-/react-19.3.0.tgz",
+@@ -3080,9 +3018,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3097,9 +3032,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3114,9 +3046,6 @@
+         "loong64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3131,9 +3060,6 @@
+         "loong64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3148,9 +3074,6 @@
+         "ppc64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3165,9 +3088,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3182,9 +3102,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3199,9 +3116,6 @@
+         "s390x"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3216,9 +3130,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3233,9 +3144,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -6560,6 +6468,95 @@
+         "@napi-rs/canvas": "^1.0.10"
+       }
+     },
++    "node_modules/pg": {
++      "version": "8.23.1",
++      "resolved": "https://registry.npmjs.org/pg/-/pg-8.23.1.tgz",
++      "integrity": "sha512-aL96AHANtWjPLDOLqnhx+ngp9+UK7ETEU8VJrDCGvsSSi/mGLcWYsS6Herg7lmaBJe4uwrfqsa7gTEFaSizDoQ==",
++      "license": "MIT",
++      "dependencies": {
++        "pg-connection-string": "^2.14.1",
++        "pg-pool": "^3.14.0",
++        "pg-protocol": "^1.16.1",
++        "pg-types": "2.2.0",
++        "pgpass": "1.0.5"
++      },
++      "engines": {
++        "node": ">= 16.0.0"
++      },
++      "optionalDependencies": {
++        "pg-cloudflare": "^1.4.1"
++      },
++      "peerDependencies": {
++        "pg-native": ">=3.0.1"
++      },
++      "peerDependenciesMeta": {
++        "pg-native": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/pg-cloudflare": {
++      "version": "1.4.1",
++      "resolved": "https://registry.npmjs.org/pg-cloudflare/-/pg-cloudflare-1.4.1.tgz",
++      "integrity": "sha512-6PQbsFWZcp9EmJEwy5cGQ2La+AMWpP46lgbb8X+U/XsHIUweYDNCpeuKck5RxL2MdVFi7krbbEi5nX4Zh7JhrQ==",
++      "license": "MIT",
++      "optional": true
++    },
++    "node_modules/pg-connection-string": {
++      "version": "2.14.1",
++      "resolved": "https://registry.npmjs.org/pg-connection-string/-/pg-connection-string-2.14.1.tgz",
++      "integrity": "sha512-qR3kGNPBLpCNtz0evbKA0Y/MRFXwSSdT+pTJvYp/bXTcReZbvX1kzF0IyTc1QnxqF7AZbOeBhNL8R5mYQZV/MA==",
++      "license": "MIT"
++    },
++    "node_modules/pg-int8": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/pg-int8/-/pg-int8-1.0.1.tgz",
++      "integrity": "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==",
++      "license": "ISC",
++      "engines": {
++        "node": ">=4.0.0"
++      }
++    },
++    "node_modules/pg-pool": {
++      "version": "3.14.0",
++      "resolved": "https://registry.npmjs.org/pg-pool/-/pg-pool-3.14.0.tgz",
++      "integrity": "sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==",
++      "license": "MIT",
++      "peerDependencies": {
++        "pg": ">=8.0"
++      }
++    },
++    "node_modules/pg-protocol": {
++      "version": "1.16.1",
++      "resolved": "https://registry.npmjs.org/pg-protocol/-/pg-protocol-1.16.1.tgz",
++      "integrity": "sha512-p9VOFMiHB/ZbJATetbg+99PxssTVSQRnyuPSQ67mN1+1KBOjZaZ83ZQzltnxPhJwSsC3nwVjJ10DVJlerbFzLg==",
++      "license": "MIT"
++    },
++    "node_modules/pg-types": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/pg-types/-/pg-types-2.2.0.tgz",
++      "integrity": "sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==",
++      "license": "MIT",
++      "dependencies": {
++        "pg-int8": "1.0.1",
++        "postgres-array": "~2.0.0",
++        "postgres-bytea": "~1.0.0",
++        "postgres-date": "~1.0.4",
++        "postgres-interval": "^1.1.0"
++      },
++      "engines": {
++        "node": ">=4"
++      }
++    },
++    "node_modules/pgpass": {
++      "version": "1.0.5",
++      "resolved": "https://registry.npmjs.org/pgpass/-/pgpass-1.0.5.tgz",
++      "integrity": "sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==",
++      "license": "MIT",
++      "dependencies": {
++        "split2": "^4.1.0"
++      }
++    },
+     "node_modules/picocolors": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+@@ -6617,6 +6614,45 @@
+         "node": "^10 || ^12 || >=14"
+       }
+     },
++    "node_modules/postgres-array": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/postgres-array/-/postgres-array-2.0.0.tgz",
++      "integrity": "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=4"
++      }
++    },
++    "node_modules/postgres-bytea": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/postgres-bytea/-/postgres-bytea-1.0.1.tgz",
++      "integrity": "sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/postgres-date": {
++      "version": "1.0.7",
++      "resolved": "https://registry.npmjs.org/postgres-date/-/postgres-date-1.0.7.tgz",
++      "integrity": "sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/postgres-interval": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/postgres-interval/-/postgres-interval-1.2.0.tgz",
++      "integrity": "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==",
++      "license": "MIT",
++      "dependencies": {
++        "xtend": "^4.0.0"
++      },
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/prelude-ls": {
+       "version": "1.2.1",
+       "resolved": "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.2.1.tgz",
+@@ -7139,6 +7175,15 @@
+         "source-map": "^0.6.0"
+       }
+     },
++    "node_modules/split2": {
++      "version": "4.2.0",
++      "resolved": "https://registry.npmjs.org/split2/-/split2-4.2.0.tgz",
++      "integrity": "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==",
++      "license": "ISC",
++      "engines": {
++        "node": ">= 10.x"
++      }
++    },
+     "node_modules/stable-hash": {
+       "version": "0.0.5",
+       "resolved": "https://registry.npmjs.org/stable-hash/-/stable-hash-0.0.5.tgz",
+@@ -8137,7 +8182,6 @@
+       "version": "6.21.0",
+       "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
+       "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
+-      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/unrs-resolver": {
+@@ -8349,6 +8393,15 @@
+         "node": ">=16.0.0"
+       }
+     },
++    "node_modules/xtend": {
++      "version": "4.0.2",
++      "resolved": "https://registry.npmjs.org/xtend/-/xtend-4.0.2.tgz",
++      "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.4"
++      }
++    },
+     "node_modules/yallist": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/yallist/-/yallist-3.1.1.tgz",
+--- a/src/db/index.ts
++++ b/src/db/index.ts
+@@ -2,22 +2,88 @@
+ import { mkdirSync } from 'node:fs';
+ import path from 'node:path';
+ import { PGlite } from '@electric-sql/pglite';
+-import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
+-import { migrate } from 'drizzle-orm/pglite/migrator';
++import { readMigrationFiles } from 'drizzle-orm/migrator';
++import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
++import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
++import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
++import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
++import { Pool } from 'pg';
+ import * as schema from './schema';
+ import { seed } from './seed';
+ 
+-export type Db = PgliteDatabase<typeof schema>;
++/** Base Vigie, quel que soit le pilote (serveur PostgreSQL commun ou PGlite embarqué). */
++export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
+ 
+-// Une seule instance PGlite par processus (survit au rechargement à chaud).
++// Schéma PostgreSQL de Vigie : ses tables et le journal de ses migrations (jamais le schéma « drizzle » partagé).
++const SCHEMA = 'vigie';
++const MIGRATIONS = {
++  migrationsFolder: path.join(process.cwd(), 'drizzle'),
++  migrationsSchema: SCHEMA,
++  migrationsTable: '__drizzle_migrations',
++};
++
++// Une seule base par processus (survit au rechargement à chaud).
+ const g = globalThis as unknown as { __vigieDb?: Promise<Db> };
+ 
+-async function open(): Promise<Db> {
++// Applique drizzle/ sur le serveur commun. Même journal que le migrateur Drizzle (vigie.__drizzle_migrations),
++// sans son « CREATE SCHEMA IF NOT EXISTS » : vigie_app possède le schéma vigie mais n'a pas le droit CREATE sur la base.
++async function migrateServer(pool: Pool) {
++  const journal = `"${SCHEMA}"."${MIGRATIONS.migrationsTable}"`;
++  const client = await pool.connect();
++  try {
++    await client.query('begin');
++    await client.query(`create table if not exists ${journal} (id serial primary key, hash text not null, created_at bigint)`);
++    await client.query(`lock table ${journal} in exclusive mode`); // deux instances qui démarrent ensemble
++    const { rows } = await client.query<{ created_at: string }>(`select created_at from ${journal} order by created_at desc limit 1`);
++    const last = rows.length ? Number(rows[0].created_at) : -1;
++    for (const m of readMigrationFiles(MIGRATIONS)) {
++      if (m.folderMillis <= last) continue;
++      for (const statement of m.sql) await client.query(statement);
++      await client.query(`insert into ${journal} (hash, created_at) values ($1, $2)`, [m.hash, m.folderMillis]);
++    }
++    await client.query('commit');
++  } catch (err) {
++    await client.query('rollback');
++    throw err;
++  } finally {
++    client.release();
++  }
++}
++
++// Serveur commun EPC2i (DATABASE_URL, rôle vigie_app) : pool node-postgres, search_path fixé à chaque connexion.
++async function openServer(url: string): Promise<Db> {
++  const pool = new Pool({ connectionString: url, options: `-c search_path=${SCHEMA}` });
++  // Sans écouteur, la coupure d'une connexion inactive (redémarrage du serveur) arrêterait le processus.
++  pool.on('error', (err) => console.error('[vigie] connexion PostgreSQL perdue :', err.message));
++  await migrateServer(pool).catch(async (err) => {
++    await pool.end();
++    throw err;
++  });
++  return drizzlePg(pool, { schema });
++}
++
++// Repli sans DATABASE_URL (développement, tests, application Mac) : PGlite dans VIGIE_DATA_DIR ou .data/vigie.
++async function openEmbedded(): Promise<Db> {
+   const dir = process.env.VIGIE_DATA_DIR ?? path.join(process.cwd(), '.data', 'vigie');
+   mkdirSync(dir, { recursive: true });
+-  const db = drizzle(new PGlite(dir), { schema });
+-  await migrate(db, { migrationsFolder: path.join(process.cwd(), 'drizzle') });
+-  await seed(db);
++  const client = new PGlite(dir);
++  // Base créée avant le schéma vigie (tables dans public) : ne pas la masquer sous un nouveau jeu de démonstration.
++  const { rows } = await client.query<{ old: boolean }>(`select to_regclass('public.sites') is not null and to_regclass('vigie.sites') is null as old`);
++  if (rows[0].old) {
++    await client.close(); // getDb() réessaiera : jamais deux PGlite ouverts sur le même dossier
++    throw new Error(`Base PGlite antérieure au schéma vigie dans ${dir} : npm run db:reset, ou export des données (voir README).`);
++  }
++  await client.exec(`set search_path to ${SCHEMA}`); // comme vigie_app sur le serveur : SQL brut et current_schema() visent vigie
++  const db = drizzlePglite(client, { schema });
++  await migratePglite(db, MIGRATIONS);
++  return db;
++}
++
++async function open(): Promise<Db> {
++  const url = process.env.DATABASE_URL;
++  const db = url ? await openServer(url) : await openEmbedded();
++  // Jeu de démonstration : toujours en PGlite ; sur le serveur commun seulement si VIGIE_SEED=demo.
++  if (!url || process.env.VIGIE_SEED === 'demo') await seed(db);
+   return db;
+ }
+ 
+--- a/src/db/schema.ts
++++ b/src/db/schema.ts
+@@ -1,8 +1,11 @@
+-import { boolean, date, integer, jsonb, numeric, pgTable, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, jsonb, numeric, pgSchema, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core';
++
++// Tables de Vigie dans le schéma « vigie » (serveur PostgreSQL commun EPC2i, comme en PGlite).
++export const vigie = pgSchema('vigie');
+ 
+ // ─── Référentiels ────────────────────────────────────────────────────────────
+ 
+-export const sites = pgTable('sites', {
++export const sites = vigie.table('sites', {
+   id: text('id').primaryKey(),
+   label: text('label').notNull(),
+   // Classement Seveso (seuil_haut | seuil_bas | null) et règle interne associée :
+@@ -13,7 +16,7 @@
+ });
+ 
+ // Personnel — saisie manuelle pour l'instant ; Cursus deviendra la source de vérité RH.
+-export const people = pgTable('people', {
++export const people = vigie.table('people', {
+   id: text('id').primaryKey(),
+   name: text('name').notNull(),
+   job: text('job').notNull().default(''),
+@@ -24,14 +27,14 @@
+ });
+ 
+ // Heures travaillées par mois et par site — base du TF1 / TG (source RH).
+-export const hoursWorked = pgTable('hours_worked', {
++export const hoursWorked = vigie.table('hours_worked', {
+   month: date('month', { mode: 'string' }).notNull(),
+   siteId: text('site_id').notNull().references(() => sites.id),
+   hours: integer('hours').notNull(),
+ }, (t) => [primaryKey({ columns: [t.month, t.siteId] })]);
+ 
+ // Projets lus depuis Keystone (référentiel pour les listes de choix).
+-export const keystoneProjects = pgTable('keystone_projects', {
++export const keystoneProjects = vigie.table('keystone_projects', {
+   id: text('id').primaryKey(), // K-2025-042
+   client: text('client').notNull(),
+   title: text('title').notNull(),
+@@ -39,7 +42,7 @@
+ });
+ 
+ // Pièces jointes (photos de signalement, documents maîtrisés, rapports de contrôle…), stockées dans .data/uploads.
+-export const attachments = pgTable('attachments', {
++export const attachments = vigie.table('attachments', {
+   id: text('id').primaryKey(), // uuid
+   entityType: text('entity_type').notNull(), // event | document_version | control_record | …
+   entityId: text('entity_id').notNull(),
+@@ -53,7 +56,7 @@
+ 
+ // ─── Signalements et événements ─────────────────────────────────────────────
+ 
+-export const events = pgTable('events', {
++export const events = vigie.table('events', {
+   id: text('id').primaryKey(),
+   siteId: text('site_id').notNull().references(() => sites.id),
+   type: text('type').notNull(), // AT | PA | SD | NC | RC | ENV
+@@ -77,7 +80,7 @@
+ });
+ 
+ // Contenu de l'analyse des causes, une ligne par méthode et par événement.
+-export const eventAnalyses = pgTable('event_analyses', {
++export const eventAnalyses = vigie.table('event_analyses', {
+   eventId: text('event_id').notNull().references(() => events.id),
+   method: text('method').notNull(),
+   content: jsonb('content').notNull(),
+@@ -85,7 +88,7 @@
+ 
+ // ─── Plan d'actions unique ──────────────────────────────────────────────────
+ 
+-export const actions = pgTable('actions', {
++export const actions = vigie.table('actions', {
+   id: text('id').primaryKey(),
+   title: text('title').notNull(),
+   description: text('description'),
+@@ -106,7 +109,7 @@
+ 
+ // ─── Évaluation des risques (DUERP) ─────────────────────────────────────────
+ 
+-export const duerpVersions = pgTable('duerp_versions', {
++export const duerpVersions = vigie.table('duerp_versions', {
+   version: text('version').primaryKey(),
+   current: boolean('current').notNull().default(false),
+   updatedOn: date('updated_on', { mode: 'string' }).notNull(),
+@@ -119,14 +122,14 @@
+   snapshot: jsonb('snapshot'), // risques figés à l'archivage (null pour les versions antérieures à Vigie)
+ });
+ 
+-export const workUnits = pgTable('work_units', {
++export const workUnits = vigie.table('work_units', {
+   id: text('id').primaryKey(),
+   label: text('label').notNull(),
+   siteId: text('site_id').references(() => sites.id),
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const risks = pgTable('risks', {
++export const risks = vigie.table('risks', {
+   id: serial('id').primaryKey(),
+   unitId: text('unit_id').notNull().references(() => workUnits.id),
+   hazard: text('hazard').notNull(),
+@@ -139,14 +142,14 @@
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const riskActions = pgTable('risk_actions', {
++export const riskActions = vigie.table('risk_actions', {
+   riskId: integer('risk_id').notNull().references(() => risks.id),
+   actionId: text('action_id').notNull().references(() => actions.id),
+ }, (t) => [primaryKey({ columns: [t.riskId, t.actionId] })]);
+ 
+ // ─── Veille réglementaire et contrôles ──────────────────────────────────────
+ 
+-export const requirements = pgTable('requirements', {
++export const requirements = vigie.table('requirements', {
+   id: serial('id').primaryKey(),
+   text: text('text').notNull(),
+   domain: text('domain').notNull(),
+@@ -164,7 +167,7 @@
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const controls = pgTable('controls', {
++export const controls = vigie.table('controls', {
+   id: serial('id').primaryKey(),
+   siteId: text('site_id').references(() => sites.id),
+   equipment: text('equipment').notNull(),
+@@ -179,7 +182,7 @@
+ });
+ 
+ // Historique des contrôles réalisés (le dernier met à jour controls.lastOn / nextOn / reserves).
+-export const controlRecords = pgTable('control_records', {
++export const controlRecords = vigie.table('control_records', {
+   id: serial('id').primaryKey(),
+   controlId: integer('control_id').notNull().references(() => controls.id),
+   performedOn: date('performed_on', { mode: 'string' }).notNull(),
+@@ -192,20 +195,20 @@
+ 
+ // ─── Habilitations et formations ────────────────────────────────────────────
+ 
+-export const trainingTitles = pgTable('training_titles', {
++export const trainingTitles = vigie.table('training_titles', {
+   id: text('id').primaryKey(),
+   label: text('label').notNull(),
+   validityMonths: integer('validity_months').notNull().default(0), // 0 = sans échéance
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const qualificationRequirements = pgTable('qualification_requirements', {
++export const qualificationRequirements = vigie.table('qualification_requirements', {
+   personId: text('person_id').notNull().references(() => people.id),
+   titleId: text('title_id').notNull().references(() => trainingTitles.id),
+   renewalActionId: text('renewal_action_id').references(() => actions.id), // recyclage planifié
+ }, (t) => [primaryKey({ columns: [t.personId, t.titleId] })]);
+ 
+-export const qualifications = pgTable('qualifications', {
++export const qualifications = vigie.table('qualifications', {
+   personId: text('person_id').notNull().references(() => people.id),
+   titleId: text('title_id').notNull().references(() => trainingTitles.id),
+   obtainedOn: date('obtained_on', { mode: 'string' }).notNull(),
+@@ -214,7 +217,7 @@
+ }, (t) => [primaryKey({ columns: [t.personId, t.titleId] })]);
+ 
+ // Affectations lues depuis le planning Keystone.
+-export const keystoneAssignments = pgTable('keystone_assignments', {
++export const keystoneAssignments = vigie.table('keystone_assignments', {
+   id: serial('id').primaryKey(),
+   personId: text('person_id').notNull().references(() => people.id),
+   project: text('project').notNull(),
+@@ -225,7 +228,7 @@
+ 
+ // ─── Audits et certifications ───────────────────────────────────────────────
+ 
+-export const certifications = pgTable('certifications', {
++export const certifications = vigie.table('certifications', {
+   id: text('id').primaryKey(),
+   domain: text('domain').notNull(),
+   standard: text('standard').notNull(),
+@@ -235,7 +238,7 @@
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const auditPlanItems = pgTable('audit_plan_items', {
++export const auditPlanItems = vigie.table('audit_plan_items', {
+   id: serial('id').primaryKey(),
+   year: integer('year').notNull(),
+   track: text('track').notNull(), // ligne du programme
+@@ -248,7 +251,7 @@
+   done: boolean('done').notNull().default(false),
+ });
+ 
+-export const auditFindings = pgTable('audit_findings', {
++export const auditFindings = vigie.table('audit_findings', {
+   id: serial('id').primaryKey(),
+   audit: text('audit').notNull(),
+   kind: text('kind').notNull(), // ecart_mineur | piste | point_fort
+@@ -257,7 +260,7 @@
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const reviewItems = pgTable('review_items', {
++export const reviewItems = vigie.table('review_items', {
+   id: serial('id').primaryKey(),
+   reviewOn: date('review_on', { mode: 'string' }).notNull(),
+   label: text('label').notNull(),
+@@ -268,7 +271,7 @@
+ 
+ // ─── Plans de prévention et permis ──────────────────────────────────────────
+ 
+-export const contractors = pgTable('contractors', {
++export const contractors = vigie.table('contractors', {
+   id: text('id').primaryKey(),
+   name: text('name').notNull(),
+   trade: text('trade').notNull(), // corps de métier
+@@ -278,7 +281,7 @@
+ });
+ 
+ // Plan de prévention (Code du travail R. 4512-6 à R. 4512-12).
+-export const preventionPlans = pgTable('prevention_plans', {
++export const preventionPlans = vigie.table('prevention_plans', {
+   id: text('id').primaryKey(), // PP-2026-014
+   siteId: text('site_id').notNull().references(() => sites.id),
+   contractorId: text('contractor_id').notNull().references(() => contractors.id),
+@@ -302,7 +305,7 @@
+ 
+ // Modèles d'import du formulaire de plan de prévention : correspondance entre les champs
+ // détectés dans le fichier (PDF remplissable, Word, scan) et les champs de Vigie.
+-export const ppImportTemplates = pgTable('pp_import_templates', {
++export const ppImportTemplates = vigie.table('pp_import_templates', {
+   id: serial('id').primaryKey(),
+   name: text('name').notNull(),
+   format: text('format').notNull(), // pdf_form | docx | scan
+@@ -313,7 +316,7 @@
+ });
+ 
+ // Permis de feu, permis d'essai.
+-export const permits = pgTable('permits', {
++export const permits = vigie.table('permits', {
+   id: text('id').primaryKey(), // PF-2026-031 / PE-2026-008
+   type: text('type').notNull(), // feu | essai
+   siteId: text('site_id').notNull().references(() => sites.id),
+@@ -334,7 +337,7 @@
+ 
+ // ─── Documents maîtrisés ────────────────────────────────────────────────────
+ 
+-export const documents = pgTable('documents', {
++export const documents = vigie.table('documents', {
+   id: text('id').primaryKey(), // PR-QHSE-003
+   title: text('title').notNull(),
+   type: text('type').notNull(), // politique | procedure | instruction | formulaire | enregistrement
+@@ -346,7 +349,7 @@
+   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+ });
+ 
+-export const documentVersions = pgTable('document_versions', {
++export const documentVersions = vigie.table('document_versions', {
+   id: serial('id').primaryKey(),
+   documentId: text('document_id').notNull().references(() => documents.id),
+   version: text('version').notNull(), // A, B, C…
+@@ -361,7 +364,7 @@
+ 
+ // ─── Environnement et déchets ───────────────────────────────────────────────
+ 
+-export const wasteStreams = pgTable('waste_streams', {
++export const wasteStreams = vigie.table('waste_streams', {
+   id: text('id').primaryKey(),
+   siteId: text('site_id').notNull().references(() => sites.id),
+   label: text('label').notNull(),
+@@ -375,7 +378,7 @@
+ });
+ 
+ // Registre chronologique des déchets sortants.
+-export const wasteEntries = pgTable('waste_entries', {
++export const wasteEntries = vigie.table('waste_entries', {
+   id: serial('id').primaryKey(),
+   siteId: text('site_id').notNull().references(() => sites.id),
+   streamId: text('stream_id').notNull().references(() => wasteStreams.id),
+@@ -391,7 +394,7 @@
+   notes: text('notes'),
+ });
+ 
+-export const consumptions = pgTable('consumptions', {
++export const consumptions = vigie.table('consumptions', {
+   siteId: text('site_id').notNull().references(() => sites.id),
+   month: date('month', { mode: 'string' }).notNull(),
+   kind: text('kind').notNull(), // electricite | gaz | eau
+@@ -401,7 +404,7 @@
+ // ─── Carte du site et coactivité ────────────────────────────────────────────
+ 
+ // Plan de masse par site ; coordonnées des objets normalisées 0–1 sur l'image du plan.
+-export const siteMaps = pgTable('site_maps', {
++export const siteMaps = vigie.table('site_maps', {
+   siteId: text('site_id').primaryKey().references(() => sites.id),
+   attachmentId: text('attachment_id').references(() => attachments.id), // null = plan schématique par défaut
+   width: integer('width').notNull(), // dimensions naturelles de l'image (px)
+@@ -411,7 +414,7 @@
+   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+ });
+ 
+-export const mapZones = pgTable('map_zones', {
++export const mapZones = vigie.table('map_zones', {
+   id: serial('id').primaryKey(),
+   siteId: text('site_id').notNull().references(() => sites.id),
+   name: text('name').notNull(),
+@@ -421,7 +424,7 @@
+ });
+ 
+ // Voies de circulation (accès) ; « shared » = voie commune à plusieurs équipes.
+-export const mapRoutes = pgTable('map_routes', {
++export const mapRoutes = vigie.table('map_routes', {
+   id: serial('id').primaryKey(),
+   siteId: text('site_id').notNull().references(() => sites.id),
+   name: text('name').notNull(),
+@@ -432,7 +435,7 @@
+ });
+ 
+ // Activités localisées (équipes internes et entreprises extérieures) servant à l'analyse de coactivité.
+-export const siteActivities = pgTable('site_activities', {
++export const siteActivities = vigie.table('site_activities', {
+   id: serial('id').primaryKey(),
+   siteId: text('site_id').notNull().references(() => sites.id),
+   title: text('title').notNull(),
+--- a/src/db/seed.ts
++++ b/src/db/seed.ts
+@@ -1,6 +1,5 @@
+ import 'server-only';
+-import { sql } from 'drizzle-orm';
+-import type { PgliteDatabase } from 'drizzle-orm/pglite';
++import type { Db } from './index';
+ import * as t from './schema';
+ import { seedDocuments } from './seeds/documents';
+ import { seedEnvironment } from './seeds/environment';
+@@ -202,9 +201,8 @@
+ 
+ const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+ 
+-export async function seed(db: PgliteDatabase<typeof t>) {
+-  const [{ n }] = (await db.execute<{ n: number }>(sql`select count(*)::int as n from sites`)).rows;
+-  if (n > 0) return;
++export async function seed(db: Db) {
++  if ((await db.$count(t.sites)) > 0) return;
+ 
+   await db.transaction(async (tx) => {
+     await tx.insert(t.sites).values([
+--- a/src/db/seeds/types.ts
++++ b/src/db/seeds/types.ts
+@@ -1,5 +1,4 @@
+-import type { PgliteDatabase } from 'drizzle-orm/pglite';
+-import type * as t from '../schema';
++import type { Db } from '../index';
+ 
+ /** Transaction Drizzle passée aux fonctions de jeu de données. */
+-export type SeedTx = Parameters<Parameters<PgliteDatabase<typeof t>['transaction']>[0]>[0];
++export type SeedTx = Parameters<Parameters<Db['transaction']>[0]>[0];
+--- a/drizzle/0000_init.sql
++++ b/drizzle/0000_init.sql
+@@ -1,4 +1,4 @@
+-CREATE TABLE "actions" (
++CREATE TABLE "vigie"."actions" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"title" text NOT NULL,
+ 	"description" text,
+@@ -17,7 +17,7 @@
+ 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "attachments" (
++CREATE TABLE "vigie"."attachments" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"entity_type" text NOT NULL,
+ 	"entity_id" text NOT NULL,
+@@ -29,7 +29,7 @@
+ 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "audit_findings" (
++CREATE TABLE "vigie"."audit_findings" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"audit" text NOT NULL,
+ 	"kind" text NOT NULL,
+@@ -38,7 +38,7 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "audit_plan_items" (
++CREATE TABLE "vigie"."audit_plan_items" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"year" integer NOT NULL,
+ 	"track" text NOT NULL,
+@@ -51,7 +51,7 @@
+ 	"done" boolean DEFAULT false NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "certifications" (
++CREATE TABLE "vigie"."certifications" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"domain" text NOT NULL,
+ 	"standard" text NOT NULL,
+@@ -61,7 +61,7 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "consumptions" (
++CREATE TABLE "vigie"."consumptions" (
+ 	"site_id" text NOT NULL,
+ 	"month" date NOT NULL,
+ 	"kind" text NOT NULL,
+@@ -69,7 +69,7 @@
+ 	CONSTRAINT "consumptions_site_id_month_kind_pk" PRIMARY KEY("site_id","month","kind")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "contractors" (
++CREATE TABLE "vigie"."contractors" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"name" text NOT NULL,
+ 	"trade" text NOT NULL,
+@@ -78,7 +78,7 @@
+ 	"contact_email" text
+ );
+ --> statement-breakpoint
+-CREATE TABLE "control_records" (
++CREATE TABLE "vigie"."control_records" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"control_id" integer NOT NULL,
+ 	"performed_on" date NOT NULL,
+@@ -89,7 +89,7 @@
+ 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "controls" (
++CREATE TABLE "vigie"."controls" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"site_id" text,
+ 	"equipment" text NOT NULL,
+@@ -103,7 +103,7 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "document_versions" (
++CREATE TABLE "vigie"."document_versions" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"document_id" text NOT NULL,
+ 	"version" text NOT NULL,
+@@ -116,7 +116,7 @@
+ 	"action_id" text
+ );
+ --> statement-breakpoint
+-CREATE TABLE "documents" (
++CREATE TABLE "vigie"."documents" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"title" text NOT NULL,
+ 	"type" text NOT NULL,
+@@ -128,7 +128,7 @@
+ 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "duerp_versions" (
++CREATE TABLE "vigie"."duerp_versions" (
+ 	"version" text PRIMARY KEY NOT NULL,
+ 	"current" boolean DEFAULT false NOT NULL,
+ 	"updated_on" date NOT NULL,
+@@ -141,14 +141,14 @@
+ 	"snapshot" jsonb
+ );
+ --> statement-breakpoint
+-CREATE TABLE "event_analyses" (
++CREATE TABLE "vigie"."event_analyses" (
+ 	"event_id" text NOT NULL,
+ 	"method" text NOT NULL,
+ 	"content" jsonb NOT NULL,
+ 	CONSTRAINT "event_analyses_event_id_method_pk" PRIMARY KEY("event_id","method")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "events" (
++CREATE TABLE "vigie"."events" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"site_id" text NOT NULL,
+ 	"type" text NOT NULL,
+@@ -171,14 +171,14 @@
+ 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "hours_worked" (
++CREATE TABLE "vigie"."hours_worked" (
+ 	"month" date NOT NULL,
+ 	"site_id" text NOT NULL,
+ 	"hours" integer NOT NULL,
+ 	CONSTRAINT "hours_worked_month_site_id_pk" PRIMARY KEY("month","site_id")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "keystone_assignments" (
++CREATE TABLE "vigie"."keystone_assignments" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"person_id" text NOT NULL,
+ 	"project" text NOT NULL,
+@@ -187,14 +187,33 @@
+ 	"end_on" date NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "keystone_projects" (
++CREATE TABLE "vigie"."keystone_projects" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"client" text NOT NULL,
+ 	"title" text NOT NULL,
+ 	"delivery_on" date
+ );
+ --> statement-breakpoint
+-CREATE TABLE "people" (
++CREATE TABLE "vigie"."map_routes" (
++	"id" serial PRIMARY KEY NOT NULL,
++	"site_id" text NOT NULL,
++	"name" text NOT NULL,
++	"kind" text NOT NULL,
++	"polyline" jsonb NOT NULL,
++	"shared" boolean DEFAULT true NOT NULL,
++	"notes" text
++);
++--> statement-breakpoint
++CREATE TABLE "vigie"."map_zones" (
++	"id" serial PRIMARY KEY NOT NULL,
++	"site_id" text NOT NULL,
++	"name" text NOT NULL,
++	"kind" text NOT NULL,
++	"polygon" jsonb NOT NULL,
++	"notes" text
++);
++--> statement-breakpoint
++CREATE TABLE "vigie"."people" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"name" text NOT NULL,
+ 	"job" text DEFAULT '' NOT NULL,
+@@ -203,7 +222,7 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "permits" (
++CREATE TABLE "vigie"."permits" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"type" text NOT NULL,
+ 	"site_id" text NOT NULL,
+@@ -222,7 +241,17 @@
+ 	"closed_at" timestamp with time zone
+ );
+ --> statement-breakpoint
+-CREATE TABLE "prevention_plans" (
++CREATE TABLE "vigie"."pp_import_templates" (
++	"id" serial PRIMARY KEY NOT NULL,
++	"name" text NOT NULL,
++	"format" text NOT NULL,
++	"signature" text,
++	"mapping" jsonb NOT NULL,
++	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
++	"updated_by_id" text
++);
++--> statement-breakpoint
++CREATE TABLE "vigie"."prevention_plans" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"site_id" text NOT NULL,
+ 	"contractor_id" text NOT NULL,
+@@ -239,17 +268,19 @@
+ 	"status" text NOT NULL,
+ 	"signed_eu_on" date,
+ 	"signed_ee_on" date,
+-	"owner_id" text
++	"owner_id" text,
++	"form_data" jsonb,
++	"imported_from_id" text
+ );
+ --> statement-breakpoint
+-CREATE TABLE "qualification_requirements" (
++CREATE TABLE "vigie"."qualification_requirements" (
+ 	"person_id" text NOT NULL,
+ 	"title_id" text NOT NULL,
+ 	"renewal_action_id" text,
+ 	CONSTRAINT "qualification_requirements_person_id_title_id_pk" PRIMARY KEY("person_id","title_id")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "qualifications" (
++CREATE TABLE "vigie"."qualifications" (
+ 	"person_id" text NOT NULL,
+ 	"title_id" text NOT NULL,
+ 	"obtained_on" date NOT NULL,
+@@ -258,7 +289,7 @@
+ 	CONSTRAINT "qualifications_person_id_title_id_pk" PRIMARY KEY("person_id","title_id")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "requirements" (
++CREATE TABLE "vigie"."requirements" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"text" text NOT NULL,
+ 	"domain" text NOT NULL,
+@@ -276,7 +307,7 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "review_items" (
++CREATE TABLE "vigie"."review_items" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"review_on" date NOT NULL,
+ 	"label" text NOT NULL,
+@@ -285,13 +316,13 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "risk_actions" (
++CREATE TABLE "vigie"."risk_actions" (
+ 	"risk_id" integer NOT NULL,
+ 	"action_id" text NOT NULL,
+ 	CONSTRAINT "risk_actions_risk_id_action_id_pk" PRIMARY KEY("risk_id","action_id")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "risks" (
++CREATE TABLE "vigie"."risks" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"unit_id" text NOT NULL,
+ 	"hazard" text NOT NULL,
+@@ -304,20 +335,53 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "sites" (
++CREATE TABLE "vigie"."site_activities" (
++	"id" serial PRIMARY KEY NOT NULL,
++	"site_id" text NOT NULL,
++	"title" text NOT NULL,
++	"team" text NOT NULL,
++	"contractor_id" text,
++	"owner_id" text,
++	"prevention_plan_id" text,
++	"permit_id" text,
++	"keystone_project" text,
++	"zone_id" integer,
++	"geometry" jsonb,
++	"start_on" date NOT NULL,
++	"end_on" date NOT NULL,
++	"hours" text,
++	"route_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
++	"vehicles" boolean DEFAULT false NOT NULL,
++	"notes" text,
++	"created_at" timestamp with time zone DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++CREATE TABLE "vigie"."site_maps" (
++	"site_id" text PRIMARY KEY NOT NULL,
++	"attachment_id" text,
++	"width" integer NOT NULL,
++	"height" integer NOT NULL,
++	"meters_per_unit" numeric(12, 4),
++	"proximity_meters" integer DEFAULT 15 NOT NULL,
++	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++CREATE TABLE "vigie"."sites" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"label" text NOT NULL,
++	"seveso" text,
++	"pp_from_first_minute" boolean DEFAULT false NOT NULL,
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "training_titles" (
++CREATE TABLE "vigie"."training_titles" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"label" text NOT NULL,
+ 	"validity_months" integer DEFAULT 0 NOT NULL,
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "waste_entries" (
++CREATE TABLE "vigie"."waste_entries" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"site_id" text NOT NULL,
+ 	"stream_id" text NOT NULL,
+@@ -332,7 +396,7 @@
+ 	"notes" text
+ );
+ --> statement-breakpoint
+-CREATE TABLE "waste_streams" (
++CREATE TABLE "vigie"."waste_streams" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"site_id" text NOT NULL,
+ 	"label" text NOT NULL,
+@@ -345,56 +409,68 @@
+ 	"destination" text NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "work_units" (
++CREATE TABLE "vigie"."work_units" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"label" text NOT NULL,
+ 	"site_id" text,
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-ALTER TABLE "actions" ADD CONSTRAINT "actions_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "actions" ADD CONSTRAINT "actions_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "actions" ADD CONSTRAINT "actions_pilot_id_people_id_fk" FOREIGN KEY ("pilot_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "actions" ADD CONSTRAINT "actions_verified_by_id_people_id_fk" FOREIGN KEY ("verified_by_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "audit_findings" ADD CONSTRAINT "audit_findings_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "public"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "audit_plan_items" ADD CONSTRAINT "audit_plan_items_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "audit_plan_items" ADD CONSTRAINT "audit_plan_items_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "public"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "consumptions" ADD CONSTRAINT "consumptions_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "control_records" ADD CONSTRAINT "control_records_control_id_controls_id_fk" FOREIGN KEY ("control_id") REFERENCES "public"."controls"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "control_records" ADD CONSTRAINT "control_records_recorded_by_id_people_id_fk" FOREIGN KEY ("recorded_by_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "controls" ADD CONSTRAINT "controls_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "controls" ADD CONSTRAINT "controls_responsible_id_people_id_fk" FOREIGN KEY ("responsible_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "document_versions" ADD CONSTRAINT "document_versions_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "document_versions" ADD CONSTRAINT "document_versions_author_id_people_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "document_versions" ADD CONSTRAINT "document_versions_approver_id_people_id_fk" FOREIGN KEY ("approver_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "document_versions" ADD CONSTRAINT "document_versions_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "public"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "duerp_versions" ADD CONSTRAINT "duerp_versions_validated_by_id_people_id_fk" FOREIGN KEY ("validated_by_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "event_analyses" ADD CONSTRAINT "event_analyses_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "events" ADD CONSTRAINT "events_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "events" ADD CONSTRAINT "events_pilot_id_people_id_fk" FOREIGN KEY ("pilot_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "hours_worked" ADD CONSTRAINT "hours_worked_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "keystone_assignments" ADD CONSTRAINT "keystone_assignments_person_id_people_id_fk" FOREIGN KEY ("person_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "people" ADD CONSTRAINT "people_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "permits" ADD CONSTRAINT "permits_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "permits" ADD CONSTRAINT "permits_contractor_id_contractors_id_fk" FOREIGN KEY ("contractor_id") REFERENCES "public"."contractors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "permits" ADD CONSTRAINT "permits_issuer_id_people_id_fk" FOREIGN KEY ("issuer_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "permits" ADD CONSTRAINT "permits_prevention_plan_id_prevention_plans_id_fk" FOREIGN KEY ("prevention_plan_id") REFERENCES "public"."prevention_plans"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "prevention_plans" ADD CONSTRAINT "prevention_plans_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "prevention_plans" ADD CONSTRAINT "prevention_plans_contractor_id_contractors_id_fk" FOREIGN KEY ("contractor_id") REFERENCES "public"."contractors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "prevention_plans" ADD CONSTRAINT "prevention_plans_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "qualification_requirements" ADD CONSTRAINT "qualification_requirements_person_id_people_id_fk" FOREIGN KEY ("person_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "qualification_requirements" ADD CONSTRAINT "qualification_requirements_title_id_training_titles_id_fk" FOREIGN KEY ("title_id") REFERENCES "public"."training_titles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "qualification_requirements" ADD CONSTRAINT "qualification_requirements_renewal_action_id_actions_id_fk" FOREIGN KEY ("renewal_action_id") REFERENCES "public"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "qualifications" ADD CONSTRAINT "qualifications_person_id_people_id_fk" FOREIGN KEY ("person_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "qualifications" ADD CONSTRAINT "qualifications_title_id_training_titles_id_fk" FOREIGN KEY ("title_id") REFERENCES "public"."training_titles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "requirements" ADD CONSTRAINT "requirements_pilot_id_people_id_fk" FOREIGN KEY ("pilot_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "requirements" ADD CONSTRAINT "requirements_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "public"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "risk_actions" ADD CONSTRAINT "risk_actions_risk_id_risks_id_fk" FOREIGN KEY ("risk_id") REFERENCES "public"."risks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "risk_actions" ADD CONSTRAINT "risk_actions_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "public"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "risks" ADD CONSTRAINT "risks_unit_id_work_units_id_fk" FOREIGN KEY ("unit_id") REFERENCES "public"."work_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "waste_entries" ADD CONSTRAINT "waste_entries_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "waste_entries" ADD CONSTRAINT "waste_entries_stream_id_waste_streams_id_fk" FOREIGN KEY ("stream_id") REFERENCES "public"."waste_streams"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "waste_streams" ADD CONSTRAINT "waste_streams_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "work_units" ADD CONSTRAINT "work_units_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;
+\ No newline at end of file
++ALTER TABLE "vigie"."actions" ADD CONSTRAINT "actions_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "vigie"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."actions" ADD CONSTRAINT "actions_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."actions" ADD CONSTRAINT "actions_pilot_id_people_id_fk" FOREIGN KEY ("pilot_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."actions" ADD CONSTRAINT "actions_verified_by_id_people_id_fk" FOREIGN KEY ("verified_by_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."audit_findings" ADD CONSTRAINT "audit_findings_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "vigie"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."audit_plan_items" ADD CONSTRAINT "audit_plan_items_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."audit_plan_items" ADD CONSTRAINT "audit_plan_items_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "vigie"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."consumptions" ADD CONSTRAINT "consumptions_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."control_records" ADD CONSTRAINT "control_records_control_id_controls_id_fk" FOREIGN KEY ("control_id") REFERENCES "vigie"."controls"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."control_records" ADD CONSTRAINT "control_records_recorded_by_id_people_id_fk" FOREIGN KEY ("recorded_by_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."controls" ADD CONSTRAINT "controls_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."controls" ADD CONSTRAINT "controls_responsible_id_people_id_fk" FOREIGN KEY ("responsible_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."document_versions" ADD CONSTRAINT "document_versions_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "vigie"."documents"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."document_versions" ADD CONSTRAINT "document_versions_author_id_people_id_fk" FOREIGN KEY ("author_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."document_versions" ADD CONSTRAINT "document_versions_approver_id_people_id_fk" FOREIGN KEY ("approver_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."document_versions" ADD CONSTRAINT "document_versions_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "vigie"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."documents" ADD CONSTRAINT "documents_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."documents" ADD CONSTRAINT "documents_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."duerp_versions" ADD CONSTRAINT "duerp_versions_validated_by_id_people_id_fk" FOREIGN KEY ("validated_by_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."event_analyses" ADD CONSTRAINT "event_analyses_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "vigie"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."events" ADD CONSTRAINT "events_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."events" ADD CONSTRAINT "events_pilot_id_people_id_fk" FOREIGN KEY ("pilot_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."hours_worked" ADD CONSTRAINT "hours_worked_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."keystone_assignments" ADD CONSTRAINT "keystone_assignments_person_id_people_id_fk" FOREIGN KEY ("person_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."map_routes" ADD CONSTRAINT "map_routes_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."map_zones" ADD CONSTRAINT "map_zones_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."people" ADD CONSTRAINT "people_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."permits" ADD CONSTRAINT "permits_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."permits" ADD CONSTRAINT "permits_contractor_id_contractors_id_fk" FOREIGN KEY ("contractor_id") REFERENCES "vigie"."contractors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."permits" ADD CONSTRAINT "permits_issuer_id_people_id_fk" FOREIGN KEY ("issuer_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."permits" ADD CONSTRAINT "permits_prevention_plan_id_prevention_plans_id_fk" FOREIGN KEY ("prevention_plan_id") REFERENCES "vigie"."prevention_plans"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."pp_import_templates" ADD CONSTRAINT "pp_import_templates_updated_by_id_people_id_fk" FOREIGN KEY ("updated_by_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."prevention_plans" ADD CONSTRAINT "prevention_plans_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."prevention_plans" ADD CONSTRAINT "prevention_plans_contractor_id_contractors_id_fk" FOREIGN KEY ("contractor_id") REFERENCES "vigie"."contractors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."prevention_plans" ADD CONSTRAINT "prevention_plans_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."prevention_plans" ADD CONSTRAINT "prevention_plans_imported_from_id_attachments_id_fk" FOREIGN KEY ("imported_from_id") REFERENCES "vigie"."attachments"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."qualification_requirements" ADD CONSTRAINT "qualification_requirements_person_id_people_id_fk" FOREIGN KEY ("person_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."qualification_requirements" ADD CONSTRAINT "qualification_requirements_title_id_training_titles_id_fk" FOREIGN KEY ("title_id") REFERENCES "vigie"."training_titles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."qualification_requirements" ADD CONSTRAINT "qualification_requirements_renewal_action_id_actions_id_fk" FOREIGN KEY ("renewal_action_id") REFERENCES "vigie"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."qualifications" ADD CONSTRAINT "qualifications_person_id_people_id_fk" FOREIGN KEY ("person_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."qualifications" ADD CONSTRAINT "qualifications_title_id_training_titles_id_fk" FOREIGN KEY ("title_id") REFERENCES "vigie"."training_titles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."requirements" ADD CONSTRAINT "requirements_pilot_id_people_id_fk" FOREIGN KEY ("pilot_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."requirements" ADD CONSTRAINT "requirements_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "vigie"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."risk_actions" ADD CONSTRAINT "risk_actions_risk_id_risks_id_fk" FOREIGN KEY ("risk_id") REFERENCES "vigie"."risks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."risk_actions" ADD CONSTRAINT "risk_actions_action_id_actions_id_fk" FOREIGN KEY ("action_id") REFERENCES "vigie"."actions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."risks" ADD CONSTRAINT "risks_unit_id_work_units_id_fk" FOREIGN KEY ("unit_id") REFERENCES "vigie"."work_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_activities" ADD CONSTRAINT "site_activities_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_activities" ADD CONSTRAINT "site_activities_contractor_id_contractors_id_fk" FOREIGN KEY ("contractor_id") REFERENCES "vigie"."contractors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_activities" ADD CONSTRAINT "site_activities_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "vigie"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_activities" ADD CONSTRAINT "site_activities_prevention_plan_id_prevention_plans_id_fk" FOREIGN KEY ("prevention_plan_id") REFERENCES "vigie"."prevention_plans"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_activities" ADD CONSTRAINT "site_activities_permit_id_permits_id_fk" FOREIGN KEY ("permit_id") REFERENCES "vigie"."permits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_activities" ADD CONSTRAINT "site_activities_zone_id_map_zones_id_fk" FOREIGN KEY ("zone_id") REFERENCES "vigie"."map_zones"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_maps" ADD CONSTRAINT "site_maps_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."site_maps" ADD CONSTRAINT "site_maps_attachment_id_attachments_id_fk" FOREIGN KEY ("attachment_id") REFERENCES "vigie"."attachments"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."waste_entries" ADD CONSTRAINT "waste_entries_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."waste_entries" ADD CONSTRAINT "waste_entries_stream_id_waste_streams_id_fk" FOREIGN KEY ("stream_id") REFERENCES "vigie"."waste_streams"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."waste_streams" ADD CONSTRAINT "waste_streams_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "vigie"."work_units" ADD CONSTRAINT "work_units_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "vigie"."sites"("id") ON DELETE no action ON UPDATE no action;
+\ No newline at end of file
+--- a/drizzle/meta/0000_snapshot.json
++++ b/drizzle/meta/0000_snapshot.json
+@@ -1,12 +1,12 @@
+ {
+-  "id": "0f758d54-7c39-4b74-8d3a-1766ffa84143",
++  "id": "e07b8744-cf96-450a-acce-d25776221ea2",
+   "prevId": "00000000-0000-0000-0000-000000000000",
+   "version": "7",
+   "dialect": "postgresql",
+   "tables": {
+-    "public.actions": {
++    "vigie.actions": {
+       "name": "actions",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -112,6 +112,7 @@
+           "name": "actions_event_id_events_id_fk",
+           "tableFrom": "actions",
+           "tableTo": "events",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "event_id"
+           ],
+@@ -125,6 +126,7 @@
+           "name": "actions_site_id_sites_id_fk",
+           "tableFrom": "actions",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -138,6 +140,7 @@
+           "name": "actions_pilot_id_people_id_fk",
+           "tableFrom": "actions",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "pilot_id"
+           ],
+@@ -151,6 +154,7 @@
+           "name": "actions_verified_by_id_people_id_fk",
+           "tableFrom": "actions",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "verified_by_id"
+           ],
+@@ -167,9 +171,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.attachments": {
++    "vigie.attachments": {
+       "name": "attachments",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -235,9 +239,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.audit_findings": {
++    "vigie.audit_findings": {
+       "name": "audit_findings",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -283,6 +287,7 @@
+           "name": "audit_findings_action_id_actions_id_fk",
+           "tableFrom": "audit_findings",
+           "tableTo": "actions",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "action_id"
+           ],
+@@ -299,9 +304,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.audit_plan_items": {
++    "vigie.audit_plan_items": {
+       "name": "audit_plan_items",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -371,6 +376,7 @@
+           "name": "audit_plan_items_owner_id_people_id_fk",
+           "tableFrom": "audit_plan_items",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "owner_id"
+           ],
+@@ -384,6 +390,7 @@
+           "name": "audit_plan_items_action_id_actions_id_fk",
+           "tableFrom": "audit_plan_items",
+           "tableTo": "actions",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "action_id"
+           ],
+@@ -400,9 +407,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.certifications": {
++    "vigie.certifications": {
+       "name": "certifications",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -456,9 +463,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.consumptions": {
++    "vigie.consumptions": {
+       "name": "consumptions",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "site_id": {
+           "name": "site_id",
+@@ -491,6 +498,7 @@
+           "name": "consumptions_site_id_sites_id_fk",
+           "tableFrom": "consumptions",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -516,9 +524,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.contractors": {
++    "vigie.contractors": {
+       "name": "contractors",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -565,9 +573,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.control_records": {
++    "vigie.control_records": {
+       "name": "control_records",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -625,6 +633,7 @@
+           "name": "control_records_control_id_controls_id_fk",
+           "tableFrom": "control_records",
+           "tableTo": "controls",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "control_id"
+           ],
+@@ -638,6 +647,7 @@
+           "name": "control_records_recorded_by_id_people_id_fk",
+           "tableFrom": "control_records",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "recorded_by_id"
+           ],
+@@ -654,9 +664,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.controls": {
++    "vigie.controls": {
+       "name": "controls",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -732,6 +742,7 @@
+           "name": "controls_site_id_sites_id_fk",
+           "tableFrom": "controls",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -745,6 +756,7 @@
+           "name": "controls_responsible_id_people_id_fk",
+           "tableFrom": "controls",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "responsible_id"
+           ],
+@@ -761,9 +773,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.document_versions": {
++    "vigie.document_versions": {
+       "name": "document_versions",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -833,6 +845,7 @@
+           "name": "document_versions_document_id_documents_id_fk",
+           "tableFrom": "document_versions",
+           "tableTo": "documents",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "document_id"
+           ],
+@@ -846,6 +859,7 @@
+           "name": "document_versions_author_id_people_id_fk",
+           "tableFrom": "document_versions",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "author_id"
+           ],
+@@ -859,6 +873,7 @@
+           "name": "document_versions_approver_id_people_id_fk",
+           "tableFrom": "document_versions",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "approver_id"
+           ],
+@@ -872,6 +887,7 @@
+           "name": "document_versions_action_id_actions_id_fk",
+           "tableFrom": "document_versions",
+           "tableTo": "actions",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "action_id"
+           ],
+@@ -888,9 +904,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.documents": {
++    "vigie.documents": {
+       "name": "documents",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -956,6 +972,7 @@
+           "name": "documents_owner_id_people_id_fk",
+           "tableFrom": "documents",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "owner_id"
+           ],
+@@ -969,6 +986,7 @@
+           "name": "documents_site_id_sites_id_fk",
+           "tableFrom": "documents",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -985,9 +1003,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.duerp_versions": {
++    "vigie.duerp_versions": {
+       "name": "duerp_versions",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "version": {
+           "name": "version",
+@@ -1057,6 +1075,7 @@
+           "name": "duerp_versions_validated_by_id_people_id_fk",
+           "tableFrom": "duerp_versions",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "validated_by_id"
+           ],
+@@ -1073,9 +1092,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.event_analyses": {
++    "vigie.event_analyses": {
+       "name": "event_analyses",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "event_id": {
+           "name": "event_id",
+@@ -1102,6 +1121,7 @@
+           "name": "event_analyses_event_id_events_id_fk",
+           "tableFrom": "event_analyses",
+           "tableTo": "events",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "event_id"
+           ],
+@@ -1126,9 +1146,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.events": {
++    "vigie.events": {
+       "name": "events",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1263,6 +1283,7 @@
+           "name": "events_site_id_sites_id_fk",
+           "tableFrom": "events",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -1276,6 +1297,7 @@
+           "name": "events_pilot_id_people_id_fk",
+           "tableFrom": "events",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "pilot_id"
+           ],
+@@ -1292,9 +1314,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.hours_worked": {
++    "vigie.hours_worked": {
+       "name": "hours_worked",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "month": {
+           "name": "month",
+@@ -1321,6 +1343,7 @@
+           "name": "hours_worked_site_id_sites_id_fk",
+           "tableFrom": "hours_worked",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -1345,9 +1368,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.keystone_assignments": {
++    "vigie.keystone_assignments": {
+       "name": "keystone_assignments",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1392,6 +1415,7 @@
+           "name": "keystone_assignments_person_id_people_id_fk",
+           "tableFrom": "keystone_assignments",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "person_id"
+           ],
+@@ -1408,9 +1432,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.keystone_projects": {
++    "vigie.keystone_projects": {
+       "name": "keystone_projects",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1445,9 +1469,144 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.people": {
++    "vigie.map_routes": {
++      "name": "map_routes",
++      "schema": "vigie",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "serial",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "site_id": {
++          "name": "site_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "polyline": {
++          "name": "polyline",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "shared": {
++          "name": "shared",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": true
++        },
++        "notes": {
++          "name": "notes",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "map_routes_site_id_sites_id_fk": {
++          "name": "map_routes_site_id_sites_id_fk",
++          "tableFrom": "map_routes",
++          "tableTo": "sites",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "site_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "vigie.map_zones": {
++      "name": "map_zones",
++      "schema": "vigie",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "serial",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "site_id": {
++          "name": "site_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "polygon": {
++          "name": "polygon",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "notes": {
++          "name": "notes",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "map_zones_site_id_sites_id_fk": {
++          "name": "map_zones_site_id_sites_id_fk",
++          "tableFrom": "map_zones",
++          "tableTo": "sites",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "site_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "vigie.people": {
+       "name": "people",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1495,6 +1654,7 @@
+           "name": "people_site_id_sites_id_fk",
+           "tableFrom": "people",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -1511,9 +1671,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.permits": {
++    "vigie.permits": {
+       "name": "permits",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1619,6 +1779,7 @@
+           "name": "permits_site_id_sites_id_fk",
+           "tableFrom": "permits",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -1632,6 +1793,7 @@
+           "name": "permits_contractor_id_contractors_id_fk",
+           "tableFrom": "permits",
+           "tableTo": "contractors",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "contractor_id"
+           ],
+@@ -1645,6 +1807,7 @@
+           "name": "permits_issuer_id_people_id_fk",
+           "tableFrom": "permits",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "issuer_id"
+           ],
+@@ -1658,6 +1821,7 @@
+           "name": "permits_prevention_plan_id_prevention_plans_id_fk",
+           "tableFrom": "permits",
+           "tableTo": "prevention_plans",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "prevention_plan_id"
+           ],
+@@ -1674,9 +1838,80 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.prevention_plans": {
++    "vigie.pp_import_templates": {
++      "name": "pp_import_templates",
++      "schema": "vigie",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "serial",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "format": {
++          "name": "format",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "signature": {
++          "name": "signature",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "mapping": {
++          "name": "mapping",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "updated_by_id": {
++          "name": "updated_by_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "pp_import_templates_updated_by_id_people_id_fk": {
++          "name": "pp_import_templates_updated_by_id_people_id_fk",
++          "tableFrom": "pp_import_templates",
++          "tableTo": "people",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "updated_by_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "vigie.prevention_plans": {
+       "name": "prevention_plans",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1782,6 +2017,18 @@
+           "type": "text",
+           "primaryKey": false,
+           "notNull": false
++        },
++        "form_data": {
++          "name": "form_data",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "imported_from_id": {
++          "name": "imported_from_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
+         }
+       },
+       "indexes": {},
+@@ -1790,6 +2037,7 @@
+           "name": "prevention_plans_site_id_sites_id_fk",
+           "tableFrom": "prevention_plans",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -1803,6 +2051,7 @@
+           "name": "prevention_plans_contractor_id_contractors_id_fk",
+           "tableFrom": "prevention_plans",
+           "tableTo": "contractors",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "contractor_id"
+           ],
+@@ -1816,6 +2065,7 @@
+           "name": "prevention_plans_owner_id_people_id_fk",
+           "tableFrom": "prevention_plans",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "owner_id"
+           ],
+@@ -1824,6 +2074,20 @@
+           ],
+           "onDelete": "no action",
+           "onUpdate": "no action"
++        },
++        "prevention_plans_imported_from_id_attachments_id_fk": {
++          "name": "prevention_plans_imported_from_id_attachments_id_fk",
++          "tableFrom": "prevention_plans",
++          "tableTo": "attachments",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "imported_from_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
+         }
+       },
+       "compositePrimaryKeys": {},
+@@ -1832,9 +2096,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.qualification_requirements": {
++    "vigie.qualification_requirements": {
+       "name": "qualification_requirements",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "person_id": {
+           "name": "person_id",
+@@ -1861,6 +2125,7 @@
+           "name": "qualification_requirements_person_id_people_id_fk",
+           "tableFrom": "qualification_requirements",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "person_id"
+           ],
+@@ -1874,6 +2139,7 @@
+           "name": "qualification_requirements_title_id_training_titles_id_fk",
+           "tableFrom": "qualification_requirements",
+           "tableTo": "training_titles",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "title_id"
+           ],
+@@ -1887,6 +2153,7 @@
+           "name": "qualification_requirements_renewal_action_id_actions_id_fk",
+           "tableFrom": "qualification_requirements",
+           "tableTo": "actions",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "renewal_action_id"
+           ],
+@@ -1911,9 +2178,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.qualifications": {
++    "vigie.qualifications": {
+       "name": "qualifications",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "person_id": {
+           "name": "person_id",
+@@ -1952,6 +2219,7 @@
+           "name": "qualifications_person_id_people_id_fk",
+           "tableFrom": "qualifications",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "person_id"
+           ],
+@@ -1965,6 +2233,7 @@
+           "name": "qualifications_title_id_training_titles_id_fk",
+           "tableFrom": "qualifications",
+           "tableTo": "training_titles",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "title_id"
+           ],
+@@ -1989,9 +2258,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.requirements": {
++    "vigie.requirements": {
+       "name": "requirements",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2092,6 +2361,7 @@
+           "name": "requirements_pilot_id_people_id_fk",
+           "tableFrom": "requirements",
+           "tableTo": "people",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "pilot_id"
+           ],
+@@ -2105,6 +2375,7 @@
+           "name": "requirements_action_id_actions_id_fk",
+           "tableFrom": "requirements",
+           "tableTo": "actions",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "action_id"
+           ],
+@@ -2121,9 +2392,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.review_items": {
++    "vigie.review_items": {
+       "name": "review_items",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2172,9 +2443,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.risk_actions": {
++    "vigie.risk_actions": {
+       "name": "risk_actions",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "risk_id": {
+           "name": "risk_id",
+@@ -2195,6 +2466,7 @@
+           "name": "risk_actions_risk_id_risks_id_fk",
+           "tableFrom": "risk_actions",
+           "tableTo": "risks",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "risk_id"
+           ],
+@@ -2208,6 +2480,7 @@
+           "name": "risk_actions_action_id_actions_id_fk",
+           "tableFrom": "risk_actions",
+           "tableTo": "actions",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "action_id"
+           ],
+@@ -2232,9 +2505,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.risks": {
++    "vigie.risks": {
+       "name": "risks",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2304,6 +2577,7 @@
+           "name": "risks_unit_id_work_units_id_fk",
+           "tableFrom": "risks",
+           "tableTo": "work_units",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "unit_id"
+           ],
+@@ -2320,9 +2594,304 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.sites": {
++    "vigie.site_activities": {
++      "name": "site_activities",
++      "schema": "vigie",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "serial",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "site_id": {
++          "name": "site_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "title": {
++          "name": "title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "team": {
++          "name": "team",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "contractor_id": {
++          "name": "contractor_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "owner_id": {
++          "name": "owner_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "prevention_plan_id": {
++          "name": "prevention_plan_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "permit_id": {
++          "name": "permit_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "keystone_project": {
++          "name": "keystone_project",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "zone_id": {
++          "name": "zone_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "geometry": {
++          "name": "geometry",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "start_on": {
++          "name": "start_on",
++          "type": "date",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "end_on": {
++          "name": "end_on",
++          "type": "date",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "hours": {
++          "name": "hours",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "route_ids": {
++          "name": "route_ids",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'[]'::jsonb"
++        },
++        "vehicles": {
++          "name": "vehicles",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
++        "notes": {
++          "name": "notes",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "site_activities_site_id_sites_id_fk": {
++          "name": "site_activities_site_id_sites_id_fk",
++          "tableFrom": "site_activities",
++          "tableTo": "sites",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "site_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "site_activities_contractor_id_contractors_id_fk": {
++          "name": "site_activities_contractor_id_contractors_id_fk",
++          "tableFrom": "site_activities",
++          "tableTo": "contractors",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "contractor_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "site_activities_owner_id_people_id_fk": {
++          "name": "site_activities_owner_id_people_id_fk",
++          "tableFrom": "site_activities",
++          "tableTo": "people",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "owner_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "site_activities_prevention_plan_id_prevention_plans_id_fk": {
++          "name": "site_activities_prevention_plan_id_prevention_plans_id_fk",
++          "tableFrom": "site_activities",
++          "tableTo": "prevention_plans",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "prevention_plan_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "site_activities_permit_id_permits_id_fk": {
++          "name": "site_activities_permit_id_permits_id_fk",
++          "tableFrom": "site_activities",
++          "tableTo": "permits",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "permit_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "site_activities_zone_id_map_zones_id_fk": {
++          "name": "site_activities_zone_id_map_zones_id_fk",
++          "tableFrom": "site_activities",
++          "tableTo": "map_zones",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "zone_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "vigie.site_maps": {
++      "name": "site_maps",
++      "schema": "vigie",
++      "columns": {
++        "site_id": {
++          "name": "site_id",
++          "type": "text",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "attachment_id": {
++          "name": "attachment_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "width": {
++          "name": "width",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "height": {
++          "name": "height",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "meters_per_unit": {
++          "name": "meters_per_unit",
++          "type": "numeric(12, 4)",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "proximity_meters": {
++          "name": "proximity_meters",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 15
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "site_maps_site_id_sites_id_fk": {
++          "name": "site_maps_site_id_sites_id_fk",
++          "tableFrom": "site_maps",
++          "tableTo": "sites",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "site_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "site_maps_attachment_id_attachments_id_fk": {
++          "name": "site_maps_attachment_id_attachments_id_fk",
++          "tableFrom": "site_maps",
++          "tableTo": "attachments",
++          "schemaTo": "vigie",
++          "columnsFrom": [
++            "attachment_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "vigie.sites": {
+       "name": "sites",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2336,6 +2905,19 @@
+           "primaryKey": false,
+           "notNull": true
+         },
++        "seveso": {
++          "name": "seveso",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "pp_from_first_minute": {
++          "name": "pp_from_first_minute",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
+         "sort": {
+           "name": "sort",
+           "type": "integer",
+@@ -2352,9 +2934,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.training_titles": {
++    "vigie.training_titles": {
+       "name": "training_titles",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2391,9 +2973,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.waste_entries": {
++    "vigie.waste_entries": {
+       "name": "waste_entries",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2474,6 +3056,7 @@
+           "name": "waste_entries_site_id_sites_id_fk",
+           "tableFrom": "waste_entries",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -2487,6 +3070,7 @@
+           "name": "waste_entries_stream_id_waste_streams_id_fk",
+           "tableFrom": "waste_entries",
+           "tableTo": "waste_streams",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "stream_id"
+           ],
+@@ -2503,9 +3087,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.waste_streams": {
++    "vigie.waste_streams": {
+       "name": "waste_streams",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2576,6 +3160,7 @@
+           "name": "waste_streams_site_id_sites_id_fk",
+           "tableFrom": "waste_streams",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -2592,9 +3177,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.work_units": {
++    "vigie.work_units": {
+       "name": "work_units",
+-      "schema": "",
++      "schema": "vigie",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2628,6 +3213,7 @@
+           "name": "work_units_site_id_sites_id_fk",
+           "tableFrom": "work_units",
+           "tableTo": "sites",
++          "schemaTo": "vigie",
+           "columnsFrom": [
+             "site_id"
+           ],
+@@ -2646,7 +3232,9 @@
+     }
+   },
+   "enums": {},
+-  "schemas": {},
++  "schemas": {
++    "vigie": "vigie"
++  },
+   "sequences": {},
+   "roles": {},
+   "policies": {},
+--- a/drizzle/meta/_journal.json
++++ b/drizzle/meta/_journal.json
+@@ -5,16 +5,9 @@
+     {
+       "idx": 0,
+       "version": "7",
+-      "when": 1791395566224,
++      "when": 1792072995407,
+       "tag": "0000_init",
+       "breakpoints": true
+-    },
+-    {
+-      "idx": 1,
+-      "version": "7",
+-      "when": 1791396331449,
+-      "tag": "0001_seveso_import_map",
+-      "breakpoints": true
+     }
+   ]
+ }
+\ No newline at end of file
+--- a/drizzle/0001_seveso_import_map.sql
++++ /dev/null
+@@ -1,76 +0,0 @@
+-CREATE TABLE "map_routes" (
+-	"id" serial PRIMARY KEY NOT NULL,
+-	"site_id" text NOT NULL,
+-	"name" text NOT NULL,
+-	"kind" text NOT NULL,
+-	"polyline" jsonb NOT NULL,
+-	"shared" boolean DEFAULT true NOT NULL,
+-	"notes" text
+-);
+---> statement-breakpoint
+-CREATE TABLE "map_zones" (
+-	"id" serial PRIMARY KEY NOT NULL,
+-	"site_id" text NOT NULL,
+-	"name" text NOT NULL,
+-	"kind" text NOT NULL,
+-	"polygon" jsonb NOT NULL,
+-	"notes" text
+-);
+---> statement-breakpoint
+-CREATE TABLE "pp_import_templates" (
+-	"id" serial PRIMARY KEY NOT NULL,
+-	"name" text NOT NULL,
+-	"format" text NOT NULL,
+-	"signature" text,
+-	"mapping" jsonb NOT NULL,
+-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+-	"updated_by_id" text
+-);
+---> statement-breakpoint
+-CREATE TABLE "site_activities" (
+-	"id" serial PRIMARY KEY NOT NULL,
+-	"site_id" text NOT NULL,
+-	"title" text NOT NULL,
+-	"team" text NOT NULL,
+-	"contractor_id" text,
+-	"owner_id" text,
+-	"prevention_plan_id" text,
+-	"permit_id" text,
+-	"keystone_project" text,
+-	"zone_id" integer,
+-	"geometry" jsonb,
+-	"start_on" date NOT NULL,
+-	"end_on" date NOT NULL,
+-	"hours" text,
+-	"route_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
+-	"vehicles" boolean DEFAULT false NOT NULL,
+-	"notes" text,
+-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+-);
+---> statement-breakpoint
+-CREATE TABLE "site_maps" (
+-	"site_id" text PRIMARY KEY NOT NULL,
+-	"attachment_id" text,
+-	"width" integer NOT NULL,
+-	"height" integer NOT NULL,
+-	"meters_per_unit" numeric(12, 4),
+-	"proximity_meters" integer DEFAULT 15 NOT NULL,
+-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+-);
+---> statement-breakpoint
+-ALTER TABLE "prevention_plans" ADD COLUMN "form_data" jsonb;--> statement-breakpoint
+-ALTER TABLE "prevention_plans" ADD COLUMN "imported_from_id" text;--> statement-breakpoint
+-ALTER TABLE "sites" ADD COLUMN "seveso" text;--> statement-breakpoint
+-ALTER TABLE "sites" ADD COLUMN "pp_from_first_minute" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+-ALTER TABLE "map_routes" ADD CONSTRAINT "map_routes_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "map_zones" ADD CONSTRAINT "map_zones_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "pp_import_templates" ADD CONSTRAINT "pp_import_templates_updated_by_id_people_id_fk" FOREIGN KEY ("updated_by_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_activities" ADD CONSTRAINT "site_activities_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_activities" ADD CONSTRAINT "site_activities_contractor_id_contractors_id_fk" FOREIGN KEY ("contractor_id") REFERENCES "public"."contractors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_activities" ADD CONSTRAINT "site_activities_owner_id_people_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."people"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_activities" ADD CONSTRAINT "site_activities_prevention_plan_id_prevention_plans_id_fk" FOREIGN KEY ("prevention_plan_id") REFERENCES "public"."prevention_plans"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_activities" ADD CONSTRAINT "site_activities_permit_id_permits_id_fk" FOREIGN KEY ("permit_id") REFERENCES "public"."permits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_activities" ADD CONSTRAINT "site_activities_zone_id_map_zones_id_fk" FOREIGN KEY ("zone_id") REFERENCES "public"."map_zones"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_maps" ADD CONSTRAINT "site_maps_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "site_maps" ADD CONSTRAINT "site_maps_attachment_id_attachments_id_fk" FOREIGN KEY ("attachment_id") REFERENCES "public"."attachments"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "prevention_plans" ADD CONSTRAINT "prevention_plans_imported_from_id_attachments_id_fk" FOREIGN KEY ("imported_from_id") REFERENCES "public"."attachments"("id") ON DELETE no action ON UPDATE no action;
+\ No newline at end of file
+--- a/drizzle/meta/0001_snapshot.json
++++ /dev/null
+@@ -1,3187 +0,0 @@
+-{
+-  "id": "cfc6cfb3-7030-483b-a8a1-5a3ee3e3bee4",
+-  "prevId": "0f758d54-7c39-4b74-8d3a-1766ffa84143",
+-  "version": "7",
+-  "dialect": "postgresql",
+-  "tables": {
+-    "public.actions": {
+-      "name": "actions",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "title": {
+-          "name": "title",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "description": {
+-          "name": "description",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "origin": {
+-          "name": "origin",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "origin_ref": {
+-          "name": "origin_ref",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "event_id": {
+-          "name": "event_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "pilot_id": {
+-          "name": "pilot_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "due_on": {
+-          "name": "due_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "status": {
+-          "name": "status",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "kind": {
+-          "name": "kind",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "verify_due_on": {
+-          "name": "verify_due_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "efficacy_note": {
+-          "name": "efficacy_note",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "verified_by_id": {
+-          "name": "verified_by_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "closed_on": {
+-          "name": "closed_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "created_at": {
+-          "name": "created_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "actions_event_id_events_id_fk": {
+-          "name": "actions_event_id_events_id_fk",
+-          "tableFrom": "actions",
+-          "tableTo": "events",
+-          "columnsFrom": [
+-            "event_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "actions_site_id_sites_id_fk": {
+-          "name": "actions_site_id_sites_id_fk",
+-          "tableFrom": "actions",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "actions_pilot_id_people_id_fk": {
+-          "name": "actions_pilot_id_people_id_fk",
+-          "tableFrom": "actions",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "pilot_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "actions_verified_by_id_people_id_fk": {
+-          "name": "actions_verified_by_id_people_id_fk",
+-          "tableFrom": "actions",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "verified_by_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.attachments": {
+-      "name": "attachments",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "entity_type": {
+-          "name": "entity_type",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "entity_id": {
+-          "name": "entity_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "file_name": {
+-          "name": "file_name",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "mime_type": {
+-          "name": "mime_type",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "size": {
+-          "name": "size",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "storage_path": {
+-          "name": "storage_path",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "uploaded_by": {
+-          "name": "uploaded_by",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "created_at": {
+-          "name": "created_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {},
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.audit_findings": {
+-      "name": "audit_findings",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "audit": {
+-          "name": "audit",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "kind": {
+-          "name": "kind",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "text": {
+-          "name": "text",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "action_id": {
+-          "name": "action_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "audit_findings_action_id_actions_id_fk": {
+-          "name": "audit_findings_action_id_actions_id_fk",
+-          "tableFrom": "audit_findings",
+-          "tableTo": "actions",
+-          "columnsFrom": [
+-            "action_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.audit_plan_items": {
+-      "name": "audit_plan_items",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "year": {
+-          "name": "year",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "track": {
+-          "name": "track",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "month": {
+-          "name": "month",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "label": {
+-          "name": "label",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "planned_on": {
+-          "name": "planned_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "detail": {
+-          "name": "detail",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "owner_id": {
+-          "name": "owner_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "action_id": {
+-          "name": "action_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "done": {
+-          "name": "done",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "audit_plan_items_owner_id_people_id_fk": {
+-          "name": "audit_plan_items_owner_id_people_id_fk",
+-          "tableFrom": "audit_plan_items",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "owner_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "audit_plan_items_action_id_actions_id_fk": {
+-          "name": "audit_plan_items_action_id_actions_id_fk",
+-          "tableFrom": "audit_plan_items",
+-          "tableTo": "actions",
+-          "columnsFrom": [
+-            "action_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.certifications": {
+-      "name": "certifications",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "domain": {
+-          "name": "domain",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "standard": {
+-          "name": "standard",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "status": {
+-          "name": "status",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "tone": {
+-          "name": "tone",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "note": {
+-          "name": "note",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {},
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.consumptions": {
+-      "name": "consumptions",
+-      "schema": "",
+-      "columns": {
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "month": {
+-          "name": "month",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "kind": {
+-          "name": "kind",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "value": {
+-          "name": "value",
+-          "type": "numeric(12, 2)",
+-          "primaryKey": false,
+-          "notNull": true
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "consumptions_site_id_sites_id_fk": {
+-          "name": "consumptions_site_id_sites_id_fk",
+-          "tableFrom": "consumptions",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {
+-        "consumptions_site_id_month_kind_pk": {
+-          "name": "consumptions_site_id_month_kind_pk",
+-          "columns": [
+-            "site_id",
+-            "month",
+-            "kind"
+-          ]
+-        }
+-      },
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.contractors": {
+-      "name": "contractors",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "name": {
+-          "name": "name",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "trade": {
+-          "name": "trade",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "contact_name": {
+-          "name": "contact_name",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "contact_phone": {
+-          "name": "contact_phone",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "contact_email": {
+-          "name": "contact_email",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {},
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.control_records": {
+-      "name": "control_records",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "control_id": {
+-          "name": "control_id",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "performed_on": {
+-          "name": "performed_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "organization": {
+-          "name": "organization",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "reserves": {
+-          "name": "reserves",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "notes": {
+-          "name": "notes",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "recorded_by_id": {
+-          "name": "recorded_by_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "created_at": {
+-          "name": "created_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "control_records_control_id_controls_id_fk": {
+-          "name": "control_records_control_id_controls_id_fk",
+-          "tableFrom": "control_records",
+-          "tableTo": "controls",
+-          "columnsFrom": [
+-            "control_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "control_records_recorded_by_id_people_id_fk": {
+-          "name": "control_records_recorded_by_id_people_id_fk",
+-          "tableFrom": "control_records",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "recorded_by_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.controls": {
+-      "name": "controls",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "equipment": {
+-          "name": "equipment",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "control_type": {
+-          "name": "control_type",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "period_months": {
+-          "name": "period_months",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "organization": {
+-          "name": "organization",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "responsible_id": {
+-          "name": "responsible_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "last_on": {
+-          "name": "last_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "next_on": {
+-          "name": "next_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "reserves": {
+-          "name": "reserves",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "controls_site_id_sites_id_fk": {
+-          "name": "controls_site_id_sites_id_fk",
+-          "tableFrom": "controls",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "controls_responsible_id_people_id_fk": {
+-          "name": "controls_responsible_id_people_id_fk",
+-          "tableFrom": "controls",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "responsible_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.document_versions": {
+-      "name": "document_versions",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "document_id": {
+-          "name": "document_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "version": {
+-          "name": "version",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "status": {
+-          "name": "status",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "summary": {
+-          "name": "summary",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "''"
+-        },
+-        "author_id": {
+-          "name": "author_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "approver_id": {
+-          "name": "approver_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "submitted_on": {
+-          "name": "submitted_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "approved_on": {
+-          "name": "approved_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "action_id": {
+-          "name": "action_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "document_versions_document_id_documents_id_fk": {
+-          "name": "document_versions_document_id_documents_id_fk",
+-          "tableFrom": "document_versions",
+-          "tableTo": "documents",
+-          "columnsFrom": [
+-            "document_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "document_versions_author_id_people_id_fk": {
+-          "name": "document_versions_author_id_people_id_fk",
+-          "tableFrom": "document_versions",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "author_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "document_versions_approver_id_people_id_fk": {
+-          "name": "document_versions_approver_id_people_id_fk",
+-          "tableFrom": "document_versions",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "approver_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "document_versions_action_id_actions_id_fk": {
+-          "name": "document_versions_action_id_actions_id_fk",
+-          "tableFrom": "document_versions",
+-          "tableTo": "actions",
+-          "columnsFrom": [
+-            "action_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.documents": {
+-      "name": "documents",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "title": {
+-          "name": "title",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "type": {
+-          "name": "type",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "process": {
+-          "name": "process",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "owner_id": {
+-          "name": "owner_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "review_months": {
+-          "name": "review_months",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 36
+-        },
+-        "distribution": {
+-          "name": "distribution",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "''"
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "created_at": {
+-          "name": "created_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "documents_owner_id_people_id_fk": {
+-          "name": "documents_owner_id_people_id_fk",
+-          "tableFrom": "documents",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "owner_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "documents_site_id_sites_id_fk": {
+-          "name": "documents_site_id_sites_id_fk",
+-          "tableFrom": "documents",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.duerp_versions": {
+-      "name": "duerp_versions",
+-      "schema": "",
+-      "columns": {
+-        "version": {
+-          "name": "version",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "current": {
+-          "name": "current",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "updated_on": {
+-          "name": "updated_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "next_update_on": {
+-          "name": "next_update_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "retention": {
+-          "name": "retention",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "validated_by_id": {
+-          "name": "validated_by_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "cse_consulted_on": {
+-          "name": "cse_consulted_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "archived_on": {
+-          "name": "archived_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "comment": {
+-          "name": "comment",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "snapshot": {
+-          "name": "snapshot",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "duerp_versions_validated_by_id_people_id_fk": {
+-          "name": "duerp_versions_validated_by_id_people_id_fk",
+-          "tableFrom": "duerp_versions",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "validated_by_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.event_analyses": {
+-      "name": "event_analyses",
+-      "schema": "",
+-      "columns": {
+-        "event_id": {
+-          "name": "event_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "method": {
+-          "name": "method",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "content": {
+-          "name": "content",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": true
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "event_analyses_event_id_events_id_fk": {
+-          "name": "event_analyses_event_id_events_id_fk",
+-          "tableFrom": "event_analyses",
+-          "tableTo": "events",
+-          "columnsFrom": [
+-            "event_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {
+-        "event_analyses_event_id_method_pk": {
+-          "name": "event_analyses_event_id_method_pk",
+-          "columns": [
+-            "event_id",
+-            "method"
+-          ]
+-        }
+-      },
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.events": {
+-      "name": "events",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "type": {
+-          "name": "type",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "title": {
+-          "name": "title",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "occurred_on": {
+-          "name": "occurred_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "location": {
+-          "name": "location",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "declarant": {
+-          "name": "declarant",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "anonymous": {
+-          "name": "anonymous",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "keystone_project": {
+-          "name": "keystone_project",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "equipment": {
+-          "name": "equipment",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "pilot_id": {
+-          "name": "pilot_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "severity": {
+-          "name": "severity",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "step": {
+-          "name": "step",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        },
+-        "description": {
+-          "name": "description",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "''"
+-        },
+-        "immediate_measures": {
+-          "name": "immediate_measures",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "''"
+-        },
+-        "analysis_method": {
+-          "name": "analysis_method",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "'5m'"
+-        },
+-        "nc_origin": {
+-          "name": "nc_origin",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "injury": {
+-          "name": "injury",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "lost_days": {
+-          "name": "lost_days",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "created_at": {
+-          "name": "created_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "events_site_id_sites_id_fk": {
+-          "name": "events_site_id_sites_id_fk",
+-          "tableFrom": "events",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "events_pilot_id_people_id_fk": {
+-          "name": "events_pilot_id_people_id_fk",
+-          "tableFrom": "events",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "pilot_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.hours_worked": {
+-      "name": "hours_worked",
+-      "schema": "",
+-      "columns": {
+-        "month": {
+-          "name": "month",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "hours": {
+-          "name": "hours",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "hours_worked_site_id_sites_id_fk": {
+-          "name": "hours_worked_site_id_sites_id_fk",
+-          "tableFrom": "hours_worked",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {
+-        "hours_worked_month_site_id_pk": {
+-          "name": "hours_worked_month_site_id_pk",
+-          "columns": [
+-            "month",
+-            "site_id"
+-          ]
+-        }
+-      },
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.keystone_assignments": {
+-      "name": "keystone_assignments",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "person_id": {
+-          "name": "person_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "project": {
+-          "name": "project",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "activity": {
+-          "name": "activity",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "start_on": {
+-          "name": "start_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "end_on": {
+-          "name": "end_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "keystone_assignments_person_id_people_id_fk": {
+-          "name": "keystone_assignments_person_id_people_id_fk",
+-          "tableFrom": "keystone_assignments",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "person_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.keystone_projects": {
+-      "name": "keystone_projects",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "client": {
+-          "name": "client",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "title": {
+-          "name": "title",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "delivery_on": {
+-          "name": "delivery_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {},
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.map_routes": {
+-      "name": "map_routes",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "name": {
+-          "name": "name",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "kind": {
+-          "name": "kind",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "polyline": {
+-          "name": "polyline",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "shared": {
+-          "name": "shared",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": true
+-        },
+-        "notes": {
+-          "name": "notes",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "map_routes_site_id_sites_id_fk": {
+-          "name": "map_routes_site_id_sites_id_fk",
+-          "tableFrom": "map_routes",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.map_zones": {
+-      "name": "map_zones",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "name": {
+-          "name": "name",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "kind": {
+-          "name": "kind",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "polygon": {
+-          "name": "polygon",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "notes": {
+-          "name": "notes",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "map_zones_site_id_sites_id_fk": {
+-          "name": "map_zones_site_id_sites_id_fk",
+-          "tableFrom": "map_zones",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.people": {
+-      "name": "people",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "name": {
+-          "name": "name",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "job": {
+-          "name": "job",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "''"
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "in_skills_matrix": {
+-          "name": "in_skills_matrix",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "people_site_id_sites_id_fk": {
+-          "name": "people_site_id_sites_id_fk",
+-          "tableFrom": "people",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.permits": {
+-      "name": "permits",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "type": {
+-          "name": "type",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "location": {
+-          "name": "location",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "description": {
+-          "name": "description",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "contractor_id": {
+-          "name": "contractor_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "performer": {
+-          "name": "performer",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "issuer_id": {
+-          "name": "issuer_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "prevention_plan_id": {
+-          "name": "prevention_plan_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "keystone_project": {
+-          "name": "keystone_project",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "valid_from": {
+-          "name": "valid_from",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "valid_to": {
+-          "name": "valid_to",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "watch_until": {
+-          "name": "watch_until",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "checklist": {
+-          "name": "checklist",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "'[]'::jsonb"
+-        },
+-        "status": {
+-          "name": "status",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "closed_at": {
+-          "name": "closed_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "permits_site_id_sites_id_fk": {
+-          "name": "permits_site_id_sites_id_fk",
+-          "tableFrom": "permits",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "permits_contractor_id_contractors_id_fk": {
+-          "name": "permits_contractor_id_contractors_id_fk",
+-          "tableFrom": "permits",
+-          "tableTo": "contractors",
+-          "columnsFrom": [
+-            "contractor_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "permits_issuer_id_people_id_fk": {
+-          "name": "permits_issuer_id_people_id_fk",
+-          "tableFrom": "permits",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "issuer_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "permits_prevention_plan_id_prevention_plans_id_fk": {
+-          "name": "permits_prevention_plan_id_prevention_plans_id_fk",
+-          "tableFrom": "permits",
+-          "tableTo": "prevention_plans",
+-          "columnsFrom": [
+-            "prevention_plan_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.pp_import_templates": {
+-      "name": "pp_import_templates",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "name": {
+-          "name": "name",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "format": {
+-          "name": "format",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "signature": {
+-          "name": "signature",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "mapping": {
+-          "name": "mapping",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "created_at": {
+-          "name": "created_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        },
+-        "updated_by_id": {
+-          "name": "updated_by_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "pp_import_templates_updated_by_id_people_id_fk": {
+-          "name": "pp_import_templates_updated_by_id_people_id_fk",
+-          "tableFrom": "pp_import_templates",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "updated_by_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.prevention_plans": {
+-      "name": "prevention_plans",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "contractor_id": {
+-          "name": "contractor_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "title": {
+-          "name": "title",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "location": {
+-          "name": "location",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "start_on": {
+-          "name": "start_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "end_on": {
+-          "name": "end_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "estimated_hours": {
+-          "name": "estimated_hours",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "dangerous_work": {
+-          "name": "dangerous_work",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "keystone_project": {
+-          "name": "keystone_project",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "inspection_on": {
+-          "name": "inspection_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "interference_risks": {
+-          "name": "interference_risks",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "''"
+-        },
+-        "measures": {
+-          "name": "measures",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "''"
+-        },
+-        "status": {
+-          "name": "status",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "signed_eu_on": {
+-          "name": "signed_eu_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "signed_ee_on": {
+-          "name": "signed_ee_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "owner_id": {
+-          "name": "owner_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "form_data": {
+-          "name": "form_data",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "imported_from_id": {
+-          "name": "imported_from_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "prevention_plans_site_id_sites_id_fk": {
+-          "name": "prevention_plans_site_id_sites_id_fk",
+-          "tableFrom": "prevention_plans",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "prevention_plans_contractor_id_contractors_id_fk": {
+-          "name": "prevention_plans_contractor_id_contractors_id_fk",
+-          "tableFrom": "prevention_plans",
+-          "tableTo": "contractors",
+-          "columnsFrom": [
+-            "contractor_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "prevention_plans_owner_id_people_id_fk": {
+-          "name": "prevention_plans_owner_id_people_id_fk",
+-          "tableFrom": "prevention_plans",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "owner_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "prevention_plans_imported_from_id_attachments_id_fk": {
+-          "name": "prevention_plans_imported_from_id_attachments_id_fk",
+-          "tableFrom": "prevention_plans",
+-          "tableTo": "attachments",
+-          "columnsFrom": [
+-            "imported_from_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.qualification_requirements": {
+-      "name": "qualification_requirements",
+-      "schema": "",
+-      "columns": {
+-        "person_id": {
+-          "name": "person_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "title_id": {
+-          "name": "title_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "renewal_action_id": {
+-          "name": "renewal_action_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "qualification_requirements_person_id_people_id_fk": {
+-          "name": "qualification_requirements_person_id_people_id_fk",
+-          "tableFrom": "qualification_requirements",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "person_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "qualification_requirements_title_id_training_titles_id_fk": {
+-          "name": "qualification_requirements_title_id_training_titles_id_fk",
+-          "tableFrom": "qualification_requirements",
+-          "tableTo": "training_titles",
+-          "columnsFrom": [
+-            "title_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "qualification_requirements_renewal_action_id_actions_id_fk": {
+-          "name": "qualification_requirements_renewal_action_id_actions_id_fk",
+-          "tableFrom": "qualification_requirements",
+-          "tableTo": "actions",
+-          "columnsFrom": [
+-            "renewal_action_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {
+-        "qualification_requirements_person_id_title_id_pk": {
+-          "name": "qualification_requirements_person_id_title_id_pk",
+-          "columns": [
+-            "person_id",
+-            "title_id"
+-          ]
+-        }
+-      },
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.qualifications": {
+-      "name": "qualifications",
+-      "schema": "",
+-      "columns": {
+-        "person_id": {
+-          "name": "person_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "title_id": {
+-          "name": "title_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "obtained_on": {
+-          "name": "obtained_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "expires_on": {
+-          "name": "expires_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "provider": {
+-          "name": "provider",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "qualifications_person_id_people_id_fk": {
+-          "name": "qualifications_person_id_people_id_fk",
+-          "tableFrom": "qualifications",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "person_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "qualifications_title_id_training_titles_id_fk": {
+-          "name": "qualifications_title_id_training_titles_id_fk",
+-          "tableFrom": "qualifications",
+-          "tableTo": "training_titles",
+-          "columnsFrom": [
+-            "title_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {
+-        "qualifications_person_id_title_id_pk": {
+-          "name": "qualifications_person_id_title_id_pk",
+-          "columns": [
+-            "person_id",
+-            "title_id"
+-          ]
+-        }
+-      },
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.requirements": {
+-      "name": "requirements",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "text": {
+-          "name": "text",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "domain": {
+-          "name": "domain",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "summary": {
+-          "name": "summary",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "impact": {
+-          "name": "impact",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "due_on": {
+-          "name": "due_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "due_note": {
+-          "name": "due_note",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "evaluation": {
+-          "name": "evaluation",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "evaluation_note": {
+-          "name": "evaluation_note",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "last_evaluated_on": {
+-          "name": "last_evaluated_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "pilot_id": {
+-          "name": "pilot_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "featured": {
+-          "name": "featured",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "keystone_projects": {
+-          "name": "keystone_projects",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "action_id": {
+-          "name": "action_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "requirements_pilot_id_people_id_fk": {
+-          "name": "requirements_pilot_id_people_id_fk",
+-          "tableFrom": "requirements",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "pilot_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "requirements_action_id_actions_id_fk": {
+-          "name": "requirements_action_id_actions_id_fk",
+-          "tableFrom": "requirements",
+-          "tableTo": "actions",
+-          "columnsFrom": [
+-            "action_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.review_items": {
+-      "name": "review_items",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "review_on": {
+-          "name": "review_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "label": {
+-          "name": "label",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "done": {
+-          "name": "done",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "owner": {
+-          "name": "owner",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {},
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.risk_actions": {
+-      "name": "risk_actions",
+-      "schema": "",
+-      "columns": {
+-        "risk_id": {
+-          "name": "risk_id",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "action_id": {
+-          "name": "action_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "risk_actions_risk_id_risks_id_fk": {
+-          "name": "risk_actions_risk_id_risks_id_fk",
+-          "tableFrom": "risk_actions",
+-          "tableTo": "risks",
+-          "columnsFrom": [
+-            "risk_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "risk_actions_action_id_actions_id_fk": {
+-          "name": "risk_actions_action_id_actions_id_fk",
+-          "tableFrom": "risk_actions",
+-          "tableTo": "actions",
+-          "columnsFrom": [
+-            "action_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {
+-        "risk_actions_risk_id_action_id_pk": {
+-          "name": "risk_actions_risk_id_action_id_pk",
+-          "columns": [
+-            "risk_id",
+-            "action_id"
+-          ]
+-        }
+-      },
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.risks": {
+-      "name": "risks",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "unit_id": {
+-          "name": "unit_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "hazard": {
+-          "name": "hazard",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "situation": {
+-          "name": "situation",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "gravity": {
+-          "name": "gravity",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "probability": {
+-          "name": "probability",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "existing_measures": {
+-          "name": "existing_measures",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "residual_gravity": {
+-          "name": "residual_gravity",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "residual_probability": {
+-          "name": "residual_probability",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "risks_unit_id_work_units_id_fk": {
+-          "name": "risks_unit_id_work_units_id_fk",
+-          "tableFrom": "risks",
+-          "tableTo": "work_units",
+-          "columnsFrom": [
+-            "unit_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.site_activities": {
+-      "name": "site_activities",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "title": {
+-          "name": "title",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "team": {
+-          "name": "team",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "contractor_id": {
+-          "name": "contractor_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "owner_id": {
+-          "name": "owner_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "prevention_plan_id": {
+-          "name": "prevention_plan_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "permit_id": {
+-          "name": "permit_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "keystone_project": {
+-          "name": "keystone_project",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "zone_id": {
+-          "name": "zone_id",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "geometry": {
+-          "name": "geometry",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "start_on": {
+-          "name": "start_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "end_on": {
+-          "name": "end_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "hours": {
+-          "name": "hours",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "route_ids": {
+-          "name": "route_ids",
+-          "type": "jsonb",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "'[]'::jsonb"
+-        },
+-        "vehicles": {
+-          "name": "vehicles",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "notes": {
+-          "name": "notes",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "created_at": {
+-          "name": "created_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "site_activities_site_id_sites_id_fk": {
+-          "name": "site_activities_site_id_sites_id_fk",
+-          "tableFrom": "site_activities",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "site_activities_contractor_id_contractors_id_fk": {
+-          "name": "site_activities_contractor_id_contractors_id_fk",
+-          "tableFrom": "site_activities",
+-          "tableTo": "contractors",
+-          "columnsFrom": [
+-            "contractor_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "site_activities_owner_id_people_id_fk": {
+-          "name": "site_activities_owner_id_people_id_fk",
+-          "tableFrom": "site_activities",
+-          "tableTo": "people",
+-          "columnsFrom": [
+-            "owner_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "site_activities_prevention_plan_id_prevention_plans_id_fk": {
+-          "name": "site_activities_prevention_plan_id_prevention_plans_id_fk",
+-          "tableFrom": "site_activities",
+-          "tableTo": "prevention_plans",
+-          "columnsFrom": [
+-            "prevention_plan_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "site_activities_permit_id_permits_id_fk": {
+-          "name": "site_activities_permit_id_permits_id_fk",
+-          "tableFrom": "site_activities",
+-          "tableTo": "permits",
+-          "columnsFrom": [
+-            "permit_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "site_activities_zone_id_map_zones_id_fk": {
+-          "name": "site_activities_zone_id_map_zones_id_fk",
+-          "tableFrom": "site_activities",
+-          "tableTo": "map_zones",
+-          "columnsFrom": [
+-            "zone_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.site_maps": {
+-      "name": "site_maps",
+-      "schema": "",
+-      "columns": {
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "attachment_id": {
+-          "name": "attachment_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "width": {
+-          "name": "width",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "height": {
+-          "name": "height",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "meters_per_unit": {
+-          "name": "meters_per_unit",
+-          "type": "numeric(12, 4)",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "proximity_meters": {
+-          "name": "proximity_meters",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 15
+-        },
+-        "updated_at": {
+-          "name": "updated_at",
+-          "type": "timestamp with time zone",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "now()"
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "site_maps_site_id_sites_id_fk": {
+-          "name": "site_maps_site_id_sites_id_fk",
+-          "tableFrom": "site_maps",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "site_maps_attachment_id_attachments_id_fk": {
+-          "name": "site_maps_attachment_id_attachments_id_fk",
+-          "tableFrom": "site_maps",
+-          "tableTo": "attachments",
+-          "columnsFrom": [
+-            "attachment_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.sites": {
+-      "name": "sites",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "label": {
+-          "name": "label",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "seveso": {
+-          "name": "seveso",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "pp_from_first_minute": {
+-          "name": "pp_from_first_minute",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {},
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.training_titles": {
+-      "name": "training_titles",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "label": {
+-          "name": "label",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "validity_months": {
+-          "name": "validity_months",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {},
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.waste_entries": {
+-      "name": "waste_entries",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "serial",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "stream_id": {
+-          "name": "stream_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "removed_on": {
+-          "name": "removed_on",
+-          "type": "date",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "quantity": {
+-          "name": "quantity",
+-          "type": "numeric(12, 2)",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "ewc_code": {
+-          "name": "ewc_code",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "treatment_code": {
+-          "name": "treatment_code",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "destination": {
+-          "name": "destination",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "bsd_number": {
+-          "name": "bsd_number",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "bsd_status": {
+-          "name": "bsd_status",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "transporter": {
+-          "name": "transporter",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "notes": {
+-          "name": "notes",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "waste_entries_site_id_sites_id_fk": {
+-          "name": "waste_entries_site_id_sites_id_fk",
+-          "tableFrom": "waste_entries",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        },
+-        "waste_entries_stream_id_waste_streams_id_fk": {
+-          "name": "waste_entries_stream_id_waste_streams_id_fk",
+-          "tableFrom": "waste_entries",
+-          "tableTo": "waste_streams",
+-          "columnsFrom": [
+-            "stream_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.waste_streams": {
+-      "name": "waste_streams",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "label": {
+-          "name": "label",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "ewc_code": {
+-          "name": "ewc_code",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "hazardous": {
+-          "name": "hazardous",
+-          "type": "boolean",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": false
+-        },
+-        "unit": {
+-          "name": "unit",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": "'kg'"
+-        },
+-        "treatment_code": {
+-          "name": "treatment_code",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "channel": {
+-          "name": "channel",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "collector": {
+-          "name": "collector",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "destination": {
+-          "name": "destination",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "waste_streams_site_id_sites_id_fk": {
+-          "name": "waste_streams_site_id_sites_id_fk",
+-          "tableFrom": "waste_streams",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    },
+-    "public.work_units": {
+-      "name": "work_units",
+-      "schema": "",
+-      "columns": {
+-        "id": {
+-          "name": "id",
+-          "type": "text",
+-          "primaryKey": true,
+-          "notNull": true
+-        },
+-        "label": {
+-          "name": "label",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": true
+-        },
+-        "site_id": {
+-          "name": "site_id",
+-          "type": "text",
+-          "primaryKey": false,
+-          "notNull": false
+-        },
+-        "sort": {
+-          "name": "sort",
+-          "type": "integer",
+-          "primaryKey": false,
+-          "notNull": true,
+-          "default": 0
+-        }
+-      },
+-      "indexes": {},
+-      "foreignKeys": {
+-        "work_units_site_id_sites_id_fk": {
+-          "name": "work_units_site_id_sites_id_fk",
+-          "tableFrom": "work_units",
+-          "tableTo": "sites",
+-          "columnsFrom": [
+-            "site_id"
+-          ],
+-          "columnsTo": [
+-            "id"
+-          ],
+-          "onDelete": "no action",
+-          "onUpdate": "no action"
+-        }
+-      },
+-      "compositePrimaryKeys": {},
+-      "uniqueConstraints": {},
+-      "policies": {},
+-      "checkConstraints": {},
+-      "isRLSEnabled": false
+-    }
+-  },
+-  "enums": {},
+-  "schemas": {},
+-  "sequences": {},
+-  "roles": {},
+-  "policies": {},
+-  "views": {},
+-  "_meta": {
+-    "columns": {},
+-    "schemas": {},
+-    "tables": {}
+-  }
+-}
+\ No newline at end of file

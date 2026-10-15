@@ -9,9 +9,11 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 | `init/01-base-et-roles.sql` | Base `epc2i` et rôles. |
 | `init/02-schemas.sql` | Schémas `keystone`, `codex`, `cursus`, `vigie`, `matrix`, propriétaires et paramètres de session. |
 | `init/03-droits.sql` | Droits de Matrix, schéma `droits`, protection des colonnes sensibles (déclencheur d'événement). |
-| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 68 cas, rien n'est conservé. |
+| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 96 cas, convention de partage comprise, rien n'est conservé. |
+| `partage/` | Vues `pub_*` publiées par chaque outil, référentiels de Matrix, droits des lecteurs (`partage/README.md`). |
 | `sauvegarde/sauvegarder.sh` | Sauvegarde `pg_dump` par schéma, avec rétention. |
 | `cursus/schema.sql` | Schéma PostgreSQL cible de Cursus (28 tables, 37 clés étrangères), à exécuter par `cursus_app`. |
+| `correctifs/` | Correctifs essayés dans des copies des quatre outils pour leur bascule (`correctifs/README.md`). Non fusionnés ; le plan fait foi. |
 
 ## Ce que créent les scripts
 
@@ -19,9 +21,10 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 |---|---|
 | Base | `epc2i`, UTF-8, tri `C`, classes de caractères `C.UTF-8`, fuseau des sessions `UTC`, format de date `ISO, MDY`. Ce sont les réglages de PGlite : les outils trient et lisent les dates comme aujourd'hui. |
 | Schémas | `keystone`, `codex`, `cursus`, `vigie`, `matrix` (un propriétaire chacun) ; `droits` (propriétaire : le superutilisateur) ; `public` fermé à tous. |
-| Rôles de connexion | `keystone_app`, `codex_app`, `cursus_app`, `vigie_app` : propriétaire de son seul schéma, `search_path` = son schéma, aucun accès aux autres schémas, aucun droit `CREATE` sur la base. `matrix_app` : propriétaire de `matrix`, membre de `matrix_lecture`. `epc2i_sauvegarde` : membre de `pg_read_all_data`. |
+| Rôles de connexion | `keystone_app`, `codex_app`, `cursus_app`, `vigie_app` : propriétaire de son seul schéma, `search_path` = son schéma, aucun droit `CREATE` sur la base. Dans le schéma d'un autre outil, seulement `USAGE` et `SELECT` sur ses vues `pub_`, posés par `partage/90-droits.sql` (convention de partage). `matrix_app` : propriétaire de `matrix`, membre de `matrix_lecture`. `epc2i_sauvegarde` : membre de `pg_read_all_data`. |
 | Rôles de groupe | `matrix_lecture` : `SELECT` sur les quatre schémas des outils, sauf les colonnes sensibles. `matrix_admin` : tous les droits sur les cinq schémas, attribué nominativement, requêtes journalisées. |
 | Fonctions | `droits.appliquer_droits()`, `droits.verifier()`, `droits.declarer_admin(nom)`. |
+| Tables du schéma `droits` | `colonnes_sensibles` (liste des colonnes sensibles), `relations_protegees` (tables déjà traitées), `partage_lecteurs` (lecteurs attendus des vues `pub_`, écrits par `partage/90-droits.sql`). |
 | Déclencheurs | `droits_ddl` (fin de chaque `CREATE`, `ALTER`, `GRANT`, `REVOKE`) et `droits_suppression` (`DROP`). |
 
 Les colonnes sensibles sont listées dans `droits.colonnes_sensibles`. La convention du 15 octobre y figure : `cursus.employes` (`visite`, `passeport_numero`, `passeport_expire`, `naissance`, `reprise_motif`), `cursus.vaccinations` (`v`, `date`), `cursus.visas` (`type`, `obtenu`, `expire`), `cursus.entretiens` (`cr`), `vigie.events` (`injury`, `lost_days`). Trois ajouts sont proposés et en attente de confirmation (question P-04 du plan) : `cursus.journal` (`payload`, `message`) et `cursus.demandes_collab` (`label`), qui recopient des données de santé.
@@ -33,15 +36,16 @@ Pourquoi un déclencheur d'événement : `ALTER DEFAULT PRIVILEGES` accorde `SEL
 1. **Créer la ressource.** Nouvelle ressource « Docker Compose » depuis le dépôt Matrix. Répertoire de base : `/infra/postgres`. Fichier compose : `docker-compose.yml`. Les montages `./init`, `./sauvegarde` et `./verifier-droits.sql` se lisent dans ce répertoire.
 2. **Saisir les variables** de `.env.example` : `POSTGRES_PASSWORD`, `KEYSTONE_APP_PASSWORD`, `CODEX_APP_PASSWORD`, `CURSUS_APP_PASSWORD`, `VIGIE_APP_PASSWORD`, `MATRIX_APP_PASSWORD`, `EPC2I_SAUVEGARDE_PASSWORD`. Un mot de passe par variable, généré par `openssl rand -base64 30 | tr -d '/+=' | cut -c1-32`. Ces caractères n'ont pas besoin d'être encodés dans une URL. Ce sont des variables d'exécution : ne cochez pas leur disponibilité au build.
 3. **Réseau.** Les outils déployés sur le même serveur Coolify joignent la base par le réseau Docker. Activez l'option de connexion au réseau prédéfini de Coolify sur cette ressource et sur chaque outil. Le nom d'hôte est le nom du conteneur affiché par Coolify (de la forme `postgres-<identifiant>`). Le port 5432 n'est publié que sur `127.0.0.1` de l'hôte, pour l'administration par tunnel SSH. Les libellés exacts dépendent de la version de Coolify : à vérifier à la première mise en service (question P-09).
-4. **Déployer.** Au premier démarrage, le volume est vide : l'image exécute les trois scripts de `init/`. Le journal du conteneur doit afficher « Étape 3 terminée », un tableau d'écarts vide, puis « PostgreSQL init process complete ». En cas d'erreur, le conteneur s'arrête : corrigez la cause (souvent une variable vide), supprimez le volume `epc2i_pgdata` et redéployez.
+4. **Déployer.** Au premier démarrage, le volume est vide : l'image exécute les trois scripts de `init/`. Le journal du conteneur doit afficher « Étape 3 terminée », un tableau d'écarts vide, puis « PostgreSQL init process complete ». En cas d'erreur, le conteneur s'arrête : corrigez la cause (souvent une variable vide), supprimez le volume de données et redéployez. Dans Coolify, le volume porte un nom préfixé par la ressource : prenez celui que montre l'onglet des volumes de la ressource (son nom se termine par `epc2i_pgdata`). En local, Docker le nomme `epc2i-postgres_epc2i_pgdata` (nom de projet `epc2i-postgres` du compose) ; `docker compose down -v` le supprime avec celui des sauvegardes.
 5. **Vérifier les droits.** Dans le terminal du conteneur :
    ```bash
    psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /opt/epc2i/verifier-droits.sql
    ```
-   Résultat attendu : « Tous les cas sont conformes : 68 cas. »
-6. **Programmer la sauvegarde.** Tâche planifiée Coolify sur le conteneur `postgres`, commande `sh /opt/epc2i/sauvegarde/sauvegarder.sh`, par exemple chaque nuit à 2 h 15 (`15 2 * * *`). Copiez ensuite le volume `epc2i_sauvegardes` hors du serveur (voir « Sauvegarde et restauration »).
+   Résultat attendu : « Tous les cas sont conformes : 96 cas. »
+6. **Programmer la sauvegarde.** Tâche planifiée Coolify sur le conteneur `postgres`, commande `sh /opt/epc2i/sauvegarde/sauvegarder.sh`, par exemple chaque nuit à 2 h 15 (`15 2 * * *`). Copiez ensuite le volume des sauvegardes (`/sauvegardes` dans le conteneur ; son nom se termine par `epc2i_sauvegardes`) hors du serveur (voir « Sauvegarde et restauration »).
 7. **Déclarer les administrateurs nominatifs** (voir plus bas).
 8. **Raccorder les outils** un par un, dans l'ordre du plan (§ 10), avec leur `DATABASE_URL`.
+9. **Poser le partage** après la bascule de chaque outil : référentiels de Matrix (`partage/10-matrix-referentiels.sql`, une fois), fichier de l'outil (`20` à `60`), puis `partage/90-droits.sql` et `partage/95-matrix-journal-unifie.sql`. Ordre, rôles et commandes : `partage/README.md`. `droits.verifier()` doit rester sans erreur après chaque passage.
 
 ## Sur un poste local
 
@@ -137,22 +141,24 @@ Les dossiers de plus de `EPC2I_SAUVEGARDE_JOURS` jours (14 par défaut) sont sup
 
 **Ce qui n'est pas dans la base.** Les fichiers déposés restent dans les volumes des outils : `/data/files` pour Keystone et Codex, `/data/uploads` pour Vigie. Ils se sauvegardent avec la base, à la même heure.
 
-**Hors du serveur.** Le volume `epc2i_sauvegardes` est sur le même disque que la base. Copiez chaque dossier ailleurs, chiffré (destination à choisir, question P-08). Une sauvegarde par nuit perd au plus une journée de saisies : l'objectif de 15 minutes de Keystone (I-1b) demande en plus l'archivage continu des journaux de transactions.
+**Hors du serveur.** Le volume des sauvegardes est sur le même disque que la base. Copiez chaque dossier ailleurs, chiffré (destination à choisir, question P-08). Une sauvegarde par nuit perd au plus une journée de saisies : l'objectif de 15 minutes de Keystone (I-1b) demande en plus l'archivage continu des journaux de transactions.
 
-**Restaurer le schéma d'un outil** (procédure essayée sur `cursus`) :
+**Restaurer le schéma d'un outil** (procédure essayée sur `cursus`, partage en place) :
 
 1. Arrêter l'outil.
-2. En superutilisateur : `DROP SCHEMA cursus CASCADE;`
+2. En superutilisateur : `DROP SCHEMA cursus CASCADE;`. Le `CASCADE` supprime aussi les objets d'autres schémas qui dépendent de celui-ci : aujourd'hui `matrix.journal_unifie` (« drop cascades to view matrix.journal_unifie »). Notez la liste affichée.
 3. Rejouer `init/02-schemas.sql` puis `init/03-droits.sql` : le schéma vide est recréé avec son propriétaire et ses privilèges par défaut.
 4. Restaurer en tant que propriétaire :
    ```bash
    pg_restore -h <hôte> -U cursus_app -d epc2i --schema=cursus --no-owner --no-privileges \
      --exit-on-error --single-transaction cursus.dump
    ```
-   Avec `--schema`, `pg_restore` ne tente pas de recréer le schéma, ce que `cursus_app` n'a pas le droit de faire. Les droits de `matrix_lecture` et `matrix_admin` sont reposés par le déclencheur `droits_ddl`. Les séquences reprennent leur valeur.
-5. `SELECT * FROM droits.verifier();` puis redémarrer l'outil.
+   Avec `--schema`, `pg_restore` ne tente pas de recréer le schéma, ce que `cursus_app` n'a pas le droit de faire. Les droits de `matrix_lecture` et `matrix_admin` sont reposés par le déclencheur `droits_ddl`. Les séquences reprennent leur valeur. Les vues `pub_` et `*_v1` du schéma reviennent avec la sauvegarde, mais **pas les droits des autres outils** : `--no-privileges` les écarte, et `droits_ddl` ne traite que Matrix.
+5. `SELECT gravite, objet, constat FROM droits.verifier() ORDER BY gravite, objet;` signale à ce stade, en erreur, chaque lecteur qui a perdu son `USAGE` ou son `SELECT` (liste `droits.partage_lecteurs`, tenue par `partage/90-droits.sql`), et en attention `matrix.journal_unifie` absente. Essai : 8 erreurs (les lecteurs des vues `cursus.pub_*`), 1 attention ; `codex_app` reçoit `permission denied for schema cursus` sur `cursus.pub_salaries`.
+6. Reposer le partage, dans l'ordre de `partage/README.md` : le fichier de l'outil restauré (`partage/20-cursus.sql` en `cursus_app`), puis `partage/90-droits.sql` (superutilisateur), puis `partage/95-matrix-journal-unifie.sql` (`matrix_app`). Si l'étape 2 a supprimé d'autres objets, les recréer par les migrations de leur outil.
+7. `droits.verifier()` ne doit plus renvoyer d'erreur (essai : aucune ligne). Redémarrer l'outil, puis vérifier qu'un lecteur lit ses vues (par exemple `SELECT count(*) FROM cursus.pub_salaries` en `codex_app`).
 
-**Reconstruire tout le serveur.** Nouveau volume avec les mêmes variables : l'initialisation recrée base, rôles, schémas et droits. Restaurer ensuite chaque schéma comme ci-dessus (étapes 4 et 5), `matrix` compris. Si la liste des colonnes sensibles avait été modifiée, la reprendre de `droits.dump`, en superutilisateur :
+**Reconstruire tout le serveur.** Nouveau volume avec les mêmes variables : l'initialisation recrée base, rôles, schémas et droits. Restaurer ensuite chaque schéma comme ci-dessus (étape 4), `matrix` compris. Si la liste des colonnes sensibles avait été modifiée, la reprendre de `droits.dump`, en superutilisateur :
 
 ```bash
 pg_restore --data-only --schema=droits --table=colonnes_sensibles -f liste.sql droits.dump
@@ -166,7 +172,7 @@ COMMIT;
 EOF
 ```
 
-Les droits sont réappliqués à la fin de la transaction. Enfin, déclarer de nouveau les administrateurs (`roles.sql` montre qui l'était).
+Les droits sont réappliqués à la fin de la transaction. Reposer ensuite tout le partage dans l'ordre de `partage/README.md` (10, 20 à 60, 90, 95) : il réaccorde les vues `pub_` à leurs lecteurs, remplit de nouveau `droits.partage_lecteurs` et recrée `matrix.journal_unifie`. Contrôler par `droits.verifier()`. Enfin, déclarer de nouveau les administrateurs (`roles.sql` montre qui l'était).
 
 Restaurez une sauvegarde sur un serveur d'essai au moins une fois par mois, pour vérifier qu'elle est exploitable.
 
@@ -178,8 +184,8 @@ Trois niveaux de contrôle :
    ```sql
    SELECT gravite, objet, constat FROM droits.verifier() ORDER BY gravite, objet;
    ```
-   Aucune ligne `erreur` n'est attendue. Une ligne `attention` signale une table fermée à Matrix (colonne de la liste pas encore créée, renommée ou supprimée, table renommée), une table que Matrix ne lit pas, une fonction `SECURITY DEFINER` d'un outil que Matrix peut appeler, un administrateur non journalisé ou un paramètre manquant. Une ligne `info` signale une table de la liste pas encore créée (normal avant la migration de l'outil) ou une vue fermée parce qu'elle lit une colonne sensible.
-2. **Essai complet**, après une mise en service ou un rejeu : `verifier-droits.sql` (voir plus haut). Il joue chaque rôle sur des tables d'essai et annule tout à la fin.
+   Aucune ligne `erreur` n'est attendue, que le partage (`partage/`) soit en place ou non. La fonction accepte la convention de partage et elle seule : un outil peut avoir `USAGE` sur le schéma d'un autre et `SELECT` sur ses vues `pub_` ; tout autre droit croisé (table, colonne, séquence, fonction, vue non publiée, écriture, `CREATE`, `USAGE` sans vue `pub_` accordée) est une erreur, de même qu'une vue `pub_` qui lit une colonne de `droits.colonnes_sensibles` ou une relation d'un autre schéma, et un lecteur inscrit dans `droits.partage_lecteurs` qui a perdu son `USAGE` ou son `SELECT` (après une restauration). Les vues de contrôle `cursus.*_v1` sont réservées à `matrix_lecture` et `matrix_app`. Détail : `partage/README.md`, « Contrôle par le socle ». Une ligne `attention` signale une table fermée à Matrix (colonne de la liste pas encore créée, renommée ou supprimée, table renommée), une table que Matrix ne lit pas, une fonction `SECURITY DEFINER` d'un outil que Matrix peut appeler, un administrateur non journalisé, un paramètre manquant, une vue de `droits.partage_lecteurs` absente ou `matrix.journal_unifie` absente alors que le partage est en place. Une ligne `info` signale une table de la liste pas encore créée (normal avant la migration de l'outil) ou une vue fermée parce qu'elle lit une colonne sensible.
+2. **Essai complet**, après une mise en service ou un rejeu : `verifier-droits.sql` (voir plus haut). Il joue chaque rôle sur des tables d'essai et annule tout à la fin. Les cas 100 à 136 éprouvent la convention de partage : un outil lit une vue `pub_` d'un autre et rien d'autre, et chaque écart (vue `pub_` qui lit une colonne sensible, droit sur une table, écriture, `CREATE`, lecteur attendu qui perd son droit…) est joué seul, signalé par `droits.verifier()`, puis annulé.
 3. **À la main**, par exemple :
    ```sql
    \dp cursus.employes                          -- droits de table et de colonnes
@@ -217,6 +223,7 @@ La liste protège des colonnes nommées. Une copie de leurs valeurs dans une aut
 | Un outil s'arrête sur `permission denied for schema public`. | Ses migrations contiennent `REFERENCES "public"."…"` : la migration de base doit être régénérée avec `pgSchema` (§ 4.2). |
 | `WARNING: droits : … est fermée à matrix_lecture`. | Une colonne de la liste est absente : pas encore créée (inscription faite avant la migration), renommée ou supprimée ; ou la table a été renommée. Passer la migration attendue, ou mettre `droits.colonnes_sensibles` à jour. |
 | Une commande de structure échoue dans `droits._sur_ddl`. | Défaut du socle. En urgence, en superutilisateur : `ALTER EVENT TRIGGER droits_ddl DISABLE;`, faire l'opération, puis `ALTER EVENT TRIGGER droits_ddl ENABLE;` et `SELECT droits.appliquer_droits();`. Signaler le cas. |
+| Après une restauration, un outil reçoit `permission denied for schema …` sur une vue `pub_` d'un autre, ou `droits.verifier()` signale « lecteur prévu par partage/90-droits.sql sans USAGE ». | `--no-privileges` a écarté les droits des lecteurs. Rejouer le fichier de partage de l'outil restauré, puis `partage/90-droits.sql` et `partage/95-matrix-journal-unifie.sql` (« Restaurer le schéma d'un outil », étape 6). |
 | `pg_restore` échoue sur `SET transaction_timeout`. | Le fichier vient d'un PostgreSQL 17 ou plus (PGlite 0.5.8 est un PostgreSQL 18). Retirer la ligne, ou restaurer sur un serveur de même version. |
 
 ## Version de PostgreSQL

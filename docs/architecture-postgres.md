@@ -11,7 +11,7 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 
 ## 1. Principe retenu
 
-- **Un serveur, une base, un schéma par outil.** Le serveur PostgreSQL 16 porte la base `epc2i`. Chaque outil a son schéma et un rôle de connexion qui en est le seul propriétaire. Un outil ne lit ni n'écrit dans le schéma d'un autre : les échanges restent des API (flux de `data/flux.json`).
+- **Un serveur, une base, un schéma par outil.** Le serveur PostgreSQL 16 porte la base `epc2i`. Chaque outil a son schéma et un rôle de connexion qui en est le seul propriétaire. Un outil n'écrit jamais dans le schéma d'un autre : les écritures restent des API (flux de `data/flux.json`). Pour lire, il suit la convention de partage (`infra/postgres/partage/README.md`, `docs/convergence-des-donnees.md`, § 1.3) : l'outil qui fait foi publie des vues `pub_*` dans son schéma, et le lecteur reçoit `USAGE` sur ce schéma et `SELECT` sur ces seules vues. Lire une vue publiée n'est pas un accès au schéma : « un schéma par outil » reste vrai.
 - **Matrix lit tout, sauf les colonnes sensibles.** Il se connecte en `matrix_app`, membre du groupe `matrix_lecture`. L'écriture dans les schémas des outils passe par un administrateur nominatif, membre de `matrix_admin`, dont chaque requête est journalisée.
 - **Chaque outil garde sa base embarquée en repli.** Sans `DATABASE_URL`, Keystone, Codex et Vigie ouvrent PGlite, et Cursus ouvre SQLite, comme aujourd'hui : développement, tests, application Mac (`desktop/`). Avec `DATABASE_URL`, l'outil se connecte au serveur commun. Le code de l'outil est le même dans les deux cas : il utilise le schéma de l'outil aussi dans PGlite.
 - **Chaque outil applique ses migrations au démarrage**, avec le journal dans son propre schéma (`<schéma>.__drizzle_migrations`, ou `cursus.schema_migrations`). Aucun rôle d'outil n'a le droit `CREATE` sur la base : il ne peut pas créer de schéma. D'où un petit migrateur commun (§ 4.3), parce que `migrate()` de Drizzle commence toujours par `CREATE SCHEMA IF NOT EXISTS`, que PostgreSQL refuse dans ce cas (vérifié sur les trois outils Drizzle).
@@ -34,7 +34,7 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 
 | Rôle | Type | Propriétaire de | `search_path` | Droits |
 |---|---|---|---|---|
-| `keystone_app` | connexion | `keystone` | `keystone` | Tout sur son schéma ; rien ailleurs ; pas de `CREATE` ni de `TEMPORARY` sur la base. |
+| `keystone_app` | connexion | `keystone` | `keystone` | Tout sur son schéma ; ailleurs, seulement `USAGE` et `SELECT` sur les vues `pub_` qui lui sont accordées (`partage/90-droits.sql`) ; pas de `CREATE` ni de `TEMPORARY` sur la base. |
 | `codex_app` | connexion | `codex` | `codex` | Idem. |
 | `cursus_app` | connexion | `cursus` | `cursus` | Idem. |
 | `vigie_app` | connexion | `vigie` | `vigie` | Idem. |
@@ -86,7 +86,7 @@ La correction a lieu dans la transaction de la commande, avant son `COMMIT`. Les
 Trois fonctions complètent le déclencheur :
 
 - `droits.appliquer_droits()` : passe complète sur les cinq schémas, sans effet si tout est en ordre. Le rejeu du socle l'appelle ; on peut la relancer après une migration, en contrôle.
-- `droits.verifier()` : liste les écarts avec une gravité (`erreur`, `attention`, `info`) : colonne sensible lisible, vue sensible lisible, droit d'écriture de `matrix_lecture`, accès d'un outil au schéma d'un autre, droit `CREATE` sur la base, attribut d'administration, propriétaire de schéma, `search_path`, administrateur non journalisé, privilège par défaut manquant, entrée de la liste sans objet, fonction `SECURITY DEFINER` d'un outil exécutable par `matrix_lecture`.
+- `droits.verifier()` : liste les écarts avec une gravité (`erreur`, `attention`, `info`) : colonne sensible lisible, vue sensible lisible, droit d'écriture de `matrix_lecture` ou de `matrix_app`, droit croisé d'un outil hors de la convention de partage (seuls `USAGE` sur le schéma et `SELECT` sur ses vues `pub_` sont acceptés), vue `pub_` ou `cursus.*_v1` qui lit une colonne sensible ou un autre schéma, lecteur prévu par `partage/90-droits.sql` (liste `droits.partage_lecteurs`) qui a perdu son `USAGE` ou son `SELECT`, droit `CREATE` sur la base, attribut d'administration, propriétaire de schéma, `search_path`, administrateur non journalisé, privilège par défaut manquant, entrée de la liste sans objet, fonction `SECURITY DEFINER` d'un outil exécutable par `matrix_lecture`.
 - `droits.declarer_admin(nom)` : crée un administrateur nominatif, membre de `matrix_admin`, avec `log_statement = 'all'`.
 
 Une modification de `droits.colonnes_sensibles` réapplique les droits dans la même transaction. Les colonnes de la convention ne se retirent qu'en superutilisateur.
@@ -97,9 +97,11 @@ Faits sur PostgreSQL 16.15, avec le script d'entrée officiel de l'image (`docke
 
 - Les trois scripts passent au premier démarrage, puis en rejeu sur une base remplie (336 relations, 2,5 s).
 - Les migrations de base régénérées par les analyses, appliquées par le rôle de chaque outil : Keystone (203 tables, 573 commandes), Codex (22 tables), Vigie (36 tables), puis `infra/postgres/cursus/schema.sql` avec le jeu de démonstration de Cursus. `droits.verifier()` ne signale aucune erreur. Pour `vigie.events`, `matrix_lecture` lit 18 colonnes sur 20.
-- `infra/postgres/verifier-droits.sql` : 68 cas conformes, dont `GRANT` de l'outil à `matrix_lecture` ou à `PUBLIC`, ajout et renommage de colonne, renommage de table, vues (colonne sensible, ligne entière, vue sur vue), partitions, sauvegarde, administration.
+- `infra/postgres/verifier-droits.sql` : 94 cas conformes à ce premier essai (96 depuis l'ajout des cas 135 et 136, ci-dessous), dont `GRANT` de l'outil à `matrix_lecture` ou à `PUBLIC`, ajout et renommage de colonne, renommage de table, vues (colonne sensible, ligne entière, vue sur vue), partitions, sauvegarde, administration, et convention de partage (cas 100 à 134 : lecture d'une vue `pub_` d'un autre outil acceptée ; table, colonne, séquence, vue non publiée, écriture, `CREATE`, vue `pub_` sensible ou dépendant d'un autre schéma signalés ; cas 135 et 136 ajoutés depuis : lecteur attendu qui perd son droit).
+- Partage en place (15/10/2026, PostgreSQL 16.15 neuf) : socle, migrations des quatre outils, Cursus et sa démonstration, vues `*_v1`, puis `infra/postgres/partage/` deux fois dans l'ordre de son README. `droits.verifier()` ne renvoie aucune ligne et `verifier-droits.sql` passe ses 94 cas. Chaque outil lit exactement les vues accordées et aucune table d'un autre schéma (détail dans `infra/postgres/partage/README.md`, « Essais »).
 - Coût : la migration de base de Keystone prend 3,3 s avec le déclencheur et 2,0 s sans, soit 2 ms par commande.
 - Contre-essai du 15/10/2026 sur un PostgreSQL 16.15 neuf, en connexions réelles par mot de passe : scripts passés deux fois sur base vide puis rejoués sur base remplie, sans aucun changement d'état ; migrations du dépôt de chaque outil, `"public".` remplacé par le schéma (370, 38 et 58 références), puis migrations de base régénérées : 203, 22 et 36 tables dans le bon schéma, journal dans le schéma de l'outil, aucun objet dans `public` ; démonstration de Cursus générée par son code (417 lignes) et chargée avec toutes les contraintes actives ; 315 cas d'isolation entre rôles ; 292 relations et 2 722 colonnes essayées une à une par `matrix_app` : 16 refusées, exactement celles de la liste ; table protégée recréée, colonne sensible ajoutée dans les deux ordres, `GRANT` de l'outil, vues ; sauvegarde par `epc2i_sauvegarde`, puis restauration dans une base neuve et par la procédure du README.
+- Contre-essai après relecture (15/10/2026, PostgreSQL 16.15 neuf, port 55441) : partage joué deux fois, `droits.verifier()` sans aucune ligne, `verifier-droits.sql` à 96 cas (cas 135 et 136 : un lecteur prévu par `partage/90-droits.sql` qui perd son `SELECT` ou son `USAGE` est signalé). Restauration de `cursus` partage en place : le `DROP SCHEMA cursus CASCADE` emporte `matrix.journal_unifie` ; après `pg_restore --no-privileges`, `droits.verifier()` signale 8 erreurs (lecteurs sans `USAGE`) et 1 attention ; le rejeu du fichier de l'outil, de 90 et de 95 rétablit tout (procédure : `infra/postgres/README.md`, « Restaurer le schéma d'un outil »).
 
 ### 3.4 Limites
 
@@ -121,7 +123,7 @@ Un seul module choisit le pilote, une fois par processus :
 - `DATABASE_URL` présente et non vide : pool `pg` (`drizzle-orm/node-postgres`), `application_name` = nom de l'outil, `options: -c search_path=<schéma>` (le `search_path` est aussi fixé sur le rôle, ce qui suffit derrière PgBouncer) ;
 - sinon : PGlite dans le dossier de données habituel, avec `create schema if not exists <schéma>; set search_path to <schéma>` avant les migrations ;
 - `next build` ne doit jamais ouvrir le serveur commun : garde sur `process.env.NEXT_PHASE === 'phase-production-build'` (Next fixe cette variable pendant le build), qui force PGlite. Keystone et Vigie ouvrent la base pendant le build ; Codex non, la garde y est ajoutée par précaution ;
-- une ancienne base PGlite, dont les tables sont dans `public`, est refusée avec un message clair (`npm run db:reset`, ou reprise). Sans ce garde-fou, le nouveau code crée le schéma de l'outil à côté et les anciennes données deviennent invisibles sans avertissement (constaté dans les trois outils).
+- une ancienne base PGlite, dont les tables sont dans `public`, est refusée avec un message qui nomme le dossier et le remède : `npm run db:reset` pour `.data`, suppression du dossier de l'application Mac quand `KEYSTONE_DATA_DIR` ou `CODEX_DATA_DIR` est fixé (§ 4.6), ou reprise. Sans ce garde-fou, le nouveau code crée le schéma de l'outil à côté et les anciennes données deviennent invisibles sans avertissement (constaté dans les trois outils).
 
 Type commun aux deux pilotes, essayé dans Keystone (`tsc` sans erreur sur 128 fichiers qui importent `DB` ou `Tx`) :
 
@@ -196,7 +198,7 @@ export async function migrateSchema(db: DB, migrationsFolder: string): Promise<v
 }
 ```
 
-Essais : la même logique a tourné sur PGlite puis sur le serveur en tant que `codex_app`, avec deux instances lancées en même temps (23 tables, une seule ligne au journal). La version de Keystone (`migrateKeystone`, analyse Keystone) est identique, avec une clé de verrou constante. La version de Vigie créait le journal avant de prendre le verrou : l'analyse Keystone a observé dans ce cas une erreur `duplicate key … pg_type_typname_nsp_index` au premier démarrage simultané. Le verrou passe donc en tête.
+Essais : la même logique a tourné sur PGlite puis sur le serveur en tant que `codex_app`, avec deux instances lancées en même temps (23 tables, une seule ligne au journal). La version de Keystone (`migrateKeystone`, dans `infra/postgres/correctifs/keystone.diff`) est identique, avec une clé de verrou constante. La version de Vigie créait le journal avant de prendre le verrou : l'analyse Keystone a observé dans ce cas une erreur `duplicate key … pg_type_typname_nsp_index` au premier démarrage simultané. Le verrou passe donc en tête.
 
 Les clés de verrou consultatif sont communes à toute la base `epc2i` : chaque outil dérive les siennes de son nom de schéma (`hashtext('vigie.migrations')`, `hashtext('vigie.ecritures')`) pour ne jamais bloquer un autre outil.
 
@@ -233,12 +235,17 @@ function serializeTransactions(db: DB): DB {
 }
 ```
 
-Pour Vigie, les 10 calculs de référence doivent en plus entrer dans la transaction de l'écriture qu'ils préparent.
+Le verrou ne protège que ce qui se passe dans la transaction. Un numéro calculé avant elle, hors verrou, reste exposé : dans les trois outils, chaque calcul « plus grand + 1 » entre dans la transaction de l'écriture qu'il prépare, et lit par `tx`.
+
+- **Keystone.** `createProject` (`src/server/dal/projects.ts:214-221`) appelle `nextProjectNumber` (l. 173-178, `max(...)` lu par `getDb()`) et `nextAnalyticCode` avant d'ouvrir `db.transaction`. Deux créations simultanées obtiennent le même `#NNN`, et la seconde échoue sur l'unicité de `projects.number` (`schema/portfolio.ts:164`) ou de `projects.analytic_code` (l. 177). Les deux calculs passent dans la transaction. La revue des 65 calculs « plus grand + 1 » de Keystone, à la recherche des autres cas de ce genre, fait partie du lot de base (§ 13).
+- **Vigie.** Les 10 calculs de référence (`nextRef`) entrent dans la transaction de l'écriture qu'ils préparent (§ 7.1).
+- **Codex.** `nextDocId` est déjà appelé dans les transactions (§ 6.1).
 
 ### 4.6 Application Mac, Docker, Coolify
 
 - **Application Mac.** `next start` tourne dans le dossier du projet, et Next charge ses fichiers `.env*`. Un `DATABASE_URL` mis dans `.env.local` pour le développement brancherait l'application Mac sur le serveur commun. Dans la fonction `environment()` de chaque application : `env["DATABASE_URL"] = ""`. Next ne remplit depuis les fichiers `.env` que les clés absentes (`@next/env`, vérifié par les analyses) ; une valeur vide les bloque, et le module d'ouverture traite le vide comme une absence.
-- **Dockerfile.** Ne jamais mettre `DATABASE_URL` dans l'image. Le volume `/data` reste nécessaire : il porte les fichiers déposés, et la base de repli. Mettre à jour le commentaire d'en-tête.
+- **Base de l'application Mac.** Les applications Mac de Keystone et de Codex gardent leur base PGlite hors du projet : `KEYSTONE_DATA_DIR` et `CODEX_DATA_DIR` valent `~/Library/Application Support/Keystone/data` et `…/Codex/data` (`desktop/KeystoneApp.swift:108`, `desktop/CodexApp.swift:98`). Après la mise à jour du code, le garde-fou refuse leur ancienne base, et `npm run db:reset` (`rm -rf .data`, `package.json:12` des deux outils) n'y touche pas. Remède : quitter l'application, supprimer `~/Library/Application Support/Keystone/data/pg` ou `~/Library/Application Support/Codex/data/pglite`, relancer : la démonstration est rechargée et les fichiers déposés (`…/data/files`) restent. Si des saisies sont à garder (P-03), reprise par la procédure du § 5.4 ou du § 6.3 avant la suppression. Le message du garde-fou nomme ce dossier quand `KEYSTONE_DATA_DIR` ou `CODEX_DATA_DIR` est fixé (§ 5.2, § 6.2). L'application Mac de Vigie ne fixe pas `VIGIE_DATA_DIR` : sa base est dans le projet (`.data/vigie`) et `npm run db:reset` suffit.
+- **Dockerfile.** Ne jamais mettre `DATABASE_URL` dans l'image. Le volume `/data` reste nécessaire : il porte les fichiers déposés, et la base de repli. Il porte aussi l'ancienne base PGlite : elle sert au retour arrière par redéploiement du commit précédent (§ 10). Mettre à jour le commentaire d'en-tête.
 - **Coolify.** `DATABASE_URL` en variable d'exécution seulement (jamais disponible au build), le volume `/data` gardé, l'option de réseau prédéfini activée (`infra/postgres/README.md`).
 - **Dépendances.** `pg` 8.23.1 en dépendance, `@types/pg` 8.23.1 en dépendance de développement. `drizzle-orm/node-postgres` est déjà dans `drizzle-orm` 0.45.3. `pg` est externe par défaut dans Next 16 : `serverExternalPackages` ne change pas.
 - **Jeu de démonstration sur le serveur.** Seulement avec une variable explicite (`KEYSTONE_SEED_DEMO=1`, `CODEX_SEED_DEMO=1`, `VIGIE_SEED_DEMO=1`), en bêta. En production, la décision A-15 de Keystone demande des données réelles (P-11).
@@ -256,11 +263,25 @@ Pour Vigie, les 10 calculs de référence doivent en plus entrer dans la transac
 
 ### 4.8 Déclaration à Matrix
 
-Après les migrations, chaque outil peut appeler `introspecterPostgres` (`integration/declarer-schema.mjs`) avec une fonction qui exécute du SQL brut : `q => db.execute(sql.raw(q)).then(r => r.rows)`. La requête lit `current_schema()` : le `search_path` posé dans les deux modes suffit. Elle remonte aussi la table du journal des migrations, que Matrix doit écarter (§ 11).
+Après les migrations, chaque outil peut appeler `introspecterPostgres` (`integration/declarer-schema.mjs`) avec une fonction qui exécute du SQL brut : `q => db.execute(sql.raw(q)).then(r => r.rows)`. La requête lit `current_schema()` : le `search_path` posé dans les deux modes suffit. Elle écarte déjà les journaux des migrations (`__drizzle_migrations`, `schema_migrations` : `integration/declarer-schema.mjs:32`, et `:75` pour SQLite) : Codex déclare ses 22 tables, Keystone 203, Vigie 36.
+
+### 4.9 Prérequis du partage et migrations incrémentales
+
+Les fichiers `infra/postgres/partage/20` à `60` commencent par une section « Prérequis » : des colonnes et des tables créées, hors de Drizzle, dans le schéma de l'outil. Le partage les crée lui-même pour pouvoir être essayé, mais elles appartiennent à l'outil : elles entrent dans sa première migration incrémentale, après la migration de base, et sont d'abord déclarées dans son schéma Drizzle (ou dans `TABLES` et `server/migrations-pg/` pour Cursus) pour que drizzle-kit ne les supprime pas à la migration suivante. Les vues `pub_` de l'outil vont dans une migration SQL écrite à la main, dans la même livraison (§ 1.3 de `docs/convergence-des-donnees.md`). Une fois cette migration passée, la section « Prérequis » du fichier de partage n'a plus d'effet (`IF NOT EXISTS`).
+
+| Outil | Prérequis (fichier de partage) | Tables déclarées |
+|---|---|---|
+| Cursus | `20-cursus.sql` : `employes.matricule` (déjà dans `cursus/schema.sql`), `site_code`, `unite_code`, `sortie` ; `budgets.unite_code`, `plan_actions.unite_code` ; `certifications.organisme` ; `journal.actor_emp_id`, `objet_ref`, `projet_code` ; 3 index | 28, inchangé |
+| Keystone | `30-keystone.sql` : `persons.matricule`, `countries.iso2`, `projects.kind`, `departments.org_code`, `vigie_ecos.released_at`, `vigie_ncrs.closed_on`, `supplier_id`, `owner_matricule` ; 2 index | 203, inchangé |
+| Codex | `40-codex.sql` : `documents.distribution`, `review_months`, `process_code` ; `users.matricule` ; `departments.active` ; 1 index | 22, inchangé |
+| Vigie | `50-vigie.sql` : `people.matricule`, `contractors.supplier_id`, `keystone_project_code` dans 4 tables, 11 colonnes de `events` ; tables `inductions`, `document_actions`, `journal`. `60-vigie-ecr-eco.sql` : 9 tables ECR et ECO | 36 à la bascule, 48 après |
+| Matrix | `10-matrix-referentiels.sql` : `pays`, `sites`, `organigramme`, `correspondances` | 4, par les migrations de Matrix (§ 11) |
+
+Numérotation. Les migrations incrémentales prennent leur numéro à la fusion, dans l'ordre où elles arrivent : drizzle-kit le fixe pour Keystone, Codex et Vigie, l'auteur pour Cursus (`server/migrations-pg/NNNN_<objet>.sql`). Deux sont prévues dans chaque outil : `partage` (prérequis ci-dessus et vues `pub_`) et, pour Cursus, Keystone et Vigie, `echanges_rh` (D06 et D07, `docs/remplacement-lucca.md`, § 5). Les documents les désignent par leur nom, pas par leur numéro.
 
 ## 5. Keystone
 
-Analyse détaillée et correctif complet essayés dans une copie (39 fichiers, s'applique sans conflit) : typecheck et lint propres, tests sur PGlite, `scripts/db-check.ts` sur le serveur en tant que `keystone_app`, `next build` puis `next start` sur le serveur.
+Correctif essayé dans une copie : `infra/postgres/correctifs/keystone.diff` (40 fichiers, s'applique sans conflit sur `9bd597e` ; ses écarts avec ce plan sont dans `infra/postgres/correctifs/README.md`). Typecheck et lint propres, tests sur PGlite, `scripts/db-check.ts` sur le serveur en tant que `keystone_app`, `next build` puis `next start` sur le serveur.
 
 ### 5.1 Fichiers
 
@@ -274,11 +295,13 @@ Analyse détaillée et correctif complet essayés dans une copie (39 fichiers, s
 | `src/server/db/migrate.ts` (nouveau) | Migrateur du § 4.3 avec `DB_SCHEMA = 'keystone'`. |
 | `src/server/db/open.ts` | `openDatabase()` (PGlite) et `openServerDatabase()` (serveur), code ci-dessous. |
 | `src/server/db/client.ts` | Choix du mode dans `open()`, garde de build ; `getDb` et `setDb` inchangés. |
-| D06 | Rien dans la migration de base. Les tables et réglages des échanges RH (`hr_timesheets`, `hr.hours_source`…, `docs/remplacement-lucca.md`, § 5.2) viennent ensuite, dans la migration `0001` générée après la base (`docs/remplacement-lucca.md` la numérote `0006`, d'après les anciennes migrations). |
+| Partage et D06 | Rien dans la migration de base. Les prérequis du partage (§ 4.9) et les tables et réglages des échanges RH (`hr_timesheets`, `hr_leave_headers`, `hr.hours_source`…, `docs/remplacement-lucca.md`, § 5.2) viennent ensuite, dans les migrations incrémentales `partage` et `echanges_rh`. |
 | `src/server/db/seed/index.ts:69` | Comptage de `projects` dans la transaction du remplissage (deux instances ne remplissent pas deux fois). |
+| `src/server/dal/projects.ts:173-221` | `nextProjectNumber` et `nextAnalyticCode` reçoivent `tx` et sont appelés dans la transaction de `createProject` (§ 4.5) ; même revue pour les autres calculs « plus grand + 1 ». |
 | SQL brut des tests (`dal/delivery5-writes.test.ts:272-273, 460, 462`, `dal/delivery4-writes.test.ts:313-314`, `features/site/actions.test.ts:137, 142`) | Aucun changement : noms non qualifiés résolus par le `search_path`, posé aussi dans PGlite. |
 | `tests/db-template.ts` (nouveau), `vitest.config.ts` | Base de test construite une fois par exécution et copiée par chaque fichier de test ; `test.env.DATABASE_URL = ''`. |
-| `scripts/db-check-pg.ts` (nouveau) | `db-check` sur un PostgreSQL 16 doté du socle, pour l'intégration continue. |
+| `scripts/db-check-pg.ts` (nouveau) | `db-check` sur un PostgreSQL 16 doté du socle, lancé par l'intégration continue (§ 10, lot du § 13). |
+| `.github/workflows/postgres.yml` (nouveau) | Intégration continue : typecheck, lint, tests sur PGlite, puis `db-check-pg.ts` sur un service PostgreSQL 16 initialisé avec `infra/postgres/init/` de Matrix (§ 10.1). |
 | `desktop/KeystoneApp.swift` | `env["DATABASE_URL"] = ""` après la ligne 108. |
 | `Dockerfile` | Commentaire des lignes 3-4 ; `KEYSTONE_DATA_DIR=/data` reste (fichiers et repli). |
 | `package.json` | `pg`, `@types/pg`. `db:reset` reste valable pour PGlite. |
@@ -305,19 +328,31 @@ const MIGRATIONS = path.join(process.cwd(), 'drizzle');
 
 /** PGlite dans `dataDir` (en mémoire sans dossier) : développement, tests, application Mac. */
 export async function openDatabase(dataDir?: string, migrationsFolder = MIGRATIONS): Promise<DB> {
+  // Tests : copie en mémoire de la base modèle construite une fois par exécution (tests/db-template.ts).
+  const template = process.env.KEYSTONE_TEST_DB_TEMPLATE;
+  if (!dataDir && template && migrationsFolder === MIGRATIONS) return openTemplateCopy(template);
   if (dataDir) fs.mkdirSync(path.dirname(dataDir), { recursive: true });
   const client = dataDir ? new PGlite(dataDir) : new PGlite();
   const { rows } = await client.query<{ ancienne: boolean }>(
     `select to_regclass('public.projects') is not null and to_regclass('${DB_SCHEMA}.projects') is null as ancienne`);
   if (rows[0].ancienne) {
     await client.close();
-    throw new Error(`Base PGlite antérieure au schéma ${DB_SCHEMA} dans ${dataDir} : npm run db:reset, ou reprise (docs).`);
+    // Application Mac : KEYSTONE_DATA_DIR pointe vers ~/Library/Application Support/Keystone/data (§ 4.6).
+    const remede = process.env.KEYSTONE_DATA_DIR ? `quittez l'application et supprimez ${dataDir}` : 'npm run db:reset';
+    throw new Error(`Base PGlite antérieure au schéma ${DB_SCHEMA} dans ${dataDir} : ${remede}, ou reprise (docs).`);
   }
   await client.exec(`create schema if not exists ${DB_SCHEMA}; set search_path to ${DB_SCHEMA}`);
   const db: DB = drizzlePglite(client, { schema });
   await migrateSchema(db, migrationsFolder);
   await seedIfEmpty(db);
   return db;
+}
+
+/** Tests : base modèle chargée en mémoire. Même contenu qu'un openDatabase() neuf, sans initdb, migrations ni remplissage. */
+async function openTemplateCopy(file: string): Promise<DB> {
+  const client = await PGlite.create({ loadDataDir: new Blob([fs.readFileSync(file)]) });
+  await client.exec(`set search_path to ${DB_SCHEMA}`);
+  return drizzlePglite(client, { schema });
 }
 
 export interface ServerDatabaseOptions { migrationsFolder?: string; seed?: boolean; max?: number }
@@ -357,13 +392,40 @@ function open(): Promise<DB> {
 }
 ```
 
-Différences avec le code essayé par l'analyse : clés de verrou dérivées du schéma (au lieu de constantes), garde-fou contre une ancienne base PGlite (repris de Vigie), message en français. La version de test qui charge une copie de la base modèle (`KEYSTONE_TEST_DB_TEMPLATE`, `PGlite.create({ loadDataDir })`) est dans l'analyse.
+```ts
+// tests/db-template.ts, déclaré dans vitest.config.ts (test.globalSetup), avec test.env.DATABASE_URL = ''
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import { DB_SCHEMA, migrateSchema } from '@/server/db/migrate';
+import * as schema from '@/server/db/schema';
+import { seedIfEmpty } from '@/server/db/seed';
+
+/** Construit la base de test remplie une fois par exécution et l'écrit dans un fichier ; openDatabase() en charge une copie. */
+export default async function setup(): Promise<() => void> {
+  const client = await PGlite.create();
+  await client.exec(`create schema if not exists ${DB_SCHEMA}; set search_path to ${DB_SCHEMA}`);
+  const db = drizzle(client, { schema });
+  await migrateSchema(db, path.join(process.cwd(), 'drizzle'));
+  await seedIfEmpty(db);
+  const file = path.join(os.tmpdir(), `keystone-test-db-${process.pid}.tar`);
+  fs.writeFileSync(file, Buffer.from(await (await client.dumpDataDir('none')).arrayBuffer()));
+  await client.close();
+  process.env.KEYSTONE_TEST_DB_TEMPLATE = file;
+  return () => fs.rmSync(file, { force: true });
+}
+```
+
+Différences avec le code essayé (`infra/postgres/correctifs/keystone.diff`) : clés de verrou dérivées du schéma (au lieu de constantes), migrateur commun du § 4.3 à la place de `migrateKeystone`, garde-fou contre une ancienne base PGlite (repris de Vigie), message en français qui nomme le dossier de l'application Mac.
 
 ### 5.3 Tests
 
-- Les 196 fichiers de test restent sur PGlite, en mémoire. La base modèle ramène l'ouverture de 6 à 9 s à 1,2 s par fichier : la suite passe de 43 à 22 minutes de temps processeur (2 646 tests réussis sur 2 649 ; les 3 échecs sont des dépassements du délai de 5 s, sans lien avec la base).
+- Les 196 fichiers de test restent sur PGlite. 124 d'entre eux ouvrent une base en mémoire (`openDatabase(` ou `getDb(`) : la base modèle ramène leur ouverture de 6 à 9 s à 1,2 s par fichier, et la suite passe de 43 à 22 minutes de temps processeur. Résultat avec le correctif : 2 646 tests réussis sur 2 649 ; les 3 échecs sont des dépassements du délai de 5 s. Rejoués seuls sur `main` et sur le correctif, les fichiers concernés donnent le même résultat des deux côtés : `meetings.golden.test.ts` (MTG-119) dépasse le délai sur `main` aussi ; les deux autres (`plm/model.test.ts`, `dal/shell.test.ts`) passent des deux côtés quand ils sont rejoués seuls. La suite complète de `main` n'a pas été relancée pour comparaison, d'où le critère suivant.
+- Critère de l'étape 3 (§ 10) : aucun échec nouveau par rapport à `main` sur la même machine, suite complète lancée deux fois de chaque côté.
 - `test.env.DATABASE_URL = ''` empêche un test d'atteindre le serveur commun.
-- Un job d'intégration continue lance `scripts/db-check-pg.ts` sur un PostgreSQL 16 en conteneur, initialisé avec `infra/postgres/init/`. Le nom de schéma étant fixe, chaque exécution prend un serveur neuf.
+- L'intégration continue (§ 10.1) lance `scripts/db-check-pg.ts` sur un PostgreSQL 16 en conteneur, initialisé avec `infra/postgres/init/` de Matrix. Le nom de schéma étant fixe, chaque exécution prend un serveur neuf.
 - Test de concurrence : 5 créations simultanées de risque sur le serveur, toutes réussies.
 
 ### 5.4 Données
@@ -376,7 +438,7 @@ Pas de production (I-1a). Les bases PGlite existantes (`./.data/pg`, application
 
 ## 6. Codex
 
-Bascule essayée de bout en bout le 15 octobre 2026 dans une copie de Codex. Le serveur d'essai est un PostgreSQL 16.15 doté du socle (`infra/postgres/init/`) ; Codex s'y connecte en `codex_app`. Le correctif touche 17 fichiers et s'applique sans conflit sur `main`. Typecheck et lint sont propres. `next build` ne se connecte pas au serveur. La migration, son journal et le jeu de démonstration sont dans le schéma `codex`, rien n'est dans `public`. Les écrans, l'import, le webhook Vigie et les rafales d'imports passent sans erreur dans les deux modes. Deux instances démarrées ensemble ne produisent aucune erreur, et une ancienne base PGlite est refusée. Codex n'a pas de test automatisé.
+Bascule essayée de bout en bout le 15 octobre 2026 dans une copie de Codex. Le serveur d'essai est un PostgreSQL 16.15 doté du socle (`infra/postgres/init/`) ; Codex s'y connecte en `codex_app`. Le correctif (`infra/postgres/correctifs/codex.diff`) touche 17 fichiers et s'applique sans conflit sur `main` (`8abbe38`). Typecheck et lint sont propres. `next build` ne se connecte pas au serveur. La migration, son journal et le jeu de démonstration sont dans le schéma `codex`, rien n'est dans `public`. Les écrans, l'import, le webhook Vigie et les rafales d'imports passent sans erreur dans les deux modes. Deux instances démarrées ensemble ne produisent aucune erreur, et une ancienne base PGlite est refusée. Codex n'a pas de test automatisé.
 
 ### 6.1 Fichiers
 
@@ -389,6 +451,7 @@ Bascule essayée de bout en bout le 15 octobre 2026 dans une copie de Codex. Le 
 | `src/db/migrate.ts` (nouveau) | Migrateur du § 4.3, `DB_SCHEMA` importé de `schema.ts`. |
 | `src/db/index.ts` | Code ci-dessous. Le comptage brut `client.query('select count(*)::int as n from users')` (ligne 21) devient `db.select({ n: count() }).from(schema.users)`. |
 | `src/db/seed.ts` | Première instruction de la transaction du remplissage (ligne 86) : `if ((await tx.$count(s.users)) > 0) return;`. Sans elle, deux instances qui démarrent ensemble sur un schéma vide avec `CODEX_SEED_DEMO=1` comptent toutes deux 0 utilisateur et remplissent toutes deux. La seconde échoue sur `duplicate key … departments_pkey` et sa première requête répond 500 (constaté). Le verrou d'écriture sérialise cette transaction : la seconde instance y trouve les utilisateurs de la première et s'arrête. Même règle que Keystone (§ 5.1, `seed/index.ts:69`). |
+| Prérequis du partage | `documents.distribution`, `review_months`, `process_code`, `users.matricule`, `departments.active` déclarés dans `schema.ts`, puis migration incrémentale `partage` avec les vues `pub_` (§ 4.9). |
 | `src/lib/codification.ts` | Rien : `nextDocId` est appelé dans des transactions, que le verrou d'écriture sérialise. L'analyse avait essayé un verrou propre à `nextDocId` (30 imports sur 30) ; le verrou d'écriture le rend inutile et protège aussi les contrôles d'état non verrouillés (`lockOf`, `addWorkingVersion` face à `requestValidation`, double approbation dans `decideStep`). |
 | `desktop/CodexApp.swift` | `env["DATABASE_URL"] = ""` après la ligne 98. Le Swift ne se compile que sous macOS ; l'effet est vérifié avec `next start` : un `DATABASE_URL` vide dans l'environnement l'emporte sur un `.env.local` qui pointe vers le serveur (PGlite ouvert, aucune connexion), et le `.env.local` seul branche bien Codex sur le serveur. |
 | `Dockerfile` (lignes 3-4), `.env.example` (section « Database » : `DATABASE_URL`, `CODEX_DB_POOL`, `CODEX_SEED_DEMO`), `README.md` (ligne 6, « Démarrer » avec un tableau des deux modes et la consigne `db:reset` pour une base antérieure au schéma, arborescence `db/`, tableau et consignes de « Mise en ligne », dont la ligne 124), `CLAUDE.md:75-78` | Les deux modes ; `codex.table(…)`, jamais `pgTable(…)` ; `pgSchema` jamais exporté ; migration unique figée dès les premières données à garder. |
@@ -437,7 +500,9 @@ async function openEmbedded(): Promise<DB> {
     `select to_regclass('public.users') is not null and to_regclass('${DB_SCHEMA}.users') is null as ancienne`);
   if (rows[0].ancienne) {
     await client.close();
-    throw new Error(`Base PGlite antérieure au schéma ${DB_SCHEMA} dans ${dir} : npm run db:reset (voir README).`);
+    // Application Mac : CODEX_DATA_DIR pointe vers ~/Library/Application Support/Codex/data (§ 4.6).
+    const remede = process.env.CODEX_DATA_DIR ? `quittez l'application et supprimez ${dir}` : 'npm run db:reset';
+    throw new Error(`Base PGlite antérieure au schéma ${DB_SCHEMA} dans ${dir} : ${remede} (voir README).`);
   }
   await client.exec(`create schema if not exists ${DB_SCHEMA}; set search_path to ${DB_SCHEMA}`);
   return drizzlePglite(client, { schema });
@@ -474,7 +539,7 @@ Ce code a tourné tel quel, avec `src/db/types.ts` du § 4.1 et `src/db/migrate.
 ### 6.3 Tests, données, variables
 
 - Pas de suite de tests. Recette faite le 15 octobre dans les deux modes, avec `next build` puis `next start`, et avec `next dev` sur le serveur : les 7 écrans, une fiche document, les deux exports CSV, `GET /api/registry` (23 familles, 69 types), import JSON et import multipart avec fichier (relu par `/api/documents/[id]/file`), webhook Vigie (décision, puis renvoi reconnu comme déjà appliqué), rafales d'imports simultanés. Reste à passer à la main : les 4 rôles, en français et en anglais.
-- Contrôles sur le serveur après la migration : 23 tables dans `codex` (les 22 de Codex et le journal), toutes à `codex_app` ; aucune relation dans `public` ; journal `codex.__drizzle_migrations` à une ligne ; aucune clé étrangère hors de `codex` ; les 3 index partiels créés ; `matrix_lecture` lit les 23 tables ; `droits.verifier()` ne signale rien. `introspecterPostgres` déclare 23 tables, journal compris (§ 11). Dans PGlite aussi, les 23 tables et le journal sont dans `codex`.
+- Contrôles sur le serveur après la migration : 23 tables dans `codex` (les 22 de Codex et le journal), toutes à `codex_app` ; aucune relation dans `public` ; journal `codex.__drizzle_migrations` à une ligne ; aucune clé étrangère hors de `codex` ; les 3 index partiels créés ; `matrix_lecture` lit les 23 tables ; `droits.verifier()` ne signale rien. `introspecterPostgres` déclare les 22 tables de Codex : sa requête écarte le journal (§ 4.8). Dans PGlite aussi, les 23 tables et le journal sont dans `codex`.
 - `migrate()` de Drizzle, lancé en `codex_app`, échoue sur `permission denied for database epc2i` sans rien créer : le migrateur du § 4.3 est nécessaire.
 - Sur un clone neuf, `npm run typecheck` signale `PageProps`, `LayoutProps` et `RouteContext` introuvables tant que `next-env.d.ts` (non versionné) n'existe pas. Lancer d'abord `npx next typegen`, `next dev` ou `next build`. Le défaut existe déjà sans la bascule.
 - Données : repartir de la démonstration. Reprise d'une base PGlite essayée (`pgDump --data-only`, 795 `INSERT`, séquences à jour) si une instance Coolify contient des saisies (P-03). Copier `/data/files`.
@@ -482,18 +547,18 @@ Ce code a tourné tel quel, avec `src/db/types.ts` du § 4.1 et `src/db/migrate.
 
 ## 7. Vigie
 
-Code essayé dans une copie : `tsc` et `next build` passent, les 18 routes répondent dans les deux modes. Vigie n'a pas de test automatisé. C'est le seul outil Drizzle avec des colonnes sensibles (`events.injury`, `events.lost_days`) : il valide le mécanisme du § 3 sur un vrai schéma.
+Code essayé dans une copie (`infra/postgres/correctifs/vigie.diff`, 12 fichiers, sur `b658790`) : `tsc` et `next build` passent, les 18 routes répondent dans les deux modes. Vigie n'a pas de test automatisé. C'est le seul outil Drizzle avec des colonnes sensibles (`events.injury`, `events.lost_days`) : il valide le mécanisme du § 3 sur un vrai schéma.
 
 ### 7.1 Fichiers
 
 | Fichier | Changement |
 |---|---|
-| `src/db/schema.ts` | `const vigie = pgSchema('vigie')` (non exporté) ; 36 `pgTable(` deviennent `vigie.table(` (lignes 5 à 435). Les colonnes D06 de `hours_worked` (`docs/remplacement-lucca.md`, § 5.3) viennent dans la migration suivante, `0001` (numérotée `0002` dans `docs/remplacement-lucca.md`). |
+| `src/db/schema.ts` | `const vigie = pgSchema('vigie')` (non exporté) ; 36 `pgTable(` deviennent `vigie.table(` (lignes 5 à 435). Les prérequis du partage (§ 4.9 : 17 colonnes, dont 11 dans `events`, et 12 tables, dont les 9 tables ECR et ECO) et les changements D06 de `hours_worked` (`docs/remplacement-lucca.md`, § 5.3) viennent ensuite, dans les migrations incrémentales `partage` et `echanges_rh`. |
 | `drizzle/` | `rm -rf drizzle && npx drizzle-kit generate --name init`. Avec l'objet non exporté, aucune ligne à retirer à la main. |
 | `drizzle.config.ts` | `schemaFilter: ['vigie']`, `migrations: { schema: 'vigie', table: '__drizzle_migrations' }`. |
 | `src/db/types.ts` (nouveau), `src/db/migrate.ts` (nouveau) | § 4.1 et § 4.3. |
 | `src/db/index.ts` | Code ci-dessous. |
-| `src/db/seed.ts` | Requête brute de la ligne 206 remplacée par `if ((await db.$count(t.sites)) > 0) return;` ; signature `seed(db: DB)`. |
+| `src/db/seed.ts` | La requête brute de la ligne 206 est retirée ; le comptage devient la première instruction de la transaction ouverte ligne 208 : `if ((await tx.$count(t.sites)) > 0) return;`. Hors transaction, deux instances qui démarrent ensemble avec `VIGIE_SEED_DEMO=1` (obligatoire en bêta) comptent toutes deux 0 site et remplissent deux fois, comme constaté dans Codex (§ 6.1). Le verrou d'écriture sérialise la transaction. Signature `seed(db: DB)`. |
 | `src/db/seeds/types.ts` | `SeedTx = Parameters<Parameters<DB['transaction']>[0]>[0]`. |
 | `src/server/plan.ts:59-61`, `events.ts:238-240`, `prevention.ts:64, 155, 320`, `audits.ts:51`, `environment.ts:156`, `pp-import.ts:495-496`, `documents.ts:97` | Lecture des références existantes et insertion dans la même transaction (§ 4.5). |
 | `desktop-app/Sources/ServerController.swift:482-503` | `environment["DATABASE_URL"] = ""` à côté de `VIGIE_DESKTOP`. Le verrou « un seul serveur par base PGlite » reste valable. |
@@ -569,7 +634,7 @@ export function getDb(): Promise<DB> {
 export { schema };
 ```
 
-Différences avec le code essayé par l'analyse (`vigie-index-propose.ts`) : même migrateur dans les deux modes, verrou pris avant la création du journal, verrou d'écriture, garde de build, `VIGIE_SEED_DEMO=1` au lieu de `VIGIE_SEED=demo`. Sur un serveur vide, Vigie ne fonctionne pas sans jeu de données (`src/lib/session.ts:23`, `src/server/events.ts:245`) : la bêta démarre avec `VIGIE_SEED_DEMO=1`.
+Différences avec le code essayé (`src/db/index.ts` de `infra/postgres/correctifs/vigie.diff`) : même migrateur dans les deux modes, verrou pris avant la création du journal, verrou d'écriture, garde de build, `VIGIE_SEED_DEMO=1` au lieu de `VIGIE_SEED=demo`. Sur un serveur vide, Vigie ne fonctionne pas sans jeu de données (`src/lib/session.ts:23`, `src/server/events.ts:245`) : la bêta démarre avec `VIGIE_SEED_DEMO=1`.
 
 ### 7.3 Données et variables
 
@@ -579,6 +644,16 @@ Différences avec le code essayé par l'analyse (`vigie-index-propose.ts`) : mê
 ## 8. Cursus
 
 Cursus est le seul outil sans Drizzle et sans PostgreSQL : Express 5, `node:sqlite` synchrone, une classe `Db` (`server/src/db.ts`, 195 lignes) qui crée les tables depuis l'objet `TABLES`, sans clé étrangère. Les règles métier de `shared/` travaillent sur un instantané en mémoire et n'appellent jamais la base : le client et `shared/` ne changent pas.
+
+La migration se fait en trois sous-étapes, livrées l'une après l'autre. Le prototype essayé (`infra/postgres/correctifs/cursus-prototype.diff`) couvre les trois.
+
+| Sous-étape | Contenu | Commence après | Sections |
+|---|---|---|---|
+| 8.a Couche asynchrone | Classe `Db` asynchrone avec le seul adaptateur SQLite ; actions, routes et tests en `async` ; aucun changement de moteur. | M-05 | § 8.1, § 8.2 (sans `PgDb`) |
+| 8.b Adaptateur PostgreSQL | `PgDb`, `server/migrations-pg/`, schéma cible, verrous, double exécution des tests sur SQLite et PostgreSQL. | 8.a et le socle (étape 0 du § 10) | § 8.2 à 8.5 |
+| 8.c Reprise et bascule | Script de reprise, recette, `DATABASE_URL` en production. | 8.b et les étapes 1 à 3 du § 10 | § 8.6, étape 4 du § 10 |
+
+Le travail D06 et D07 de Cursus (`docs/remplacement-lucca.md`, § 5.1) commence dès que 8.a est fusionnée, sur SQLite : il ne dépend ni de 8.b ni de 8.c (§ 10).
 
 ### 8.1 Stratégie retenue : couche d'accès asynchrone
 
@@ -594,14 +669,14 @@ SQLite reste le repli local (application Mac, développement, tests rapides) : a
 
 | Fichier | Changement |
 |---|---|
-| `server/src/db.ts` | Classe abstraite `Db`, même API devenue asynchrone (`all`, `where`, `get`, `insert`, `update`, `remove`, `count`, `tx`, `getSetting`, `setSetting`) plus `query`, `clearAll`, `resyncIds`, `lockActions`. Adaptateurs `SqliteDb` et `PgDb`. `openDb()` : `DATABASE_URL` présente → `PgDb`, sinon SQLite (`CURSUS_DB` ou `data/cursus.db`). `TABLES` reste la source lue par le collecteur de Matrix. |
+| `server/src/db.ts` | Classe abstraite `Db`, même API devenue asynchrone (`all`, `where`, `get`, `insert`, `update`, `remove`, `count`, `tx`, `getSetting`, `setSetting`) plus `query`, `clearAll`, `resyncIds`, `lockActions`. Adaptateurs `SqliteDb` et `PgDb`. `openDb()` : `DATABASE_URL` présente et non vide → `PgDb`, sinon SQLite (`CURSUS_DB` ou `data/cursus.db`). Une valeur vide vaut absence, comme pour les outils Drizzle (§ 4.1). `TABLES` reste la source lue par le collecteur de Matrix. |
 | `server/src/dataset.ts`, `auth.ts`, `index.ts`, `migrate.ts`, `seed.ts`, `reset.ts`, `integrations/keystone.ts`, `actions/*.ts` (8 fichiers) et `actions/context.ts` | `async`/`await` sur les 141 appels directs et leurs appelants (42 gestionnaires d'actions). Les 34 boucles `forEach` qui écrivent deviennent `for…of` (9 dans les actions, environ 25 dans `seed.ts`). Règle de lint contre les promesses non attendues. |
-| `server/migrations-pg/0001_init.sql` (nouveau) | Copie de `infra/postgres/cursus/schema.sql` (§ 8.4). La migration des échanges RH (`docs/remplacement-lucca.md`, § 5.1, nommée `0003_echanges_rh.sql`) devient `0002_echanges_rh.sql` : le script de droits `0002` du prototype n'a plus lieu d'être (§ 8.5). |
+| `server/migrations-pg/0001_init.sql` (nouveau) | Copie de `infra/postgres/cursus/schema.sql` (§ 8.4). Les migrations suivantes, `partage` (§ 4.9) et `echanges_rh` (`docs/remplacement-lucca.md`, § 5.1), prennent leur numéro à la fusion. Le script de droits `0002_droits_matrix.sql` du prototype n'a plus lieu d'être (§ 8.5). |
 | `server/scripts/sqlite-vers-postgres.ts` (nouveau) | Reprise des données (§ 8.6). |
 | `tests/*.test.ts` (4 fichiers) | `fresh()` asynchrone, `assert.throws` deviennent `assert.rejects`, choix du moteur par `CURSUS_TEST_ENGINE=sqlite\|pg`. |
 | `shared/dates.ts:11` | `isValidDate` contrôle aussi le calendrier : `2026-02-30` passe le contrôle de format puis échoue dans PostgreSQL (« date/time field value out of range », vérifié), soit une erreur 500. |
 | `server/src/index.ts:147-157` | La route Keystone contrôle `retour >= depart` (aujourd'hui le format seulement). |
-| `desktop/CursusApp.swift:77-83` | `env["DATABASE_URL"] = ""`. |
+| `desktop/CursusApp.swift:77-83` | `env["DATABASE_URL"] = ""`. Cursus ne charge aucun fichier `.env` (`node server/src/index.ts`, ni `--env-file` ni dotenv) ; l'application transmet en revanche l'environnement hérité du poste (`ProcessInfo.processInfo.environment`, ligne 77). La valeur vide neutralise un `DATABASE_URL` exporté dans la session de l'utilisateur. |
 | `Dockerfile` | Commentaire : `/data` ne sert plus qu'au repli ; `DATABASE_URL` jamais dans l'image. |
 | `README.md`, `docs/ARCHITECTURE.md` | Les deux modes, les variables, la reprise. |
 | `package.json` | `pg` (le prototype a tourné avec 8.16.3 ; prendre 8.23.1 comme les autres outils). |
@@ -630,7 +705,7 @@ Migrations : dossier `server/migrations-pg/`, fichiers appliqués dans l'ordre a
 
 ### 8.4 Schéma cible : `infra/postgres/cursus/schema.sql`
 
-28 tables, noms inchangés, 37 clés étrangères, 8 unicités (7 contraintes et un index sur `lower(equipes.nom)`), 56 contraintes `CHECK`, 12 index. Le fichier suit le format de drizzle-kit, que le collecteur de Matrix sait lire. La vue `heures_validees` du prototype n'y est plus : les vues versionnées `heures_validees_v1`, `absences_validees_v1` et `heures_site_mois_v1` (`docs/remplacement-lucca.md`, § 3.9) la remplacent dans la migration des échanges RH, qui ajoute les colonnes dont elles ont besoin (`feuilles.version`, `valide_le`, `site`).
+28 tables, noms inchangés, 37 clés étrangères, 8 unicités (7 contraintes et un index sur `lower(equipes.nom)`), 56 contraintes `CHECK`, 12 index. Le fichier suit le format de drizzle-kit, avec des noms qualifiés (`"cursus"."employes"`). Le collecteur de Matrix (`outils/collecteur.mjs`, `parseDrizzle`) les lit depuis le 15/10/2026 : 28 tables et 37 clés lues sur ce fichier (0 avant le changement). La vue `heures_validees` du prototype n'y est plus : les vues versionnées `heures_validees_v1`, `absences_validees_v1`, `annulations_v1` et `heures_site_mois_v1` (`docs/remplacement-lucca.md`, § 3.9) la remplacent dans la migration `echanges_rh`, qui ajoute les colonnes dont elles ont besoin (`feuilles.version`, `valide_le`, `site`, `rouverte_le` ; `absences.version`, `valide_le`, `annule_le`).
 
 **Types.** Dates en `date`, `journal.at` en `timestamptz`, heures et jours en `numeric` (sans arrondi, il restitue le nombre JavaScript), montants en `numeric(12, 2)`, booléens `boolean NOT NULL DEFAULT false`, JSON en `jsonb` dont la forme est contrôlée. Clés : `integer GENERATED ALWAYS AS IDENTITY` pour 18 tables, `BY DEFAULT` pour `employes` et `sessions` (identifiants fixés par la démonstration), clé texte pour les référentiels.
 
@@ -665,11 +740,11 @@ Migrations : dossier `server/migrations-pg/`, fichiers appliqués dans l'ordre a
 
 ### 8.5 Droits
 
-Aucun `GRANT` dans les migrations de Cursus. Le déclencheur `droits_ddl` donne à `matrix_lecture` les colonnes autorisées dès la création : sur `employes`, 17 colonnes sur 22 sont lisibles, `matricule` compris. Le fichier `0002_droits_matrix.sql` du prototype est inutile, et la consigne « à relancer après chaque migration » de `docs/remplacement-lucca.md` (§ 3.9) aussi. Essai : les trois vues `*_v1`, créées par `cursus_app` sur le schéma rempli, sont lisibles par `matrix_app` sans aucun `GRANT` (228 lignes d'heures, 1 403 h, comme le calcul sur SQLite), et `droits.verifier()` ne signale aucune erreur.
+Aucun `GRANT` dans les migrations de Cursus. Le déclencheur `droits_ddl` donne à `matrix_lecture` les colonnes autorisées dès la création : sur `employes`, 17 colonnes sur 22 sont lisibles, `matricule` compris. Le fichier `0002_droits_matrix.sql` du prototype est inutile, et sa consigne « à relancer après chaque migration » aussi. Essai : les vues `*_v1`, créées par `cursus_app` sur le schéma rempli, sont lisibles par `matrix_app` sans aucun `GRANT` (228 lignes d'heures, 1 403 h, comme le calcul sur SQLite), et `droits.verifier()` ne signale aucune erreur.
 
 ### 8.6 Reprise des données SQLite
 
-Script `server/scripts/sqlite-vers-postgres.ts` (prototype de 137 lignes essayé) :
+Script `server/scripts/sqlite-vers-postgres.ts` (prototype de 137 lignes essayé, dans `infra/postgres/correctifs/cursus-prototype.diff`) :
 
 ```
 DATABASE_URL=postgres://cursus_app:…@hôte:5432/epc2i node server/scripts/sqlite-vers-postgres.ts --sqlite /data/cursus.db [--verifier] [--remplacer]
@@ -695,26 +770,45 @@ Le circuit, les contrats (`data/contrats/heures-validees.schema.json`, `absences
 
 | Point | Règle |
 |---|---|
-| Passage des heures | Par l'API de l'outil destinataire, poussée par Cursus (flux H1, H2, H3). Aucun rôle d'outil ne lit le schéma `cursus` : la convention l'interdit, et les modes de repli (PGlite, SQLite) n'ont pas de serveur commun. L'exception L-07 de `docs/remplacement-lucca.md` n'est pas nécessaire au socle. |
-| File d'envoi de Cursus | Table `cursus.evenements_sortants`, écrite dans la transaction de la validation (`temps.validate`) : le message part si et seulement si la validation est enregistrée. Elle vient avec la migration des échanges RH (`0002_echanges_rh.sql`, § 8.2). Sur le serveur, elle est lisible par Matrix sans `GRANT`. |
-| Vues de contrôle | `cursus.heures_validees_v1`, `absences_validees_v1`, `heures_site_mois_v1`, propriété de `cursus_app`, lues par `matrix_lecture` seulement (contrôle de complétude). Elles ne lisent aucune colonne sensible : `droits_ddl` les ouvre à Matrix dès leur création (essayé, § 8.5). |
-| Migrations des autres outils | Keystone : tables `hr_*` et contraintes de `hours_imports`, dans la migration `0001` qui suit la migration de base. Vigie : colonnes `source`, `hours_interim`, `hours_school`, `complete`, `updated_at` de `hours_worked`, dans la migration `0001` qui suit la sienne. Aucune ne référence `cursus.*`. |
+| Passage des heures | Par l'API de l'outil destinataire, poussée par Cursus (flux H1, H2, H3) : les modes de repli (PGlite, SQLite) n'ont pas de serveur commun, et les heures sont des écritures chez le destinataire. Les outils lisent seulement les vues `cursus.pub_*` qui leur sont accordées (convention de partage) ; les vues `*_v1` ne leur sont pas accordées. |
+| File d'envoi de Cursus | Table `cursus.evenements_sortants`, écrite dans la transaction de la validation (`temps.validate`) : le message part si et seulement si la validation est enregistrée. Elle vient avec la migration `echanges_rh` (§ 8.2). Sur le serveur, elle est lisible par Matrix sans `GRANT`. |
+| Vues de contrôle | `cursus.heures_validees_v1`, `absences_validees_v1`, `annulations_v1`, `heures_site_mois_v1`, propriété de `cursus_app`, réservées au groupe `matrix_lecture`, que Matrix utilise par `matrix_app` (contrôle de complétude). Elles ne lisent aucune colonne sensible : `droits_ddl` les ouvre à Matrix dès leur création (essayé, § 8.5). `droits.verifier()` signale une vue `*_v1` qui lirait une colonne sensible, et toute vue `*_v1` accordée à un rôle d'outil. |
+| Migrations des autres outils | Keystone : tables `hr_*` (dont `hr_leave_headers`), contraintes de `hours_imports` et `analytic_code` facultatif, dans sa migration `echanges_rh`. Vigie : colonnes `source`, `hours_interim`, `hours_school`, `complete`, `updated_at` de `hours_worked` et clé primaire `(month, site_id, source)`, dans la sienne. Aucune ne référence `cursus.*`. |
 | Colonnes sensibles | Le contenu des messages n'en porte pas (matricule, semaine, projet, heures, site). La ligne de `cursus.journal` ne garde plus le contenu du message (lot C2) ; `payload` reste exclu de Matrix. |
 
-**Réversibilité.** Rien n'est supprimé tant que M-03 n'est pas confirmée. Trois réglages ramènent l'état actuel : `settings.sourceHeures = 'lucca'` dans Cursus (plus de message `heures.*`), `hr.hours_source = 'lucca'` dans Keystone (les écrans relisent l'import Lucca), et la colonne `hours_worked.source` dans Vigie. Les tables alimentées gardent leur colonne `source`. Côté serveur, revenir à Lucca ne demande aucune migration.
+**Réversibilité.** Rien n'est supprimé tant que M-03 n'est pas confirmée. Trois réglages ramènent l'état actuel : `settings.sourceHeures = 'lucca'` dans Cursus (plus de message `heures.*`), `hr.hours_source = 'lucca'` dans Keystone (les écrans relisent l'import Lucca, la saisie « Log » revient) et `VIGIE_HEURES_CURSUS_DEPUIS` vide dans Vigie (le tableau de bord relit les heures de la source actuelle, gardées à côté de celles de Cursus grâce à la clé `(month, site_id, source)`). Les tables alimentées gardent leur colonne `source`. Côté serveur, revenir à Lucca ne demande aucune migration.
 
 ## 10. Ordre de bascule
 
 | Étape | Contenu | Condition pour passer à la suite | Retour arrière |
 |---|---|---|---|
-| 0 | Socle dans Coolify : ressource, variables, réseau, `verifier-droits.sql`, sauvegarde planifiée, restauration d'essai d'un schéma. | 68 cas conformes ; une restauration réussie. | Supprimer la ressource. |
-| 1 | **Codex** : le plus petit (un fichier de schéma), migration unique autorisée par son dépôt, aucune colonne sensible. | Recette des deux modes ; rafale d'imports sans erreur ; déclaration à Matrix reçue. | Retirer `DATABASE_URL` : Codex repart sur PGlite (saisies faites sur le serveur perdues, sauf export). |
-| 2 | **Vigie** : valide la protection des colonnes sensibles sur `events`. | `droits.verifier()` sans erreur ; Matrix lit `events` sans `injury` ni `lost_days`. | Idem. |
-| 3 | **Keystone** : après validation de l'exception à `CLAUDE.md:45` (P-02). | `db-check` sur le serveur ; test de concurrence ; intégration continue sur PostgreSQL. | Idem. |
-| 4 | **Cursus** : le plus gros changement et les seules données RH réelles ; reprise depuis SQLite. | Recette RH, manager, collaborateur ; comparaison des instantanés ; première sauvegarde du schéma relue. | Retirer `DATABASE_URL` : retour au fichier SQLite d'origine. |
-| 5 | **D06** : migrations des échanges RH dans Cursus, Keystone et Vigie, puis marche en parallèle et bascule selon `docs/remplacement-lucca.md` (§ 6). | Critères de `docs/remplacement-lucca.md`, § 6.4. | Réglages de source à `lucca` (§ 9). |
+| 0 | Socle dans Coolify : ressource, variables, réseau, `verifier-droits.sql`, sauvegarde planifiée, restauration d'essai d'un schéma. Intégration continue des quatre outils prête (§ 10.1). Collecteur de Matrix qui lit les noms qualifiés `"schéma"."table"` : sans lui, `parseDrizzle` (`outils/collecteur.mjs`) ne lit plus aucune table dès la fusion de la migration de base régénérée de Codex. Fait le 15/10/2026. | 96 cas conformes ; une restauration réussie, partage compris (`infra/postgres/README.md`) ; collecteur qui lit les migrations régénérées (essai : 203, 22 et 36 tables, et 28 pour `cursus/schema.sql`). | Supprimer la ressource. |
+| 1 | **Codex** : le plus petit (un fichier de schéma), migration unique autorisée par son dépôt, aucune colonne sensible. | Recette des deux modes ; rafale d'imports sans erreur ; déclaration à Matrix reçue ; intégration continue verte. | Redéployer le commit précédent de Codex : l'ancien code rouvre l'ancienne base PGlite du volume (`/data/pglite`), que le garde-fou n'a pas modifiée. Retirer seulement `DATABASE_URL` ne suffit pas : le nouveau code refuse cette base (« Base PGlite antérieure au schéma… ») ; il faudrait alors vider ou déplacer `/data/pglite` et repartir de la démonstration. Dans les deux cas, les saisies faites sur le serveur sont perdues, sauf export. |
+| 2 | **Vigie** : valide la protection des colonnes sensibles sur `events`. | `droits.verifier()` sans erreur ; Matrix lit `events` sans `injury` ni `lost_days` ; intégration continue verte. | Idem, avec `/data/db` (`VIGIE_DATA_DIR`). |
+| 3 | **Keystone** : après validation de l'exception à `CLAUDE.md:45` (P-02). | `db-check` sur le serveur ; test de concurrence, `createProject` compris ; intégration continue verte, sans échec nouveau par rapport à `main` (§ 5.3). | Idem, avec `/data/pg`. |
+| 4 | **Cursus** : sous-étape 8.c (§ 8), le plus gros changement et les seules données RH réelles ; reprise depuis SQLite. | Recette RH, manager, collaborateur ; comparaison des instantanés ; première sauvegarde du schéma relue. | Retirer `DATABASE_URL` : Cursus rouvre son fichier SQLite d'origine, que la reprise n'a pas modifié (elle travaille sur une copie, § 8.6). Les saisies faites depuis la bascule sont perdues, sauf script inverse. |
 
-Matrix commence à lire chaque schéma dès la bascule de l'outil. Une étape ne commence qu'après la précédente : chaque outil reste en état de marche sur sa base embarquée tant que sa branche n'est pas fusionnée.
+**Pose du partage.** Après chaque étape 1 à 4, une fois la migration `partage` de l'outil déployée (§ 4.9) : `10-matrix-referentiels.sql` à la première étape, le fichier de partage de l'outil (`20` à `60`), puis `90-droits.sql` (`infra/postgres/partage/README.md`). `95-matrix-journal-unifie.sql` lit les quatre vues `pub_journal` : il se joue après la pose du dernier outil. `droits.verifier()` reste sans erreur après chaque passage. Un lecteur ne lit une vue qu'une fois l'outil qui la publie basculé : jusque-là, il garde son cache ou ses substituts (`docs/convergence-des-donnees.md`, § 1.3).
+
+**D06 et D07, en parallèle.** Les échanges RH ne sont pas une étape de cette chaîne. Le travail de Cursus commence dès que la sous-étape 8.a (couche asynchrone) est fusionnée, sur SQLite ; celui de Keystone et de Vigie dès que les contrats sont figés, sur leur base du moment. Les flux passent par l'API (§ 9) et ne demandent pas le serveur commun (`docs/remplacement-lucca.md`, § 3.9, raison 4). Marche en parallèle, critères et bascule : `docs/remplacement-lucca.md`, § 6 ; retour arrière : réglages de source (§ 9). La marche en parallèle sur données réelles attend en revanche les référentiels D01, D02, D05 et D14, dont les vues (P1 à P3) supposent Keystone et Cursus sur le serveur (étapes 3 et 4), de même que le contrôle de complétude par Matrix (`docs/remplacement-lucca.md`, § 6.3) ; avant, la file d'envoi de Cursus en tient lieu.
+
+Matrix commence à lire chaque schéma dès la bascule de l'outil. Les étapes 1 à 4 se suivent : chaque outil reste en état de marche sur sa base embarquée tant que sa branche n'est pas fusionnée.
+
+### 10.1 Intégration continue
+
+Aucun des cinq dépôts n'a d'intégration continue aujourd'hui (ni `.github`, ni `.gitlab-ci.yml`, ni `.circleci`, vérifié le 15/10/2026). Le plan s'appuie pourtant sur elle (P-01, tests de Cursus sur deux moteurs, étape 3, § 12). C'est donc un lot à part entière, avec un workflow GitHub Actions par outil, `.github/workflows/postgres.yml` :
+
+| Étape du workflow | Keystone | Codex | Vigie | Cursus |
+|---|---|---|---|---|
+| Installation, typecheck, lint | oui | oui | oui | typecheck |
+| Tests sur la base embarquée | `vitest` (PGlite) | aucun : Codex n'a pas de test | aucun : Vigie n'a pas de test | `node --test`, `CURSUS_TEST_ENGINE=sqlite` |
+| Sur un service `postgres:16` doté du socle | `scripts/db-check-pg.ts` | `scripts/db-check-pg.ts` (nouveau) : `getDb()` avec `DATABASE_URL` du service, migrations, démonstration, lecture des tables | idem, nouveau dans Vigie | `node --test`, `CURSUS_TEST_ENGINE=pg` |
+| Contrôle final | `droits.verifier()` sans erreur | idem | idem | idem |
+
+- **Socle dans le service.** Le service `postgres:16` démarre vide ; le workflow joue ensuite les trois scripts de `infra/postgres/init/` avec `psql` depuis le runner, comme dans la procédure « Sans Docker » du README du socle. Les mots de passe des rôles sont des valeurs d'essai propres au workflow.
+- **Dépendance entre dépôts.** Les scripts viennent du dépôt Matrix, privé. Chaque workflow le récupère par `actions/checkout`, à un commit fixé (variable `MATRIX_REF` du workflow), avec un jeton en lecture seule sur Matrix (secret `MATRIX_READ_TOKEN`, une clé de déploiement par outil). Un changement du socle se propage en montant `MATRIX_REF` dans chaque outil : chacun valide ainsi le socle qu'il utilise.
+- **Fichiers.** Dans chaque outil : `.github/workflows/postgres.yml` ; dans Codex et Vigie : `scripts/db-check-pg.ts`. Dans Matrix : la clé de déploiement de chaque outil, et une ligne du README du socle qui rappelle de monter `MATRIX_REF` après un changement de `init/`.
+- **Sans intégration continue.** Si ce lot n'est pas retenu, les mêmes commandes se lancent à la main avant chaque fusion, sur un PostgreSQL 16 local doté du socle (README du socle, « Sur un poste local »), et leur résultat est joint à la demande de fusion.
 
 ## 11. Ce que Matrix lit, et avec quel rôle
 
@@ -725,15 +819,16 @@ Matrix commence à lire chaque schéma dès la bascule de l'outil. Une étape ne
 | Extraits masqués, lignes orphelines | `matrix_app`, par `matrix_lecture` | `SELECT` en nommant les colonnes. `SELECT *` est refusé sur une table qui a des colonnes sensibles ; `count(*)` fonctionne. |
 | Migrations appliquées | `matrix_app` | `keystone.__drizzle_migrations`, `codex.__drizzle_migrations`, `vigie.__drizzle_migrations`, `cursus.schema_migrations`. |
 | Journaux d'audit (D18) | `matrix_app` | Par exemple `codex.audit_log`, `cursus.journal` (sans `payload` ni `message`). |
-| Heures et absences validées (D06, D07) | `matrix_app` | `cursus.heures_validees_v1`, `absences_validees_v1`, `heures_site_mois_v1` (après la migration des échanges RH). |
+| Vues publiées des outils (convention de partage) | `matrix_app` | Les 31 vues `pub_*` des quatre outils, accordées par `infra/postgres/partage/90-droits.sql` ; `matrix.journal_unifie` (D18) les réunit pour les journaux. |
+| Heures et absences validées (D06, D07) | `matrix_app`, par `matrix_lecture` | `cursus.heures_validees_v1`, `absences_validees_v1`, `annulations_v1`, `heures_site_mois_v1` (migration `echanges_rh` de Cursus). Le droit est celui du groupe `matrix_lecture`, posé par `droits_ddl` ; aucun `GRANT` à `matrix_app`. |
 | Colonnes sensibles et contrôle des droits | `matrix_app` | `droits.colonnes_sensibles`, `droits.verifier()`. |
 | Écriture dans un schéma d'outil | administrateur nominatif, membre de `matrix_admin` | Tout, journalisé. Jamais `matrix_app`. |
 
-Changements à faire dans Matrix (hors de ce lot) :
+Changements dans Matrix :
 
-- `outils/collecteur.mjs`, `parseDrizzle` : accepter les noms qualifiés `CREATE TABLE "keystone"."cities"` et `ALTER TABLE "keystone"."…"`. Les expressions actuelles n'acceptent que `"cities"` : sans ce changement, les nouvelles migrations des trois outils ne sont plus lues.
-- `integration/declarer-schema.mjs` : écarter `__drizzle_migrations` et `schema_migrations` dans la requête `PG_TABLES` (sinon Codex déclare 23 tables au lieu de 22, Keystone 204, Vigie 37, Cursus 29).
-- `outils/collecteur.mjs` : lire la liste `SENSITIVE` dans `droits.colonnes_sensibles` une fois le serveur en service ; retirer `CURSUS_FK` pour Cursus dès que ses clés sont déclarées (`enrich()` les ignore déjà quand une clé existe).
+- Fait le 15/10/2026 : `outils/collecteur.mjs`, `parseDrizzle`, accepte les noms qualifiés (`CREATE TABLE "keystone"."cities"`, `ALTER TABLE "keystone"."…"`, `DROP TABLE`, `RENAME`). Essai : les migrations actuelles des trois outils donnent le même résultat qu'avant (203, 22 et 36 tables) ; les migrations régénérées, lues 0 table avant le changement, en donnent autant ; `infra/postgres/cursus/schema.sql` donne 28 tables et 37 clés.
+- Déjà en place : `integration/declarer-schema.mjs` écarte `__drizzle_migrations` et `schema_migrations` (`PG_TABLES`, ligne 32, et la lecture SQLite, ligne 75).
+- À faire, `outils/collecteur.mjs` : lire la liste `SENSITIVE` dans `droits.colonnes_sensibles` une fois le serveur en service ; retirer `CURSUS_FK` pour Cursus dès que ses clés sont déclarées (`enrich()` les ignore déjà quand une clé existe).
 - Schéma `matrix` : tables de Matrix (`docs/proposition.md`, § 4) créées par les migrations de Matrix, avec le migrateur du § 4.3 (`DB_SCHEMA = 'matrix'`).
 
 ## 12. Risques
@@ -741,13 +836,14 @@ Changements à faire dans Matrix (hors de ce lot) :
 | Risque | Effet | Parade |
 |---|---|---|
 | `migrate()` de Drizzle utilisé par erreur | Démarrage impossible (`permission denied for database epc2i`). | Migrateur commun (§ 4.3) ; message dans le dépannage du socle. |
-| Courses entre transactions avec un pool | Erreurs de clé unique, numéros en double, mises à jour perdues (constatés dans les quatre outils). | Verrou d'écriture par outil, verrou d'actions de Cursus ; références de Vigie calculées dans la transaction. |
+| Courses entre transactions avec un pool | Erreurs de clé unique, numéros en double, mises à jour perdues (constatés dans les quatre outils). | Verrou d'écriture par outil, verrou d'actions de Cursus ; tout calcul « plus grand + 1 » dans la transaction de l'écriture (`createProject` de Keystone, références de Vigie, § 4.5). |
 | `DATABASE_URL` connue au build | `next build` migre ou interroge le serveur. | Garde `NEXT_PHASE` ; variable d'exécution seulement. |
 | Application Mac ou tests branchés sur le serveur | Écritures de développement dans la base commune. | `DATABASE_URL` vide dans les applications Mac et dans `vitest`. |
-| Ancienne base PGlite ouverte par le nouveau code | Données invisibles sans avertissement. | Garde-fou dans le module d'ouverture ; `db:reset` ou reprise. |
+| Ancienne base PGlite ouverte par le nouveau code | Données invisibles sans avertissement ; application Mac qui ne démarre plus. | Garde-fou dans le module d'ouverture, avec un message qui nomme le dossier ; `db:reset`, suppression du dossier de l'application Mac (§ 4.6) ou reprise. |
+| Restauration d'un schéma, partage en place | `DROP SCHEMA … CASCADE` emporte `matrix.journal_unifie` ; `--no-privileges` retire les droits des lecteurs : leurs écrans tombent en erreur. | `droits.partage_lecteurs` et `droits.verifier()` signalent les droits perdus ; procédure du README du socle (rejeu du fichier de l'outil, de 90 et de 95). |
 | Colonne sensible nouvelle ou renommée hors liste | Lisible par Matrix dès sa création (nouvelle) ; table fermée (renommée). | Mettre la liste à jour avant la migration ; signalement des nouvelles colonnes par Matrix. |
-| Défaut du déclencheur d'événement | Toute migration échoue. | 68 cas essayés ; désactivation d'urgence documentée ; `droits.verifier()`. |
-| Version : serveur 16, PGlite 18.3 | Une fonction de PostgreSQL 17 ou 18 passerait en développement et échouerait sur le serveur ; les exports de PGlite contiennent `SET transaction_timeout`. | Intégration continue sur PostgreSQL 16 ; retrait de la ligne ; question P-01. |
+| Défaut du déclencheur d'événement | Toute migration échoue. | 96 cas essayés ; désactivation d'urgence documentée ; `droits.verifier()`. |
+| Version : serveur 16, PGlite 18.3 | Une fonction de PostgreSQL 17 ou 18 passerait en développement et échouerait sur le serveur ; les exports de PGlite contiennent `SET transaction_timeout`. | Intégration continue sur PostgreSQL 16 (§ 10.1, ou contrôle manuel avant fusion) ; retrait de la ligne ; question P-01. |
 | Une seule sauvegarde par nuit | Jusqu'à une journée de saisies perdue ; l'objectif de Keystone est 15 minutes (I-1b). | Archivage continu des journaux de transactions (P-08). |
 | Fichiers déposés hors de la base | Restauration incomplète. | Sauvegarder `/data/files` et `/data/uploads` avec la base. |
 | Démonstration chargée sur le serveur de production | Données fictives mêlées aux réelles ; reprise de Cursus bloquée. | Variables de démonstration explicites ; `CURSUS_DEMO=0`. |
@@ -762,13 +858,14 @@ Changements à faire dans Matrix (hors de ce lot) :
 | Lot | Jours | Remarque |
 |---|---|---|
 | Socle : mise en service Coolify, sauvegarde planifiée, restauration d'essai | 1 | Scripts écrits et essayés. |
-| Keystone | 3 à 3,5 | Jusqu'à 4,5 avec la revue fine des 65 calculs « plus grand + 1 ». Hors socle : remplissage « référence » pour la production (1 à 2), reprise d'une base (0,5). |
+| Keystone | 4 à 4,5 | Revue des 65 calculs « plus grand + 1 » comprise (§ 4.5, dont `createProject`). Hors socle : remplissage « référence » pour la production (1 à 2), reprise d'une base (0,5). |
 | Codex | 2,5 à 3 | Dont 0,5 pour le verrou d'écriture et le pool à 10, transposés de Keystone. Reprise : +0,5. |
 | Vigie | 3 à 4 | Dont 0,5 pour les 10 calculs de référence. Reprise : +0,5. |
-| Cursus | 7 (6 à 8) | Environ 5 en partant du prototype. Script inverse de retour arrière : +0,5 s'il est exigé. |
-| Matrix : collecteur, déclaration, lecture du serveur | 1 à 1,5 | |
-| **Total** | **17,5 à 20** | Hors reprises, hors remplissage « référence » de Keystone, hors D06. |
-| D06 et D07 : échanges RH | 19,5 | Chiffrage de `docs/remplacement-lucca.md` (§ 5.5), plus les prérequis D01, D02 et D14. À faire après la couche asynchrone de Cursus. |
+| Cursus | 6 à 8 (7 au centre) | Sous-étapes 8.a à 8.c ; environ 5 en partant du prototype. Script inverse de retour arrière : +0,5 s'il est exigé. |
+| Matrix : déclaration, lecture du serveur | 0,75 à 1,25 | L'adaptation du collecteur aux noms qualifiés est faite ; `declarer-schema.mjs` écarte déjà les journaux des migrations. |
+| Intégration continue (§ 10.1) | 1,5 à 2 | Quatre workflows, `scripts/db-check-pg.ts` de Codex et de Vigie, clés de déploiement. |
+| **Total** | **18,75 à 23,75** | Environ 21 avec les valeurs du milieu (Cursus à 7). Hors reprises, hors remplissage « référence » de Keystone, hors prérequis du partage (comptés dans `docs/convergence-des-donnees.md`, § 5), hors D06 et D07. |
+| D06 et D07 : échanges RH | 17,5 | 19,5 avant convergence. Chiffrage de `docs/remplacement-lucca.md` (§ 5.5) : Cursus 6, Keystone 8, Vigie 2,5, Matrix 1. Prérequis D01, D02, D05 et D14 : 28 jours, comptés dans `docs/convergence-des-donnees.md` (§ 5.6). En parallèle des étapes 1 à 4, après la sous-étape 8.a. |
 
 ## 14. Questions ouvertes
 

@@ -36,8 +36,9 @@ ALTER TABLE codex.departments ADD COLUMN IF NOT EXISTS active boolean NOT NULL D
 -- D18 : index de pub_journal.
 CREATE INDEX IF NOT EXISTS audit_log_at_idx ON codex.audit_log (at);
 
--- Non traités ici : D01 suppression de users.title, puis de users.department et users.site (valeurs de repli) ;
--- D12 codex.change_requests reste un miroir de vigie.pub_demandes_modification.
+-- Non traités ici : D01 suppression de users.title ; users.name, initials, department et site restent comme
+-- cache de cursus.pub_salaries et matrix.pub_organigramme (clés users.department et users.site inchangées, contrôle
+-- « confidentiel » de access.ts:80) ; D12 codex.change_requests reste un miroir de vigie.pub_demandes_modification.
 
 -- ═══ Vues publiées ═══
 -- Contrat : on n'en retire ni ne renomme de colonne (sinon nouvelle vue _v2) ; ajout en fin de liste seulement.
@@ -202,7 +203,7 @@ SELECT h.id,                       -- Keystone : clé
 FROM codex.function_holders h
 JOIN codex.functions fn ON fn.key = h.function_key
 JOIN codex.users u      ON u.id = h.user_id;
-COMMENT ON VIEW codex.pub_titulaires_fonction IS 'Contrat D11 v1 : titulaires des fonctions d''approbation. Le département du titulaire n''est pas publié (users.department disparaît avec D01). Lecteurs : keystone_app, matrix_app.';
+COMMENT ON VIEW codex.pub_titulaires_fonction IS 'Contrat D11 v1 : titulaires des fonctions d''approbation. Le département du titulaire n''est pas publié (aucun lecteur ; users.department reste un cache local de Codex). Lecteurs : keystone_app, matrix_app.';
 
 -- D18 · Journal ──────────────────────────────────────────────────────────
 -- Colonnes communes aux quatre pub_journal (même ordre, mêmes types), réunies par matrix.journal_unifie.

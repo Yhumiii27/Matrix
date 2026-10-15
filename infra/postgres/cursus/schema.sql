@@ -3,7 +3,9 @@
 -- Source : objet TABLES de server/src/db.ts (28 tables, noms inchangés, snake_case), liens de CURSUS_FK et
 -- CURSUS_FK_BY_TABLE (outils/collecteur.mjs de Matrix), décision D01 du 15/10/2026 (matricule).
 -- Les objets des échanges RH (D06, D07 : table evenements_sortants, vues heures_validees_v1, absences_validees_v1,
--- heures_site_mois_v1) viennent dans la migration suivante, décrite dans docs/remplacement-lucca.md (§ 3.9, § 5.1).
+-- annulations_v1, heures_site_mois_v1) viennent dans la migration echanges_rh, décrite dans
+-- docs/remplacement-lucca.md (§ 3.9, § 5.1) ; les prérequis du partage dans la migration partage
+-- (docs/architecture-postgres.md, § 4.9).
 -- Destination dans Cursus : server/migrations-pg/0001_init.sql (voir docs/architecture-postgres.md, § 8).
 --
 -- Exécution, en tant que cursus_app (propriétaire du schéma), sur un schéma vide :

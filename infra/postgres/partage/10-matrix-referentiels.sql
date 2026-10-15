@@ -12,7 +12,7 @@
 --   - les outils lisent les vues matrix.pub_*, jamais les tables ;
 --   - les outils écrivent par l'API de Matrix (organigramme : POST /api/organigramme…), jamais en SQL ;
 --   - aucune clé étrangère entre schémas : employes.site_code, persons.matricule… sont des colonnes texte, que
---     Matrix contrôle (lot 4 de docs/proposition.md, contrôle d'orphelins).
+--     Matrix contrôle (lot 5 de docs/proposition.md, contrôle d'orphelins).
 
 \set ON_ERROR_STOP on
 
@@ -95,8 +95,10 @@ CREATE TABLE IF NOT EXISTS matrix.sites (
   modifie_le  timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT sites_pkey PRIMARY KEY (code),
   CONSTRAINT sites_pays_iso2_fk FOREIGN KEY (pays_iso2) REFERENCES matrix.pays (iso2) ON UPDATE CASCADE ON DELETE RESTRICT,
-  -- Format des clés de Codex (actions.ts:722 : minuscules et soulignés). « all » est réservé par Vigie
-  -- (ALL_SITES, src/lib/session.ts:10).
+  -- Minuscules, chiffres et soulignés, comme les clés de Codex, mais plus strict : une lettre en premier et au
+  -- moins 2 caractères. Codex accepte aujourd'hui « 2e_site » ou « x » (actions.ts:722, clé tirée du libellé) ;
+  -- avec D14, il ne crée plus de site et applique cette règle (sites lus dans matrix.pub_sites). « all » est
+  -- réservé par Vigie (ALL_SITES, src/lib/session.ts:10).
   CONSTRAINT sites_code_check CHECK (code ~ '^[a-z][a-z0-9_]{1,31}$' AND code <> 'all'),
   CONSTRAINT sites_libelle_check CHECK (btrim(libelle) <> ''),
   CONSTRAINT sites_fermeture_check CHECK (ferme_le IS NULL OR NOT actif)
@@ -288,7 +290,7 @@ CREATE INDEX IF NOT EXISTS correspondances_pivot_idx ON matrix.correspondances (
 
 CREATE OR REPLACE VIEW matrix.pub_pays WITH (security_barrier) AS
 SELECT p.iso2,      -- Cursus : jointure destinations.code ; Keystone : countries.iso2, public_holidays.country_code
-       p.nom_fr,    -- Cursus : nom affiché à la place de destinations.pays (dataset.ts:56)
+       p.nom_fr,    -- Cursus : cache destinations.pays, rafraîchi par Cursus (affiché par dataset.ts:56)
        p.nom_en,    -- Keystone : rattachement de countries.name (étape 1 de D17), affichage
        p.actif      -- tous : listes de choix
 FROM matrix.pays p;
@@ -296,10 +298,10 @@ COMMENT ON VIEW matrix.pub_pays IS 'Contrat D17 v1. Lecteurs : keystone_app, cod
 
 CREATE OR REPLACE VIEW matrix.pub_sites WITH (security_barrier) AS
 SELECT s.code,       -- Codex : sites.key (cache) ; Vigie : sites.id ; Cursus : contrôle de employes.site_code ; Keystone : storage_locations.site_code (facultatif)
-       s.libelle,    -- Codex : sites.label ; Vigie : v_sites.label ; Cursus : affichage du site
+       s.libelle,    -- Codex : sites.label (cache) ; Vigie : sites.label (cache) ; Cursus : affichage du site
        s.ville,      -- Keystone : rattachement des emplacements de stock
        s.pays_iso2,  -- Keystone, Cursus : pays du site
-       s.ordre,      -- Codex : sites.sort ; Vigie : v_sites.sort
+       s.ordre,      -- Codex : sites.sort (cache) ; Vigie : sites.sort (cache)
        s.actif       -- tous : listes de choix (un site fermé reste lisible pour l'historique)
 FROM matrix.sites s;
 COMMENT ON VIEW matrix.pub_sites IS 'Contrat D14 v1. Lecteurs : keystone_app, codex_app, cursus_app, vigie_app.';
@@ -320,7 +322,7 @@ WITH RECURSIVE arbre AS (
 SELECT code,                   -- tous : clé (Codex departments.code, Keystone departments.org_code, Cursus unite_code)
        niveau,                 -- Codex : niveau = 'departement' ; Cursus : niveau = 'equipe' ; Keystone : service ou département
        parent_code,            -- Cursus, Keystone : arborescence
-       departement_code,       -- Codex : département d'un salarié rattaché à une équipe (v_users), contrôle « confidentiel » (access.ts:80)
+       departement_code,       -- Codex : users.department (cache) d'un salarié rattaché à une équipe, contrôle « confidentiel » (access.ts:80)
        service_code,           -- Keystone : service d'une équipe Cursus (persons.department_id)
        libelle_fr,             -- Codex label_fr ; Cursus nom de l'équipe
        libelle_en,             -- Codex label_en ; Keystone departments.name
@@ -333,7 +335,7 @@ COMMENT ON VIEW matrix.pub_organigramme IS 'Contrat D15 v1. Une ligne par unité
 
 CREATE OR REPLACE VIEW matrix.pub_correspondances WITH (security_barrier) AS
 SELECT c.objet,             -- tous : filtre (personne, projet, site, unite, pays, titre, document)
-       c.outil,             -- chaque outil lit ses propres lignes
+       c.outil,             -- un outil ne voit que ses propres lignes (filtre de la vue sur current_user)
        c.table_locale,      -- table locale à mettre à jour
        c.id_local,          -- clé de jointure avec la table locale
        c.cle_naturelle,     -- Keystone : rattachement après rechargement de la démo (uuid régénérés)
@@ -342,5 +344,10 @@ SELECT c.objet,             -- tous : filtre (personne, projet, site, unite, pay
        c.statut,            -- valide : à appliquer ; abandonne : ligne de démonstration à ne pas reprendre
        c.decide_le          -- tous : reprise incrémentale
 FROM matrix.correspondances c
-WHERE c.statut IN ('valide', 'abandonne');
-COMMENT ON VIEW matrix.pub_correspondances IS 'Contrat transition v1 : correspondances décidées (valide, abandonne). libelle_local n''est pas publié. Lecteurs : keystone_app, codex_app, cursus_app, vigie_app.';
+WHERE c.statut IN ('valide', 'abandonne')
+  -- Chaque rôle d'outil ne lit que les lignes de son outil : cle_naturelle porte des noms (short_name des
+  -- personnes de Keystone). current_user est ici le rôle qui interroge la vue, pas son propriétaire.
+  -- Matrix (propriétaire) et ses administrateurs lisent tout.
+  AND (current_user::text NOT IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app')
+       OR current_user::text = c.outil || '_app');
+COMMENT ON VIEW matrix.pub_correspondances IS 'Contrat transition v1 : correspondances décidées (valide, abandonne). Chaque outil ne voit que ses lignes. libelle_local n''est pas publié. Lecteurs : keystone_app, codex_app, cursus_app, vigie_app.';

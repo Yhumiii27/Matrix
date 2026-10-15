@@ -9,7 +9,12 @@
 --      schéma (SET ROLE) : cette vue d'information ne montre que les tables du rôle courant.
 --   2. GRANT USAGE sur le schéma et GRANT SELECT sur la vue, pour chaque lecteur de chaque vue. Rien d'autre :
 --      aucun droit sur une table, aucun REVOKE. Chaque GRANT est passé par le propriétaire du schéma (SET ROLE).
+--      Chaque couple (vue, lecteur) est inscrit dans droits.partage_lecteurs : droits.verifier() signale ensuite
+--      un lecteur qui a perdu son droit (restauration d'un schéma, DROP … CASCADE).
 --   3. État des droits sur les vues pub_ (lecture seule), pour relecture.
+--   4. Contrôle final par droits.verifier() (init/03-droits.sql), dans la même transaction : il accepte exactement
+--      cette convention (USAGE sur le schéma du propriétaire, SELECT sur ses vues pub_) et refuse tout autre droit
+--      croisé. Une erreur annule tout le fichier. Aucun réglage du socle n'est à faire à la main.
 --
 -- Lancement : superutilisateur (postgres) ou administrateur nominatif membre de matrix_admin (qui peut prendre
 -- le rôle de chaque outil, SET ROLE). Après les fichiers 10 à 60. Sans l'option -1 : le fichier ouvre lui-même
@@ -149,7 +154,7 @@ END $$;
 
 -- ── 2. Droits des lecteurs ───────────────────────────────────────────────
 -- Une ligne par vue : ses lecteurs. matrix_app lit toutes les vues des outils : contrôle d'orphelins et de
--- cohérence (lot 4 de docs/proposition.md) et matrix.journal_unifie (fichier 95).
+-- cohérence (lot 5 de docs/proposition.md) et matrix.journal_unifie (fichier 95).
 DO $droits$
 DECLARE
   r record;
@@ -159,6 +164,7 @@ DECLARE
   v_lecteurs text;
   v_absentes text[] := '{}';
   v_nb integer := 0;
+  v_liste boolean := to_regclass('droits.partage_lecteurs') IS NOT NULL;
 BEGIN
   FOR r IN
     SELECT * FROM (VALUES
@@ -218,8 +224,16 @@ BEGIN
     EXECUTE format('GRANT USAGE ON SCHEMA %I TO %s', v_schema, v_lecteurs);
     EXECUTE format('GRANT SELECT ON TABLE %s TO %s', v_oid::regclass, v_lecteurs);
     EXECUTE 'RESET ROLE';
+    -- Lecteurs attendus, contrôlés ensuite par droits.verifier() (perte d'un droit après une restauration).
+    IF v_liste THEN
+      EXECUTE 'INSERT INTO droits.partage_lecteurs (vue, lecteur) SELECT $1, l FROM unnest($2) AS l ON CONFLICT DO NOTHING'
+        USING r.vue, r.lecteurs;
+    END IF;
     v_nb := v_nb + 1;
   END LOOP;
+  IF NOT v_liste THEN
+    RAISE WARNING 'droits.partage_lecteurs absente : rejouez init/03-droits.sql, puis ce fichier, pour que droits.verifier() contrôle les lecteurs.';
+  END IF;
   IF cardinality(v_absentes) > 0 THEN
     RAISE WARNING 'Vues absentes, droits non posés (jouez le fichier de l''outil puis relancez celui-ci) : %', array_to_string(v_absentes, ', ');
   END IF;
@@ -227,7 +241,7 @@ BEGIN
 END $droits$;
 
 -- ── 3. État des droits sur les vues pub_ ─────────────────────────────────
--- Tout droit autre que SELECT, ou tout lecteur absent de la liste ci-dessus, est un écart à corriger à la main.
+-- Pour relecture. Un droit autre que SELECT, ou un droit sur une table, est refusé par le contrôle 4.
 SELECT n.nspname || '.' || c.relname AS vue,
        pg_get_userbyid(c.relowner) AS proprietaire,
        string_agg(DISTINCT g.droit, ', ' ORDER BY g.droit) AS lecteurs
@@ -242,6 +256,26 @@ LEFT JOIN LATERAL (
 WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix') AND c.relkind = 'v' AND c.relname LIKE 'pub\_%'
 GROUP BY n.nspname, c.relname, c.relowner
 ORDER BY 1;
+
+-- ── 4. Contrôle final par le socle ───────────────────────────────────────
+-- droits.verifier() accepte la convention de partage et signale tout autre droit croisé (table, colonne, vue non
+-- publiée, écriture, CREATE) et toute vue pub_ qui lit une colonne sensible de droits.colonnes_sensibles.
+DO $$
+DECLARE
+  v_fautes text;
+BEGIN
+  IF to_regprocedure('droits.verifier()') IS NULL THEN
+    RAISE WARNING 'droits.verifier() absente : socle (init/03-droits.sql) non installé, contrôle final non fait.';
+    RETURN;
+  END IF;
+  EXECUTE $q$SELECT string_agg(objet || ' : ' || constat, ' ; ' ORDER BY objet) FROM droits.verifier() WHERE gravite = 'erreur'$q$
+    INTO v_fautes;
+  IF v_fautes IS NOT NULL THEN
+    RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege',
+      MESSAGE = format('Partage annulé : droits.verifier() signale des erreurs : %s', v_fautes);
+  END IF;
+  RAISE NOTICE 'Contrôle du socle : droits.verifier() sans erreur.';
+END $$;
 
 COMMIT;
 

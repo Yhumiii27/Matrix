@@ -112,8 +112,10 @@ CREATE INDEX IF NOT EXISTS journal_at_idx ON vigie.journal (at DESC);
 COMMENT ON TABLE vigie.journal IS 'D18 : journal d''audit de Vigie, publié par vigie.pub_journal. Ne contient aucune donnée de santé.';
 
 -- Non traités ici : D02 renommage keystone_project → keystone_project_ancien et suppression de
--- keystone_projects ; D04 suppression de keystone_assignments ; D08 réduction de training_titles à (id, sort) ;
--- D09 suppression de qualifications ; D14 réduction de sites à (id, seveso, pp_from_first_minute) ;
+-- keystone_projects ; D04 keystone_assignments gardée comme cache de keystone.pub_affectations ; D08
+-- training_titles gardée comme cache de cursus.pub_titres (label, validity_months) avec sort local ;
+-- D09 suppression de qualifications ; D14 sites devient un cache de matrix.pub_sites (label, sort), plus seveso et
+-- pp_from_first_minute propres à Vigie ;
 -- D13 types de permis levage et travail_ht (contrôle applicatif, components/prevention/model.ts:111).
 
 -- ═══ Vues publiées ═══

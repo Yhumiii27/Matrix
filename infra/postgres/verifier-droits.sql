@@ -3,7 +3,9 @@
 -- Lancement, en superutilisateur, après les scripts d'initialisation :
 --   psql -h <hôte> -U postgres -d postgres -v ON_ERROR_STOP=1 -f verifier-droits.sql
 -- Le script crée des tables d'essai (préfixe zz_) dans les schémas des outils, joue chaque rôle (SET ROLE) et
--- compare le résultat obtenu au résultat attendu. Tout se passe dans une transaction annulée à la fin : rien ne
+-- compare le résultat obtenu au résultat attendu. Les cas 100 à 136 éprouvent la convention de partage
+-- (infra/postgres/partage/README.md) : un outil lit les vues pub_ d'un autre, et droits.verifier() signale tout
+-- autre droit croisé ainsi que toute vue pub_ qui lit une colonne sensible. Tout se passe dans une transaction annulée à la fin : rien ne
 -- reste dans la base, et les tables des outils ne sont pas touchées. Code de sortie 3 si un cas échoue.
 
 \set ON_ERROR_STOP on
@@ -30,7 +32,32 @@ CREATE TEMP TABLE resultats (n integer, cas text, role text, attendu text, obten
 -- Colonnes sensibles des tables d'essai (annulées avec le reste).
 INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif, origine) VALUES
   ('vigie', 'zz_essai', 'secret', 'essai', 'ajout'),
-  ('vigie', 'zz_part', 'secret', 'essai', 'ajout');
+  ('vigie', 'zz_part', 'secret', 'essai', 'ajout'),
+  ('vigie', 'zz_pub', 'secret', 'essai', 'ajout');
+
+-- Joue une commande dans une sous-transaction annulée aussitôt, et dit si droits.verifier() signale alors une erreur
+-- dont l'objet ressemble au motif (LIKE). Sert aux écarts à la convention de partage, qui ne doivent pas rester.
+CREATE FUNCTION pg_temp.signale(p_role text, p_sql text, p_objet text) RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_n integer;
+  v_msg text;
+BEGIN
+  BEGIN
+    EXECUTE format('SET LOCAL ROLE %I', p_role);
+    EXECUTE p_sql;
+    RESET ROLE;
+    SELECT count(*) INTO v_n FROM droits.verifier() WHERE gravite = 'erreur' AND objet LIKE p_objet;
+    RAISE EXCEPTION USING ERRCODE = 'ZZ001', MESSAGE = v_n::text;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RESET ROLE;
+      RETURN 'refusé';
+    WHEN SQLSTATE 'ZZ001' THEN
+      GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+      RETURN CASE WHEN v_msg::integer > 0 THEN 'signalé' ELSE 'non signalé' END;
+  END;
+END $$;
 
 DO $$
 DECLARE
@@ -103,11 +130,49 @@ BEGIN
     (67, 'lire la table renommée', 'matrix_app', 'SELECT id FROM vigie.zz_essai_bis', 'refusé'),
     (68, 'mettre la liste à jour', 'postgres', 'UPDATE droits.colonnes_sensibles SET table_nom = ''zz_essai_bis'' WHERE table_nom = ''zz_essai''', 'autorisé'),
     (69, 'lire la table renommée (liste à jour)', 'matrix_app', 'SELECT id FROM vigie.zz_essai_bis', 'autorisé'),
-    (70, 'lire la colonne sensible (liste à jour)', 'matrix_app', 'SELECT cache FROM vigie.zz_essai_bis', 'refusé')
+    (70, 'lire la colonne sensible (liste à jour)', 'matrix_app', 'SELECT cache FROM vigie.zz_essai_bis', 'refusé'),
+    -- Convention de partage : un outil lit les vues pub_ d'un autre, et rien d'autre.
+    (100, 'créer une table à colonne sensible', 'vigie_app', 'CREATE TABLE vigie.zz_pub (id integer PRIMARY KEY, libelle text, secret text)', 'autorisé'),
+    (101, 'publier une vue pub_ sans colonne sensible', 'vigie_app', 'CREATE VIEW vigie.pub_zz_ok WITH (security_barrier) AS SELECT id, libelle FROM vigie.zz_pub', 'autorisé'),
+    (102, 'accorder USAGE sur son schéma à un lecteur', 'vigie_app', 'GRANT USAGE ON SCHEMA vigie TO keystone_app', 'autorisé'),
+    (103, 'accorder SELECT sur la vue pub_ au lecteur', 'vigie_app', 'GRANT SELECT ON vigie.pub_zz_ok TO keystone_app', 'autorisé'),
+    (104, 'lire la vue pub_ d''un autre outil', 'keystone_app', 'SELECT * FROM vigie.pub_zz_ok', 'autorisé'),
+    (105, 'lire la table source de la vue', 'keystone_app', 'SELECT id FROM vigie.zz_pub', 'refusé'),
+    (106, 'écrire dans la vue pub_', 'keystone_app', 'INSERT INTO vigie.pub_zz_ok (id) VALUES (1)', 'refusé'),
+    (107, 'créer une table chez l''outil lu', 'keystone_app', 'CREATE TABLE vigie.zz_k2 (id integer)', 'refusé'),
+    (108, 'Matrix lit la vue pub_', 'matrix_app', 'SELECT * FROM vigie.pub_zz_ok', 'autorisé'),
+    (109, 'créer une vue de contrôle *_v1 dans cursus', 'cursus_app', 'CREATE VIEW cursus.zz_controle_v1 WITH (security_barrier) AS SELECT id, libelle FROM cursus.zz_ouverte', 'autorisé'),
+    (110, 'Matrix lit la vue de contrôle *_v1', 'matrix_app', 'SELECT * FROM cursus.zz_controle_v1', 'autorisé')
   ) AS t(n, cas, role, q, attendu) ORDER BY n LOOP
     INSERT INTO resultats VALUES (c.n, c.cas, c.role, c.attendu, pg_temp.essai(c.role, c.q));
   END LOOP;
 END $$;
+
+-- Lecteur attendu de la vue d'essai, comme l'inscrit partage/90-droits.sql (annulé avec le reste).
+INSERT INTO droits.partage_lecteurs (vue, lecteur) VALUES ('vigie.pub_zz_ok', 'keystone_app') ON CONFLICT DO NOTHING;
+
+-- Écarts à la convention de partage : chacun, joué seul puis annulé, doit être signalé par droits.verifier().
+INSERT INTO resultats
+SELECT n, cas, role, attendu, pg_temp.signale(role, q, motif)
+FROM (VALUES
+  (120, 'vue pub_ qui lit une colonne sensible', 'vigie_app', 'CREATE VIEW vigie.pub_zz_sensible AS SELECT id, secret FROM vigie.zz_pub', 'vigie.pub_zz_sensible', 'signalé'),
+  (121, 'vue pub_ sur la ligne entière d''une table protégée', 'vigie_app', 'CREATE VIEW vigie.pub_zz_ligne AS SELECT t AS ligne FROM vigie.zz_pub t', 'vigie.pub_zz_ligne', 'signalé'),
+  (122, 'vue pub_ en security_invoker', 'vigie_app', 'CREATE VIEW vigie.pub_zz_invoker WITH (security_invoker) AS SELECT id FROM vigie.zz_pub', 'vigie.pub_zz_invoker', 'signalé'),
+  (123, 'vue pub_ qui lit un autre schéma', 'keystone_app', 'CREATE VIEW keystone.pub_zz_croise AS SELECT id FROM vigie.pub_zz_ok', 'keystone.pub_zz_croise', 'signalé'),
+  (124, 'SELECT sur une table accordé à un autre outil', 'vigie_app', 'GRANT SELECT ON vigie.zz_pub TO keystone_app', 'keystone_app, vigie.zz_pub', 'signalé'),
+  (125, 'SELECT sur une colonne accordé à un autre outil', 'vigie_app', 'GRANT SELECT (id) ON vigie.zz_pub TO keystone_app', 'keystone_app, vigie.zz_pub', 'signalé'),
+  (126, 'SELECT sur une vue non publiée', 'vigie_app', 'CREATE VIEW vigie.zz_vue_np AS SELECT id FROM vigie.zz_pub; GRANT SELECT ON vigie.zz_vue_np TO keystone_app', 'keystone_app, vigie.zz_vue_np', 'signalé'),
+  (127, 'écriture sur une vue pub_', 'vigie_app', 'GRANT INSERT ON vigie.pub_zz_ok TO keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé'),
+  (128, 'CREATE sur le schéma d''un autre outil', 'vigie_app', 'GRANT CREATE ON SCHEMA vigie TO keystone_app', 'keystone_app, schéma vigie', 'signalé'),
+  (129, 'USAGE sans aucune vue pub_ accordée', 'vigie_app', 'GRANT USAGE ON SCHEMA vigie TO cursus_app', 'cursus_app, schéma vigie', 'signalé'),
+  (130, 'séquence accordée à un autre outil', 'vigie_app', 'CREATE SEQUENCE vigie.zz_seq; GRANT USAGE ON SEQUENCE vigie.zz_seq TO keystone_app', 'keystone_app, vigie.zz_seq', 'signalé'),
+  (131, 'table de matrix accordée à PUBLIC', 'matrix_app', 'CREATE TABLE matrix.zz_ouverte (id integer); GRANT SELECT ON matrix.zz_ouverte TO PUBLIC', '%, matrix.zz_ouverte', 'signalé'),
+  (132, 'vue *_v1 de cursus accordée à un outil', 'cursus_app', 'GRANT USAGE ON SCHEMA cursus TO vigie_app; GRANT SELECT ON cursus.zz_controle_v1 TO vigie_app', 'vigie_app, %', 'signalé'),
+  (133, 'vue *_v1 de cursus accordée à matrix_app', 'cursus_app', 'GRANT SELECT ON cursus.zz_controle_v1 TO matrix_app', '%', 'non signalé'),
+  (134, 'vue pub_ accordée à un deuxième lecteur', 'vigie_app', 'GRANT USAGE ON SCHEMA vigie TO codex_app; GRANT SELECT ON vigie.pub_zz_ok TO codex_app', '%', 'non signalé'),
+  (135, 'lecteur attendu qui perd son SELECT (restauration)', 'vigie_app', 'REVOKE SELECT ON vigie.pub_zz_ok FROM keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé'),
+  (136, 'lecteur attendu qui perd son USAGE (restauration)', 'vigie_app', 'REVOKE USAGE ON SCHEMA vigie FROM keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé')
+) AS t(n, cas, role, q, motif, attendu);
 
 -- Appartenances.
 INSERT INTO resultats
@@ -130,7 +195,7 @@ SELECT 90, 'administrateur nominatif membre de matrix_admin et journalisé', 'zz
                          WHERE r.rolname = 'zz_admin_essai' AND 'log_statement=all' = ANY (d.setconfig))
             THEN 'oui' ELSE 'non' END;
 
--- droits.verifier() ne doit signaler aucune erreur.
+-- droits.verifier() ne doit signaler aucune erreur, partage d'essai (cas 100 à 110) compris.
 INSERT INTO resultats
 SELECT 99, 'droits.verifier() sans erreur', 'postgres', '0', count(*)::text FROM droits.verifier() WHERE gravite = 'erreur';
 

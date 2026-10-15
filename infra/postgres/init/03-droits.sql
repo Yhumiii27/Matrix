@@ -10,7 +10,10 @@
 --   2. Schéma droits (propriétaire : le superutilisateur), avec :
 --        droits.colonnes_sensibles   la liste des colonnes interdites à matrix_lecture ;
 --        droits.appliquer_droits()   remet les droits de toutes les relations à l'état voulu ;
---        droits.verifier()           liste les écarts (gravité erreur, attention, info) ;
+--        droits.verifier()           liste les écarts (gravité erreur, attention, info), y compris les droits
+--                                    croisés des outils : seule la convention de partage est acceptée (USAGE sur
+--                                    le schéma d'un autre et SELECT sur ses vues pub_, rien d'autre ; aucune vue
+--                                    pub_ ne lit une colonne sensible ; voir infra/postgres/partage/) ;
 --        droits.declarer_admin(nom)  crée un administrateur nominatif, membre de matrix_admin, journalisé.
 --   3. Deux déclencheurs d'événement, droits_ddl et droits_suppression.
 --
@@ -105,6 +108,21 @@ CREATE TABLE IF NOT EXISTS droits.relations_protegees (
   vu_le       timestamptz NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE droits.relations_protegees IS 'Tables à colonnes sensibles déjà traitées (OID et nom). Tenue par les fonctions du schéma droits.';
+
+-- Lecteurs des vues pub_ posés par partage/90-droits.sql, repérés par leur nom (le nom survit à une restauration,
+-- pas l'OID). droits.verifier() signale un lecteur qui a perdu son USAGE ou son SELECT, et une vue de la liste
+-- devenue absente : restauration d'un schéma avec --no-privileges, DROP SCHEMA … CASCADE, vue supprimée.
+-- Une vue retirée volontairement se retire de la liste par DELETE (matrix_admin).
+CREATE TABLE IF NOT EXISTS droits.partage_lecteurs (
+  vue       text        NOT NULL,
+  lecteur   text        NOT NULL,
+  pose_le   timestamptz NOT NULL DEFAULT now(),
+  pose_par  text        NOT NULL DEFAULT session_user,
+  CONSTRAINT partage_lecteurs_pkey PRIMARY KEY (vue, lecteur),
+  CONSTRAINT partage_lecteurs_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|matrix)\.pub_[a-z0-9_]+$'),
+  CONSTRAINT partage_lecteurs_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'matrix_app'))
+);
+COMMENT ON TABLE droits.partage_lecteurs IS 'Convention de partage : lecteurs attendus de chaque vue pub_ (schéma.vue, rôle), écrits par partage/90-droits.sql et contrôlés par droits.verifier().';
 
 -- ── 3. Fonctions ─────────────────────────────────────────────────────────
 
@@ -204,6 +222,20 @@ BEGIN
   END LOOP;
   RETURN false;
 END $$;
+
+-- Vrai si la relation est une vue publiée pour ce lecteur (convention de partage, infra/postgres/partage/) :
+-- vue pub_* d'un des cinq schémas, ou, pour matrix_lecture et matrix_app seulement, vue de contrôle *_v1 de cursus.
+CREATE OR REPLACE FUNCTION droits._vue_publiee(p_rel oid, p_role text) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
+AS $$
+  SELECT coalesce((
+    SELECT c.relkind = 'v'
+           AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix')
+           AND (c.relname LIKE 'pub\_%'
+                OR (n.nspname = 'cursus' AND c.relname LIKE '%\_v1' AND p_role IN ('matrix_lecture', 'matrix_app')))
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = p_rel), false)
+$$;
 
 -- Vues qui dépendent, directement ou non, des relations données.
 CREATE OR REPLACE FUNCTION droits._vues_dependantes(p_rels oid[]) RETURNS oid[]
@@ -461,6 +493,107 @@ BEGIN
          OR (c.relkind IN ('r', 'p', 'f') AND droits._etat_table(c.oid) = 'fermee'))
     AND has_any_column_privilege('matrix_lecture', c.oid, 'SELECT');
 
+  -- Vues publiées (pub_* des cinq schémas, *_v1 de cursus) : elles sont lues par d'autres rôles avec les droits de
+  -- leur propriétaire. Aucune ne lit de colonne sensible, ne dépend d'un autre schéma, n'appartient à un autre rôle
+  -- que le propriétaire du schéma ou ne s'exécute avec security_invoker.
+  RETURN QUERY
+  SELECT 'erreur', format('%I.%I', n.nspname, c.relname),
+         'vue publiée qui lit une colonne sensible (droits.colonnes_sensibles), une ligne entière d''une table protégée ou une table fermée'
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix') AND c.relkind = 'v'
+    AND (c.relname LIKE 'pub\_%' OR (n.nspname = 'cursus' AND c.relname LIKE '%\_v1'))
+    AND droits._vue_sensible(c.oid);
+  RETURN QUERY
+  SELECT DISTINCT 'erreur', format('%I.%I', nv.nspname, v.relname), format('vue publiée qui dépend de %I.%I (autre schéma)', nt.nspname, t.relname)
+  FROM pg_class v
+  JOIN pg_namespace nv ON nv.oid = v.relnamespace
+  JOIN pg_rewrite rw ON rw.ev_class = v.oid
+  JOIN pg_depend d ON d.classid = 'pg_rewrite'::regclass AND d.objid = rw.oid
+                  AND d.refclassid = 'pg_class'::regclass AND d.refobjid <> v.oid
+  JOIN pg_class t ON t.oid = d.refobjid AND t.relkind IN ('r', 'p', 'v', 'm', 'f')
+  JOIN pg_namespace nt ON nt.oid = t.relnamespace
+  WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix') AND v.relkind = 'v'
+    AND (v.relname LIKE 'pub\_%' OR (nv.nspname = 'cursus' AND v.relname LIKE '%\_v1'))
+    AND t.relnamespace <> v.relnamespace;
+  RETURN QUERY
+  SELECT 'erreur', format('%I.%I', n.nspname, c.relname),
+         CASE WHEN c.relowner <> n.nspowner
+              THEN format('vue publiée qui appartient à %s au lieu de %s', pg_get_userbyid(c.relowner), pg_get_userbyid(n.nspowner))
+              ELSE 'vue publiée qui s''exécute avec security_invoker' END
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix') AND c.relkind = 'v'
+    AND (c.relname LIKE 'pub\_%' OR (n.nspname = 'cursus' AND c.relname LIKE '%\_v1'))
+    AND (c.relowner <> n.nspowner
+         OR EXISTS (SELECT FROM unnest(c.reloptions) AS o(opt)
+                    WHERE lower(o.opt) IN ('security_invoker=true', 'security_invoker=on', 'security_invoker=1', 'security_invoker=yes')));
+
+  -- Droits croisés des outils : dans le schéma d'un autre, seulement SELECT sur des vues pub_. Tout autre droit est
+  -- une erreur : table, colonne, vue non publiée, vue *_v1 de cursus, écriture, séquence, fonction.
+  RETURN QUERY
+  SELECT 'erreur', format('%s, %I.%I', r.nom, n.nspname, c.relname),
+         format('droit %s croisé : un outil ne reçoit que SELECT sur les vues pub_ d''un autre schéma', p.priv)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie')) AS r(nom, propre)
+  JOIN pg_roles x ON x.rolname = r.nom
+  CROSS JOIN pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits') AND n.nspname <> r.propre
+    AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND (has_table_privilege(x.oid, c.oid, p.priv)
+         OR (p.priv IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege(x.oid, c.oid, p.priv)))
+    AND NOT (p.priv = 'SELECT' AND droits._vue_publiee(c.oid, r.nom));
+  RETURN QUERY
+  SELECT 'erreur', format('%s, %I.%I', r.nom, n.nspname, c.relname), format('droit %s croisé sur une séquence', p.priv)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie')) AS r(nom, propre)
+  JOIN pg_roles x ON x.rolname = r.nom
+  CROSS JOIN pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN (VALUES ('USAGE'), ('SELECT'), ('UPDATE')) AS p(priv)
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix') AND n.nspname <> r.propre AND c.relkind = 'S'
+    AND has_sequence_privilege(x.oid, c.oid, p.priv);
+  RETURN QUERY
+  SELECT 'erreur', format('%s, %I.%I(%s)', r.nom, n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)),
+         'droit EXECUTE croisé sur une fonction'
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie')) AS r(nom, propre)
+  JOIN pg_roles x ON x.rolname = r.nom
+  CROSS JOIN pg_proc f
+  JOIN pg_namespace n ON n.oid = f.pronamespace
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits') AND n.nspname <> r.propre
+    AND has_schema_privilege(x.oid, n.oid, 'USAGE')
+    AND has_function_privilege(x.oid, f.oid, 'EXECUTE');
+
+  -- Lecteurs attendus (droits.partage_lecteurs, écrits par partage/90-droits.sql) : chacun garde USAGE sur le
+  -- schéma et SELECT sur la vue. Une restauration avec --no-privileges ou un DROP … CASCADE les retire sans bruit.
+  RETURN QUERY
+  SELECT 'erreur', format('%s, %s', p.lecteur, p.vue),
+         CASE WHEN NOT has_schema_privilege(x.oid, c.relnamespace, 'USAGE')
+              THEN 'lecteur prévu par partage/90-droits.sql sans USAGE sur le schéma : rejouer partage/90-droits.sql'
+              ELSE 'lecteur prévu par partage/90-droits.sql sans SELECT sur la vue : rejouer partage/90-droits.sql' END
+  FROM droits.partage_lecteurs p
+  JOIN pg_roles x ON x.rolname = p.lecteur
+  JOIN pg_class c ON c.oid = to_regclass(p.vue)
+  WHERE c.relkind = 'v'
+    AND NOT (has_schema_privilege(x.oid, c.relnamespace, 'USAGE') AND has_table_privilege(x.oid, c.oid, 'SELECT'));
+  RETURN QUERY
+  SELECT DISTINCT 'attention', p.vue,
+         'vue pub_ prévue par partage/90-droits.sql absente (schéma restauré, DROP … CASCADE) : rejouer le fichier de partage de l''outil, puis 90-droits.sql et 95 ; ou retirer la vue de droits.partage_lecteurs'
+  FROM droits.partage_lecteurs p
+  WHERE to_regclass(p.vue) IS NULL;
+  RETURN QUERY
+  SELECT 'attention', 'matrix.journal_unifie',
+         'vue absente alors que le partage est en place (supprimée par un DROP … CASCADE ?) : rejouer partage/95-matrix-journal-unifie.sql'
+  WHERE EXISTS (SELECT FROM droits.partage_lecteurs) AND to_regclass('matrix.journal_unifie') IS NULL;
+
+  -- matrix_app ne lit que dans les schémas des outils (directement ou par matrix_lecture).
+  RETURN QUERY
+  SELECT 'erreur', format('%I.%I', n.nspname, c.relname), format('matrix_app a le droit %s', p.priv)
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'droits') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND (has_table_privilege('matrix_app', c.oid, p.priv)
+         OR (p.priv IN ('INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege('matrix_app', c.oid, p.priv)));
+
   -- matrix_lecture ne fait que lire.
   RETURN QUERY
   SELECT 'erreur', format('%I.%I', n.nspname, c.relname), format('matrix_lecture a le droit %s', p.priv)
@@ -521,24 +654,33 @@ BEGIN
   LEFT JOIN pg_namespace n ON n.nspname = s.nsp
   WHERE n.oid IS NULL OR pg_get_userbyid(n.nspowner) <> s.proprio;
 
-  -- Accès des rôles aux schémas : chaque outil chez soi.
+  -- Accès des rôles aux schémas : chaque outil chez soi, plus la convention de partage. Un outil peut avoir USAGE
+  -- sur le schéma d'un autre (keystone, codex, cursus, vigie, matrix) s'il y lit au moins une vue pub_ ; ses autres
+  -- droits dans ce schéma sont contrôlés plus haut (droits croisés). CREATE croisé : toujours une erreur.
   RETURN QUERY
-  SELECT 'erreur', format('%s, schéma %s', r.nom, n.nspname), format('droit %s inattendu', p.priv)
-  FROM (VALUES ('keystone_app', ARRAY['keystone'], ARRAY['keystone']),
-               ('codex_app', ARRAY['codex'], ARRAY['codex']),
-               ('cursus_app', ARRAY['cursus'], ARRAY['cursus']),
-               ('vigie_app', ARRAY['vigie'], ARRAY['vigie']),
-               ('matrix_app', ARRAY['matrix', 'keystone', 'codex', 'cursus', 'vigie', 'droits'], ARRAY['matrix']),
-               ('matrix_lecture', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'droits'], ARRAY[]::text[]),
-               ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits'], ARRAY[]::text[]),
-               ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits', 'public'], ARRAY[]::text[])
-       ) AS r(nom, usage_ok, create_ok)
+  SELECT 'erreur', format('%s, schéma %s', r.nom, n.nspname),
+         CASE WHEN p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix')
+              THEN 'droit USAGE inattendu : aucune vue pub_ de ce schéma n''est accordée au rôle'
+              ELSE format('droit %s inattendu', p.priv) END
+  FROM (VALUES ('keystone_app', ARRAY['keystone'], ARRAY['keystone'], true),
+               ('codex_app', ARRAY['codex'], ARRAY['codex'], true),
+               ('cursus_app', ARRAY['cursus'], ARRAY['cursus'], true),
+               ('vigie_app', ARRAY['vigie'], ARRAY['vigie'], true),
+               ('matrix_app', ARRAY['matrix', 'keystone', 'codex', 'cursus', 'vigie', 'droits'], ARRAY['matrix'], false),
+               ('matrix_lecture', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'droits'], ARRAY[]::text[], false),
+               ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits'], ARRAY[]::text[], false),
+               ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits', 'public'], ARRAY[]::text[], false)
+       ) AS r(nom, usage_ok, create_ok, lecteur)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_namespace n
   CROSS JOIN (VALUES ('USAGE'), ('CREATE')) AS p(priv)
   WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits', 'public')
     AND NOT (n.nspname::text = ANY (CASE WHEN p.priv = 'USAGE' THEN r.usage_ok ELSE r.create_ok END))
-    AND has_schema_privilege(x.oid, n.oid, p.priv);
+    AND has_schema_privilege(x.oid, n.oid, p.priv)
+    AND NOT (p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix')
+             AND EXISTS (SELECT FROM pg_class v
+                         WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
+                           AND has_table_privilege(x.oid, v.oid, 'SELECT')));
 
   -- Droit CREATE sur la base et attributs d'administration.
   RETURN QUERY
@@ -587,7 +729,7 @@ BEGIN
                     WHERE x.rolname = r.nom AND n.nspname = r.nsp AND d.defaclobjtype = 'r'
                       AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'matrix_lecture') AND a.privilege_type = 'SELECT');
 END $$;
-COMMENT ON FUNCTION droits.verifier() IS 'Écarts entre les droits réels et la convention (gravité erreur, attention, info). Aucune ligne erreur attendue.';
+COMMENT ON FUNCTION droits.verifier() IS 'Écarts entre les droits réels et la convention (gravité erreur, attention, info), convention de partage comprise (USAGE et SELECT sur les seules vues pub_ pour les outils ; vues publiées sans colonne sensible). Aucune ligne erreur attendue.';
 
 -- Administrateur nominatif : rôle de connexion, membre de matrix_admin, toutes ses requêtes journalisées.
 -- Superutilisateur seulement. Le mot de passe se fixe ensuite avec \password <nom> (psql ne l'affiche pas).
@@ -657,6 +799,8 @@ REVOKE ALL ON ALL ROUTINES IN SCHEMA droits FROM PUBLIC;
 GRANT SELECT ON droits.colonnes_sensibles TO matrix_lecture, matrix_admin;
 GRANT INSERT, UPDATE, DELETE ON droits.colonnes_sensibles TO matrix_admin;
 GRANT SELECT ON droits.relations_protegees TO matrix_admin;
+GRANT SELECT ON droits.partage_lecteurs TO matrix_lecture, matrix_admin;
+GRANT INSERT, DELETE ON droits.partage_lecteurs TO matrix_admin;
 GRANT EXECUTE ON FUNCTION droits.verifier() TO matrix_lecture, matrix_admin;
 GRANT EXECUTE ON FUNCTION droits.appliquer_droits() TO matrix_admin;
 

@@ -1,0 +1,1654 @@
+--- a/.env.example
++++ b/.env.example
+@@ -3,6 +3,16 @@
+ # Where Codex keeps its local database and uploaded files (default: ./.data).
+ # CODEX_DATA_DIR=.data
+ 
++# ── Database (src/db/index.ts) ──
++# Shared EPC2I PostgreSQL server: schema codex, role codex_app (setup in the Matrix repository, infra/postgres/).
++# Unset or empty: embedded PGlite in $CODEX_DATA_DIR/pglite (development, Mac app). Run time only: `next build`
++# never connects to it. Codex applies its migrations at start-up (journal: codex.__drizzle_migrations).
++# DATABASE_URL=postgres://codex_app:change-me@localhost:5432/epc2i
++# Size of the connection pool (default 10).
++# CODEX_DB_POOL=10
++# 1: fill an empty server database with the demo data (beta only). The PGlite database is always filled.
++# CODEX_SEED_DEMO=1
++
+ # ── Integration API (docs/api.md) ──
+ # Bearer token of POST /api/import (migration tool). Unset: the import API is disabled (503).
+ # CODEX_IMPORT_TOKEN=change-me
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -72,10 +72,16 @@
+ npm run typecheck && npm run lint && npm run build
+ ```
+ 
+-- **Base de démo.** Au premier lancement, elle est créée dans `.data/` (non versionné) puis remplie par
+-  `src/db/seed*.ts`. Pour repartir de zéro : arrêter le serveur, `npm run db:reset`, relancer.
+-- **Changement de `src/db/schema.ts`.** Tant qu'il n'y a pas de base de production, on régénère une migration
+-  unique : `rm -rf drizzle && npx drizzle-kit generate --name init`, puis `npm run db:reset`.
++- **Base de démo.** Sans `DATABASE_URL`, elle est créée au premier lancement dans `.data/` (PGlite, non versionné)
++  puis remplie par `src/db/seed*.ts`. Pour repartir de zéro : arrêter le serveur, `npm run db:reset`, relancer.
++- **Serveur commun.** Avec `DATABASE_URL`, Codex se connecte au serveur PostgreSQL commun EPC2I en tant que
++  `codex_app` (schéma `codex`, aucun accès ailleurs) ; il n'y est rempli qu'avec `CODEX_SEED_DEMO=1`. Les tables se
++  déclarent avec `codex.table(…)`, jamais `pgTable(…)`. L'objet `pgSchema` n'est jamais exporté : exporté,
++  drizzle-kit ajoute un `CREATE SCHEMA` que `codex_app` ne peut pas exécuter.
++- **Changement de `src/db/schema.ts`.** Tant qu'il n'y a pas de données à garder sur le serveur commun, on régénère
++  une migration unique : `rm -rf drizzle && npx drizzle-kit generate --name init`, puis `npm run db:reset`. Dès les
++  premières données à garder, cette migration est figée : ensuite, uniquement des migrations incrémentales
++  (`npx drizzle-kit generate`).
+ - **Utilisateur et rôle simulés** par cookie. Par défaut : Claire Bardet, gestionnaire documentaire. Pour changer,
+   cliquer sur le profil en bas de la barre latérale.
+ - **Pas de secrets dans le dépôt.** Les variables sont décrites dans `.env.example`, et `.gitignore` exclut `.env*`,
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,7 +1,9 @@
+ # Deployment image for Codex (Coolify or any Docker host).
+ # - Internal port: 3000.
+-# - Data: /data (PGlite database in /data/pglite, uploaded files in /data/files). Mount a persistent volume
+-#   there, otherwise the data is lost on every deployment.
++# - Database: the shared EPC2I PostgreSQL server (schema codex, role codex_app) when DATABASE_URL is set at run time.
++#   Never put DATABASE_URL in the image, nor make it available at build time. Without it: PGlite in /data/pglite.
++# - Data: /data (uploaded files in /data/files, and the PGlite fallback). Mount a persistent volume there, otherwise
++#   the data is lost on every deployment.
+ FROM node:22-bookworm-slim
+ 
+ WORKDIR /app
+--- a/README.md
++++ b/README.md
+@@ -3,7 +3,8 @@
+ Gestion électronique des documents du groupe, construite d'après la maquette Claude Design
+ (`design/GED Groupe.dc.html`, design system Nocturne dans `design/_ds/`).
+ 
+-Même socle que Keystone : **Next.js 16 (App Router) · React 19 · PGlite (Postgres embarqué) + Drizzle**.
++Même socle que Keystone : **Next.js 16 (App Router) · React 19 · PGlite (Postgres embarqué) + Drizzle**. En
++ligne, Codex utilise le serveur PostgreSQL commun EPC2I (schéma `codex`) ; PGlite reste la base de repli.
+ 
+ ## Démarrer
+ 
+@@ -18,11 +19,26 @@
+ 
+ - Repartir de zéro : arrêter le serveur, `npm run db:reset`, relancer. **Obligatoire après le passage au modèle v2** :
+   une base créée avec l'ancien modèle ne peut pas recevoir la nouvelle migration.
++- **Obligatoire aussi après le passage au schéma `codex`** : une base PGlite dont les tables sont dans `public` est
++  refusée au démarrage (« Base PGlite antérieure au schéma codex »).
+ - Après une modification de `src/db/schema.ts` : tant qu'il n'y a pas de base de production, régénérer la migration
+   unique (`rm -rf drizzle && npx drizzle-kit generate --name init`) puis `npm run db:reset`.
+ - Contrôles : `npm run typecheck`, `npm run lint`, `npm run build`.
+ 
+-Variables : voir `.env.example` (Keystone, Vigie, dossier de données, jetons de l'API d'intégration).
++Variables : voir `.env.example` (Keystone, Vigie, dossier de données, base, jetons de l'API d'intégration).
++
++### Deux modes de base
++
++| `DATABASE_URL` | Base | Remplissage de démonstration |
++| --- | --- | --- |
++| absente ou vide | PGlite dans `$CODEX_DATA_DIR/pglite` (développement, application Mac) | toujours, si la base est vide |
++| `postgres://codex_app:…@hôte:5432/epc2i` | serveur PostgreSQL commun EPC2I, schéma `codex` | seulement avec `CODEX_SEED_DEMO=1` |
++
++Le code est le même dans les deux cas : les tables sont déclarées dans le schéma `codex` (`pgSchema` de
++`src/db/schema.ts`), aussi dans PGlite. Au démarrage, `src/db/migrate.ts` applique les migrations de `drizzle/`, avec
++le journal dans `codex.__drizzle_migrations`. Sur le serveur, le schéma et le rôle `codex_app` sont créés par le socle
++(dépôt Matrix, `infra/postgres/`) ; `codex_app` n'a aucun droit hors du schéma `codex`. `next build` n'ouvre jamais le
++serveur commun.
+ 
+ Le modèle fonctionnel fait foi dans `docs/modele-cible.md` ; l'API d'intégration est décrite dans `docs/api.md`.
+ 
+@@ -93,7 +109,7 @@
+     shell/             barre latérale, en-tête, contexte client (dialogues, toasts)
+     dialogs/           toutes les boîtes de dialogue
+     ui/                icônes de la maquette, contrôle segmenté, steppers, boutons d'action
+-  db/                  schéma Drizzle, connexion PGlite, données de démonstration
++  db/                  schéma Drizzle, connexion (PGlite ou serveur commun), migrations, données de démonstration
+   lib/
+     actions.ts         Server Actions (toutes les mutations + contrôles de droits)
+     queries.ts         lectures et modèles de vue
+@@ -121,10 +137,13 @@
+ | Réglage | Valeur |
+ | --- | --- |
+ | Port interne | `3000` |
+-| Volume persistant | `/data` (base PGlite dans `/data/pglite`, fichiers dans `/data/files`) |
++| Volume persistant | `/data` (fichiers dans `/data/files` ; base PGlite de repli dans `/data/pglite`) |
+ | Variables disponibles au build | `NEXT_PUBLIC_KEYSTONE_URL`, `NEXT_PUBLIC_VIGIE_URL` : adresses publiques de Keystone et de Vigie |
++| Variables d'exécution seulement | `DATABASE_URL` (serveur commun, rôle `codex_app`), `CODEX_DB_POOL`, `CODEX_SEED_DEMO` (voir `.env.example`) |
+ 
+ - Les deux adresses sont figées dans l'application au moment du build : après les avoir modifiées, il faut redéployer.
++- `DATABASE_URL` ne doit jamais être disponible au build ni écrite dans l'image. Dans Coolify, Codex et le serveur
++  PostgreSQL doivent partager un réseau (dépôt Matrix, `infra/postgres/README.md`).
+ - Le build télécharge la police Inter depuis Google Fonts : le serveur de build doit avoir accès à Internet.
+ - Tant que l'authentification n'est pas branchée, protéger l'accès au niveau de l'hébergeur (authentification HTTP de
+   Coolify, par exemple).
+--- a/desktop/CodexApp.swift
++++ b/desktop/CodexApp.swift
+@@ -96,6 +96,7 @@
+     env["NODE_ENV"] = "production"
+     env["NEXT_TELEMETRY_DISABLED"] = "1"
+     env["CODEX_DATA_DIR"] = supportDir.appendingPathComponent("data").path
++    env["DATABASE_URL"] = ""
+     return env
+   }
+ 
+--- a/docs/decisions.md
++++ b/docs/decisions.md
+@@ -557,6 +557,11 @@
+   - La spec Keystone décrit un index synchronisé depuis Codex (« Real time (webhooks) »). Elle laisse elle aussi
+     ouvert le contrat de dépôt (« deep link? API create? »).
+   - Question ouverte O-03.
++- **Réponse partielle du 15 octobre 2026** (décision M-01, consignée dans le dépôt Matrix) : « Oui, je valide le
++  format postgreSQL commun avec un schema par outil ».
++  - Codex rejoint la base commune `epc2i`, dans son schéma `codex`, avec son rôle `codex_app`.
++  - Aucun outil ne lit le schéma d'un autre : la liaison avec Keystone reste une API.
++  - Le contrat de dépôt et de synchronisation des documents projet reste ouvert (O-03).
+ 
+ ### Premier commit
+ **Fait** (D-23, D-24).
+@@ -573,7 +578,7 @@
+ |---|---|---|---|
+ | O-01 | **SharePoint** : faut-il l'activer ? Si oui, faut-il un fichier par version, sans accès direct des utilisateurs à la bibliothèque ? Sans cette restriction, les utilisateurs pourraient contourner les droits de Codex. Avec elle, on modifie un fichier en le téléchargeant puis en le redéposant, sans édition Office en ligne. Posée 4 fois (7 oct. à 17:33, 18:07 et 23:18 ; 8 oct. à 06:18), jamais répondue. | utilisateur | `docs/modele-cible.md` §1 (provisoire : un fichier par version de travail, aucun accès direct) ; `src/lib/storage.ts` |
+ | O-02 | **Fournisseur d'authentification** pour remplacer la simulation. Entra ID est proposé, non confirmé. | utilisateur | ce fichier ; `docs/avancement-v2.md` (Reste à faire) |
+-| O-03 | **Liaison avec Keystone** : API ou base partagée ? Il faut aussi définir le contrat de dépôt et de synchronisation des documents projet. | utilisateur | ce fichier ; spec Keystone (dépôt Keystone) |
++| O-03 | **Liaison avec Keystone** : API ou base partagée ? Il faut aussi définir le contrat de dépôt et de synchronisation des documents projet. En partie répondue le 15 octobre 2026 (M-01) : base commune, un schéma par outil, sans accès croisé ; la liaison reste une API. Reste ouvert : le contrat de dépôt et de synchronisation. | utilisateur | ce fichier ; spec Keystone (dépôt Keystone) ; dépôt Matrix, `docs/architecture-postgres.md` |
+ | O-04 | **Organigramme** : sociétés, sites, départements. | utilisateur | `src/db/seed-org.ts` (valeurs provisoires) |
+ | O-05 | **Registre des types** : les 9 questions ouvertes et les choix de fusion à valider. | utilisateur | `docs/registre-points-ouverts.md` (seule liste qui fait foi) |
+ | O-06 | **Matrice type → circuit et titulaires des fonctions** : ce sont des valeurs de démonstration. | utilisateur | `src/db/registry.ts` (`circuit`), `src/db/seed-org.ts` (`FUNCTIONS`, `HOLDERS`) |
+--- a/drizzle/0000_init.sql
++++ b/drizzle/0000_init.sql
+@@ -1,4 +1,4 @@
+-CREATE TABLE "audit_log" (
++CREATE TABLE "codex"."audit_log" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"at" timestamp NOT NULL,
+ 	"user_id" text NOT NULL,
+@@ -7,7 +7,7 @@
+ 	"detail" text DEFAULT '' NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "change_requests" (
++CREATE TABLE "codex"."change_requests" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"kind" text NOT NULL,
+ 	"doc_id" text NOT NULL,
+@@ -23,14 +23,14 @@
+ 	"decided_at" timestamp
+ );
+ --> statement-breakpoint
+-CREATE TABLE "departments" (
++CREATE TABLE "codex"."departments" (
+ 	"code" text PRIMARY KEY NOT NULL,
+ 	"label_fr" text NOT NULL,
+ 	"label_en" text NOT NULL,
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "doc_types" (
++CREATE TABLE "codex"."doc_types" (
+ 	"code" text PRIMARY KEY NOT NULL,
+ 	"label_fr" text NOT NULL,
+ 	"label_en" text NOT NULL,
+@@ -52,13 +52,13 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "document_readers" (
++CREATE TABLE "codex"."document_readers" (
+ 	"doc_id" text NOT NULL,
+ 	"user_id" text NOT NULL,
+ 	CONSTRAINT "document_readers_doc_id_user_id_pk" PRIMARY KEY("doc_id","user_id")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "documents" (
++CREATE TABLE "codex"."documents" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"aliases" jsonb DEFAULT '[]'::jsonb NOT NULL,
+ 	"title" text NOT NULL,
+@@ -105,7 +105,7 @@
+ 	"modified_at" date NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "families" (
++CREATE TABLE "codex"."families" (
+ 	"key" text PRIMARY KEY NOT NULL,
+ 	"label_fr" text NOT NULL,
+ 	"label_en" text NOT NULL,
+@@ -113,14 +113,14 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "function_holders" (
++CREATE TABLE "codex"."function_holders" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"function_key" text NOT NULL,
+ 	"scope_value" text,
+ 	"user_id" text NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "functions" (
++CREATE TABLE "codex"."functions" (
+ 	"key" text PRIMARY KEY NOT NULL,
+ 	"label_fr" text NOT NULL,
+ 	"label_en" text NOT NULL,
+@@ -128,14 +128,14 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "project_events" (
++CREATE TABLE "codex"."project_events" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"project_code" text NOT NULL,
+ 	"at" timestamp NOT NULL,
+ 	"text" jsonb NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "project_expected" (
++CREATE TABLE "codex"."project_expected" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"project_code" text NOT NULL,
+ 	"label" jsonb NOT NULL,
+@@ -145,7 +145,7 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "projects" (
++CREATE TABLE "codex"."projects" (
+ 	"code" text PRIMARY KEY NOT NULL,
+ 	"name" text NOT NULL,
+ 	"client" text NOT NULL,
+@@ -156,13 +156,13 @@
+ 	"synced_at" timestamp NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "research_programs" (
++CREATE TABLE "codex"."research_programs" (
+ 	"code" text PRIMARY KEY NOT NULL,
+ 	"name" text NOT NULL,
+ 	"manager_id" text NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "revisions" (
++CREATE TABLE "codex"."revisions" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"doc_id" text NOT NULL,
+ 	"letter" text NOT NULL,
+@@ -176,14 +176,14 @@
+ 	"created_at" date NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "role_permissions" (
++CREATE TABLE "codex"."role_permissions" (
+ 	"role" text NOT NULL,
+ 	"perm" text NOT NULL,
+ 	"granted" boolean NOT NULL,
+ 	CONSTRAINT "role_permissions_role_perm_pk" PRIMARY KEY("role","perm")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "saved_searches" (
++CREATE TABLE "codex"."saved_searches" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"label" jsonb NOT NULL,
+ 	"q" text DEFAULT '' NOT NULL,
+@@ -191,13 +191,13 @@
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "sites" (
++CREATE TABLE "codex"."sites" (
+ 	"key" text PRIMARY KEY NOT NULL,
+ 	"label" text NOT NULL,
+ 	"sort" integer DEFAULT 0 NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "users" (
++CREATE TABLE "codex"."users" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"name" text NOT NULL,
+ 	"initials" text NOT NULL,
+@@ -208,7 +208,7 @@
+ 	"is_system" boolean DEFAULT false NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "workflow_comments" (
++CREATE TABLE "codex"."workflow_comments" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"workflow_id" text NOT NULL,
+ 	"author_id" text NOT NULL,
+@@ -216,7 +216,7 @@
+ 	"text" jsonb NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "workflow_steps" (
++CREATE TABLE "codex"."workflow_steps" (
+ 	"workflow_id" text NOT NULL,
+ 	"idx" integer NOT NULL,
+ 	"function_key" text,
+@@ -227,7 +227,7 @@
+ 	CONSTRAINT "workflow_steps_workflow_id_idx_pk" PRIMARY KEY("workflow_id","idx")
+ );
+ --> statement-breakpoint
+-CREATE TABLE "workflows" (
++CREATE TABLE "codex"."workflows" (
+ 	"id" text PRIMARY KEY NOT NULL,
+ 	"doc_id" text NOT NULL,
+ 	"revision_id" integer NOT NULL,
+@@ -238,7 +238,7 @@
+ 	"created_at" date NOT NULL
+ );
+ --> statement-breakpoint
+-CREATE TABLE "working_versions" (
++CREATE TABLE "codex"."working_versions" (
+ 	"id" serial PRIMARY KEY NOT NULL,
+ 	"revision_id" integer NOT NULL,
+ 	"doc_id" text NOT NULL,
+@@ -254,46 +254,46 @@
+ 	"pages" integer
+ );
+ --> statement-breakpoint
+-ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "change_requests" ADD CONSTRAINT "change_requests_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
+-ALTER TABLE "change_requests" ADD CONSTRAINT "change_requests_requester_id_users_id_fk" FOREIGN KEY ("requester_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "change_requests" ADD CONSTRAINT "change_requests_modifier_id_users_id_fk" FOREIGN KEY ("modifier_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "doc_types" ADD CONSTRAINT "doc_types_family_families_key_fk" FOREIGN KEY ("family") REFERENCES "public"."families"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "document_readers" ADD CONSTRAINT "document_readers_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
+-ALTER TABLE "document_readers" ADD CONSTRAINT "document_readers_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_project_code_projects_code_fk" FOREIGN KEY ("project_code") REFERENCES "public"."projects"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_program_code_research_programs_code_fk" FOREIGN KEY ("program_code") REFERENCES "public"."research_programs"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_family_families_key_fk" FOREIGN KEY ("family") REFERENCES "public"."families"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_type_code_doc_types_code_fk" FOREIGN KEY ("type_code") REFERENCES "public"."doc_types"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_department_departments_code_fk" FOREIGN KEY ("department") REFERENCES "public"."departments"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_site_sites_key_fk" FOREIGN KEY ("site") REFERENCES "public"."sites"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "documents" ADD CONSTRAINT "documents_process_owner_id_users_id_fk" FOREIGN KEY ("process_owner_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "function_holders" ADD CONSTRAINT "function_holders_function_key_functions_key_fk" FOREIGN KEY ("function_key") REFERENCES "public"."functions"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "function_holders" ADD CONSTRAINT "function_holders_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "project_events" ADD CONSTRAINT "project_events_project_code_projects_code_fk" FOREIGN KEY ("project_code") REFERENCES "public"."projects"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "project_expected" ADD CONSTRAINT "project_expected_project_code_projects_code_fk" FOREIGN KEY ("project_code") REFERENCES "public"."projects"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "project_expected" ADD CONSTRAINT "project_expected_type_code_doc_types_code_fk" FOREIGN KEY ("type_code") REFERENCES "public"."doc_types"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "project_expected" ADD CONSTRAINT "project_expected_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
+-ALTER TABLE "projects" ADD CONSTRAINT "projects_manager_id_users_id_fk" FOREIGN KEY ("manager_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "research_programs" ADD CONSTRAINT "research_programs_manager_id_users_id_fk" FOREIGN KEY ("manager_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "revisions" ADD CONSTRAINT "revisions_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
+-ALTER TABLE "revisions" ADD CONSTRAINT "revisions_modifier_id_users_id_fk" FOREIGN KEY ("modifier_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "users" ADD CONSTRAINT "users_department_departments_code_fk" FOREIGN KEY ("department") REFERENCES "public"."departments"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "users" ADD CONSTRAINT "users_site_sites_key_fk" FOREIGN KEY ("site") REFERENCES "public"."sites"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "workflow_comments" ADD CONSTRAINT "workflow_comments_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "workflow_comments" ADD CONSTRAINT "workflow_comments_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "workflow_steps" ADD CONSTRAINT "workflow_steps_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "workflow_steps" ADD CONSTRAINT "workflow_steps_assignee_id_users_id_fk" FOREIGN KEY ("assignee_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "workflows" ADD CONSTRAINT "workflows_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
+-ALTER TABLE "workflows" ADD CONSTRAINT "workflows_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."revisions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "workflows" ADD CONSTRAINT "workflows_requester_id_users_id_fk" FOREIGN KEY ("requester_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "working_versions" ADD CONSTRAINT "working_versions_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."revisions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-ALTER TABLE "working_versions" ADD CONSTRAINT "working_versions_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
+-ALTER TABLE "working_versions" ADD CONSTRAINT "working_versions_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-CREATE UNIQUE INDEX "change_requests_pending" ON "change_requests" USING btree ("doc_id") WHERE "change_requests"."status" in ('submitted', 'accepted');--> statement-breakpoint
+-CREATE UNIQUE INDEX "revisions_doc_letter" ON "revisions" USING btree ("doc_id","letter");--> statement-breakpoint
+-CREATE UNIQUE INDEX "revisions_in_force" ON "revisions" USING btree ("doc_id") WHERE "revisions"."status" = 'in_force';--> statement-breakpoint
+-CREATE UNIQUE INDEX "workflows_running" ON "workflows" USING btree ("revision_id") WHERE "workflows"."outcome" is null;--> statement-breakpoint
+-CREATE UNIQUE INDEX "working_versions_rev_n" ON "working_versions" USING btree ("revision_id","n");
+\ No newline at end of file
++ALTER TABLE "codex"."audit_log" ADD CONSTRAINT "audit_log_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."change_requests" ADD CONSTRAINT "change_requests_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "codex"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
++ALTER TABLE "codex"."change_requests" ADD CONSTRAINT "change_requests_requester_id_users_id_fk" FOREIGN KEY ("requester_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."change_requests" ADD CONSTRAINT "change_requests_modifier_id_users_id_fk" FOREIGN KEY ("modifier_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."doc_types" ADD CONSTRAINT "doc_types_family_families_key_fk" FOREIGN KEY ("family") REFERENCES "codex"."families"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."document_readers" ADD CONSTRAINT "document_readers_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "codex"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
++ALTER TABLE "codex"."document_readers" ADD CONSTRAINT "document_readers_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_project_code_projects_code_fk" FOREIGN KEY ("project_code") REFERENCES "codex"."projects"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_program_code_research_programs_code_fk" FOREIGN KEY ("program_code") REFERENCES "codex"."research_programs"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_family_families_key_fk" FOREIGN KEY ("family") REFERENCES "codex"."families"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_type_code_doc_types_code_fk" FOREIGN KEY ("type_code") REFERENCES "codex"."doc_types"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_department_departments_code_fk" FOREIGN KEY ("department") REFERENCES "codex"."departments"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_site_sites_key_fk" FOREIGN KEY ("site") REFERENCES "codex"."sites"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."documents" ADD CONSTRAINT "documents_process_owner_id_users_id_fk" FOREIGN KEY ("process_owner_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."function_holders" ADD CONSTRAINT "function_holders_function_key_functions_key_fk" FOREIGN KEY ("function_key") REFERENCES "codex"."functions"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."function_holders" ADD CONSTRAINT "function_holders_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."project_events" ADD CONSTRAINT "project_events_project_code_projects_code_fk" FOREIGN KEY ("project_code") REFERENCES "codex"."projects"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."project_expected" ADD CONSTRAINT "project_expected_project_code_projects_code_fk" FOREIGN KEY ("project_code") REFERENCES "codex"."projects"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."project_expected" ADD CONSTRAINT "project_expected_type_code_doc_types_code_fk" FOREIGN KEY ("type_code") REFERENCES "codex"."doc_types"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."project_expected" ADD CONSTRAINT "project_expected_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "codex"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
++ALTER TABLE "codex"."projects" ADD CONSTRAINT "projects_manager_id_users_id_fk" FOREIGN KEY ("manager_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."research_programs" ADD CONSTRAINT "research_programs_manager_id_users_id_fk" FOREIGN KEY ("manager_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."revisions" ADD CONSTRAINT "revisions_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "codex"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
++ALTER TABLE "codex"."revisions" ADD CONSTRAINT "revisions_modifier_id_users_id_fk" FOREIGN KEY ("modifier_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."users" ADD CONSTRAINT "users_department_departments_code_fk" FOREIGN KEY ("department") REFERENCES "codex"."departments"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."users" ADD CONSTRAINT "users_site_sites_key_fk" FOREIGN KEY ("site") REFERENCES "codex"."sites"("key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."workflow_comments" ADD CONSTRAINT "workflow_comments_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "codex"."workflows"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."workflow_comments" ADD CONSTRAINT "workflow_comments_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."workflow_steps" ADD CONSTRAINT "workflow_steps_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "codex"."workflows"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."workflow_steps" ADD CONSTRAINT "workflow_steps_assignee_id_users_id_fk" FOREIGN KEY ("assignee_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."workflows" ADD CONSTRAINT "workflows_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "codex"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
++ALTER TABLE "codex"."workflows" ADD CONSTRAINT "workflows_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "codex"."revisions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."workflows" ADD CONSTRAINT "workflows_requester_id_users_id_fk" FOREIGN KEY ("requester_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."working_versions" ADD CONSTRAINT "working_versions_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "codex"."revisions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "codex"."working_versions" ADD CONSTRAINT "working_versions_doc_id_documents_id_fk" FOREIGN KEY ("doc_id") REFERENCES "codex"."documents"("id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
++ALTER TABLE "codex"."working_versions" ADD CONSTRAINT "working_versions_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "codex"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
++CREATE UNIQUE INDEX "change_requests_pending" ON "codex"."change_requests" USING btree ("doc_id") WHERE "codex"."change_requests"."status" in ('submitted', 'accepted');--> statement-breakpoint
++CREATE UNIQUE INDEX "revisions_doc_letter" ON "codex"."revisions" USING btree ("doc_id","letter");--> statement-breakpoint
++CREATE UNIQUE INDEX "revisions_in_force" ON "codex"."revisions" USING btree ("doc_id") WHERE "codex"."revisions"."status" = 'in_force';--> statement-breakpoint
++CREATE UNIQUE INDEX "workflows_running" ON "codex"."workflows" USING btree ("revision_id") WHERE "codex"."workflows"."outcome" is null;--> statement-breakpoint
++CREATE UNIQUE INDEX "working_versions_rev_n" ON "codex"."working_versions" USING btree ("revision_id","n");
+\ No newline at end of file
+--- a/drizzle/meta/0000_snapshot.json
++++ b/drizzle/meta/0000_snapshot.json
+@@ -1,12 +1,12 @@
+ {
+-  "id": "ec8aa783-a4a2-4063-a706-f6c12bf7f682",
++  "id": "e2d5cc93-eb15-434e-865b-d292ca02bd68",
+   "prevId": "00000000-0000-0000-0000-000000000000",
+   "version": "7",
+   "dialect": "postgresql",
+   "tables": {
+-    "public.audit_log": {
++    "codex.audit_log": {
+       "name": "audit_log",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -52,6 +52,7 @@
+           "name": "audit_log_user_id_users_id_fk",
+           "tableFrom": "audit_log",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "user_id"
+           ],
+@@ -68,9 +69,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.change_requests": {
++    "codex.change_requests": {
+       "name": "change_requests",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -165,7 +166,7 @@
+             }
+           ],
+           "isUnique": true,
+-          "where": "\"change_requests\".\"status\" in ('submitted', 'accepted')",
++          "where": "\"codex\".\"change_requests\".\"status\" in ('submitted', 'accepted')",
+           "concurrently": false,
+           "method": "btree",
+           "with": {}
+@@ -176,6 +177,7 @@
+           "name": "change_requests_doc_id_documents_id_fk",
+           "tableFrom": "change_requests",
+           "tableTo": "documents",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "doc_id"
+           ],
+@@ -189,6 +191,7 @@
+           "name": "change_requests_requester_id_users_id_fk",
+           "tableFrom": "change_requests",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "requester_id"
+           ],
+@@ -202,6 +205,7 @@
+           "name": "change_requests_modifier_id_users_id_fk",
+           "tableFrom": "change_requests",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "modifier_id"
+           ],
+@@ -218,9 +222,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.departments": {
++    "codex.departments": {
+       "name": "departments",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "code": {
+           "name": "code",
+@@ -256,9 +260,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.doc_types": {
++    "codex.doc_types": {
+       "name": "doc_types",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "code": {
+           "name": "code",
+@@ -386,6 +390,7 @@
+           "name": "doc_types_family_families_key_fk",
+           "tableFrom": "doc_types",
+           "tableTo": "families",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "family"
+           ],
+@@ -402,9 +407,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.document_readers": {
++    "codex.document_readers": {
+       "name": "document_readers",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "doc_id": {
+           "name": "doc_id",
+@@ -425,6 +430,7 @@
+           "name": "document_readers_doc_id_documents_id_fk",
+           "tableFrom": "document_readers",
+           "tableTo": "documents",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "doc_id"
+           ],
+@@ -438,6 +444,7 @@
+           "name": "document_readers_user_id_users_id_fk",
+           "tableFrom": "document_readers",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "user_id"
+           ],
+@@ -462,9 +469,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.documents": {
++    "codex.documents": {
+       "name": "documents",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -740,6 +747,7 @@
+           "name": "documents_project_code_projects_code_fk",
+           "tableFrom": "documents",
+           "tableTo": "projects",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "project_code"
+           ],
+@@ -753,6 +761,7 @@
+           "name": "documents_program_code_research_programs_code_fk",
+           "tableFrom": "documents",
+           "tableTo": "research_programs",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "program_code"
+           ],
+@@ -766,6 +775,7 @@
+           "name": "documents_family_families_key_fk",
+           "tableFrom": "documents",
+           "tableTo": "families",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "family"
+           ],
+@@ -779,6 +789,7 @@
+           "name": "documents_type_code_doc_types_code_fk",
+           "tableFrom": "documents",
+           "tableTo": "doc_types",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "type_code"
+           ],
+@@ -792,6 +803,7 @@
+           "name": "documents_department_departments_code_fk",
+           "tableFrom": "documents",
+           "tableTo": "departments",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "department"
+           ],
+@@ -805,6 +817,7 @@
+           "name": "documents_site_sites_key_fk",
+           "tableFrom": "documents",
+           "tableTo": "sites",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "site"
+           ],
+@@ -818,6 +831,7 @@
+           "name": "documents_owner_id_users_id_fk",
+           "tableFrom": "documents",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "owner_id"
+           ],
+@@ -831,6 +845,7 @@
+           "name": "documents_author_id_users_id_fk",
+           "tableFrom": "documents",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "author_id"
+           ],
+@@ -844,6 +859,7 @@
+           "name": "documents_process_owner_id_users_id_fk",
+           "tableFrom": "documents",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "process_owner_id"
+           ],
+@@ -860,9 +876,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.families": {
++    "codex.families": {
+       "name": "families",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "key": {
+           "name": "key",
+@@ -904,9 +920,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.function_holders": {
++    "codex.function_holders": {
+       "name": "function_holders",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -939,6 +955,7 @@
+           "name": "function_holders_function_key_functions_key_fk",
+           "tableFrom": "function_holders",
+           "tableTo": "functions",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "function_key"
+           ],
+@@ -952,6 +969,7 @@
+           "name": "function_holders_user_id_users_id_fk",
+           "tableFrom": "function_holders",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "user_id"
+           ],
+@@ -968,9 +986,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.functions": {
++    "codex.functions": {
+       "name": "functions",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "key": {
+           "name": "key",
+@@ -1012,9 +1030,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.project_events": {
++    "codex.project_events": {
+       "name": "project_events",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1047,6 +1065,7 @@
+           "name": "project_events_project_code_projects_code_fk",
+           "tableFrom": "project_events",
+           "tableTo": "projects",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "project_code"
+           ],
+@@ -1063,9 +1082,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.project_expected": {
++    "codex.project_expected": {
+       "name": "project_expected",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1118,6 +1137,7 @@
+           "name": "project_expected_project_code_projects_code_fk",
+           "tableFrom": "project_expected",
+           "tableTo": "projects",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "project_code"
+           ],
+@@ -1131,6 +1151,7 @@
+           "name": "project_expected_type_code_doc_types_code_fk",
+           "tableFrom": "project_expected",
+           "tableTo": "doc_types",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "type_code"
+           ],
+@@ -1144,6 +1165,7 @@
+           "name": "project_expected_doc_id_documents_id_fk",
+           "tableFrom": "project_expected",
+           "tableTo": "documents",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "doc_id"
+           ],
+@@ -1160,9 +1182,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.projects": {
++    "codex.projects": {
+       "name": "projects",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "code": {
+           "name": "code",
+@@ -1219,6 +1241,7 @@
+           "name": "projects_manager_id_users_id_fk",
+           "tableFrom": "projects",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "manager_id"
+           ],
+@@ -1235,9 +1258,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.research_programs": {
++    "codex.research_programs": {
+       "name": "research_programs",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "code": {
+           "name": "code",
+@@ -1264,6 +1287,7 @@
+           "name": "research_programs_manager_id_users_id_fk",
+           "tableFrom": "research_programs",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "manager_id"
+           ],
+@@ -1280,9 +1304,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.revisions": {
++    "codex.revisions": {
+       "name": "revisions",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1384,7 +1408,7 @@
+             }
+           ],
+           "isUnique": true,
+-          "where": "\"revisions\".\"status\" = 'in_force'",
++          "where": "\"codex\".\"revisions\".\"status\" = 'in_force'",
+           "concurrently": false,
+           "method": "btree",
+           "with": {}
+@@ -1395,6 +1419,7 @@
+           "name": "revisions_doc_id_documents_id_fk",
+           "tableFrom": "revisions",
+           "tableTo": "documents",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "doc_id"
+           ],
+@@ -1408,6 +1433,7 @@
+           "name": "revisions_modifier_id_users_id_fk",
+           "tableFrom": "revisions",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "modifier_id"
+           ],
+@@ -1424,9 +1450,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.role_permissions": {
++    "codex.role_permissions": {
+       "name": "role_permissions",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "role": {
+           "name": "role",
+@@ -1463,9 +1489,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.saved_searches": {
++    "codex.saved_searches": {
+       "name": "saved_searches",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1508,9 +1534,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.sites": {
++    "codex.sites": {
+       "name": "sites",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "key": {
+           "name": "key",
+@@ -1540,9 +1566,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.users": {
++    "codex.users": {
+       "name": "users",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1600,6 +1626,7 @@
+           "name": "users_department_departments_code_fk",
+           "tableFrom": "users",
+           "tableTo": "departments",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "department"
+           ],
+@@ -1613,6 +1640,7 @@
+           "name": "users_site_sites_key_fk",
+           "tableFrom": "users",
+           "tableTo": "sites",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "site"
+           ],
+@@ -1629,9 +1657,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.workflow_comments": {
++    "codex.workflow_comments": {
+       "name": "workflow_comments",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1670,6 +1698,7 @@
+           "name": "workflow_comments_workflow_id_workflows_id_fk",
+           "tableFrom": "workflow_comments",
+           "tableTo": "workflows",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "workflow_id"
+           ],
+@@ -1683,6 +1712,7 @@
+           "name": "workflow_comments_author_id_users_id_fk",
+           "tableFrom": "workflow_comments",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "author_id"
+           ],
+@@ -1699,9 +1729,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.workflow_steps": {
++    "codex.workflow_steps": {
+       "name": "workflow_steps",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "workflow_id": {
+           "name": "workflow_id",
+@@ -1753,6 +1783,7 @@
+           "name": "workflow_steps_workflow_id_workflows_id_fk",
+           "tableFrom": "workflow_steps",
+           "tableTo": "workflows",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "workflow_id"
+           ],
+@@ -1766,6 +1797,7 @@
+           "name": "workflow_steps_assignee_id_users_id_fk",
+           "tableFrom": "workflow_steps",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "assignee_id"
+           ],
+@@ -1790,9 +1822,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.workflows": {
++    "codex.workflows": {
+       "name": "workflows",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -1855,7 +1887,7 @@
+             }
+           ],
+           "isUnique": true,
+-          "where": "\"workflows\".\"outcome\" is null",
++          "where": "\"codex\".\"workflows\".\"outcome\" is null",
+           "concurrently": false,
+           "method": "btree",
+           "with": {}
+@@ -1866,6 +1898,7 @@
+           "name": "workflows_doc_id_documents_id_fk",
+           "tableFrom": "workflows",
+           "tableTo": "documents",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "doc_id"
+           ],
+@@ -1879,6 +1912,7 @@
+           "name": "workflows_revision_id_revisions_id_fk",
+           "tableFrom": "workflows",
+           "tableTo": "revisions",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "revision_id"
+           ],
+@@ -1892,6 +1926,7 @@
+           "name": "workflows_requester_id_users_id_fk",
+           "tableFrom": "workflows",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "requester_id"
+           ],
+@@ -1908,9 +1943,9 @@
+       "checkConstraints": {},
+       "isRLSEnabled": false
+     },
+-    "public.working_versions": {
++    "codex.working_versions": {
+       "name": "working_versions",
+-      "schema": "",
++      "schema": "codex",
+       "columns": {
+         "id": {
+           "name": "id",
+@@ -2019,6 +2054,7 @@
+           "name": "working_versions_revision_id_revisions_id_fk",
+           "tableFrom": "working_versions",
+           "tableTo": "revisions",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "revision_id"
+           ],
+@@ -2032,6 +2068,7 @@
+           "name": "working_versions_doc_id_documents_id_fk",
+           "tableFrom": "working_versions",
+           "tableTo": "documents",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "doc_id"
+           ],
+@@ -2045,6 +2082,7 @@
+           "name": "working_versions_author_id_users_id_fk",
+           "tableFrom": "working_versions",
+           "tableTo": "users",
++          "schemaTo": "codex",
+           "columnsFrom": [
+             "author_id"
+           ],
+--- a/drizzle/meta/_journal.json
++++ b/drizzle/meta/_journal.json
+@@ -5,7 +5,7 @@
+     {
+       "idx": 0,
+       "version": "7",
+-      "when": 1791439950164,
++      "when": 1792080948853,
+       "tag": "0000_init",
+       "breakpoints": true
+     }
+--- a/drizzle.config.ts
++++ b/drizzle.config.ts
+@@ -4,4 +4,6 @@
+   dialect: 'postgresql',
+   schema: './src/db/schema.ts',
+   out: './drizzle',
++  schemaFilter: ['codex'],
++  migrations: { schema: 'codex', table: '__drizzle_migrations' },
+ });
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -11,12 +11,14 @@
+         "@electric-sql/pglite": "^0.5.8",
+         "drizzle-orm": "^0.45.3",
+         "next": "16.4.0",
++        "pg": "^8.23.1",
+         "react": "19.3.0",
+         "react-dom": "19.3.0",
+         "server-only": "^0.0.1"
+       },
+       "devDependencies": {
+         "@types/node": "^20",
++        "@types/pg": "^8.23.1",
+         "@types/react": "^19",
+         "@types/react-dom": "^19",
+         "drizzle-kit": "^0.31.11",
+@@ -2309,12 +2311,24 @@
+       "version": "20.19.43",
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-20.19.43.tgz",
+       "integrity": "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==",
+-      "dev": true,
++      "devOptional": true,
+       "license": "MIT",
+       "dependencies": {
+         "undici-types": "~6.21.0"
+       }
+     },
++    "node_modules/@types/pg": {
++      "version": "8.23.1",
++      "resolved": "https://registry.npmjs.org/@types/pg/-/pg-8.23.1.tgz",
++      "integrity": "sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==",
++      "devOptional": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/node": "*",
++        "pg-protocol": "*",
++        "pg-types": "^2.2.0"
++      }
++    },
+     "node_modules/@types/react": {
+       "version": "19.3.0",
+       "resolved": "https://registry.npmjs.org/@types/react/-/react-19.3.0.tgz",
+@@ -6077,6 +6091,95 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/pg": {
++      "version": "8.23.1",
++      "resolved": "https://registry.npmjs.org/pg/-/pg-8.23.1.tgz",
++      "integrity": "sha512-aL96AHANtWjPLDOLqnhx+ngp9+UK7ETEU8VJrDCGvsSSi/mGLcWYsS6Herg7lmaBJe4uwrfqsa7gTEFaSizDoQ==",
++      "license": "MIT",
++      "dependencies": {
++        "pg-connection-string": "^2.14.1",
++        "pg-pool": "^3.14.0",
++        "pg-protocol": "^1.16.1",
++        "pg-types": "2.2.0",
++        "pgpass": "1.0.5"
++      },
++      "engines": {
++        "node": ">= 16.0.0"
++      },
++      "optionalDependencies": {
++        "pg-cloudflare": "^1.4.1"
++      },
++      "peerDependencies": {
++        "pg-native": ">=3.0.1"
++      },
++      "peerDependenciesMeta": {
++        "pg-native": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/pg-cloudflare": {
++      "version": "1.4.1",
++      "resolved": "https://registry.npmjs.org/pg-cloudflare/-/pg-cloudflare-1.4.1.tgz",
++      "integrity": "sha512-6PQbsFWZcp9EmJEwy5cGQ2La+AMWpP46lgbb8X+U/XsHIUweYDNCpeuKck5RxL2MdVFi7krbbEi5nX4Zh7JhrQ==",
++      "license": "MIT",
++      "optional": true
++    },
++    "node_modules/pg-connection-string": {
++      "version": "2.14.1",
++      "resolved": "https://registry.npmjs.org/pg-connection-string/-/pg-connection-string-2.14.1.tgz",
++      "integrity": "sha512-qR3kGNPBLpCNtz0evbKA0Y/MRFXwSSdT+pTJvYp/bXTcReZbvX1kzF0IyTc1QnxqF7AZbOeBhNL8R5mYQZV/MA==",
++      "license": "MIT"
++    },
++    "node_modules/pg-int8": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/pg-int8/-/pg-int8-1.0.1.tgz",
++      "integrity": "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==",
++      "license": "ISC",
++      "engines": {
++        "node": ">=4.0.0"
++      }
++    },
++    "node_modules/pg-pool": {
++      "version": "3.14.0",
++      "resolved": "https://registry.npmjs.org/pg-pool/-/pg-pool-3.14.0.tgz",
++      "integrity": "sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==",
++      "license": "MIT",
++      "peerDependencies": {
++        "pg": ">=8.0"
++      }
++    },
++    "node_modules/pg-protocol": {
++      "version": "1.16.1",
++      "resolved": "https://registry.npmjs.org/pg-protocol/-/pg-protocol-1.16.1.tgz",
++      "integrity": "sha512-p9VOFMiHB/ZbJATetbg+99PxssTVSQRnyuPSQ67mN1+1KBOjZaZ83ZQzltnxPhJwSsC3nwVjJ10DVJlerbFzLg==",
++      "license": "MIT"
++    },
++    "node_modules/pg-types": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/pg-types/-/pg-types-2.2.0.tgz",
++      "integrity": "sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==",
++      "license": "MIT",
++      "dependencies": {
++        "pg-int8": "1.0.1",
++        "postgres-array": "~2.0.0",
++        "postgres-bytea": "~1.0.0",
++        "postgres-date": "~1.0.4",
++        "postgres-interval": "^1.1.0"
++      },
++      "engines": {
++        "node": ">=4"
++      }
++    },
++    "node_modules/pgpass": {
++      "version": "1.0.5",
++      "resolved": "https://registry.npmjs.org/pgpass/-/pgpass-1.0.5.tgz",
++      "integrity": "sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==",
++      "license": "MIT",
++      "dependencies": {
++        "split2": "^4.1.0"
++      }
++    },
+     "node_modules/picocolors": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+@@ -6134,6 +6237,45 @@
+         "node": "^10 || ^12 || >=14"
+       }
+     },
++    "node_modules/postgres-array": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/postgres-array/-/postgres-array-2.0.0.tgz",
++      "integrity": "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=4"
++      }
++    },
++    "node_modules/postgres-bytea": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/postgres-bytea/-/postgres-bytea-1.0.1.tgz",
++      "integrity": "sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/postgres-date": {
++      "version": "1.0.7",
++      "resolved": "https://registry.npmjs.org/postgres-date/-/postgres-date-1.0.7.tgz",
++      "integrity": "sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/postgres-interval": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/postgres-interval/-/postgres-interval-1.2.0.tgz",
++      "integrity": "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==",
++      "license": "MIT",
++      "dependencies": {
++        "xtend": "^4.0.0"
++      },
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/prelude-ls": {
+       "version": "1.2.1",
+       "resolved": "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.2.1.tgz",
+@@ -6656,6 +6798,15 @@
+         "source-map": "^0.6.0"
+       }
+     },
++    "node_modules/split2": {
++      "version": "4.2.0",
++      "resolved": "https://registry.npmjs.org/split2/-/split2-4.2.0.tgz",
++      "integrity": "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==",
++      "license": "ISC",
++      "engines": {
++        "node": ">= 10.x"
++      }
++    },
+     "node_modules/stable-hash": {
+       "version": "0.0.5",
+       "resolved": "https://registry.npmjs.org/stable-hash/-/stable-hash-0.0.5.tgz",
+@@ -7623,7 +7774,7 @@
+       "version": "6.21.0",
+       "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
+       "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
+-      "dev": true,
++      "devOptional": true,
+       "license": "MIT"
+     },
+     "node_modules/unrs-resolver": {
+@@ -7820,6 +7971,15 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/xtend": {
++      "version": "4.0.2",
++      "resolved": "https://registry.npmjs.org/xtend/-/xtend-4.0.2.tgz",
++      "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.4"
++      }
++    },
+     "node_modules/yallist": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/yallist/-/yallist-3.1.1.tgz",
+--- a/package.json
++++ b/package.json
+@@ -16,12 +16,14 @@
+     "@electric-sql/pglite": "^0.5.8",
+     "drizzle-orm": "^0.45.3",
+     "next": "16.4.0",
++    "pg": "^8.23.1",
+     "react": "19.3.0",
+     "react-dom": "19.3.0",
+     "server-only": "^0.0.1"
+   },
+   "devDependencies": {
+     "@types/node": "^20",
++    "@types/pg": "^8.23.1",
+     "@types/react": "^19",
+     "@types/react-dom": "^19",
+     "drizzle-kit": "^0.31.11",
+--- a/src/db/index.ts
++++ b/src/db/index.ts
+@@ -2,36 +2,61 @@
+ import { mkdir } from 'node:fs/promises';
+ import path from 'node:path';
+ import { PGlite } from '@electric-sql/pglite';
+-import { drizzle } from 'drizzle-orm/pglite';
+-import { migrate } from 'drizzle-orm/pglite/migrator';
++import { count, sql } from 'drizzle-orm';
++import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
++import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
++import { Pool } from 'pg';
++import { migrateSchema } from './migrate';
+ import * as schema from './schema';
++import { DB_SCHEMA } from './schema';
+ import { seed } from './seed';
++import type { DB } from './types';
+ 
+-export type Db = ReturnType<typeof drizzle<typeof schema>>;
+-
+-// Runtime data (database, uploaded files) lives outside the build output.
++export type Db = DB;
+ export const DATA_DIR = path.resolve(/*turbopackIgnore: true*/ process.env.CODEX_DATA_DIR ?? path.join(process.cwd(), '.data'));
+ export const FILES_DIR = path.join(DATA_DIR, 'files');
++const MIGRATIONS = path.join(process.cwd(), 'drizzle');
+ 
+-async function init(): Promise<Db> {
+-  await mkdir(FILES_DIR, { recursive: true });
+-  const client = new PGlite(path.join(DATA_DIR, 'pglite'));
+-  const db = drizzle(client, { schema });
+-  await migrate(db, { migrationsFolder: path.join(process.cwd(), 'drizzle') });
+-  const [{ n }] = (await client.query<{ n: number }>('select count(*)::int as n from users')).rows;
+-  if (n === 0) await seed(db);
++async function openServer(url: string): Promise<DB> {
++  const pool = new Pool({ connectionString: url, max: Number(process.env.CODEX_DB_POOL) || 10, application_name: 'codex', options: `-c search_path=${DB_SCHEMA}` });
++  pool.on('error', (err) => console.error('[db] connexion inactive perdue', err));
++  const db: DB = drizzlePg(pool, { schema });
++  const transaction = db.transaction.bind(db);
++  db.transaction = ((fn, config) => transaction(async (tx) => {
++    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${DB_SCHEMA}.ecritures`}))`);
++    return fn(tx);
++  }, config)) as DB['transaction'];
+   return db;
+ }
+ 
+-// One embedded database per server process; kept on globalThis so dev hot reloads reuse it.
+-const g = globalThis as unknown as { __codexDb?: Promise<Db> };
++async function openEmbedded(): Promise<DB> {
++  const dir = path.join(DATA_DIR, 'pglite');
++  const client = new PGlite(dir);
++  const { rows } = await client.query<{ ancienne: boolean }>(
++    `select to_regclass('public.users') is not null and to_regclass('${DB_SCHEMA}.users') is null as ancienne`);
++  if (rows[0].ancienne) {
++    await client.close();
++    throw new Error(`Base PGlite antérieure au schéma ${DB_SCHEMA} dans ${dir} : npm run db:reset (voir README).`);
++  }
++  await client.exec(`create schema if not exists ${DB_SCHEMA}; set search_path to ${DB_SCHEMA}`);
++  return drizzlePglite(client, { schema });
++}
+ 
+-export function getDb(): Promise<Db> {
+-  g.__codexDb ??= init().catch((err) => {
+-    g.__codexDb = undefined;
+-    throw err;
+-  });
+-  return g.__codexDb;
++async function init(): Promise<DB> {
++  await mkdir(FILES_DIR, { recursive: true });
++  const url = process.env.NEXT_PHASE === 'phase-production-build' ? undefined : process.env.DATABASE_URL;
++  const db = url ? await openServer(url) : await openEmbedded();
++  await migrateSchema(db, MIGRATIONS);
++  if (!url || process.env.CODEX_SEED_DEMO === '1') {
++    const [{ n }] = await db.select({ n: count() }).from(schema.users);
++    if (n === 0) await seed(db);
++  }
++  return db;
+ }
+ 
++const g = globalThis as unknown as { __codexDb?: Promise<DB> };
++export function getDb(): Promise<DB> {
++  g.__codexDb ??= init().catch((err) => { g.__codexDb = undefined; throw err; });
++  return g.__codexDb;
++}
+ export { schema };
+--- a/src/db/migrate.ts
++++ b/src/db/migrate.ts
+@@ -0,0 +1,28 @@
++import 'server-only';
++import { sql } from 'drizzle-orm';
++import { readMigrationFiles } from 'drizzle-orm/migrator';
++import { DB_SCHEMA } from './schema';
++import type { DB } from './types';
++
++const JOURNAL = sql`${sql.identifier(DB_SCHEMA)}.${sql.identifier('__drizzle_migrations')}`;
++
++/**
++ * Applique les migrations de `migrationsFolder` absentes du journal, dans une seule transaction. Même journal que
++ * migrate() de Drizzle avec migrationsSchema, sans son CREATE SCHEMA : le schéma existe déjà (serveur : créé par le
++ * socle ; PGlite : créé par le module d'ouverture). Le verrou est pris avant de créer le journal : deux instances qui
++ * démarrent ensemble appliquent chaque migration une seule fois.
++ */
++export async function migrateSchema(db: DB, migrationsFolder: string): Promise<void> {
++  const migrations = readMigrationFiles({ migrationsFolder });
++  await db.transaction(async (tx) => {
++    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${DB_SCHEMA}.migrations`}))`);
++    await tx.execute(sql`create table if not exists ${JOURNAL} (id serial primary key, hash text not null, created_at bigint)`);
++    const { rows } = await tx.execute<{ created_at: string | number }>(sql`select created_at from ${JOURNAL} order by created_at desc limit 1`);
++    const last = rows[0] ? Number(rows[0].created_at) : -1;
++    for (const m of migrations) {
++      if (m.folderMillis <= last) continue;
++      for (const stmt of m.sql) if (stmt.trim()) await tx.execute(sql.raw(stmt));
++      await tx.execute(sql`insert into ${JOURNAL} (hash, created_at) values (${m.hash}, ${m.folderMillis})`);
++    }
++  });
++}
+--- a/src/db/schema.ts
++++ b/src/db/schema.ts
+@@ -1,8 +1,16 @@
+ import { sql } from 'drizzle-orm';
+-import { boolean, date, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, jsonb, pgSchema, primaryKey, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+ 
+ // Data model of the GED — see docs/modele-cible.md.
+ 
++/**
++ * PostgreSQL schema of Codex: its tables and the journal of its migrations, on the shared EPC2I server and in PGlite.
++ * The pgSchema object is deliberately not exported: exported, drizzle-kit would start the migration with
++ * CREATE SCHEMA, which the codex_app role may not run (the schema is created by the server setup).
++ */
++export const DB_SCHEMA = 'codex';
++const codex = pgSchema(DB_SCHEMA);
++
+ /** Text that is either written once (user content) or carried in both interface languages (system labels, seed data). */
+ export type Localized = string | { fr: string; en: string };
+ 
+@@ -18,21 +26,21 @@
+ 
+ // ── Organisation (provisional until the org chart is provided) ─────────────
+ 
+-export const departments = pgTable('departments', {
++export const departments = codex.table('departments', {
+   code: text('code').primaryKey(), // 3 letters, used in document IDs without attachment
+   labelFr: text('label_fr').notNull(),
+   labelEn: text('label_en').notNull(),
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const sites = pgTable('sites', {
++export const sites = codex.table('sites', {
+   key: text('key').primaryKey(),
+   label: text('label').notNull(),
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+ /** People of the group. `role` is the default simulated application role; system actors (Codex, Keystone, Vigie) are flagged. */
+-export const users = pgTable('users', {
++export const users = codex.table('users', {
+   id: text('id').primaryKey(),
+   name: text('name').notNull(),
+   initials: text('initials').notNull(),
+@@ -45,7 +53,7 @@
+ 
+ // ── Registry of document types (owned by Codex, read by Keystone) ─────────
+ 
+-export const families = pgTable('families', {
++export const families = codex.table('families', {
+   key: text('key').primaryKey(),
+   labelFr: text('label_fr').notNull(),
+   labelEn: text('label_en').notNull(),
+@@ -54,7 +62,7 @@
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const docTypes = pgTable('doc_types', {
++export const docTypes = codex.table('doc_types', {
+   code: text('code').primaryKey(),
+   labelFr: text('label_fr').notNull(),
+   labelEn: text('label_en').notNull(),
+@@ -78,7 +86,7 @@
+ });
+ 
+ /** Functions that approval circuits are made of (Responsable qualité, Chef de projet…). */
+-export const functions = pgTable('functions', {
++export const functions = codex.table('functions', {
+   key: text('key').primaryKey(),
+   labelFr: text('label_fr').notNull(),
+   labelEn: text('label_en').notNull(),
+@@ -87,7 +95,7 @@
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const functionHolders = pgTable('function_holders', {
++export const functionHolders = codex.table('function_holders', {
+   id: serial('id').primaryKey(),
+   functionKey: text('function_key').notNull().references(() => functions.key),
+   /** Department code, project code or programme code for scoped functions; null for global ones. */
+@@ -98,7 +106,7 @@
+ // ── Projects (Keystone) and research programmes ─────────────────────────
+ 
+ /** Projects mirrored from Keystone (simulated until the Keystone integration exists). */
+-export const projects = pgTable('projects', {
++export const projects = codex.table('projects', {
+   code: text('code').primaryKey(),
+   name: text('name').notNull(),
+   client: text('client').notNull(),
+@@ -109,7 +117,7 @@
+   syncedAt: timestamp('synced_at', { mode: 'string' }).notNull(),
+ });
+ 
+-export const researchPrograms = pgTable('research_programs', {
++export const researchPrograms = codex.table('research_programs', {
+   code: text('code').primaryKey(),
+   name: text('name').notNull(),
+   managerId: text('manager_id').notNull().references(() => users.id),
+@@ -117,7 +125,7 @@
+ 
+ // ── Documents ───────────────────────────────────────────────────────────
+ 
+-export const documents = pgTable('documents', {
++export const documents = codex.table('documents', {
+   /** TYPE-CONTEXTE-SEQ, frozen once a revision has been approved. */
+   id: text('id').primaryKey(),
+   /** Earlier IDs (reclassification before first approval, migrated legacy references). */
+@@ -177,7 +185,7 @@
+ const cascade = { onUpdate: 'cascade' as const };
+ 
+ /** Documents Keystone expects on a project (checklist of the project tab). */
+-export const projectExpected = pgTable('project_expected', {
++export const projectExpected = codex.table('project_expected', {
+   id: serial('id').primaryKey(),
+   projectCode: text('project_code').notNull().references(() => projects.code),
+   label: jsonb('label').$type<Localized>().notNull(),
+@@ -187,7 +195,7 @@
+   sort: integer('sort').notNull().default(0),
+ });
+ 
+-export const projectEvents = pgTable('project_events', {
++export const projectEvents = codex.table('project_events', {
+   id: serial('id').primaryKey(),
+   projectCode: text('project_code').notNull().references(() => projects.code),
+   at: timestamp('at', { mode: 'string' }).notNull(),
+@@ -195,7 +203,7 @@
+ });
+ 
+ /** Named readers of a confidential or "très confidentiel" document (lib/access.ts). */
+-export const documentReaders = pgTable(
++export const documentReaders = codex.table(
+   'document_readers',
+   {
+     docId: text('doc_id').notNull().references(docRef, cascade),
+@@ -204,7 +212,7 @@
+   (t) => [primaryKey({ columns: [t.docId, t.userId] })],
+ );
+ 
+-export const revisions = pgTable(
++export const revisions = codex.table(
+   'revisions',
+   {
+     id: serial('id').primaryKey(),
+@@ -226,7 +234,7 @@
+ );
+ 
+ /** Working versions A.1, A.2… of a revision; the last one becomes the revision when approved. */
+-export const workingVersions = pgTable(
++export const workingVersions = codex.table(
+   'working_versions',
+   {
+     id: serial('id').primaryKey(),
+@@ -248,7 +256,7 @@
+ 
+ // ── Approval workflows ──────────────────────────────────────────────────
+ 
+-export const workflows = pgTable(
++export const workflows = codex.table(
+   'workflows',
+   {
+     id: text('id').primaryKey(),
+@@ -265,7 +273,7 @@
+   (t) => [uniqueIndex('workflows_running').on(t.revisionId).where(sql`${t.outcome} is null`)],
+ );
+ 
+-export const workflowSteps = pgTable(
++export const workflowSteps = codex.table(
+   'workflow_steps',
+   {
+     workflowId: text('workflow_id').notNull().references(() => workflows.id),
+@@ -280,7 +288,7 @@
+   (t) => [primaryKey({ columns: [t.workflowId, t.idx] })],
+ );
+ 
+-export const workflowComments = pgTable('workflow_comments', {
++export const workflowComments = codex.table('workflow_comments', {
+   id: serial('id').primaryKey(),
+   workflowId: text('workflow_id').notNull().references(() => workflows.id),
+   authorId: text('author_id').notNull().references(() => users.id),
+@@ -292,7 +300,7 @@
+ 
+ export type ChangeStatus = 'submitted' | 'accepted' | 'rejected' | 'implemented';
+ 
+-export const changeRequests = pgTable(
++export const changeRequests = codex.table(
+   'change_requests',
+   {
+     /** Vigie reference (ECR-…). */
+@@ -317,7 +325,7 @@
+ 
+ // ── Audit, rights, saved searches ───────────────────────────────────────
+ 
+-export const auditLog = pgTable('audit_log', {
++export const auditLog = codex.table('audit_log', {
+   id: serial('id').primaryKey(),
+   at: timestamp('at', { mode: 'string' }).notNull(),
+   userId: text('user_id').notNull().references(() => users.id),
+@@ -326,7 +334,7 @@
+   detail: text('detail').notNull().default(''),
+ });
+ 
+-export const rolePermissions = pgTable(
++export const rolePermissions = codex.table(
+   'role_permissions',
+   {
+     role: text('role').notNull(),
+@@ -336,7 +344,7 @@
+   (t) => [primaryKey({ columns: [t.role, t.perm] })],
+ );
+ 
+-export const savedSearches = pgTable('saved_searches', {
++export const savedSearches = codex.table('saved_searches', {
+   id: serial('id').primaryKey(),
+   label: jsonb('label').$type<Localized>().notNull(),
+   q: text('q').notNull().default(''),
+--- a/src/db/seed.ts
++++ b/src/db/seed.ts
+@@ -84,6 +84,9 @@
+   }
+ 
+   await db.transaction(async (tx) => {
++    // Two server instances may start together: the write lock serialises this transaction, so the second one finds
++    // the users of the first and stops here.
++    if ((await tx.$count(s.users)) > 0) return;
+     await tx.insert(s.departments).values(DEPARTMENTS.map(([code, labelFr, labelEn], sort) => ({ code, labelFr, labelEn, sort })));
+     await tx.insert(s.sites).values(SITES.map(([key, label], sort) => ({ key, label, sort })));
+     await tx.insert(s.users).values(USERS.map((u) => ({
+--- a/src/db/types.ts
++++ b/src/db/types.ts
+@@ -0,0 +1,12 @@
++import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
++import type * as schema from './schema';
++
++/** Résultat de db.execute() commun aux deux pilotes (Results de PGlite, QueryResult de node-postgres) : les lignes. */
++export interface QueryRows<T> {
++  rows: T[];
++}
++export interface AppQueryResultHKT extends PgQueryResultHKT {
++  readonly type: QueryRows<this['row']>;
++}
++export type DB = PgDatabase<AppQueryResultHKT, typeof schema>;
++export type Tx = Parameters<Parameters<DB['transaction']>[0]>[0];

@@ -318,7 +318,7 @@ BEGIN
   ELSIF v_etat = 'ouverte' AND v_kind IN ('r', 'p', 'f') THEN
     DELETE FROM droits.relations_protegees WHERE relid = p_rel;
   ELSIF v_etat = 'fermee' AND v_kind IN ('r', 'p', 'f') THEN
-    RAISE WARNING 'droits : % est fermée à matrix_lecture (colonne de la liste renommée ou supprimée, ou table renommée). Mettez à jour droits.colonnes_sensibles : les droits sont alors réappliqués.', v_id;
+    RAISE WARNING 'droits : % est fermée à matrix_lecture (colonne de la liste absente : pas encore créée, renommée ou supprimée ; ou table renommée). Mettez à jour droits.colonnes_sensibles, ou passez la migration qui crée la colonne : les droits sont alors réappliqués.', v_id;
   END IF;
 END $$;
 
@@ -478,12 +478,23 @@ BEGIN
   WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix') AND c.relkind = 'S'
     AND has_sequence_privilege('matrix_lecture', c.oid, p.priv);
 
+  -- Fonction SECURITY DEFINER d'un outil que matrix_lecture peut appeler : elle lit avec les droits de l'outil,
+  -- colonnes sensibles comprises. Les privilèges par défaut retirent EXECUTE à PUBLIC ; un GRANT explicite de l'outil
+  -- le rend de nouveau possible, et seul ce contrôle le voit.
+  RETURN QUERY
+  SELECT 'attention', format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)),
+         'fonction SECURITY DEFINER exécutable par matrix_lecture : elle lit avec les droits de l''outil, colonnes sensibles comprises ; retirer le GRANT EXECUTE ou la rendre SECURITY INVOKER'
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie') AND p.prosecdef
+    AND has_function_privilege('matrix_lecture', p.oid, 'EXECUTE');
+
   -- Relations que Matrix ne lit pas.
   RETURN QUERY
   SELECT CASE WHEN c.relkind IN ('v', 'm') THEN 'info' ELSE 'attention' END,
          format('%I.%I', n.nspname, c.relname),
          CASE WHEN c.relkind IN ('v', 'm') THEN 'vue fermée à matrix_lecture : elle lit une colonne sensible'
-              WHEN droits._etat_table(c.oid) = 'fermee' THEN 'table fermée à matrix_lecture : colonne de la liste absente ou table renommée ; mettez à jour droits.colonnes_sensibles'
+              WHEN droits._etat_table(c.oid) = 'fermee' THEN 'table fermée à matrix_lecture : colonne de la liste absente (pas encore créée, renommée ou supprimée) ou table renommée ; mettez à jour droits.colonnes_sensibles'
               ELSE 'table illisible par matrix_lecture' END
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')

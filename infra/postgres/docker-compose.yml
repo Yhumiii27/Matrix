@@ -55,6 +55,7 @@ services:
       - epc2i_pgdata:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d:ro
       - ./sauvegarde:/opt/epc2i/sauvegarde:ro
+      - ./verifier-droits.sql:/opt/epc2i/verifier-droits.sql:ro
       - epc2i_sauvegardes:/sauvegardes
     ports:
       # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils

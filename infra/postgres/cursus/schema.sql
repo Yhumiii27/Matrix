@@ -1,7 +1,9 @@
 -- Cursus : schéma PostgreSQL cible (migration 0001), schéma cursus du serveur commun EPC2I.
 --
 -- Source : objet TABLES de server/src/db.ts (28 tables, noms inchangés, snake_case), liens de CURSUS_FK et
--- CURSUS_FK_BY_TABLE (outils/collecteur.mjs de Matrix), décisions du 15/10/2026 (D01, D06 option A).
+-- CURSUS_FK_BY_TABLE (outils/collecteur.mjs de Matrix), décision D01 du 15/10/2026 (matricule).
+-- Les objets des échanges RH (D06, D07 : table evenements_sortants, vues heures_validees_v1, absences_validees_v1,
+-- heures_site_mois_v1) viennent dans la migration suivante, décrite dans docs/remplacement-lucca.md (§ 3.9, § 5.1).
 -- Destination dans Cursus : server/migrations-pg/0001_init.sql (voir docs/architecture-postgres.md, § 8).
 --
 -- Exécution, en tant que cursus_app (propriétaire du schéma), sur un schéma vide :
@@ -26,7 +28,7 @@
 -- Contraintes CHECK : seulement celles qui tiennent sur les données de démonstration ET que tous les chemins
 -- d'écriture du code respectent (actions, seed.ts, migrate.ts, route Keystone). Écartées pour cette raison :
 --   voyages.retour >= depart et demandes_keystone.retour >= depart (la route POST /api/integrations/keystone/demandes,
---   index.ts:150, ne contrôle que le format) ; visas.obtenu <= expire (formalite.enregistrer, voyages.ts:35, ne
+--   index.ts:147-157, ne contrôle que le format) ; visas.obtenu <= expire (formalite.enregistrer, voyages.ts:33-38, ne
 --   compare pas les dates) ; forme de taches.heures (table supprimée par D05).
 --> statement-breakpoint
 CREATE TABLE "cursus"."formations" (
@@ -448,27 +450,6 @@ CREATE INDEX "inscriptions_session_id_index" ON "cursus"."inscriptions" USING bt
 CREATE INDEX "employes_equipe_index" ON "cursus"."employes" USING btree ("equipe");--> statement-breakpoint
 CREATE INDEX "plan_actions_equipe_index" ON "cursus"."plan_actions" USING btree ("equipe");--> statement-breakpoint
 CREATE INDEX "sessions_formation_index" ON "cursus"."sessions" USING btree ("formation");--> statement-breakpoint
--- ── Groupe de doublons D06, option A (Cursus fait foi pour la saisie des heures) : heures validées, une ligne par
---    feuille et par ligne de projet. Keystone et Vigie les reçoivent par l'API de Cursus ; Matrix les lit par
---    matrix_lecture. ref_keystone (identifiant de tâche ou de lot Keystone) reste vide tant que la saisie ne le
---    porte pas (lignes[].ref, à ajouter).
---> statement-breakpoint
-CREATE VIEW "cursus"."heures_validees" AS
-SELECT f."id" AS feuille_id,
-       f."emp_id",
-       e."matricule",
-       f."week" AS semaine,
-       l.ligne ->> 'projet' AS projet,
-       l.ligne ->> 'tache' AS tache,
-       l.ligne ->> 'ref' AS ref_keystone,
-       (SELECT coalesce(sum(h.valeur::numeric), 0) FROM jsonb_array_elements_text(l.ligne -> 'h') AS h(valeur)) AS heures,
-       f."keystone" AS envoye_keystone,
-       f."sage" AS envoye_sage
-FROM "cursus"."feuilles" f
-JOIN "cursus"."employes" e ON e."id" = f."emp_id"
-CROSS JOIN LATERAL jsonb_array_elements(f."lignes") AS l(ligne)
-WHERE f."statut" = 'validee';
---> statement-breakpoint
 -- ── Description des tables (lue par Matrix dans le catalogue PostgreSQL) ──
 --> statement-breakpoint
 COMMENT ON TABLE "cursus"."formations" IS 'Référentiels : catalogue des formations (Cursus fait foi, D08).';--> statement-breakpoint
@@ -499,7 +480,6 @@ COMMENT ON TABLE "cursus"."entretiens" IS 'Entretiens et demandes : entretiens o
 COMMENT ON TABLE "cursus"."demandes_collab" IS 'Entretiens et demandes : demandes des salariés et des managers au service RH.';--> statement-breakpoint
 COMMENT ON TABLE "cursus"."settings" IS 'Système : paramètres clé / valeur.';--> statement-breakpoint
 COMMENT ON TABLE "cursus"."journal" IS 'Système : journal d''audit et d''intégration.';--> statement-breakpoint
-COMMENT ON VIEW "cursus"."heures_validees" IS 'D06 option A : heures des feuilles validées, par feuille et ligne de projet.';--> statement-breakpoint
 COMMENT ON COLUMN "cursus"."formations"."rang" IS 'Ordre d''affichage (remplace le rowid de SQLite).';--> statement-breakpoint
 COMMENT ON COLUMN "cursus"."employes"."matricule" IS 'Identifiant partagé avec Keystone, Codex, Vigie et Sage (D01) ; même règle que shared/format.ts.';--> statement-breakpoint
 COMMENT ON COLUMN "cursus"."employes"."visite" IS 'Sensible (santé) : exclue de matrix_lecture.';--> statement-breakpoint

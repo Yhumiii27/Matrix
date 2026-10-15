@@ -29,6 +29,7 @@ const PG_TABLES = `
   from information_schema.columns c
   join information_schema.tables t on t.table_schema = c.table_schema and t.table_name = c.table_name
   where c.table_schema = current_schema() and t.table_type = 'BASE TABLE'
+    and c.table_name not in ('__drizzle_migrations', 'schema_migrations')
   order by c.table_name, c.ordinal_position`;
 
 const PG_CONSTRAINTS = `
@@ -71,7 +72,7 @@ export async function introspecterPostgres(query) {
 /** Lit le schéma courant d'une base SQLite (DatabaseSync de node:sqlite, ou better-sqlite3). */
 export function introspecterSqlite(db) {
   const all = (sql, ...p) => db.prepare(sql).all(...p);
-  const names = all(`select name from sqlite_master where type = 'table' and name not like 'sqlite_%' order by name`).map(r => r.name);
+  const names = all(`select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not in ('__drizzle_migrations', 'schema_migrations') order by name`).map(r => r.name);
   return names.map(name => {
     const q = `"${name.replace(/"/g, '""')}"`;
     const info = all(`pragma table_info(${q})`);

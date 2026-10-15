@@ -26,7 +26,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | D03 | Chantiers (fiche site d'un projet) | Doublon | Majeur | Keystone.`site_sheets`, Keystone.`site_rotations`, Cursus.`chantiers` | B | ☐ A ☐ B ☐ C |
 | D04 | Affectations des personnes aux projets | Miroir | Majeur | Keystone.`allocations`, Keystone.`activity_assignments`, Cursus.`missions`, Vigie.`keystone_assignments` | B | ☐ A ☐ B |
 | D05 | Tâches et heures prévues | Miroir | Mineur | Keystone.`tasks`, Cursus.`taches` | A | ☐ A ☐ B |
-| D06 | Temps passés | Doublon | Critique | Cursus.`feuilles`, Keystone.`time_entries`, Keystone.`hours_lines`, Vigie.`hours_worked` | A | ☐ A ☐ B ☐ C |
+| D06 | Temps passés | Doublon | Critique | Cursus.`feuilles`, Keystone.`time_entries`, Keystone.`hours_lines`, Vigie.`hours_worked` | A | ☑ A ☐ B ☐ C (provisoire) |
 | D07 | Absences et congés | Doublon | Majeur | Cursus.`absences`, Keystone.`leave_entries`, Keystone.`leave_types` | A | ☐ A ☐ B |
 | D08 | Catalogue des formations et habilitations | Doublon | Majeur | Cursus.`formations`, Cursus.`habilitations`, Vigie.`training_titles` | A | ☐ A ☐ B |
 | D09 | Titres détenus par les personnes | Doublon | Majeur | Cursus.`certifications`, Cursus.`hab_titres`, Vigie.`qualifications`, Keystone.`certifications` | A | ☐ A ☐ B |
@@ -196,11 +196,13 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Cursus fait foi pour la saisie ; Keystone et Vigie reçoivent les heures validées** *(proposé)* : Keystone remplit hours_lines depuis Cursus au lieu de Lucca et retire la saisie time_entries. Vigie calcule hours_worked depuis Cursus.
+- ☑ **A. Cursus fait foi pour la saisie ; Keystone et Vigie reçoivent les heures validées** *(proposé)* : Keystone remplit hours_lines depuis Cursus au lieu de Lucca et retire la saisie time_entries. Vigie calcule hours_worked depuis Cursus.
 - ☐ **B. Lucca fait foi ; Cursus et Keystone importent** : Cursus abandonne la saisie des feuilles et garde la validation.
 - ☐ **C. Keystone fait foi pour les heures projet ; Cursus pour la paie** : Deux saisies distinctes, à rapprocher chaque mois.
 
 **Pourquoi A.** Cursus valide déjà les feuilles et alimente la paie ; une seule saisie évite les écarts entre paie et coûts projet. Point à trancher avec la DRH : Lucca est-il remplacé par Cursus ?
+
+**Décision provisoire du 15/10/2026.** « Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas. » Tout est préparé pour que Cursus remplace Lucca (voir docs/remplacement-lucca.md). La bascule reste réversible tant que la décision n'est pas confirmée.
 
 ## D07 · Absences et congés
 

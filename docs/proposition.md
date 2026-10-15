@@ -80,7 +80,7 @@ Les autres règles de Codex sont reprises :
 
 **Étape 1 : catalogue (maquette actuelle).** Matrix lit les schémas, sans accès aux données. Aucun changement dans les outils, sauf l'ajout de la déclaration du schéma.
 
-**Étape 2 : un serveur PostgreSQL commun, un schéma par outil.** Les quatre bases restent séparées, mais sur un même serveur :
+**Étape 2 : un serveur PostgreSQL commun, un schéma par outil (validé le 15 octobre 2026).** Les quatre bases restent séparées, mais sur un même serveur :
 
 ```
 serveur PostgreSQL EPC2I
@@ -147,13 +147,16 @@ Les tables de correspondance (personnes, projets, sites) tranchées dans la list
 | 3 · Serveur commun | Serveur PostgreSQL à schéma par outil ; bascule de Keystone, Codex et Vigie ; migration de Cursus ; compte de lecture de Matrix. |
 | 4 · Administration | Volumétrie, extraits masqués, lignes orphelines, sauvegardes, journal. |
 
-## 7. Questions ouvertes
+## 7. Décisions et questions ouvertes
 
-| | Question |
+Décidé le 15 octobre 2026 (détail et citations dans `docs/decisions.md`) :
+- **M-01, serveur PostgreSQL commun avec un schéma par outil : validé.** Le plan est dans `docs/architecture-postgres.md` et le socle dans `infra/postgres/`.
+- **M-03, remplacement de Lucca par Cursus : préparé, décision provisoire.** Tout est préparé comme si Cursus remplaçait Lucca (`docs/remplacement-lucca.md`) ; rien n'est retiré tant que ce n'est pas confirmé.
+
+| | Question encore ouverte |
 |---|---|
-| M-01 | Validez-vous le serveur PostgreSQL commun avec un schéma par outil (étape 2) ? |
-| M-02 | Les décisions sur les 20 groupes de doublons (`docs/doublons-a-trancher.md`), en commençant par les 4 critiques. |
-| M-03 | Temps passés : Cursus remplace-t-il Lucca pour la saisie des heures (groupe D06) ? |
+| M-02 | Les décisions sur les autres groupes de doublons (`docs/doublons-a-trancher.md`), en commençant par les critiques : D01 personnes, D02 projets, D10 documents. |
+| M-03 | Confirmer le remplacement de Lucca. |
 | M-04 | Qui documente les tables : le service informatique seul, ou un responsable par domaine (RH, QHSE, projets, documents) ? |
-| M-05 | Faut-il ajouter le module de déclaration dans les quatre dépôts maintenant (une branche et une demande de fusion par outil) ? |
+| M-05 | Autorisez-vous les modifications dans le code des quatre outils (une branche et une demande de fusion par outil, à valider avant toute fusion) ? Matrix seul ne suffit pas : la déclaration des tables, le passage à PostgreSQL et le remplacement de Lucca demandent des changements dans Keystone, Codex, Cursus et Vigie. |
 | M-06 | Fournisseur d'authentification : même réponse que la question O-02 de Codex. |

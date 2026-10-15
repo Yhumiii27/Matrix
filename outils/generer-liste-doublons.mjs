@@ -29,7 +29,8 @@ out.push('- Vous pouvez aussi choisir les options dans la maquette, écran « Do
 out.push('## Synthèse', '');
 out.push('| | Objet | Nature | Gravité | Tables | Proposé | Décision |');
 out.push('|---|---|---|---|---|---|---|');
-for (const g of groupes) out.push(`| ${g.id} | ${cell(g.objet)} | ${NATURE[g.nature]} | ${GRAV[g.gravite]} | ${cell(tables(g))} | ${g.recommandation} | ${g.options.map(o => '☐ ' + o.id).join(' ')} |`);
+const box = (g, o) => (g.decision?.option === o.id ? '☑ ' : '☐ ') + o.id;
+for (const g of groupes) out.push(`| ${g.id} | ${cell(g.objet)} | ${NATURE[g.nature]} | ${GRAV[g.gravite]} | ${cell(tables(g))} | ${g.recommandation} | ${g.options.map(o => box(g, o)).join(' ')}${g.decision ? ` (${g.decision.statut})` : ''} |`);
 out.push('');
 for (const g of groupes) {
   out.push(`## ${g.id} · ${g.objet}`, '');
@@ -40,8 +41,9 @@ for (const g of groupes) {
   out.push('');
   if (g.champs.length) { out.push('**Colonnes qui se correspondent**', ''); for (const c of g.champs) out.push(`- \`${c}\``); out.push(''); }
   out.push('**Options**', '');
-  for (const o of g.options) out.push(`- ☐ **${o.id}. ${o.libelle}**${o.id === g.recommandation ? ' *(proposé)*' : ''} : ${o.effet}`);
+  for (const o of g.options) out.push(`- ${g.decision?.option === o.id ? '☑' : '☐'} **${o.id}. ${o.libelle}**${o.id === g.recommandation ? ' *(proposé)*' : ''} : ${o.effet}`);
   out.push('', `**Pourquoi ${g.recommandation}.** ${g.raison}`, '');
+  if (g.decision) out.push(`**Décision ${g.decision.statut} du ${g.decision.le.split('-').reverse().join('/')}.** « ${g.decision.citation} » ${g.decision.effet}`, '');
 }
 writeFileSync(join(root, 'docs/doublons-a-trancher.md'), out.join('\n'));
 console.log(`docs/doublons-a-trancher.md · ${groupes.length} groupes`);

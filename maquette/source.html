@@ -401,9 +401,10 @@ const Decisions = (() => {
   let d = {};
   try { d = JSON.parse(localStorage.getItem('matrix.decisions') || '{}') || {}; } catch { d = {}; }
   return {
-    get: id => d[id] || null,
-    set(id, v) { if (v) d[id] = v; else delete d[id]; try { localStorage.setItem('matrix.decisions', JSON.stringify(d)); } catch { /* stockage indisponible */ } navBadge(); },
-    count: () => DOUBLONS.filter(g => d[g.id]).length,
+    get: id => d[id] || DOUBLONS.find(g => g.id === id)?.decision?.option || null,
+    officielle: id => DOUBLONS.find(g => g.id === id)?.decision || null,
+    set(id, v) { if (v && v !== DOUBLONS.find(g => g.id === id)?.decision?.option) d[id] = v; else delete d[id]; try { localStorage.setItem('matrix.decisions', JSON.stringify(d)); } catch { /* stockage indisponible */ } navBadge(); },
+    count: () => DOUBLONS.filter(g => d[g.id] || g.decision).length,
   };
 })();
 const tablesOf = a => [...T.values()].filter(t => t.app === a);
@@ -1101,7 +1102,7 @@ const Dups = (() => {
   function copyDecisions() {
     const lines = DOUBLONS.map(g => {
       const d = Decisions.get(g.id), o = g.options.find(x => x.id === d);
-      return `${g.id} ${g.objet} : ${o ? `option ${o.id} (${o.libelle})` : 'à trancher'}${d && d !== g.recommandation ? ` [proposé : ${g.recommandation}]` : ''}`;
+      return `${g.id} ${g.objet} : ${o ? `option ${o.id} (${o.libelle})` : 'à trancher'}${g.decision && g.decision.option === d ? ` [décision ${g.decision.statut} du ${g.decision.le}]` : ''}${d && d !== g.recommandation ? ` [proposé : ${g.recommandation}]` : ''}`;
     });
     copy(`Décisions sur les doublons (${Decisions.count()}/${DOUBLONS.length})\n` + lines.join('\n'));
   }
@@ -1114,8 +1115,8 @@ const Dups = (() => {
       <td class="num">${g.tables.filter(o => o.table !== '—').length}</td>
       <td>${natureTag(g.nature)}</td><td>${gravTag(g.gravite)}</td>
       <td class="nowrap"><span class="tag tag-ghost">${g.recommandation}</span></td>
-      <td class="nowrap">${d ? `<span class="tag tag-accent">${icon('tick', 10, 2)} ${d}</span>` : '<span class="text-muted sub">à trancher</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Aucun groupe dans ce filtre.</td></tr>`;
-    $('db-foot').textContent = `${Decisions.count()} décision(s) sur ${DOUBLONS.length} · décisions enregistrées dans ce navigateur uniquement`;
+      <td class="nowrap">${d ? `<span class="tag tag-accent" title="${g.decision && g.decision.option === d ? 'Décision ' + g.decision.statut + ' du ' + new Date(g.decision.le).toLocaleDateString('fr-FR') : 'Choix enregistré dans ce navigateur'}">${icon('tick', 10, 2)} ${d}${g.decision && g.decision.option === d && g.decision.statut === 'provisoire' ? ' · provisoire' : ''}</span>` : '<span class="text-muted sub">à trancher</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Aucun groupe dans ce filtre.</td></tr>`;
+    $('db-foot').textContent = `${Decisions.count()} décision(s) sur ${DOUBLONS.length} · ${DOUBLONS.filter(g => g.decision).length} enregistrée(s) dans Matrix, les autres choix restent dans ce navigateur`;
     const g = DOUBLONS.find(x => x.id === st.sel); const d = Decisions.get(g.id);
     $('db-quick').innerHTML = `<div class="quick-head"><div class="quick-title">${esc(g.objet)}</div></div>
       <div class="tags"><span class="tag tag-ghost">${g.id}</span>${natureTag(g.nature)}${gravTag(g.gravite)}</div>
@@ -1128,6 +1129,7 @@ const Dups = (() => {
           <span class="option-head"><span class="option-id">${o.id}</span><span>${esc(o.libelle)}</span>${o.id === g.recommandation ? '<span class="tag tag-ghost" style="margin-left:auto">proposé</span>' : ''}</span>
           <span class="sub text-muted">${esc(o.effet)}</span></button>`).join('')}</div></div>
       <p class="note"><b style="font-weight:500">Pourquoi ${g.recommandation} :</b> ${esc(g.raison)}</p>
+      ${g.decision ? `<div><div class="block-title">Décision ${esc(g.decision.statut)} du ${new Date(g.decision.le).toLocaleDateString('fr-FR')}</div><p class="note">« ${esc(g.decision.citation)} »<br><span class="text-muted">${esc(g.decision.effet)}</span></p></div>` : ''}
       <div class="actions"><button class="btn btn-primary" id="db-graph">${icon('graph', 14)} Voir dans le graphe</button></div>`;
     $('db-graph').addEventListener('click', () => { const f = g.tables.find(o => o.table !== '—'); Graph.focusTable(key(f.app, f.table), { doublons: true }); });
   }
@@ -1166,9 +1168,10 @@ RENDER.administration = () => {
   ];
   const draw = () => {
     let body = '';
-    if (tab === 'connexions') body = `<div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th>Moteur actuel</th><th>Emplacement des données</th><th>Accès de Matrix</th><th>État</th></tr></thead><tbody>
-      ${APP_IDS.map(a => `<tr><td class="nowrap">${appMark(a)} ${APPS[a].nom}</td><td>${esc(APPS[a].moteur)}</td><td class="mono text-muted">${esc(APPS[a].donnees)}</td><td>${a === 'cursus' ? 'Point d’introspection en attendant la migration vers PostgreSQL' : 'Compte en lecture seule sur le schéma <span class="mono">' + a + '</span>'}</td><td><span class="tag tag-neutral">Schéma lu depuis le dépôt</span></td></tr>`).join('')}</tbody></table></div>
-      <p class="note" style="margin-top:14px">Les quatre bases sont aujourd’hui embarquées dans leur application. Matrix lit leur schéma depuis le code source. Pour lire les données et suivre la volumétrie, il faut un serveur PostgreSQL partagé : voir la proposition, section Architecture.</p>`;
+    if (tab === 'connexions') body = `<div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th>Aujourd’hui</th><th>Cible validée le 15/10/2026</th><th>Rôle de l’outil</th><th>Accès de Matrix</th></tr></thead><tbody>
+      ${APP_IDS.map(a => `<tr><td class="nowrap">${appMark(a)} ${APPS[a].nom}</td><td>${esc(APPS[a].moteur)}<div class="sub text-muted mono">${esc(APPS[a].donnees)}</div></td><td>Schéma <span class="mono">${a}</span> de la base <span class="mono">epc2i</span>${a === 'cursus' ? '<div class="sub text-muted">migration depuis SQLite, 37 clés étrangères à déclarer</div>' : ''}</td><td class="mono">${a}_app</td><td><span class="mono">matrix_lecture</span><div class="sub text-muted">lecture seule${a === 'cursus' || a === 'vigie' ? ', colonnes sensibles exclues' : ''}</div></td></tr>`).join('')}
+      <tr><td class="nowrap">${icon('matrix', 16)} Matrix</td><td class="text-muted">—</td><td>Schéma <span class="mono">matrix</span></td><td class="mono">matrix_app</td><td class="text-muted">catalogue, correspondances, historique</td></tr></tbody></table></div>
+      <p class="note" style="margin-top:14px">Serveur PostgreSQL commun avec un schéma par outil : validé le 15 octobre 2026. Chaque outil reste seul propriétaire de son schéma et ne voit pas ceux des autres. Matrix lit tout en lecture seule, sans les colonnes sensibles. En développement et dans l’application Mac, chaque outil garde sa base embarquée.</p>`;
     else if (tab === 'collecte') {
       const TYPES = { table_ajoutee: 'Table ajoutée', table_supprimee: 'Table supprimée', colonne_ajoutee: 'Colonne ajoutée', colonne_supprimee: 'Colonne supprimée' };
       body = `<div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th>Source du schéma</th><th class="num">Tables</th><th class="num">À documenter</th></tr></thead><tbody>

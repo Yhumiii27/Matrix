@@ -1,5 +1,5 @@
 {
-  "_lisezmoi": "Tables en doublon entre Keystone, Codex, Cursus et Vigie, relevées le 15 octobre 2026. Méthode : comparaison automatique des noms et des colonnes de chaque paire de tables entre deux bases (outils/collecteur.mjs), puis relecture du code et des jeux de démo. nature : doublon = même objet, saisi deux fois ; miroir = copie locale d'une table d'un autre outil ; chevauchement = objets voisins qui se recouvrent en partie ; homonyme = même nom, objets différents ; technique = table d'infrastructure propre à chaque outil. Le champ decision est à remplir.",
+  "_lisezmoi": "Tables en doublon entre Keystone, Codex, Cursus et Vigie, relevées le 15 octobre 2026. Méthode : comparaison automatique des noms et des colonnes de chaque paire de tables entre deux bases (outils/collecteur.mjs), puis relecture du code et des jeux de démo. nature : doublon = même objet, saisi deux fois ; miroir = copie locale d'une table d'un autre outil ; chevauchement = objets voisins qui se recouvrent en partie ; homonyme = même nom, objets différents ; technique = table d'infrastructure propre à chaque outil. Le champ decision est rempli quand l'utilisateur a tranché (statut : definitive ou provisoire, avec sa citation exacte).",
   "groupes": [
     {
       "id": "D01", "objet": "Personnes", "nature": "doublon", "gravite": "critique",
@@ -102,7 +102,8 @@
         { "id": "C", "libelle": "Keystone fait foi pour les heures projet ; Cursus pour la paie", "effet": "Deux saisies distinctes, à rapprocher chaque mois." }
       ],
       "recommandation": "A",
-      "raison": "Cursus valide déjà les feuilles et alimente la paie ; une seule saisie évite les écarts entre paie et coûts projet. Point à trancher avec la DRH : Lucca est-il remplacé par Cursus ?"
+      "raison": "Cursus valide déjà les feuilles et alimente la paie ; une seule saisie évite les écarts entre paie et coûts projet. Point à trancher avec la DRH : Lucca est-il remplacé par Cursus ?",
+      "decision": { "option": "A", "statut": "provisoire", "le": "2026-10-15", "citation": "Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas.", "effet": "Tout est préparé pour que Cursus remplace Lucca (voir docs/remplacement-lucca.md). La bascule reste réversible tant que la décision n'est pas confirmée." }
     },
     {
       "id": "D07", "objet": "Absences et congés", "nature": "doublon", "gravite": "majeur",

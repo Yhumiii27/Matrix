@@ -43,7 +43,7 @@ for (const g of groupes) {
   out.push('**Options**', '');
   for (const o of g.options) out.push(`- ${g.decision?.option === o.id ? '☑' : '☐'} **${o.id}. ${o.libelle}**${o.id === g.recommandation ? ' *(proposé)*' : ''} : ${o.effet}`);
   out.push('', `**Pourquoi ${g.recommandation}.** ${g.raison}`, '');
-  if (g.decision) out.push(`**Décision ${g.decision.statut} du ${g.decision.le.split('-').reverse().join('/')}.** « ${g.decision.citation} » ${g.decision.effet}`, '');
+  if (g.decision) out.push(`**Décision ${g.decision.statut} du ${g.decision.le.split('-').reverse().join('/')}.** « ${g.decision.citation} »${g.decision.effet ? " " + g.decision.effet : ""}`, '');
 }
 writeFileSync(join(root, 'docs/doublons-a-trancher.md'), out.join('\n'));
 console.log(`docs/doublons-a-trancher.md · ${groupes.length} groupes`);

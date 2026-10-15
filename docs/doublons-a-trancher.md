@@ -21,26 +21,26 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 | | Objet | Nature | Gravité | Tables | Proposé | Décision |
 |---|---|---|---|---|---|---|
-| D01 | Personnes | Doublon | Critique | Cursus.`employes`, Keystone.`persons`, Codex.`users`, Vigie.`people` | A | ☐ A ☐ B ☐ C |
-| D02 | Projets | Miroir | Critique | Keystone.`projects`, Codex.`projects`, Vigie.`keystone_projects`, Cursus.`projets` | B | ☐ A ☐ B ☐ C |
-| D03 | Chantiers (fiche site d'un projet) | Doublon | Majeur | Keystone.`site_sheets`, Keystone.`site_rotations`, Cursus.`chantiers` | B | ☐ A ☐ B ☐ C |
-| D04 | Affectations des personnes aux projets | Miroir | Majeur | Keystone.`allocations`, Keystone.`activity_assignments`, Cursus.`missions`, Vigie.`keystone_assignments` | B | ☐ A ☐ B |
-| D05 | Tâches et heures prévues | Miroir | Mineur | Keystone.`tasks`, Cursus.`taches` | A | ☐ A ☐ B |
+| D01 | Personnes | Doublon | Critique | Cursus.`employes`, Keystone.`persons`, Codex.`users`, Vigie.`people` | A | ☑ A ☐ B ☐ C (definitive) |
+| D02 | Projets | Miroir | Critique | Keystone.`projects`, Codex.`projects`, Vigie.`keystone_projects`, Cursus.`projets` | B | ☐ A ☑ B ☐ C (definitive) |
+| D03 | Chantiers (fiche site d'un projet) | Doublon | Majeur | Keystone.`site_sheets`, Keystone.`site_rotations`, Cursus.`chantiers` | B | ☐ A ☑ B ☐ C (definitive) |
+| D04 | Affectations des personnes aux projets | Miroir | Majeur | Keystone.`allocations`, Keystone.`activity_assignments`, Cursus.`missions`, Vigie.`keystone_assignments` | B | ☐ A ☑ B (definitive) |
+| D05 | Tâches et heures prévues | Miroir | Mineur | Keystone.`tasks`, Cursus.`taches` | A | ☑ A ☐ B (definitive) |
 | D06 | Temps passés | Doublon | Critique | Cursus.`feuilles`, Keystone.`time_entries`, Keystone.`hours_lines`, Vigie.`hours_worked` | A | ☑ A ☐ B ☐ C (provisoire) |
-| D07 | Absences et congés | Doublon | Majeur | Cursus.`absences`, Keystone.`leave_entries`, Keystone.`leave_types` | A | ☐ A ☐ B |
-| D08 | Catalogue des formations et habilitations | Doublon | Majeur | Cursus.`formations`, Cursus.`habilitations`, Vigie.`training_titles` | A | ☐ A ☐ B |
-| D09 | Titres détenus par les personnes | Doublon | Majeur | Cursus.`certifications`, Cursus.`hab_titres`, Vigie.`qualifications`, Keystone.`certifications` | A | ☐ A ☐ B |
-| D10 | Documents | Doublon | Critique | Codex.`documents`, Codex.`revisions`, Codex.`workflows`, Keystone.`documents`, Keystone.`document_revisions`, Keystone.`document_approvals`, Vigie.`documents`, Vigie.`document_versions` | A | ☐ A ☐ B |
-| D11 | Registre des types de document et circuits | Doublon | Majeur | Codex.`doc_types`, Codex.`function_holders`, Keystone.`document_types`, Keystone.`document_type_circuit_steps`, Keystone.`document_approver_assignments` | A | ☐ A ☐ B |
-| D12 | Demandes et ordres de modification (ECR / ECO) | Chevauchement | Majeur | Codex.`change_requests`, Keystone.`vigie_ecos` | A | ☐ A ☐ B |
-| D13 | Non-conformités et éléments HSE de projet | Miroir | Mineur | Vigie.`events`, Keystone.`vigie_ncrs`, Keystone.`vigie_hse_items` | A | ☐ A |
-| D14 | Sites et établissements | Doublon | Majeur | Codex.`sites`, Vigie.`sites` | A | ☐ A ☐ B |
-| D15 | Organisation : départements et équipes | Chevauchement | Majeur | Codex.`departments`, Keystone.`departments`, Cursus.`equipes` | A | ☐ A ☐ B |
-| D16 | Clients, fournisseurs et entreprises extérieures | Chevauchement | Mineur | Keystone.`clients`, Keystone.`suppliers`, Vigie.`contractors` | A | ☐ A ☐ B |
-| D17 | Pays | Chevauchement | Mineur | Cursus.`destinations`, Keystone.`countries`, Keystone.`public_holidays` | A | ☐ A ☐ B |
-| D18 | Journaux d'audit | Technique | Mineur | Keystone.`audit_entries`, Codex.`audit_log`, Cursus.`journal` | A | ☐ A ☐ B |
-| D19 | Paramètres et fichiers joints | Technique | Mineur | Keystone.`app_settings`, Cursus.`settings`, Keystone.`stored_files`, Vigie.`attachments` | A | ☐ A |
-| D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports` | A | ☐ A ☐ B |
+| D07 | Absences et congés | Doublon | Majeur | Cursus.`absences`, Keystone.`leave_entries`, Keystone.`leave_types` | A | ☑ A ☐ B (definitive) |
+| D08 | Catalogue des formations et habilitations | Doublon | Majeur | Cursus.`formations`, Cursus.`habilitations`, Vigie.`training_titles` | A | ☑ A ☐ B (definitive) |
+| D09 | Titres détenus par les personnes | Doublon | Majeur | Cursus.`certifications`, Cursus.`hab_titres`, Vigie.`qualifications`, Keystone.`certifications` | A | ☑ A ☐ B (definitive) |
+| D10 | Documents | Doublon | Critique | Codex.`documents`, Codex.`revisions`, Codex.`workflows`, Keystone.`documents`, Keystone.`document_revisions`, Keystone.`document_approvals`, Vigie.`documents`, Vigie.`document_versions` | A | ☑ A ☐ B (definitive) |
+| D11 | Registre des types de document et circuits | Doublon | Majeur | Codex.`doc_types`, Codex.`function_holders`, Keystone.`document_types`, Keystone.`document_type_circuit_steps`, Keystone.`document_approver_assignments` | A | ☑ A ☐ B (definitive) |
+| D12 | Demandes et ordres de modification (ECR / ECO) | Chevauchement | Majeur | Codex.`change_requests`, Keystone.`vigie_ecos` | A | ☑ A ☐ B (definitive) |
+| D13 | Non-conformités et éléments HSE de projet | Miroir | Mineur | Vigie.`events`, Keystone.`vigie_ncrs`, Keystone.`vigie_hse_items` | A | ☑ A (definitive) |
+| D14 | Sites et établissements | Doublon | Majeur | Codex.`sites`, Vigie.`sites` | A | ☑ A ☐ B (definitive) |
+| D15 | Organisation : départements et équipes | Chevauchement | Majeur | Codex.`departments`, Keystone.`departments`, Cursus.`equipes` | A | ☑ A ☐ B (definitive) |
+| D16 | Clients, fournisseurs et entreprises extérieures | Chevauchement | Mineur | Keystone.`clients`, Keystone.`suppliers`, Vigie.`contractors` | A | ☑ A ☐ B (definitive) |
+| D17 | Pays | Chevauchement | Mineur | Cursus.`destinations`, Keystone.`countries`, Keystone.`public_holidays` | A | ☑ A ☐ B (definitive) |
+| D18 | Journaux d'audit | Technique | Mineur | Keystone.`audit_entries`, Codex.`audit_log`, Cursus.`journal` | A | ☑ A ☐ B (definitive) |
+| D19 | Paramètres et fichiers joints | Technique | Mineur | Keystone.`app_settings`, Cursus.`settings`, Keystone.`stored_files`, Vigie.`attachments` | A | ☑ A (definitive) |
+| D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports` | A | ☑ A ☐ B (definitive) |
 
 ## D01 · Personnes
 
@@ -64,11 +64,13 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Fusionner : Cursus fait foi pour les salariés** *(proposé)* : Une seule fiche par salarié, identifiée par le matricule. Keystone, Codex et Vigie gardent une table locale réduite (matricule + données propres à l'outil). Keystone garde les personnes externes (contacts client).
+- ☑ **A. Fusionner : Cursus fait foi pour les salariés** *(proposé)* : Une seule fiche par salarié, identifiée par le matricule. Keystone, Codex et Vigie gardent une table locale réduite (matricule + données propres à l'outil). Keystone garde les personnes externes (contacts client).
 - ☐ **B. Fusionner : annuaire central dans Matrix** : Matrix tient la fiche Personne (alimentée par Entra ID et Cursus) et la diffuse aux quatre outils.
 - ☐ **C. Garder les quatre tables et les rapprocher** : Matrix tient une table de correspondance des identifiants. Les doubles saisies continuent.
 
 **Pourquoi A.** Cursus est le seul outil qui connaît le contrat et l'entrée ou la sortie du salarié. Les autres n'ont besoin que d'une référence.
+
+**Décision definitive du 15/10/2026.** « D01 Personnes : option A (Fusionner : Cursus fait foi pour les salariés) »
 
 ## D02 · Projets
 
@@ -92,10 +94,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 **Options**
 
 - ☐ **A. Garder Keystone seul ; les autres deviennent des miroirs synchronisés** : Mêmes codes partout. Les copies sont mises à jour par l'API Keystone et ne sont plus saisies.
-- ☐ **B. Garder Keystone et ajouter les codes internes dans Keystone** *(proposé)* : Comme A, et les codes hors projet (INT-…) deviennent des projets internes Keystone, avec leur code analytique.
+- ☑ **B. Garder Keystone et ajouter les codes internes dans Keystone** *(proposé)* : Comme A, et les codes hors projet (INT-…) deviennent des projets internes Keystone, avec leur code analytique.
 - ☐ **C. Garder les tables actuelles** : Trois formats de code restent en circulation.
 
 **Pourquoi B.** Les heures imputées sur un code interne doivent aussi remonter dans Sage X3 et Lucca, comme celles des projets.
+
+**Décision definitive du 15/10/2026.** « D02 Projets : option B (Garder Keystone et ajouter les codes internes dans Keystone) »
 
 ## D03 · Chantiers (fiche site d'un projet)
 
@@ -119,10 +123,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 **Options**
 
 - ☐ **A. Keystone fait foi, exigences comprises ; Cursus lit** : Keystone stocke les habilitations exigées par chantier. Cursus calcule le verdict à partir de cette fiche.
-- ☐ **B. Keystone pour le chantier, Cursus pour les exigences** *(proposé)* : Cursus garde une table réduite (code projet + exigences) et lit le reste dans Keystone.
+- ☑ **B. Keystone pour le chantier, Cursus pour les exigences** *(proposé)* : Cursus garde une table réduite (code projet + exigences) et lit le reste dans Keystone.
 - ☐ **C. Garder les deux** : Les dates et l'équipe sont saisies deux fois.
 
 **Pourquoi B.** Les exigences d'habilitation relèvent des RH ; le reste de la fiche relève du projet.
+
+**Décision definitive du 15/10/2026.** « D03 Chantiers (fiche site d'un projet) : option B (Keystone pour le chantier, Cursus pour les exigences) »
 
 ## D04 · Affectations des personnes aux projets
 
@@ -146,9 +152,11 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 **Options**
 
 - ☐ **A. Keystone fait foi ; Cursus et Vigie lisent par API** : Suppression de missions et de keystone_assignments, remplacés par un appel à Keystone.
-- ☐ **B. Keystone fait foi ; copies synchronisées** *(proposé)* : Les tables restent comme cache, mises à jour par Keystone.
+- ☑ **B. Keystone fait foi ; copies synchronisées** *(proposé)* : Les tables restent comme cache, mises à jour par Keystone.
 
 **Pourquoi B.** Cursus et Vigie calculent des alertes en masse ; un cache local évite un appel par personne.
+
+**Décision definitive du 15/10/2026.** « D04 Affectations des personnes aux projets : option B (Keystone fait foi ; copies synchronisées) »
 
 ## D05 · Tâches et heures prévues
 
@@ -169,10 +177,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Keystone fait foi ; Cursus lit au moment de la saisie** *(proposé)* : Suppression de taches ; Keystone expose « tâches d'une personne pour une semaine » (déjà demandé par Cursus).
+- ☑ **A. Keystone fait foi ; Cursus lit au moment de la saisie** *(proposé)* : Suppression de taches ; Keystone expose « tâches d'une personne pour une semaine » (déjà demandé par Cursus).
 - ☐ **B. Garder la copie Cursus synchronisée** : La table reste, mise à jour par Keystone.
 
 **Pourquoi A.** La table ne sert qu'à une suggestion ; la lecture directe est plus simple.
+
+**Décision definitive du 15/10/2026.** « D05 Tâches et heures prévues : option A (Keystone fait foi ; Cursus lit au moment de la saisie) »
 
 ## D06 · Temps passés
 
@@ -202,7 +212,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Pourquoi A.** Cursus valide déjà les feuilles et alimente la paie ; une seule saisie évite les écarts entre paie et coûts projet. Point à trancher avec la DRH : Lucca est-il remplacé par Cursus ?
 
-**Décision provisoire du 15/10/2026.** « Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas. » Tout est préparé pour que Cursus remplace Lucca (voir docs/remplacement-lucca.md). La bascule reste réversible tant que la décision n'est pas confirmée.
+**Décision provisoire du 15/10/2026.** « D06 Temps passés : option A (Cursus fait foi pour la saisie ; Keystone et Vigie reçoivent les heures validées) » Option A retenue dans la liste des décisions. Le remplacement de Lucca reste à confirmer : tout est préparé (docs/remplacement-lucca.md), rien n'est retiré de Lucca avant confirmation.
 
 ## D07 · Absences et congés
 
@@ -225,10 +235,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Cursus fait foi ; Keystone garde une copie en lecture** *(proposé)* : leave_entries n'est plus saisi dans Keystone, seulement alimenté par Cursus.
+- ☑ **A. Cursus fait foi ; Keystone garde une copie en lecture** *(proposé)* : leave_entries n'est plus saisi dans Keystone, seulement alimenté par Cursus.
 - ☐ **B. Garder deux saisies** : Les congés sont déclarés deux fois.
 
 **Pourquoi A.** Le droit à congés (soldes, CET, reports) n'existe que dans Cursus.
+
+**Décision definitive du 15/10/2026.** « D07 Absences et congés : option A (Cursus fait foi ; Keystone garde une copie en lecture) »
 
 ## D08 · Catalogue des formations et habilitations
 
@@ -250,10 +262,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Cursus fait foi ; Vigie lit le catalogue** *(proposé)* : training_titles devient un miroir du catalogue Cursus. Les titres propres au QHSE (accueil sécurité) sont ajoutés dans Cursus.
+- ☑ **A. Cursus fait foi ; Vigie lit le catalogue** *(proposé)* : training_titles devient un miroir du catalogue Cursus. Les titres propres au QHSE (accueil sécurité) sont ajoutés dans Cursus.
 - ☐ **B. Catalogue unique dans Matrix** : Matrix publie les codes de titre et leur validité aux deux outils.
 
 **Pourquoi A.** Cursus porte déjà le coût, l'organisme et les sessions de chaque formation.
+
+**Décision definitive du 15/10/2026.** « D08 Catalogue des formations et habilitations : option A (Cursus fait foi ; Vigie lit le catalogue) »
 
 ## D09 · Titres détenus par les personnes
 
@@ -277,10 +291,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Cursus fait foi ; Vigie et Keystone lisent** *(proposé)* : vigie.qualifications et keystone.certifications deviennent des lectures de Cursus. Vigie garde ses exigences par poste.
+- ☑ **A. Cursus fait foi ; Vigie et Keystone lisent** *(proposé)* : vigie.qualifications et keystone.certifications deviennent des lectures de Cursus. Vigie garde ses exigences par poste.
 - ☐ **B. Garder Vigie pour le QHSE et Cursus pour les RH** : Deux registres à rapprocher.
 
 **Pourquoi A.** Le verdict Go / No Go de Cursus et les alertes de Vigie doivent reposer sur les mêmes titres.
+
+**Décision definitive du 15/10/2026.** « D09 Titres détenus par les personnes : option A (Cursus fait foi ; Vigie et Keystone lisent) »
 
 ## D10 · Documents
 
@@ -308,10 +324,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Codex fait foi ; Keystone et Vigie référencent l'identifiant Codex** *(proposé)* : Les documents de Vigie migrent dans Codex (département QUA / HSE). Keystone garde un index avec codex_id renseigné et supprime ses révisions et signatures.
+- ☑ **A. Codex fait foi ; Keystone et Vigie référencent l'identifiant Codex** *(proposé)* : Les documents de Vigie migrent dans Codex (département QUA / HSE). Keystone garde un index avec codex_id renseigné et supprime ses révisions et signatures.
 - ☐ **B. Codex fait foi, sauf les documents QHSE qui restent dans Vigie** : Deux GED, avec la politique QHSE à supprimer de l'une des deux.
 
 **Pourquoi A.** Il est déjà décidé que Codex prend tout en charge, circuits compris.
+
+**Décision definitive du 15/10/2026.** « D10 Documents : option A (Codex fait foi ; Keystone et Vigie référencent l'identifiant Codex) »
 
 ## D11 · Registre des types de document et circuits
 
@@ -335,10 +353,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Codex fait foi ; Keystone lit /api/registry** *(proposé)* : Les trois tables Keystone deviennent un cache du registre Codex.
+- ☑ **A. Codex fait foi ; Keystone lit /api/registry** *(proposé)* : Les trois tables Keystone deviennent un cache du registre Codex.
 - ☐ **B. Garder les deux registres** : Un même type peut avoir deux circuits différents.
 
 **Pourquoi A.** L'API existe déjà côté Codex.
+
+**Décision definitive du 15/10/2026.** « D11 Registre des types de document et circuits : option A (Codex fait foi ; Keystone lit /api/registry) »
 
 ## D12 · Demandes et ordres de modification (ECR / ECO)
 
@@ -359,10 +379,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Créer les tables ECR / ECO dans Vigie, qui fait foi** *(proposé)* : Codex et Keystone gardent des miroirs alimentés par Vigie (décision déjà prise).
+- ☑ **A. Créer les tables ECR / ECO dans Vigie, qui fait foi** *(proposé)* : Codex et Keystone gardent des miroirs alimentés par Vigie (décision déjà prise).
 - ☐ **B. Codex fait foi pour les ECR de document, Vigie pour les ECO** : Revient sur la décision de centraliser dans Vigie.
 
 **Pourquoi A.** C'est la décision déjà actée dans Codex ; il manque la construction côté Vigie.
+
+**Décision definitive du 15/10/2026.** « D12 Demandes et ordres de modification (ECR / ECO) : option A (Créer les tables ECR / ECO dans Vigie, qui fait foi) »
 
 ## D13 · Non-conformités et éléments HSE de projet
 
@@ -384,9 +406,11 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Vigie fait foi ; garder les miroirs Keystone** *(proposé)* : Vigie publie /api/ncrs et /api/hse selon le contrat proposé par Keystone.
+- ☑ **A. Vigie fait foi ; garder les miroirs Keystone** *(proposé)* : Vigie publie /api/ncrs et /api/hse selon le contrat proposé par Keystone.
 
 **Pourquoi A.** Le miroir est voulu ; il manque l'API côté Vigie.
+
+**Décision definitive du 15/10/2026.** « D13 Non-conformités et éléments HSE de projet : option A (Vigie fait foi ; garder les miroirs Keystone) »
 
 ## D14 · Sites et établissements
 
@@ -406,10 +430,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Une seule liste, publiée par Matrix** *(proposé)* : Codex et Vigie lisent la même liste ; Vigie garde ses attributs Seveso.
+- ☑ **A. Une seule liste, publiée par Matrix** *(proposé)* : Codex et Vigie lisent la même liste ; Vigie garde ses attributs Seveso.
 - ☐ **B. Codex fait foi ; Vigie lit** : Même résultat, sans passer par Matrix.
 
 **Pourquoi A.** Keystone et Cursus auront aussi besoin de la liste (rattachement des salariés et des projets).
+
+**Décision definitive du 15/10/2026.** « D14 Sites et établissements : option A (Une seule liste, publiée par Matrix) »
 
 ## D15 · Organisation : départements et équipes
 
@@ -429,10 +455,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Organigramme unique à niveaux, publié par Matrix** *(proposé)* : Département > service > équipe ; chaque outil choisit son niveau.
+- ☑ **A. Organigramme unique à niveaux, publié par Matrix** *(proposé)* : Département > service > équipe ; chaque outil choisit son niveau.
 - ☐ **B. Garder trois listes et les rapprocher** : Table de correspondance dans Matrix.
 
 **Pourquoi A.** À trancher quand l'organigramme sera fourni (question O-04 de Codex).
+
+**Décision definitive du 15/10/2026.** « D15 Organisation : départements et équipes : option A (Organigramme unique à niveaux, publié par Matrix) »
 
 ## D16 · Clients, fournisseurs et entreprises extérieures
 
@@ -452,10 +480,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Keystone fait foi ; Vigie relie ses entreprises aux fournisseurs** *(proposé)* : Ajout d'une colonne supplier_id dans contractors ; Vigie garde ses contacts HSE.
+- ☑ **A. Keystone fait foi ; Vigie relie ses entreprises aux fournisseurs** *(proposé)* : Ajout d'une colonne supplier_id dans contractors ; Vigie garde ses contacts HSE.
 - ☐ **B. Garder séparé** : Pas de lien entre achats et prévention.
 
 **Pourquoi A.** Le taux de NC fournisseur (Keystone) et les incidents d'entreprise extérieure (Vigie) se recoupent.
+
+**Décision definitive du 15/10/2026.** « D16 Clients, fournisseurs et entreprises extérieures : option A (Keystone fait foi ; Vigie relie ses entreprises aux fournisseurs) »
 
 ## D17 · Pays
 
@@ -476,10 +506,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Liste des pays ISO publiée par Matrix** *(proposé)* : Keystone ajoute le code ISO ; Cursus garde ses règles de voyage.
+- ☑ **A. Liste des pays ISO publiée par Matrix** *(proposé)* : Keystone ajoute le code ISO ; Cursus garde ses règles de voyage.
 - ☐ **B. Garder séparé** : Rapprochement par le nom.
 
 **Pourquoi A.** Faible coût, évite les écarts d'orthographe.
+
+**Décision definitive du 15/10/2026.** « D17 Pays : option A (Liste des pays ISO publiée par Matrix) »
 
 ## D18 · Journaux d'audit
 
@@ -495,10 +527,12 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Garder dans chaque outil ; Matrix les consulte ensemble** *(proposé)* : Vue d'audit transverse dans Matrix, en lecture.
+- ☑ **A. Garder dans chaque outil ; Matrix les consulte ensemble** *(proposé)* : Vue d'audit transverse dans Matrix, en lecture.
 - ☐ **B. Journal central dans Matrix** : Chaque outil écrit dans Matrix.
 
 **Pourquoi A.** Le journal doit rester disponible même si Matrix est arrêté.
+
+**Décision definitive du 15/10/2026.** « D18 Journaux d'audit : option A (Garder dans chaque outil ; Matrix les consulte ensemble) »
 
 ## D19 · Paramètres et fichiers joints
 
@@ -519,9 +553,11 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Garder dans chaque outil** *(proposé)* : Aucun changement. Les fichiers qui ont valeur de document vont dans Codex (voir D10).
+- ☑ **A. Garder dans chaque outil** *(proposé)* : Aucun changement. Les fichiers qui ont valeur de document vont dans Codex (voir D10).
 
 **Pourquoi A.** Données de fonctionnement propres à chaque outil.
+
+**Décision definitive du 15/10/2026.** « D19 Paramètres et fichiers joints : option A (Garder dans chaque outil) »
 
 ## D20 · Homonymes : même nom, objets différents
 
@@ -540,7 +576,9 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Garder et toujours nommer les tables avec leur outil** *(proposé)* : Matrix affiche outil.table partout. Aucun changement de code.
+- ☑ **A. Garder et toujours nommer les tables avec leur outil** *(proposé)* : Matrix affiche outil.table partout. Aucun changement de code.
 - ☐ **B. Renommer lors du passage sur le serveur PostgreSQL commun** : Par exemple vigie.certifications → iso_certifications, cursus.reports → reports_conges.
 
 **Pourquoi A.** Le passage à un schéma par outil suffit à lever l'ambiguïté.
+
+**Décision definitive du 15/10/2026.** « D20 Homonymes : même nom, objets différents : option A (Garder et toujours nommer les tables avec leur outil) »

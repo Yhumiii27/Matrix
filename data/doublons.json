@@ -17,7 +17,8 @@
         { "id": "C", "libelle": "Garder les quatre tables et les rapprocher", "effet": "Matrix tient une table de correspondance des identifiants. Les doubles saisies continuent." }
       ],
       "recommandation": "A",
-      "raison": "Cursus est le seul outil qui connaît le contrat et l'entrée ou la sortie du salarié. Les autres n'ont besoin que d'une référence."
+      "raison": "Cursus est le seul outil qui connaît le contrat et l'entrée ou la sortie du salarié. Les autres n'ont besoin que d'une référence.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D01 Personnes : option A (Fusionner : Cursus fait foi pour les salariés)"}
     },
     {
       "id": "D02", "objet": "Projets", "nature": "miroir", "gravite": "critique",
@@ -35,7 +36,8 @@
         { "id": "C", "libelle": "Garder les tables actuelles", "effet": "Trois formats de code restent en circulation." }
       ],
       "recommandation": "B",
-      "raison": "Les heures imputées sur un code interne doivent aussi remonter dans Sage X3 et Lucca, comme celles des projets."
+      "raison": "Les heures imputées sur un code interne doivent aussi remonter dans Sage X3 et Lucca, comme celles des projets.",
+      "decision": {"option": "B", "statut": "definitive", "le": "2026-10-15", "citation": "D02 Projets : option B (Garder Keystone et ajouter les codes internes dans Keystone)"}
     },
     {
       "id": "D03", "objet": "Chantiers (fiche site d'un projet)", "nature": "doublon", "gravite": "majeur",
@@ -52,7 +54,8 @@
         { "id": "C", "libelle": "Garder les deux", "effet": "Les dates et l'équipe sont saisies deux fois." }
       ],
       "recommandation": "B",
-      "raison": "Les exigences d'habilitation relèvent des RH ; le reste de la fiche relève du projet."
+      "raison": "Les exigences d'habilitation relèvent des RH ; le reste de la fiche relève du projet.",
+      "decision": {"option": "B", "statut": "definitive", "le": "2026-10-15", "citation": "D03 Chantiers (fiche site d'un projet) : option B (Keystone pour le chantier, Cursus pour les exigences)"}
     },
     {
       "id": "D04", "objet": "Affectations des personnes aux projets", "nature": "miroir", "gravite": "majeur",
@@ -69,7 +72,8 @@
         { "id": "B", "libelle": "Keystone fait foi ; copies synchronisées", "effet": "Les tables restent comme cache, mises à jour par Keystone." }
       ],
       "recommandation": "B",
-      "raison": "Cursus et Vigie calculent des alertes en masse ; un cache local évite un appel par personne."
+      "raison": "Cursus et Vigie calculent des alertes en masse ; un cache local évite un appel par personne.",
+      "decision": {"option": "B", "statut": "definitive", "le": "2026-10-15", "citation": "D04 Affectations des personnes aux projets : option B (Keystone fait foi ; copies synchronisées)"}
     },
     {
       "id": "D05", "objet": "Tâches et heures prévues", "nature": "miroir", "gravite": "mineur",
@@ -84,7 +88,8 @@
         { "id": "B", "libelle": "Garder la copie Cursus synchronisée", "effet": "La table reste, mise à jour par Keystone." }
       ],
       "recommandation": "A",
-      "raison": "La table ne sert qu'à une suggestion ; la lecture directe est plus simple."
+      "raison": "La table ne sert qu'à une suggestion ; la lecture directe est plus simple.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D05 Tâches et heures prévues : option A (Keystone fait foi ; Cursus lit au moment de la saisie)"}
     },
     {
       "id": "D06", "objet": "Temps passés", "nature": "doublon", "gravite": "critique",
@@ -103,7 +108,7 @@
       ],
       "recommandation": "A",
       "raison": "Cursus valide déjà les feuilles et alimente la paie ; une seule saisie évite les écarts entre paie et coûts projet. Point à trancher avec la DRH : Lucca est-il remplacé par Cursus ?",
-      "decision": { "option": "A", "statut": "provisoire", "le": "2026-10-15", "citation": "Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas.", "effet": "Tout est préparé pour que Cursus remplace Lucca (voir docs/remplacement-lucca.md). La bascule reste réversible tant que la décision n'est pas confirmée." }
+      "decision": {"option": "A", "statut": "provisoire", "le": "2026-10-15", "citation": "D06 Temps passés : option A (Cursus fait foi pour la saisie ; Keystone et Vigie reçoivent les heures validées)", "citationPrecedente": "Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas.", "effet": "Option A retenue dans la liste des décisions. Le remplacement de Lucca reste à confirmer : tout est préparé (docs/remplacement-lucca.md), rien n'est retiré de Lucca avant confirmation."}
     },
     {
       "id": "D07", "objet": "Absences et congés", "nature": "doublon", "gravite": "majeur",
@@ -119,7 +124,8 @@
         { "id": "B", "libelle": "Garder deux saisies", "effet": "Les congés sont déclarés deux fois." }
       ],
       "recommandation": "A",
-      "raison": "Le droit à congés (soldes, CET, reports) n'existe que dans Cursus."
+      "raison": "Le droit à congés (soldes, CET, reports) n'existe que dans Cursus.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D07 Absences et congés : option A (Cursus fait foi ; Keystone garde une copie en lecture)"}
     },
     {
       "id": "D08", "objet": "Catalogue des formations et habilitations", "nature": "doublon", "gravite": "majeur",
@@ -135,7 +141,8 @@
         { "id": "B", "libelle": "Catalogue unique dans Matrix", "effet": "Matrix publie les codes de titre et leur validité aux deux outils." }
       ],
       "recommandation": "A",
-      "raison": "Cursus porte déjà le coût, l'organisme et les sessions de chaque formation."
+      "raison": "Cursus porte déjà le coût, l'organisme et les sessions de chaque formation.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D08 Catalogue des formations et habilitations : option A (Cursus fait foi ; Vigie lit le catalogue)"}
     },
     {
       "id": "D09", "objet": "Titres détenus par les personnes", "nature": "doublon", "gravite": "majeur",
@@ -152,7 +159,8 @@
         { "id": "B", "libelle": "Garder Vigie pour le QHSE et Cursus pour les RH", "effet": "Deux registres à rapprocher." }
       ],
       "recommandation": "A",
-      "raison": "Le verdict Go / No Go de Cursus et les alertes de Vigie doivent reposer sur les mêmes titres."
+      "raison": "Le verdict Go / No Go de Cursus et les alertes de Vigie doivent reposer sur les mêmes titres.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D09 Titres détenus par les personnes : option A (Cursus fait foi ; Vigie et Keystone lisent)"}
     },
     {
       "id": "D10", "objet": "Documents", "nature": "doublon", "gravite": "critique",
@@ -173,7 +181,8 @@
         { "id": "B", "libelle": "Codex fait foi, sauf les documents QHSE qui restent dans Vigie", "effet": "Deux GED, avec la politique QHSE à supprimer de l'une des deux." }
       ],
       "recommandation": "A",
-      "raison": "Il est déjà décidé que Codex prend tout en charge, circuits compris."
+      "raison": "Il est déjà décidé que Codex prend tout en charge, circuits compris.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D10 Documents : option A (Codex fait foi ; Keystone et Vigie référencent l'identifiant Codex)"}
     },
     {
       "id": "D11", "objet": "Registre des types de document et circuits", "nature": "doublon", "gravite": "majeur",
@@ -191,7 +200,8 @@
         { "id": "B", "libelle": "Garder les deux registres", "effet": "Un même type peut avoir deux circuits différents." }
       ],
       "recommandation": "A",
-      "raison": "L'API existe déjà côté Codex."
+      "raison": "L'API existe déjà côté Codex.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D11 Registre des types de document et circuits : option A (Codex fait foi ; Keystone lit /api/registry)"}
     },
     {
       "id": "D12", "objet": "Demandes et ordres de modification (ECR / ECO)", "nature": "chevauchement", "gravite": "majeur",
@@ -207,7 +217,8 @@
         { "id": "B", "libelle": "Codex fait foi pour les ECR de document, Vigie pour les ECO", "effet": "Revient sur la décision de centraliser dans Vigie." }
       ],
       "recommandation": "A",
-      "raison": "C'est la décision déjà actée dans Codex ; il manque la construction côté Vigie."
+      "raison": "C'est la décision déjà actée dans Codex ; il manque la construction côté Vigie.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D12 Demandes et ordres de modification (ECR / ECO) : option A (Créer les tables ECR / ECO dans Vigie, qui fait foi)"}
     },
     {
       "id": "D13", "objet": "Non-conformités et éléments HSE de projet", "nature": "miroir", "gravite": "mineur",
@@ -222,7 +233,8 @@
         { "id": "A", "libelle": "Vigie fait foi ; garder les miroirs Keystone", "effet": "Vigie publie /api/ncrs et /api/hse selon le contrat proposé par Keystone." }
       ],
       "recommandation": "A",
-      "raison": "Le miroir est voulu ; il manque l'API côté Vigie."
+      "raison": "Le miroir est voulu ; il manque l'API côté Vigie.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D13 Non-conformités et éléments HSE de projet : option A (Vigie fait foi ; garder les miroirs Keystone)"}
     },
     {
       "id": "D14", "objet": "Sites et établissements", "nature": "doublon", "gravite": "majeur",
@@ -237,7 +249,8 @@
         { "id": "B", "libelle": "Codex fait foi ; Vigie lit", "effet": "Même résultat, sans passer par Matrix." }
       ],
       "recommandation": "A",
-      "raison": "Keystone et Cursus auront aussi besoin de la liste (rattachement des salariés et des projets)."
+      "raison": "Keystone et Cursus auront aussi besoin de la liste (rattachement des salariés et des projets).",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D14 Sites et établissements : option A (Une seule liste, publiée par Matrix)"}
     },
     {
       "id": "D15", "objet": "Organisation : départements et équipes", "nature": "chevauchement", "gravite": "majeur",
@@ -253,7 +266,8 @@
         { "id": "B", "libelle": "Garder trois listes et les rapprocher", "effet": "Table de correspondance dans Matrix." }
       ],
       "recommandation": "A",
-      "raison": "À trancher quand l'organigramme sera fourni (question O-04 de Codex)."
+      "raison": "À trancher quand l'organigramme sera fourni (question O-04 de Codex).",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D15 Organisation : départements et équipes : option A (Organigramme unique à niveaux, publié par Matrix)"}
     },
     {
       "id": "D16", "objet": "Clients, fournisseurs et entreprises extérieures", "nature": "chevauchement", "gravite": "mineur",
@@ -269,7 +283,8 @@
         { "id": "B", "libelle": "Garder séparé", "effet": "Pas de lien entre achats et prévention." }
       ],
       "recommandation": "A",
-      "raison": "Le taux de NC fournisseur (Keystone) et les incidents d'entreprise extérieure (Vigie) se recoupent."
+      "raison": "Le taux de NC fournisseur (Keystone) et les incidents d'entreprise extérieure (Vigie) se recoupent.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D16 Clients, fournisseurs et entreprises extérieures : option A (Keystone fait foi ; Vigie relie ses entreprises aux fournisseurs)"}
     },
     {
       "id": "D17", "objet": "Pays", "nature": "chevauchement", "gravite": "mineur",
@@ -285,7 +300,8 @@
         { "id": "B", "libelle": "Garder séparé", "effet": "Rapprochement par le nom." }
       ],
       "recommandation": "A",
-      "raison": "Faible coût, évite les écarts d'orthographe."
+      "raison": "Faible coût, évite les écarts d'orthographe.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D17 Pays : option A (Liste des pays ISO publiée par Matrix)"}
     },
     {
       "id": "D18", "objet": "Journaux d'audit", "nature": "technique", "gravite": "mineur",
@@ -301,7 +317,8 @@
         { "id": "B", "libelle": "Journal central dans Matrix", "effet": "Chaque outil écrit dans Matrix." }
       ],
       "recommandation": "A",
-      "raison": "Le journal doit rester disponible même si Matrix est arrêté."
+      "raison": "Le journal doit rester disponible même si Matrix est arrêté.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D18 Journaux d'audit : option A (Garder dans chaque outil ; Matrix les consulte ensemble)"}
     },
     {
       "id": "D19", "objet": "Paramètres et fichiers joints", "nature": "technique", "gravite": "mineur",
@@ -317,7 +334,8 @@
         { "id": "A", "libelle": "Garder dans chaque outil", "effet": "Aucun changement. Les fichiers qui ont valeur de document vont dans Codex (voir D10)." }
       ],
       "recommandation": "A",
-      "raison": "Données de fonctionnement propres à chaque outil."
+      "raison": "Données de fonctionnement propres à chaque outil.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D19 Paramètres et fichiers joints : option A (Garder dans chaque outil)"}
     },
     {
       "id": "D20", "objet": "Homonymes : même nom, objets différents", "nature": "homonyme", "gravite": "mineur",
@@ -336,7 +354,8 @@
         { "id": "B", "libelle": "Renommer lors du passage sur le serveur PostgreSQL commun", "effet": "Par exemple vigie.certifications → iso_certifications, cursus.reports → reports_conges." }
       ],
       "recommandation": "A",
-      "raison": "Le passage à un schéma par outil suffit à lever l'ambiguïté."
+      "raison": "Le passage à un schéma par outil suffit à lever l'ambiguïté.",
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D20 Homonymes : même nom, objets différents : option A (Garder et toujours nommer les tables avec leur outil)"}
     }
   ]
 }

@@ -108,7 +108,7 @@ serveur PostgreSQL EPC2I
 Les tables de correspondance (personnes, projets, sites) tranchées dans la liste des doublons vivent dans le schéma `matrix` et sont publiées aux outils.
 
 **Technique.**
-- Même pile que Codex et Vigie : Next.js 16, Drizzle et PostgreSQL. Port 3300, déployé par Docker et Coolify.
+- Même pile que Codex et Vigie : Next.js 16, Drizzle et PostgreSQL. Port interne 3000, déployé par Docker et Coolify comme les autres outils.
 - Le graphe utilise Cytoscape.js.
 - L'authentification suivra le choix fait pour les autres outils (question O-02 de Codex, Entra ID proposé).
 
@@ -143,9 +143,12 @@ Les tables de correspondance (personnes, projets, sites) tranchées dans la list
 | Lot | Contenu |
 |---|---|
 | 1 · Catalogue | Application Matrix (bibliothèque, graphe, flux, doublons, qualité) sur les schémas lus dans le code ; réception des déclarations ; ajout du module de déclaration dans les quatre outils. |
-| 2 · Décisions | Saisie des décisions sur les doublons dans Matrix ; tables de correspondance personnes, projets, sites ; publication aux outils. |
-| 3 · Serveur commun | Serveur PostgreSQL à schéma par outil ; bascule de Keystone, Codex et Vigie ; migration de Cursus ; compte de lecture de Matrix. |
-| 4 · Administration | Volumétrie, extraits masqués, lignes orphelines, sauvegardes, journal. |
+| 2 · Décisions | Saisie des décisions sur les doublons dans Matrix ; référentiels (pays, sites, organigramme) et tables de correspondance personnes, projets, sites, tenus dans Matrix. |
+| 3 · Serveur commun | Serveur PostgreSQL à schéma par outil ; bascule de Codex, Vigie et Keystone ; migration de Cursus ; compte de lecture de Matrix (`docs/architecture-postgres.md`, § 10). |
+| 4 · Convergence | Publication aux outils : vues `pub_` de chaque outil après sa bascule, lecture par les autres, caches et suppressions, dans l'ordre des lots de `docs/convergence-des-donnees.md` (§ 6). Les vues d'un outil attendent sa bascule (lot 3). |
+| 5 · Administration | Volumétrie, extraits masqués, lignes orphelines, sauvegardes, journal unifié. |
+
+Le remplacement de Lucca (`docs/remplacement-lucca.md`) suit son propre calendrier : sa construction commence après la couche asynchrone de Cursus, en parallèle des lots 3 et 4 ; sa marche en parallèle attend les référentiels D01, D02, D05 et D14 du lot 4.
 
 ## 7. Décisions et questions ouvertes
 

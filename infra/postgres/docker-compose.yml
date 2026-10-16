@@ -1,0 +1,75 @@
+# Serveur PostgreSQL commun EPC2I : une base epc2i, un schéma par outil (keystone, codex, cursus, vigie, matrix).
+#
+# Mise en service : voir README.md (Coolify ou poste local). Les mots de passe viennent de l'environnement
+# (fichier .env à côté de ce fichier en local, variables de la ressource dans Coolify) ; aucun n'est écrit ici.
+#
+# Les scripts de init/ sont exécutés une seule fois, au premier démarrage, quand le volume de données est vide.
+# Ensuite, on les rejoue à la main avec psql (ils sont rejouables) : voir README.md, « Rejouer le socle ».
+
+name: epc2i-postgres
+
+services:
+  postgres:
+    # PostgreSQL 16 (décision du 15/10/2026). Pour figer la version mineure, remplacer par postgres:16.x-bookworm.
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    shm_size: 256mb
+    stop_grace_period: 60s
+    environment:
+      # Superutilisateur : administration et scripts d'initialisation seulement, jamais dans un outil.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
+      # Lus par init/01-base-et-roles.sql (\getenv) au premier démarrage.
+      KEYSTONE_APP_PASSWORD: ${KEYSTONE_APP_PASSWORD:?KEYSTONE_APP_PASSWORD manquant}
+      CODEX_APP_PASSWORD: ${CODEX_APP_PASSWORD:?CODEX_APP_PASSWORD manquant}
+      CURSUS_APP_PASSWORD: ${CURSUS_APP_PASSWORD:?CURSUS_APP_PASSWORD manquant}
+      VIGIE_APP_PASSWORD: ${VIGIE_APP_PASSWORD:?VIGIE_APP_PASSWORD manquant}
+      MATRIX_APP_PASSWORD: ${MATRIX_APP_PASSWORD:?MATRIX_APP_PASSWORD manquant}
+      EPC2I_SAUVEGARDE_PASSWORD: ${EPC2I_SAUVEGARDE_PASSWORD:?EPC2I_SAUVEGARDE_PASSWORD manquant}
+      # Lus par sauvegarde/sauvegarder.sh.
+      EPC2I_SAUVEGARDE_DIR: /sauvegardes
+      EPC2I_SAUVEGARDE_JOURS: ${EPC2I_SAUVEGARDE_JOURS:-14}
+      # Heure des journaux du serveur. Les sessions sur epc2i restent en UTC, comme PGlite (init/01).
+      TZ: Europe/Paris
+    command:
+      - postgres
+      # Journaux dans le volume de données ($PGDATA/log), un fichier par jour : ils gardent la trace des requêtes
+      # des administrateurs nominatifs (log_statement = all, posé par droits.declarer_admin).
+      - -c
+      - logging_collector=on
+      - -c
+      - log_directory=log
+      - -c
+      - log_filename=postgresql-%Y-%m-%d.log
+      - -c
+      - log_rotation_age=1d
+      - -c
+      - log_rotation_size=0
+      - -c
+      - log_truncate_on_rotation=off
+      - -c
+      - "log_line_prefix=%m [%p] %q%u@%d/%a "
+      - -c
+      - log_lock_waits=on
+    volumes:
+      - epc2i_pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - ./sauvegarde:/opt/epc2i/sauvegarde:ro
+      - ./verifier-droits.sql:/opt/epc2i/verifier-droits.sql:ro
+      - epc2i_sauvegardes:/sauvegardes
+    ports:
+      # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils
+      # déployés dans Coolify passent par le réseau Docker : voir README.md.
+      - "127.0.0.1:${EPC2I_PG_PORT:-5432}:5432"
+    healthcheck:
+      # 127.0.0.1 : le serveur temporaire de l'initialisation n'écoute pas en TCP, le service n'est donc
+      # déclaré prêt qu'après les scripts de init/.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d epc2i"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+volumes:
+  epc2i_pgdata:
+  epc2i_sauvegardes:

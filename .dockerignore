@@ -1,0 +1,6 @@
+# Hors de l'image : dépendances locales, données vivantes locales, git.
+.git
+node_modules
+.data
+declarations
+data/declarations

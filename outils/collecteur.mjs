@@ -129,7 +129,7 @@ function parseDrizzle(dir) {
     for (const stmt of sql.split('--> statement-breakpoint')) {
       const s = stmt.trim();
       let m;
-      if ((m = s.match(/^CREATE TABLE (?:IF NOT EXISTS )?"(\w+)" \(([\s\S]*)\);?$/))) {
+      if ((m = s.match(/^CREATE TABLE (?:IF NOT EXISTS )?(?:"\w+"\.)?"(\w+)" \(([\s\S]*)\);?$/))) {
         const t = { name: m[1], columns: [], fks: [], uniques: [], pk: [] };
         for (const raw of m[2].split(/,\n/)) {
           const line = raw.trim();
@@ -140,22 +140,22 @@ function parseDrizzle(dir) {
         }
         for (const col of t.columns) if (col.pk) t.pk = [col.name];
         tables.set(t.name, t);
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" ADD COLUMN "(\w+)" (.+?);?$/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" ADD COLUMN "(\w+)" (.+?);?$/))) {
         tables.get(m[1])?.columns.push(column(m[2], m[3]));
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" DROP COLUMN "(\w+)"/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" DROP COLUMN "(\w+)"/))) {
         const t = tables.get(m[1]);
         if (t) t.columns = t.columns.filter(c => c.name !== m[2]);
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" ADD CONSTRAINT "\w+" FOREIGN KEY \(([^)]*)\) REFERENCES "\w+"\."(\w+)"\(([^)]*)\) ON DELETE ([a-z ]+?) ON UPDATE/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" ADD CONSTRAINT "\w+" FOREIGN KEY \(([^)]*)\) REFERENCES "\w+"\."(\w+)"\(([^)]*)\) ON DELETE ([a-z ]+?) ON UPDATE/))) {
         tables.get(m[1])?.fks.push({
           columns: m[2].replace(/"/g, '').split(', '), table: m[3], refColumns: m[4].replace(/"/g, '').split(', '),
           onDelete: m[5], declared: true,
         });
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" ADD CONSTRAINT "\w+" UNIQUE(?: NULLS NOT DISTINCT)?\(([^)]*)\)/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" ADD CONSTRAINT "\w+" UNIQUE(?: NULLS NOT DISTINCT)?\(([^)]*)\)/))) {
         tables.get(m[1])?.uniques.push(m[2].replace(/"/g, '').split(','));
-      } else if ((m = s.match(/^ALTER TABLE "(\w+)" RENAME TO "(\w+)"/))) {
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" RENAME TO "(\w+)"/))) {
         const t = tables.get(m[1]);
         if (t) { tables.delete(m[1]); t.name = m[2]; tables.set(m[2], t); }
-      } else if ((m = s.match(/^DROP TABLE (?:IF EXISTS )?"(\w+)"/))) {
+      } else if ((m = s.match(/^DROP TABLE (?:IF EXISTS )?(?:"\w+"\.)?"(\w+)"/))) {
         tables.delete(m[1]);
       }
     }
@@ -245,9 +245,12 @@ function fromDeclarations(dir) {
 
 // ── Enrichissement : domaine, description, liens logiques, sensibilité ───
 
-function enrich(app, tables, comments) {
+// known : fiches déjà connues (collecte précédente ou catalogue embarqué), pour garder domaine et description
+// quand la source (une déclaration, par exemple) ne les porte pas.
+function enrich(app, tables, comments, known = new Map()) {
   return tables.map(t => {
     const c = comments[t.name] ?? {};
+    const k = known.get(t.name) ?? {};
     let domain, description;
     if (app === 'keystone') { domain = KEYSTONE_MODULES[c.file]; description = c.doc; }
     else if (app === 'codex') { domain = CODEX_SECTIONS[c.section] ?? c.section; description = c.doc ?? DESCRIPTIONS.codex[t.name]; }
@@ -259,7 +262,8 @@ function enrich(app, tables, comments) {
       if (ref && !(ref[0] === t.name && ref[1] === col.name) && !fks.some(f => f.columns.includes(col.name)))
         fks.push({ columns: [col.name], table: ref[0], refColumns: [ref[1]], onDelete: null, declared: false });
     }
-    const out = { ...t, fks, domain: domain ?? 'Nouvelles tables', description: description ?? null };
+    const out = { ...t, fks, domain: domain ?? k.domain ?? 'Nouvelles tables', description: description ?? k.description ?? null };
+    delete out.vueLe; delete out.nouvelle; delete out.doublonsPossibles;
     const sens = SENSITIVE[`${app}.${t.name}`];
     if (sens) out.sensitive = sens;
     return out;
@@ -297,21 +301,25 @@ export function similarTables(t, others) {
 
 // ── Assemblage, comparaison à la collecte précédente ─────────────────────
 
-export function collect({ root, dataDir, declDir, now = new Date() }) {
-  const repos = fromRepos(root);
+// fallback : catalogue de secours (celui embarqué dans l'image Docker) pour un outil qui n'a ni déclaration ni dépôt
+// lisible ; sans lui, l'outil disparaîtrait du catalogue.
+export function collect({ root, dataDir, declDir, fallback = null, now = new Date() }) {
+  const repos = root ? fromRepos(root) : {};
   const decls = fromDeclarations(declDir);
   const previousFile = join(dataDir, 'catalogue.json');
-  const previous = existsSync(previousFile) ? JSON.parse(readFileSync(previousFile, 'utf8')) : null;
+  const previous = existsSync(previousFile) ? JSON.parse(readFileSync(previousFile, 'utf8')) : fallback;
+  const fallbackApps = Object.fromEntries((fallback?.apps ?? []).map(a => [a.id, a]));
   const prevApps = Object.fromEntries((previous?.apps ?? []).map(a => [a.id, new Map(a.tables.map(t => [t.name, t]))]));
   const date = now.toISOString();
   const events = [];
 
   const apps = [];
   for (const id of ORDER) {
-    const repo = repos[id], decl = decls[id];
-    if (!repo && !decl) continue;
-    const base = decl ?? repo;
-    const tables = enrich(id, base.tables, repo?.comments ?? {});
+    const repo = repos[id], decl = decls[id], fb = fallbackApps[id];
+    if (!repo && !decl && !fb) continue;
+    const base = decl ?? repo ?? fb;
+    const known = new Map([...(fb?.tables ?? []), ...(prevApps[id]?.values() ?? [])].map(t => [t.name, t]));
+    const tables = enrich(id, base.tables, repo?.comments ?? {}, known);
     const prev = prevApps[id];
     for (const t of tables) {
       const p = prev?.get(t.name);
@@ -329,7 +337,7 @@ export function collect({ root, dataDir, declDir, now = new Date() }) {
     if (prev) for (const name of prev.keys()) if (!tables.some(t => t.name === name)) events.push({ date, app: id, type: 'table_supprimee', table: name });
     apps.push({
       id, tables: tables.sort((a, b) => a.name.localeCompare(b.name)),
-      source: decl ? `déclaration du ${decl.declareLe}` : repo.source,
+      source: decl ? `déclaration du ${decl.declareLe}` : repo ? repo.source : fb.source ?? 'catalogue embarqué',
       ...(decl ? { empreinte: decl.empreinte, version: decl.version } : {}),
     });
   }

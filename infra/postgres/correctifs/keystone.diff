@@ -1,0 +1,3142 @@
+--- a/package.json
++++ b/package.json
+@@ -25,6 +25,7 @@
+     "fast-xml-parser": "5.11.1",
+     "next": "16.4.0",
+     "pdfkit": "0.20.2",
++    "pg": "8.23.1",
+     "react": "19.3.0",
+     "react-dom": "19.3.0",
+     "server-only": "^0.0.1",
+@@ -39,6 +40,7 @@
+     "@types/geojson": "^7946.0.16",
+     "@types/node": "^24.19.1",
+     "@types/pdfkit": "0.17.6",
++    "@types/pg": "8.23.1",
+     "@types/react": "^19",
+     "@types/react-dom": "^19",
+     "@types/topojson-client": "^3.1.5",
+--- a/drizzle.config.ts
++++ b/drizzle.config.ts
+@@ -4,4 +4,6 @@
+   dialect: 'postgresql',
+   schema: './src/server/db/schema/index.ts',
+   out: './drizzle',
++  schemaFilter: ['keystone'],
++  migrations: { schema: 'keystone', table: '__drizzle_migrations' },
+ });
+--- a/vitest.config.ts
++++ b/vitest.config.ts
+@@ -2,6 +2,12 @@
+ import path from 'node:path';
+ 
+ export default defineConfig({
+-  test: { include: ['src/**/*.test.ts'], environment: 'node' },
++  test: {
++    include: ['src/**/*.test.ts'],
++    environment: 'node',
++    globalSetup: ['tests/db-template.ts'],
++    // Tests never reach the shared EPC2i server, even when the shell or a .env file sets DATABASE_URL.
++    env: { DATABASE_URL: '' },
++  },
+   resolve: { alias: { '@': path.resolve(__dirname, 'src'), 'server-only': path.resolve(__dirname, 'src/test/server-only-stub.ts') } },
+ });
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -4,7 +4,7 @@
+   // Native / file-reading server packages stay outside the bundle: PGlite (WASM + data files), pdfkit (reads its AFM font
+   // metrics from node_modules at run time) and exceljs (CommonJS with dynamic requires). Used only by route handlers and
+   // Server Functions (src/server/export, src/server/interchange).
+-  serverExternalPackages: ['@electric-sql/pglite', 'pdfkit', 'exceljs'],
++  serverExternalPackages: ['@electric-sql/pglite', 'pg', 'pdfkit', 'exceljs'],
+   // KEYSTONE_DIST_DIR lets CI / verification builds use their own output folder (e.g. .next-ci) so they never
+   // overwrite the .next build served by the Mac app (desktop/).
+   distDir: process.env.KEYSTONE_DIST_DIR || '.next',
+--- a/tests/db-template.ts
++++ b/tests/db-template.ts
+@@ -0,0 +1,22 @@
++// vitest globalSetup: builds the seeded test database once per run and dumps it; openDatabase() in the test files
++// then loads a private in-memory copy of it (src/server/db/open.ts, KEYSTONE_TEST_DB_TEMPLATE).
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++import { PGlite } from '@electric-sql/pglite';
++import { drizzle } from 'drizzle-orm/pglite';
++import { migrateKeystone } from '@/server/db/migrate';
++import * as schema from '@/server/db/schema';
++import { seedIfEmpty } from '@/server/db/seed';
++
++export default async function setup(): Promise<() => void> {
++  const client = await PGlite.create();
++  const db = drizzle(client, { schema });
++  await migrateKeystone(db, path.join(process.cwd(), 'drizzle'), { createSchema: true });
++  await seedIfEmpty(db);
++  const file = path.join(os.tmpdir(), `keystone-test-db-${process.pid}.tar`);
++  fs.writeFileSync(file, Buffer.from(await (await client.dumpDataDir('none')).arrayBuffer()));
++  await client.close();
++  process.env.KEYSTONE_TEST_DB_TEMPLATE = file;
++  return () => fs.rmSync(file, { force: true });
++}
+--- a/src/server/db/client.ts
++++ b/src/server/db/client.ts
+@@ -1,20 +1,31 @@
+ import 'server-only';
+ import path from 'node:path';
+-import { openDatabase } from './open';
++import { openDatabase, openServerDatabase } from './open';
+ import type { DB } from './types';
+ 
+-// Local database: embedded Postgres (PGlite) in <data dir>/pg, created on first use, migrated from ./drizzle and
+-// seeded from the prototype data set. The data dir is ./.data, or KEYSTONE_DATA_DIR when set (the Mac app keeps its
+-// own copy in ~/Library/Application Support/Keystone). Production targets Postgres (swap the driver to
+-// drizzle-orm/node-postgres; schema and queries stay the same).
++// Two modes, chosen once per server process:
++// - DATABASE_URL set: the shared EPC2i PostgreSQL server, schema keystone (role keystone_app): beta and production.
++// - otherwise: embedded Postgres (PGlite) in <data dir>/pg, created on first use, migrated from ./drizzle and seeded from
++//   the prototype data set. The data dir is ./.data, or KEYSTONE_DATA_DIR when set (the Mac app keeps its own copy in
++//   ~/Library/Application Support/Keystone).
+ export type { DB, Tx } from './types';
+ 
+ const DATA_DIR = process.env.KEYSTONE_DATA_DIR ? path.resolve(process.env.KEYSTONE_DATA_DIR) : path.join(process.cwd(), '.data');
+ const g = globalThis as unknown as { __ksDb?: Promise<DB> };
+ 
++function open(): Promise<DB> {
++  // `next build` prerenders pages that read the database: it must never migrate the shared server.
++  const url = process.env.NEXT_PHASE === 'phase-production-build' ? undefined : process.env.DATABASE_URL;
++  if (!url) return openDatabase(path.join(DATA_DIR, 'pg'));
++  return openServerDatabase(url, {
++    seed: process.env.KEYSTONE_SEED_DEMO === '1',
++    max: process.env.KEYSTONE_DB_POOL_MAX ? Number(process.env.KEYSTONE_DB_POOL_MAX) : undefined,
++  });
++}
++
+ /** Database handle (singleton per server process; survives dev hot reloads). */
+ export function getDb(): Promise<DB> {
+-  if (!g.__ksDb) g.__ksDb = openDatabase(path.join(DATA_DIR, 'pg')).catch((e) => { g.__ksDb = undefined; throw e; });
++  if (!g.__ksDb) g.__ksDb = open().catch((e) => { g.__ksDb = undefined; throw e; });
+   return g.__ksDb;
+ }
+ 
+--- a/src/server/db/migrate.ts
++++ b/src/server/db/migrate.ts
+@@ -0,0 +1,33 @@
++import 'server-only';
++import { sql } from 'drizzle-orm';
++import { readMigrationFiles } from 'drizzle-orm/migrator';
++import type { DB } from './types';
++
++/** Postgres schema holding every Keystone table and the migration journal (shared EPC2i server: one schema per app). */
++export const DB_SCHEMA = 'keystone';
++const JOURNAL = sql.identifier('__drizzle_migrations');
++const SCHEMA = sql.identifier(DB_SCHEMA);
++/** Advisory lock key: two Keystone instances starting together never apply the same migration twice. */
++const LOCK_KEY = 0x4b53_0001;
++
++/**
++ * Applies the migrations of `migrationsFolder` not yet in keystone.__drizzle_migrations, in one transaction.
++ * Same bookkeeping as drizzle-orm's migrate() with migrationsSchema 'keystone' (journal table, hash, created_at), without
++ * its `CREATE SCHEMA IF NOT EXISTS`: on the shared server keystone_app owns the schema but may not create schemas
++ * (Postgres checks the database CREATE right before it looks for the schema). `createSchema` is for PGlite only.
++ */
++export async function migrateKeystone(db: DB, migrationsFolder: string, { createSchema = false } = {}): Promise<void> {
++  const migrations = readMigrationFiles({ migrationsFolder });
++  if (createSchema) await db.execute(sql`create schema if not exists ${SCHEMA}`);
++  await db.transaction(async (tx) => {
++    await tx.execute(sql`select pg_advisory_xact_lock(${LOCK_KEY})`);
++    await tx.execute(sql`create table if not exists ${SCHEMA}.${JOURNAL} (id serial primary key, hash text not null, created_at bigint)`);
++    const { rows } = await tx.execute<{ created_at: string | number }>(sql`select created_at from ${SCHEMA}.${JOURNAL} order by created_at desc limit 1`);
++    const last = rows[0] ? Number(rows[0].created_at) : -1;
++    for (const m of migrations) {
++      if (m.folderMillis <= last) continue;
++      for (const stmt of m.sql) if (stmt.trim()) await tx.execute(sql.raw(stmt));
++      await tx.execute(sql`insert into ${SCHEMA}.${JOURNAL} (hash, created_at) values (${m.hash}, ${m.folderMillis})`);
++    }
++  });
++}
+--- a/src/server/db/open.ts
++++ b/src/server/db/open.ts
+@@ -2,24 +2,86 @@
+ import fs from 'node:fs';
+ import path from 'node:path';
+ import { PGlite } from '@electric-sql/pglite';
+-import { drizzle } from 'drizzle-orm/pglite';
+-import { migrate } from 'drizzle-orm/pglite/migrator';
++import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
++import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
++import { sql } from 'drizzle-orm';
++import { Pool } from 'pg';
++import { DB_SCHEMA, migrateKeystone } from './migrate';
+ import * as schema from './schema';
+ import { seedIfEmpty } from './seed';
+ import type { DB } from './types';
+ 
++const MIGRATIONS = path.join(process.cwd(), 'drizzle');
++
+ /**
+- * Opens (creating if needed) a PGlite database in `dataDir` — in memory when omitted — applies the migrations
+- * of ./drizzle and seeds it from the prototype data set when the projects table is empty.
++ * Opens (creating if needed) a PGlite database in `dataDir` (in memory when omitted), applies the migrations of
++ * ./drizzle in the keystone schema and seeds it from the prototype data set when the projects table is empty.
++ * Development, tests and the Mac app (desktop/) use it.
+  */
+-export async function openDatabase(
+-  dataDir?: string,
+-  migrationsFolder = path.join(process.cwd(), 'drizzle'),
+-): Promise<DB> {
++export async function openDatabase(dataDir?: string, migrationsFolder = MIGRATIONS): Promise<DB> {
++  const template = process.env.KEYSTONE_TEST_DB_TEMPLATE;
++  if (!dataDir && template && migrationsFolder === MIGRATIONS) return openTemplateCopy(template);
+   if (dataDir) fs.mkdirSync(path.dirname(dataDir), { recursive: true });
+   const client = dataDir ? new PGlite(dataDir) : new PGlite();
+-  const db = drizzle(client, { schema });
+-  await migrate(db, { migrationsFolder });
++  await client.exec(`create schema if not exists ${DB_SCHEMA}; set search_path to ${DB_SCHEMA}`);
++  const db: DB = drizzlePglite(client, { schema });
++  await migrateKeystone(db, migrationsFolder);
+   await seedIfEmpty(db);
+   return db;
+ }
++
++/**
++ * Tests: an in-memory copy of the seeded database dumped once per run by tests/db-template.ts (vitest globalSetup).
++ * Same content as a fresh openDatabase(), without the PGlite initdb, migrations and seed of every test file.
++ */
++async function openTemplateCopy(file: string): Promise<DB> {
++  const client = await PGlite.create({ loadDataDir: new Blob([fs.readFileSync(file)]) });
++  await client.exec(`set search_path to ${DB_SCHEMA}`);
++  return drizzlePglite(client, { schema });
++}
++
++export interface ServerDatabaseOptions {
++  migrationsFolder?: string;
++  /** Seeds the prototype data set when the projects table is empty (demo and beta servers only). */
++  seed?: boolean;
++  /** Pool size (KEYSTONE_DB_POOL_MAX, default 10). */
++  max?: number;
++}
++
++/**
++ * Connects to the shared EPC2i PostgreSQL server (`url`, e.g. postgres://keystone_app:…@host:5432/epc2i) as keystone_app:
++ * every connection gets search_path = keystone, migrations go to keystone.__drizzle_migrations. The role owns the
++ * keystone schema and nothing else.
++ */
++export async function openServerDatabase(url: string, opts: ServerDatabaseOptions = {}): Promise<DB> {
++  const pool = new Pool({
++    connectionString: url,
++    max: opts.max ?? 10,
++    application_name: 'keystone',
++    options: `-c search_path=${DB_SCHEMA}`,
++  });
++  pool.on('error', (e) => console.error('[db] idle client error:', e));
++  const db: DB = serializeTransactions(drizzlePg(pool, { schema }));
++  await migrateKeystone(db, opts.migrationsFolder ?? MIGRATIONS);
++  if (opts.seed) await seedIfEmpty(db);
++  return db;
++}
++
++/** Advisory lock taken by every Keystone transaction on the server (key "KS" + 2). */
++const WRITE_LOCK = 0x4b53_0002;
++
++/**
++ * Makes db.transaction() take one transaction-scoped advisory lock first: Keystone transactions run one at a time, as
++ * they do on PGlite (single connection). The DAL computes business numbers (R-21, CR-011…) and positions as max + 1
++ * inside its transactions; without the lock, concurrent writes collide on the unique keys. Reads outside transactions
++ * stay concurrent.
++ */
++function serializeTransactions(db: DB): DB {
++  const transaction = db.transaction.bind(db);
++  db.transaction = ((fn, config) =>
++    transaction(async (tx) => {
++      await tx.execute(sql`select pg_advisory_xact_lock(${WRITE_LOCK})`);
++      return fn(tx);
++    }, config)) as DB['transaction'];
++  return db;
++}
+--- a/src/server/db/schema/_common.ts
++++ b/src/server/db/schema/_common.ts
+@@ -1,5 +1,11 @@
+ // Shared column helpers (docs/spec/11 §0). Relative imports only: drizzle-kit loads these files directly.
+-import { doublePrecision, numeric, timestamp, uuid } from 'drizzle-orm/pg-core';
++import { doublePrecision, numeric, pgSchema, timestamp, uuid } from 'drizzle-orm/pg-core';
++
++/** Postgres schema of Keystone on the shared EPC2i server (one schema per app, owner keystone_app). PGlite uses it too. */
++export const keystoneSchema = pgSchema('keystone');
++
++/** Table in the keystone schema (drop-in for pgTable). */
++export const ksTable = keystoneSchema.table;
+ 
+ /** Surrogate key (UUID). Seeds generate ids client-side so foreign keys can be resolved in one pass. */
+ export const id = () => uuid('id').primaryKey().defaultRandom();
+--- a/src/server/db/schema/aftersales.ts
++++ b/src/server/db/schema/aftersales.ts
+@@ -1,9 +1,9 @@
+ // Installed base and after-sales (docs/spec/11 §3.7 Machine / MachineConfiguration / MachinePartRevision, WarrantyClaim /
+ // Intervention; screens 07 §2.8–2.9, part record "Installed base" 09 §2.2). Keystone owns them. The ECO pins of the
+ // as-maintained configuration come from the Vigie ECO mirror (effectivity targets of type machine), never from here.
+-import { date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { ClaimCoverage, ClaimStatus, InterventionStatus, InterventionType, MachineTypeCode, NcrSeverity, WarrantyStatus } from '../codes';
+-import { id, keur, num, timestamps } from './_common';
++import { id, keur, num, timestamps, ksTable } from './_common';
+ import { clients, persons } from './organisation';
+ import { machineTypes, projects } from './portfolio';
+ 
+@@ -11,7 +11,7 @@
+  * Machines in service (FLEET 3729: 8; machines added in Keystone continue at MCH-050). The zone is derived from the
+  * site's city (cities → countries → zones), else the delivering project's zone, else Europe & North America.
+  */
+-export const machines = pgTable('machines', {
++export const machines = ksTable('machines', {
+   id: id(),
+   /** "MCH-041". */
+   number: text('number').notNull().unique(),
+@@ -38,7 +38,7 @@
+ });
+ 
+ /** As-maintained configuration: the revision of each tracked part fitted on a machine (AS_MAINT 3722: 6 machines). */
+-export const machinePartRevisions = pgTable(
++export const machinePartRevisions = ksTable(
+   'machine_part_revisions',
+   {
+     machineId: uuid('machine_id').notNull().references(() => machines.id, { onDelete: 'cascade' }),
+@@ -51,7 +51,7 @@
+ );
+ 
+ /** Warranty claims (CLAIMS 3730: 8; claims opened in Keystone continue at WC-020). */
+-export const warrantyClaims = pgTable('warranty_claims', {
++export const warrantyClaims = ksTable('warranty_claims', {
+   id: id(),
+   /** "WC-013". */
+   number: text('number').notNull().unique(),
+@@ -76,7 +76,7 @@
+ });
+ 
+ /** Field interventions (INTERVENTIONS 3731: 6). The seed's type text "Corrective · WC-014" is split into type + claim. */
+-export const interventions = pgTable('interventions', {
++export const interventions = ksTable('interventions', {
+   id: id(),
+   /** "IV-082". */
+   number: text('number').notNull().unique(),
+--- a/src/server/db/schema/catalogue.ts
++++ b/src/server/db/schema/catalogue.ts
+@@ -3,14 +3,14 @@
+ // recommended wear & spare parts lists of the systems. Project usage (BOM lines), drawings and revision diffs live in
+ // plm.ts. HS code, quantities and values are first-class columns: the future "Expédition & transport" module
+ // (docs/BACKLOG.md §1) reads them for customs summaries and packing-list checks.
+-import { date, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { ExportControl, PartMakeBuy, PartStatus, PartType, PartUnit, WearSpare } from '../codes';
+-import { eur, id, num, timestamps } from './_common';
++import { eur, id, num, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { suppliers } from './suppliers';
+ 
+ /** Catalogue articles (PARTS 3343, 54 rows; `pu` from WEAR_SPARE 3341). */
+-export const parts = pgTable('parts', {
++export const parts = ksTable('parts', {
+   id: id(),
+   /** "EL-VFD-200". */
+   ref: text('ref').notNull().unique(),
+@@ -46,7 +46,7 @@
+ });
+ 
+ /** Registered equivalents (`PARTS.equiv`), one row per direction as the catalogue lists them. */
+-export const partEquivalents = pgTable(
++export const partEquivalents = ksTable(
+   'part_equivalents',
+   {
+     partId: uuid('part_id').notNull().references(() => parts.id, { onDelete: 'cascade' }),
+@@ -57,7 +57,7 @@
+ );
+ 
+ /** Last purchase price (LAST_PRICE 3428, 15 parts); `lastPrice(p)` falls back to the list price. */
+-export const partLastPrices = pgTable('part_last_prices', {
++export const partLastPrices = ksTable('part_last_prices', {
+   partId: uuid('part_id').primaryKey().references(() => parts.id, { onDelete: 'cascade' }),
+   unitPriceEur: eur('unit_price_eur').notNull(),
+   /** Unknown for the seed. */
+@@ -67,7 +67,7 @@
+ });
+ 
+ /** Product structure (TREE 3421): child × quantity per parent assembly, in drawing order. */
+-export const assemblyLinks = pgTable(
++export const assemblyLinks = ksTable(
+   'assembly_links',
+   {
+     id: id(),
+@@ -80,7 +80,7 @@
+ );
+ 
+ /** Recommended wear & spare parts of a system (SPARE_LISTS 3399): quantity per system; recommended = × systems in the project. */
+-export const spareListLines = pgTable(
++export const spareListLines = ksTable(
+   'spare_list_lines',
+   {
+     id: id(),
+--- a/src/server/db/schema/change.ts
++++ b/src/server/db/schema/change.ts
+@@ -6,15 +6,15 @@
+ //  - `budget_change_lines` — the Budget screen's own list (projectData().CRS = HCRS 3193), kept verbatim
+ //    (titles, days, status and "date · decider" meta differ) so the Budget screen renders the prototype exactly.
+ //    Each line points to the register entry with the same number.
+-import { date, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { BaselineSource, BaselineState, BudgetChangeStatus, ChangeStatus, ChangeStep, ChangeType, StepDecision } from '../codes';
+-import { id, keur, timestamps } from './_common';
++import { id, keur, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { activities, wbsNodes } from './planning';
+ import { projects } from './portfolio';
+ 
+ /** Change requests (HLT_CRS_X 3498 + CR-005 from HCRS). */
+-export const changeRequests = pgTable(
++export const changeRequests = ksTable(
+   'change_requests',
+   {
+     id: id(),
+@@ -45,7 +45,7 @@
+ );
+ 
+ /** Approval chain (HLT_CRS_X.chain: pm, director, client, ccb). */
+-export const changeRequestSteps = pgTable(
++export const changeRequestSteps = ksTable(
+   'change_request_steps',
+   {
+     changeRequestId: uuid('change_request_id').notNull().references(() => changeRequests.id, { onDelete: 'cascade' }),
+@@ -60,7 +60,7 @@
+ );
+ 
+ /** WBS elements a change applies to (HLT_CRS_X.wbs), with the allocated amount when known. */
+-export const changeRequestWbs = pgTable('change_request_wbs', {
++export const changeRequestWbs = ksTable('change_request_wbs', {
+   id: id(),
+   changeRequestId: uuid('change_request_id').notNull().references(() => changeRequests.id, { onDelete: 'cascade' }),
+   wbsCode: text('wbs_code').notNull(),
+@@ -70,7 +70,7 @@
+ });
+ 
+ /** Budget screen change list (projectData().CRS = HCRS 3193) — see the file header. */
+-export const budgetChangeLines = pgTable('budget_change_lines', {
++export const budgetChangeLines = ksTable('budget_change_lines', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   number: text('number').notNull(),
+@@ -85,7 +85,7 @@
+ });
+ 
+ /** Baselines (BASELINES 3504). BL2 is pending CR-009 (no set date yet). */
+-export const baselines = pgTable(
++export const baselines = ksTable(
+   'baselines',
+   {
+     id: id(),
+@@ -121,7 +121,7 @@
+  * from the activities' BL1 finish (`bl`); BL0 and the proposed BL2 have no activity rows (the prototype keeps none).
+  * `activityId` is cleared if the activity is removed later — the code and name keep the snapshot readable.
+  */
+-export const baselineActivities = pgTable(
++export const baselineActivities = ksTable(
+   'baseline_activities',
+   {
+     id: id(),
+--- a/src/server/db/schema/client.ts
++++ b/src/server/db/schema/client.ts
+@@ -1,14 +1,14 @@
+ // Client portal (docs/spec/11 §3.2 ClientIssue; screen 03 §8). Issues are scoped to the project (they were global in
+ // the prototype, 11 §7 #22). Decisions read the change requests (change.ts) and deliverables (quality.ts); invoices the
+ // contract billing plan (contract.ts); documents the Codex index (documents.ts).
+-import { date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { ClientCommChannel, ClientCommDirection, ClientIssueStatus } from '../codes';
+-import { id, timestamps } from './_common';
++import { id, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { projects } from './portfolio';
+ 
+ /** Issues raised by the client (CLIENT_ISSUES 3544: CI-04, CI-06, CI-07 on HLT-026; new ones continue at CI-08). */
+-export const clientIssues = pgTable(
++export const clientIssues = ksTable(
+   'client_issues',
+   {
+     id: id(),
+@@ -29,7 +29,7 @@
+ );
+ 
+ /** Document categories shared with the client (CLIENT_DOCS 3543, HLT-026 × 5) — defined but not rendered by the prototype (L-9). */
+-export const clientDocumentCategories = pgTable(
++export const clientDocumentCategories = ksTable(
+   'client_document_categories',
+   {
+     id: id(),
+@@ -47,7 +47,7 @@
+  * Client communication log (chapter 4, Site › "Client communication log"; Keystone-owned, per project): every exchange with
+  * the client — date, channel, contact, subject, summary — and its follow-up (owner, due date, done). Numbered COM-001… per project.
+  */
+-export const clientCommunications = pgTable(
++export const clientCommunications = ksTable(
+   'client_communications',
+   {
+     id: id(),
+--- a/src/server/db/schema/collaboration.ts
++++ b/src/server/db/schema/collaboration.ts
+@@ -5,12 +5,12 @@
+ //
+ // People are cited by short name in the prototype and some are external ("K. Lindqvist (Nordvolt)", "Infrastructure
+ // BU"): every person reference keeps the displayed name and links the person when one is known.
+-import { boolean, date, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type {
+   ClientQuestionState, MeetingLineOrigin, MeetingLineType, MeetingSeries, MeetingStatus, MeetingType, RaciCode, StakeholderType, TranscriptAnalyzer,
+   TranscriptProposalStatus, TranscriptProposalType, TranscriptSource,
+ } from '../codes';
+-import { id, timestamps } from './_common';
++import { id, timestamps, ksTable } from './_common';
+ import { documents } from './documents';
+ import { storedFiles } from './files';
+ import { persons } from './organisation';
+@@ -18,7 +18,7 @@
+ import { tasks } from './work';
+ 
+ /** Meetings (MEETINGS 3703: HLT-026 × 5, NDC-031 × 1). */
+-export const meetings = pgTable('meetings', {
++export const meetings = ksTable('meetings', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   /** "MTG-118" (global; new meetings MTG-130…). */
+@@ -49,7 +49,7 @@
+ });
+ 
+ /** Invitees, attendance and read receipts of the minutes (`invited`, `present`, `read`). */
+-export const meetingParticipants = pgTable(
++export const meetingParticipants = ksTable(
+   'meeting_participants',
+   {
+     id: id(),
+@@ -67,7 +67,7 @@
+ );
+ 
+ /** Agenda points (`agenda[].pt`). */
+-export const meetingAgendaPoints = pgTable(
++export const meetingAgendaPoints = ksTable(
+   'meeting_agenda_points',
+   {
+     id: id(),
+@@ -79,7 +79,7 @@
+ );
+ 
+ /** Minutes lines per agenda point: info / decision / action (owner, due, done, task created on "Send minutes"). */
+-export const meetingLines = pgTable(
++export const meetingLines = ksTable(
+   'meeting_lines',
+   {
+     id: id(),
+@@ -106,7 +106,7 @@
+  * Meeting transcript (MTG_TRANSCRIPTS 3711) and its analysis. The analysis is simulated (OPEN QUESTION S-10): the
+  * prototype's pre-baked summary and proposals are stored with the transcript and revealed by "Analyse transcript".
+  */
+-export const meetingTranscripts = pgTable('meeting_transcripts', {
++export const meetingTranscripts = ksTable('meeting_transcripts', {
+   meetingId: uuid('meeting_id').primaryKey().references(() => meetings.id, { onDelete: 'cascade' }),
+   rawText: text('raw_text').notNull(),
+   /** "teams" (seed recording), 'paste' or 'file' (chapter 4 import, S-10). */
+@@ -132,7 +132,7 @@
+ });
+ 
+ /** Decisions and actions proposed by the transcript analysis. */
+-export const meetingTranscriptProposals = pgTable(
++export const meetingTranscriptProposals = ksTable(
+   'meeting_transcript_proposals',
+   {
+     meetingId: uuid('meeting_id').notNull().references(() => meetingTranscripts.meetingId, { onDelete: 'cascade' }),
+@@ -159,7 +159,7 @@
+ );
+ 
+ /** Internal ⇄ client question bridge (MTG_EXCHANGE 3712: HLT-026 × 3, NDC-031 × 2). */
+-export const clientQuestions = pgTable('client_questions', {
++export const clientQuestions = ksTable('client_questions', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -177,7 +177,7 @@
+ });
+ 
+ /** Stakeholder register (STAKEHOLDERS 3714: HLT-026 × 8). Stale when the last contact is more than 30 days old. */
+-export const stakeholders = pgTable('stakeholders', {
++export const stakeholders = ksTable('stakeholders', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   name: text('name').notNull(),
+@@ -202,14 +202,14 @@
+ });
+ 
+ /** RACI matrix of a project (RACI 3715: HLT-026, 6 columns × 7 rows). Columns are dynamic. */
+-export const raciMatrices = pgTable('raci_matrices', {
++export const raciMatrices = ksTable('raci_matrices', {
+   id: id(),
+   projectId: uuid('project_id').notNull().unique().references(() => projects.id, { onDelete: 'cascade' }),
+   ...timestamps,
+ });
+ 
+ /** Matrix columns ("Project manager", "Client PM", "Port HSE"…). */
+-export const raciColumns = pgTable(
++export const raciColumns = ksTable(
+   'raci_columns',
+   {
+     matrixId: uuid('matrix_id').notNull().references(() => raciMatrices.id, { onDelete: 'cascade' }),
+@@ -220,7 +220,7 @@
+ );
+ 
+ /** Matrix rows (responsibilities: "Design release (BPE)"). */
+-export const raciRows = pgTable(
++export const raciRows = ksTable(
+   'raci_rows',
+   {
+     id: id(),
+@@ -232,7 +232,7 @@
+ );
+ 
+ /** Non-empty cells (empty = no row). */
+-export const raciCells = pgTable(
++export const raciCells = ksTable(
+   'raci_cells',
+   {
+     rowId: uuid('row_id').notNull().references(() => raciRows.id, { onDelete: 'cascade' }),
+--- a/src/server/db/schema/contract.ts
++++ b/src/server/db/schema/contract.ts
+@@ -6,16 +6,16 @@
+ // (`BILLING` 3541) migrated into `billing_plans` + `payment_milestones` (fixed amounts, no contract): Cash flow,
+ // Prioritisation margins and the client portal read the same rows. A project with a contract derives its billing
+ // plan from the contract (value = base + signed amendments; milestone amount = round(value × share / 100)).
+-import { date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { AmendmentStatus, BillingModel, BondType, ContractType, PaymentMilestoneStatus } from '../codes';
+-import { id, keur, num, timestamps } from './_common';
++import { id, keur, num, timestamps, ksTable } from './_common';
+ import { changeRequests } from './change';
+ import { documents } from './documents';
+ import { clients } from './organisation';
+ import { projects } from './portfolio';
+ 
+ /** Client contract of a project (CONTRACTS 3713 — HLT-026 only). The contract sheet fields are editable. */
+-export const contracts = pgTable('contracts', {
++export const contracts = ksTable('contracts', {
+   id: id(),
+   projectId: uuid('project_id').notNull().unique().references(() => projects.id, { onDelete: 'cascade' }),
+   /** "CTR-HLT-001" — also the Codex document number. */
+@@ -40,7 +40,7 @@
+ });
+ 
+ /** Amendments (avenants). Only signed ones add to the contract value. */
+-export const contractAmendments = pgTable('contract_amendments', {
++export const contractAmendments = ksTable('contract_amendments', {
+   id: id(),
+   contractId: uuid('contract_id').notNull().references(() => contracts.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -59,7 +59,7 @@
+ });
+ 
+ /** Bonds and guarantees. In force unless released. */
+-export const contractBonds = pgTable('contract_bonds', {
++export const contractBonds = ksTable('contract_bonds', {
+   id: id(),
+   contractId: uuid('contract_id').notNull().references(() => contracts.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -76,7 +76,7 @@
+  * Billing plan of a project (BILLING 3541): billing model and, for projects without a contract, the contract value
+  * of the legacy plan. Null value = read the contract (base + signed amendments).
+  */
+-export const billingPlans = pgTable('billing_plans', {
++export const billingPlans = ksTable('billing_plans', {
+   projectId: uuid('project_id').primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+   model: text('model').$type<BillingModel>().notNull(),
+   contractValueKeur: keur('contract_value_keur'),
+@@ -87,7 +87,7 @@
+  * Payment milestones: contractual ones (`contractId` set — share of the contract value, contractual date, status)
+  * and the legacy billing-plan rows of projects without a contract (fixed amount, no date).
+  */
+-export const paymentMilestones = pgTable(
++export const paymentMilestones = ksTable(
+   'payment_milestones',
+   {
+     id: id(),
+@@ -111,7 +111,7 @@
+ );
+ 
+ /** Customer invoices (1:1 with an invoiced milestone). Due date = issued + payment delay (derived, calendar days). */
+-export const customerInvoices = pgTable('customer_invoices', {
++export const customerInvoices = ksTable('customer_invoices', {
+   id: id(),
+   paymentMilestoneId: uuid('payment_milestone_id').notNull().unique().references(() => paymentMilestones.id, { onDelete: 'cascade' }),
+   /** "INV-2026-004". */
+@@ -130,7 +130,7 @@
+  * planning figures in k€ for the whole portfolio, scaled by zone share on screen. OPEN QUESTION C-10: derive cash-in
+  * from the billing plan and cash-out from the forecast spend.
+  */
+-export const portfolioCashForecasts = pgTable('portfolio_cash_forecasts', {
++export const portfolioCashForecasts = ksTable('portfolio_cash_forecasts', {
+   /** First day of the month. */
+   month: date('month', { mode: 'string' }).primaryKey(),
+   cashInKeur: keur('cash_in_keur').notNull(),
+--- a/src/server/db/schema/control.ts
++++ b/src/server/db/schema/control.ts
+@@ -1,11 +1,11 @@
+ // Project control (docs/spec/11 §3.3 StatusSnapshot, §3.5 ContingencyRegister / ContingencyDraw, §3.7 Risk;
+ // screens 07 §2.1 risks, 04 §2 trends, 04 §5 contingency): risks, weekly status snapshots, generated status
+ // reports, contingency registers and draw-downs.
+-import { date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type {
+   ContingencyLinkType, ReportAudience, ReportPeriod, ReportSections, RiskCategory, RiskResponse, RiskStatus, RiskTrend,
+ } from '../codes';
+-import { id, keur, num, timestamps } from './_common';
++import { id, keur, num, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { activities } from './planning';
+ import { projects } from './portfolio';
+@@ -15,7 +15,7 @@
+  * register: RISKS_HLT[0..3] renumbered R-01…R-04, owned by the project PM, EMV scaled to the BAC).
+  * Score, level and "contingency draw if it occurs" are derived (codes.ts riskScore / riskLevelOf / riskCostIfOccurs).
+  */
+-export const risks = pgTable(
++export const risks = ksTable(
+   'risks',
+   {
+     id: id(),
+@@ -49,7 +49,7 @@
+  * Weekly status snapshots frozen at each Friday status date (HLT_SNAPS 3486 × SNAP_WEEKS 3485 / SNAP_DATES 4566
+  * for HLT-026; the 5 other projects with data get the prototype's generated linear series, 04 §2.6).
+  */
+-export const statusSnapshots = pgTable(
++export const statusSnapshots = ksTable(
+   'status_snapshots',
+   {
+     id: id(),
+@@ -71,7 +71,7 @@
+ );
+ 
+ /** Status reports generated from the Trends screen (AF.trends — the prototype only toasts, nothing is seeded). */
+-export const statusReports = pgTable('status_reports', {
++export const statusReports = ksTable('status_reports', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   period: text('period').$type<ReportPeriod>().notNull(),
+@@ -89,7 +89,7 @@
+  * Contingency provision of a project (CONTINGENCY 3720: HLT-026 initial 150 k€). Projects without a row use
+  * the default round(BAC × 3 %) (04 §5.3); the row is created on their first draw-down.
+  */
+-export const contingencyRegisters = pgTable('contingency_registers', {
++export const contingencyRegisters = ksTable('contingency_registers', {
+   id: id(),
+   projectId: uuid('project_id').notNull().unique().references(() => projects.id, { onDelete: 'cascade' }),
+   initialKeur: keur('initial_keur').notNull(),
+@@ -97,7 +97,7 @@
+ });
+ 
+ /** Draw-downs on the contingency (CONTINGENCY.draws; AF.contingency). Stored oldest first. */
+-export const contingencyDraws = pgTable('contingency_draws', {
++export const contingencyDraws = ksTable('contingency_draws', {
+   id: id(),
+   registerId: uuid('register_id').notNull().references(() => contingencyRegisters.id, { onDelete: 'cascade' }),
+   drawnOn: date('drawn_on', { mode: 'string' }).notNull(),
+--- a/src/server/db/schema/cost.ts
++++ b/src/server/db/schema/cost.ts
+@@ -1,13 +1,13 @@
+ // Cost control (docs/spec/11 §3.5, docs/spec/04 §1.8): cost categories, work-package budgets, commercial
+ // offer quotes, cost streams and the monthly EVM series (PV / EV / AC) of projectData().
+-import { integer, pgTable, primaryKey, text, unique, uuid } from 'drizzle-orm/pg-core';
++import { integer, primaryKey, text, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { CostType } from '../codes';
+-import { id, keur, timestamps } from './_common';
++import { id, keur, timestamps, ksTable } from './_common';
+ import { wbsNodes } from './planning';
+ import { projects } from './portfolio';
+ 
+ /** Cost categories (HCAT_ROWS 3192 + HCATS 3112 / generated CAT_ROWS + CATS, same order). */
+-export const costCategories = pgTable(
++export const costCategories = ksTable(
+   'cost_categories',
+   {
+     id: id(),
+@@ -30,7 +30,7 @@
+  * Budget per work package (HWPS 3194 / generated WPS): original, approved changes, actual, EAC. The last row
+  * ("—", "Contingency (unallocated)") has no WBS node.
+  */
+-export const wpBudgets = pgTable('wp_budgets', {
++export const wpBudgets = ksTable('wp_budgets', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   wbsNodeId: uuid('wbs_node_id').references(() => wbsNodes.id),
+@@ -46,7 +46,7 @@
+ });
+ 
+ /** Commercial-offer supplier quotes (HLT_OFFER 3097 / generated OFFER). Months index chartMonths. */
+-export const offerQuotes = pgTable('offer_quotes', {
++export const offerQuotes = ksTable('offer_quotes', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -67,7 +67,7 @@
+ });
+ 
+ /** Other cost streams (HLT_STREAMS 3098 / generated STREAMS): name + basis; monthly values when known. */
+-export const costStreams = pgTable('cost_streams', {
++export const costStreams = ksTable('cost_streams', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -75,7 +75,7 @@
+   basis: text('basis').notNull(),
+ });
+ 
+-export const costStreamPeriods = pgTable(
++export const costStreamPeriods = ksTable(
+   'cost_stream_periods',
+   {
+     streamId: uuid('stream_id').notNull().references(() => costStreams.id, { onDelete: 'cascade' }),
+@@ -90,7 +90,7 @@
+  * Cumulative EVM series by month (HPV/HEV/HAC 3100–3103 / generated PV, EV, AC). PV covers 12 months;
+  * EV and AC stop at the data date (null afterwards).
+  */
+-export const evmPeriods = pgTable(
++export const evmPeriods = ksTable(
+   'evm_periods',
+   {
+     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+--- a/src/server/db/schema/cursus.ts
++++ b/src/server/db/schema/cursus.ts
+@@ -3,13 +3,13 @@
+ // visa, vaccinations, clearances & badges, verdict, received) and an outbox of what it sends to Cursus (reminders,
+ // travel requests). Passports, visa files, vaccination records and medical data stay in Cursus: only approvals, their
+ // confirmation and dates are stored here (10 §3.4.f). Written only by the Cursus connector (src/server/integrations/cursus).
+-import { boolean, date, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, jsonb, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { CursusClearance, CursusRequestKind, CursusSyncStatus, CursusVaccination, CursusVerdict, CursusVisa } from '../codes';
+-import { id } from './_common';
++import { id, ksTable } from './_common';
+ import { persons } from './organisation';
+ 
+ /** Individual go / no go of the people mobilised on a project's site, as Cursus reports it. */
+-export const cursusClearances = pgTable(
++export const cursusClearances = ksTable(
+   'cursus_clearances',
+   {
+     id: id(),
+@@ -39,7 +39,7 @@
+ );
+ 
+ /** Outbox towards Cursus: "Remind in Cursus" on a person's pending approvals, travel requests (POST /demandes). */
+-export const cursusRequests = pgTable('cursus_requests', {
++export const cursusRequests = ksTable('cursus_requests', {
+   id: id(),
+   projectCode: text('project_code').notNull(),
+   kind: text('kind').$type<CursusRequestKind>().notNull(),
+@@ -65,7 +65,7 @@
+ });
+ 
+ /** Cursus synchronisations (mock: the seed's "26 Sep 07:00"; HTTP: each go-no-go refresh). */
+-export const cursusSyncRuns = pgTable('cursus_sync_runs', {
++export const cursusSyncRuns = ksTable('cursus_sync_runs', {
+   id: id(),
+   projectCode: text('project_code').notNull(),
+   syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
+--- a/src/server/db/schema/documents.ts
++++ b/src/server/db/schema/documents.ts
+@@ -6,16 +6,16 @@
+ // The prototype synthesises part of the history (one revision every 21 days, approval dates counted back from the
+ // document date, two fixed download entries per released document). The seed materialises that history as rows so
+ // the screens read data, never formulas; a real Codex sync replaces them (OPEN QUESTION D-1, 10 OQ13).
+-import { boolean, date, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type {
+   ApproverRole, Confidentiality, DepositStatus, DocDownloadSource, DocFamily, DocLinkKind, DocRecipient, DocService, DocumentStatus,
+ } from '../codes';
+-import { id, timestamps } from './_common';
++import { id, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { projects } from './portfolio';
+ 
+ /** Document types register (DOC_TYPES 3615, 28 types) — read-only mirror of Codex. */
+-export const documentTypes = pgTable('document_types', {
++export const documentTypes = ksTable('document_types', {
+   /** "PID", "MIN"… */
+   code: text('code').primaryKey(),
+   /** EN source string: "P&ID", "Meeting minutes". */
+@@ -31,7 +31,7 @@
+ });
+ 
+ /** Approval circuit of a type ("Author → Engineering lead → Project manager"): step 0 is the originator. */
+-export const documentTypeCircuitSteps = pgTable(
++export const documentTypeCircuitSteps = ksTable(
+   'document_type_circuit_steps',
+   {
+     typeCode: text('type_code').notNull().references(() => documentTypes.code),
+@@ -42,7 +42,7 @@
+ );
+ 
+ /** Named approver of a circuit role (DOC_WHO 3617 — global in the prototype; projectId reserved for per-project overrides). */
+-export const documentApproverAssignments = pgTable(
++export const documentApproverAssignments = ksTable(
+   'document_approver_assignments',
+   {
+     id: id(),
+@@ -55,7 +55,7 @@
+ );
+ 
+ /** Index record of a Codex document (DOCS 3618, 42 records; deposits and meeting minutes created in Keystone). */
+-export const documents = pgTable('documents', {
++export const documents = ksTable('documents', {
+   id: id(),
+   /** `TYPE-PROJ-SEQ`: "PID-HLT-026", "PRO-QMS-021", "LST-INS-026". */
+   number: text('number').notNull().unique(),
+@@ -91,7 +91,7 @@
+ });
+ 
+ /** Revisions A … current (synthetic history in the seed: one revision every 21 days). */
+-export const documentRevisions = pgTable(
++export const documentRevisions = ksTable(
+   'document_revisions',
+   {
+     id: id(),
+@@ -111,7 +111,7 @@
+ );
+ 
+ /** Approval proof of the current revision: one row per circuit step (step 0 = originator, signed at issue). */
+-export const documentApprovals = pgTable(
++export const documentApprovals = ksTable(
+   'document_approvals',
+   {
+     documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+@@ -130,7 +130,7 @@
+ );
+ 
+ /** Relations of a document (`links`: [['Deliverable', 'D-016']]) — free references until the targets are modelled. */
+-export const documentLinks = pgTable('document_links', {
++export const documentLinks = ksTable('document_links', {
+   id: id(),
+   documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+   kind: text('kind').$type<DocLinkKind>().notNull(),
+@@ -140,7 +140,7 @@
+ });
+ 
+ /** Client acknowledgement of a released client-deliverable revision (`engOv.ack[id|rev]`). Absent row = pending. */
+-export const documentAcknowledgements = pgTable(
++export const documentAcknowledgements = ksTable(
+   'document_acknowledgements',
+   {
+     documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+@@ -153,7 +153,7 @@
+ );
+ 
+ /** Download log (`engOv.dl` + the Codex log). */
+-export const documentDownloads = pgTable('document_downloads', {
++export const documentDownloads = ksTable('document_downloads', {
+   id: id(),
+   documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+   revision: text('revision').notNull(),
+@@ -168,7 +168,7 @@
+ });
+ 
+ /** Deposit hand-offs to Codex (`dv.dep`): a new document, or a new revision of an existing one. */
+-export const documentDeposits = pgTable('document_deposits', {
++export const documentDeposits = ksTable('document_deposits', {
+   id: id(),
+   typeCode: text('type_code').notNull().references(() => documentTypes.code),
+   /** Null = QMS. */
+@@ -189,7 +189,7 @@
+ });
+ 
+ /** Codex index synchronisations ("Last sync 08:02 · 412 records"). */
+-export const documentIndexSyncs = pgTable('document_index_syncs', {
++export const documentIndexSyncs = ksTable('document_index_syncs', {
+   id: id(),
+   syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
+   /** Records in Codex at that sync (beyond the documents indexed here). */
+--- a/src/server/db/schema/engineering.ts
++++ b/src/server/db/schema/engineering.ts
+@@ -1,11 +1,11 @@
+ // Project engineering register and P&ID validation (docs/spec/11 §3.9 Engineering register, PidSheet / PidTag /
+ // PidValidationStep; screens 09 §6–8). Keystone owns them. The engineering deliverables are Codex index records
+ // (`documents` with service = discipline and their recipients): their statuses are shared with the Documents screen.
+-import { boolean, date, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type {
+   BomScope, CheckSeverity, CheckStatus, Discipline, DocRecipient, DrawingState, ImportDeltaKind, OutputState, PidRole, PidTagKind, PlcType, StepState,
+ } from '../codes';
+-import { id, timestamps } from './_common';
++import { id, timestamps, ksTable } from './_common';
+ import { documents } from './documents';
+ import { persons } from './organisation';
+ import { activities } from './planning';
+@@ -14,7 +14,7 @@
+ // ── Engineering register ───────────────────────────────────────────────────────────────────────────────
+ 
+ /** Disciplines and their referents (ENG_DISC 3736): Process, Mechanical, Electrical, Automation. */
+-export const engDisciplines = pgTable('eng_disciplines', {
++export const engDisciplines = ksTable('eng_disciplines', {
+   code: text('code').$type<Discipline>().primaryKey(),
+   /** Phosphor class ("ph ph-flow-arrow"). */
+   icon: text('icon').notNull(),
+@@ -30,7 +30,7 @@
+  * confirmed it. Internal documents are Codex records; external ones (the client's BOD-CLI-026) carry their provider.
+  * The state (up to date / to confirm / outdated) is derived from the provider document's latest released revision.
+  */
+-export const engInputs = pgTable(
++export const engInputs = ksTable(
+   'eng_inputs',
+   {
+     id: id(),
+@@ -53,14 +53,14 @@
+ );
+ 
+ /** Consistency rules between disciplines (ENG_RULES 3740): "process-elec" → "Process ↔ Electrical", "revision". */
+-export const engConsistencyRules = pgTable('eng_consistency_rules', {
++export const engConsistencyRules = ksTable('eng_consistency_rules', {
+   pair: text('pair').primaryKey(),
+   label: text('label').notNull(),
+   position: integer('position').notNull(),
+ });
+ 
+ /** Inconsistencies detected at each import (ENG_CHECKS 3741, HLT-026 × 10, C-01…C-10). */
+-export const engChecks = pgTable(
++export const engChecks = ksTable(
+   'eng_checks',
+   {
+     id: id(),
+@@ -84,7 +84,7 @@
+ );
+ 
+ /** Lists Keystone generates for the next service (ENG_OUTPUTS 3742, HLT-026 × 6). Blocked → Ready is derived. */
+-export const engOutputs = pgTable(
++export const engOutputs = ksTable(
+   'eng_outputs',
+   {
+     id: id(),
+@@ -106,7 +106,7 @@
+ );
+ 
+ /** Recent changes & impact (ENG_CHANGES 3743, HLT-026 × 4) and the changes recorded by imports in Keystone. */
+-export const engChanges = pgTable('eng_changes', {
++export const engChanges = ksTable('eng_changes', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   changedOn: date('changed_on', { mode: 'string' }).notNull(),
+@@ -118,28 +118,28 @@
+ });
+ 
+ /** Source tools of the import wizard (ENG_TOOLS 3744): "TIA Portal — PLC tag table" · Automation. */
+-export const engImportTools = pgTable('eng_import_tools', {
++export const engImportTools = ksTable('eng_import_tools', {
+   position: integer('position').primaryKey(),
+   label: text('label').notNull(),
+   discipline: text('discipline').$type<Discipline>().notNull(),
+ });
+ 
+ /** Column mapping of the import wizard (ENG_MAP 3745): source column → Keystone field. */
+-export const engColumnMappings = pgTable('eng_column_mappings', {
++export const engColumnMappings = ksTable('eng_column_mappings', {
+   position: integer('position').primaryKey(),
+   sourceColumn: text('source_column').notNull(),
+   targetField: text('target_field').notNull(),
+ });
+ 
+ /** Staged deltas the import wizard shows before importing (ENG_DELTAS 3746, the prototype's static check step). */
+-export const engImportDeltas = pgTable('eng_import_deltas', {
++export const engImportDeltas = ksTable('eng_import_deltas', {
+   position: integer('position').primaryKey(),
+   kind: text('kind').$type<ImportDeltaKind>().notNull(),
+   label: text('label').notNull(),
+ });
+ 
+ /** Imports run with the wizard ("Import · freeze this revision as input"). */
+-export const engImports = pgTable('eng_imports', {
++export const engImports = ksTable('eng_imports', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   consumer: text('consumer').$type<Discipline>().notNull(),
+@@ -159,7 +159,7 @@
+  * P&ID sheet under validation (PID 3583, HLT-026): the Codex record it belongs to and the revision the tags were
+  * extracted from (rev C, Under review — Codex has rev D released, 11 §7 #10, OPEN QUESTION A-9).
+  */
+-export const pidSheets = pgTable('pid_sheets', {
++export const pidSheets = ksTable('pid_sheets', {
+   id: id(),
+   projectId: uuid('project_id').notNull().unique().references(() => projects.id, { onDelete: 'cascade' }),
+   documentNumber: text('document_number').notNull(),
+@@ -176,7 +176,7 @@
+ });
+ 
+ /** Tags of the P&ID (PID_TAGS 3585, 24) and their mapping to a project BOM reference (`pidOv`). Status is derived. */
+-export const pidTags = pgTable(
++export const pidTags = ksTable(
+   'pid_tags',
+   {
+     id: id(),
+@@ -207,7 +207,7 @@
+ );
+ 
+ /** Process validation steps (PID_STEPS 3611): tags extracted → mapping → overlay agreed → review → released for construction. */
+-export const pidValidationSteps = pgTable(
++export const pidValidationSteps = ksTable(
+   'pid_validation_steps',
+   {
+     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+--- a/src/server/db/schema/files.ts
++++ b/src/server/db/schema/files.ts
+@@ -1,9 +1,9 @@
+ // Files, imports and exports (chapter 4): files stored by Keystone (task attachments, meeting transcripts, imported files —
+ // src/server/storage), staged import jobs with their preview rows (S-9 and the Excel / CSV table imports), and the export log
+ // (src/server/export). Codex documents are not stored here: Codex owns them (Keystone keeps the index, documents.ts).
+-import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
++import { integer, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+ import type { ExportFormat, ImportJobStatus, ImportKind, ImportMode, ImportRowAction, ImportRowStatus, StoredFilePurpose } from '../codes';
+-import { id } from './_common';
++import { id, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { projects } from './portfolio';
+ 
+@@ -12,7 +12,7 @@
+  * it is attached to ('task_attachment', 'meeting_transcript', 'import_job'…); deleting the owner deletes the row and the file
+  * through the storage module.
+  */
+-export const storedFiles = pgTable('stored_files', {
++export const storedFiles = ksTable('stored_files', {
+   id: id(),
+   purpose: text('purpose').$type<StoredFilePurpose>().notNull(),
+   /** Original file name as uploaded (sanitised). */
+@@ -33,7 +33,7 @@
+  * Import job (staging): upload → parse → (column mapping for Excel / CSV) → preview → explicit confirmation → transactional
+  * write. Nothing reaches the business tables before `applied`; a dry run stops at `previewed`.
+  */
+-export const importJobs = pgTable('import_jobs', {
++export const importJobs = ksTable('import_jobs', {
+   id: id(),
+   kind: text('kind').$type<ImportKind>().notNull(),
+   mode: text('mode').$type<ImportMode>().notNull(),
+@@ -58,7 +58,7 @@
+ });
+ 
+ /** Preview rows of an import job (OK / warning / error with messages), replaced at each preview. */
+-export const importJobRows = pgTable('import_job_rows', {
++export const importJobRows = ksTable('import_job_rows', {
+   id: id(),
+   jobId: uuid('job_id').notNull().references(() => importJobs.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -73,7 +73,7 @@
+ });
+ 
+ /** Export log: every file produced by the export route (screen, format, filters, rows) — for the audit trail. */
+-export const exportLog = pgTable('export_log', {
++export const exportLog = ksTable('export_log', {
+   id: id(),
+   screen: text('screen').notNull(),
+   format: text('format').$type<ExportFormat>().notNull(),
+--- a/src/server/db/schema/operations.ts
++++ b/src/server/db/schema/operations.ts
+@@ -1,12 +1,12 @@
+ // Project operations (docs/spec/11 §3.7): the interface register (07 §2.5), the inspection & test plan and the punch
+ // lists (07 §2.4, 10 §3.6), commissioning and the handover dossier (07 §2.6), lessons learned, the closure checklist and
+ // the customer-satisfaction survey (07 §2.7). Keystone owns all of them.
+-import { boolean, date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type {
+   ClosureItemStatus, CommissioningCellStatus, CommissioningStep, HandoverItemStatus, InterfaceStatus, ItpPointType, ItpResult, ItpStage, KeystoneSide, LessonStatus,
+   LessonTheme, MachineTypeCode, PunchCategory, PunchOwnerParty, PunchRegister, PunchSource, PunchStatus,
+ } from '../codes';
+-import { id, num, timestamps } from './_common';
++import { id, num, timestamps, ksTable } from './_common';
+ import { documents } from './documents';
+ import { persons } from './organisation';
+ import { machineTypes, projects } from './portfolio';
+@@ -15,7 +15,7 @@
+  * Interfaces owed by the client or third parties (INTERFACES 3719: HLT-026 × 7). The stored status is open /
+  * received / frozen; "Late" is derived (open and needed before the prototype's now, PG_NOW).
+  */
+-export const projectInterfaces = pgTable(
++export const projectInterfaces = ksTable(
+   'project_interfaces',
+   {
+     id: id(),
+@@ -43,7 +43,7 @@
+ // ── Inspection & test plan, punch lists (07 §2.4, 10 §3.6) ─────────────────────────────────────────────
+ 
+ /** A project's ITP (ITP 3717: HLT-026 only), built from the machine-type template (ITP_TEMPLATES 3716). */
+-export const itpPlans = pgTable('itp_plans', {
++export const itpPlans = ksTable('itp_plans', {
+   id: id(),
+   projectId: uuid('project_id').notNull().unique().references(() => projects.id, { onDelete: 'cascade' }),
+   /** Template the plan was built from ("EMP"). */
+@@ -52,7 +52,7 @@
+ });
+ 
+ /** Inspections and tests of a plan ("I-03 Paint thickness (DFT)"); results are read-only (OPEN QUESTION Q-6). */
+-export const itpInspections = pgTable(
++export const itpInspections = ksTable(
+   'itp_inspections',
+   {
+     id: id(),
+@@ -85,7 +85,7 @@
+  * (SITE_PUNCH 3581, owner party and NCR); their seed ids and statuses clash (11 §7 #4, OPEN QUESTION A-6), so each item
+  * belongs to a register and is numbered per register.
+  */
+-export const punchItems = pgTable(
++export const punchItems = ksTable(
+   'punch_items',
+   {
+     id: id(),
+@@ -119,7 +119,7 @@
+ // ── Commissioning & handover dossier (07 §2.6) ─────────────────────────────────────────────────────────
+ 
+ /** Systems commissioned on a project (COMMISSIONING.systems 3721: HLT-026 × 6). */
+-export const commissioningSystems = pgTable(
++export const commissioningSystems = ksTable(
+   'commissioning_systems',
+   {
+     id: id(),
+@@ -131,7 +131,7 @@
+ );
+ 
+ /** One cell of the commissioning grid: a system × step with its status and date or blocking reference ("Blocked · IF-02"). */
+-export const commissioningSteps = pgTable(
++export const commissioningSteps = ksTable(
+   'commissioning_steps',
+   {
+     systemId: uuid('system_id').notNull().references(() => commissioningSystems.id, { onDelete: 'cascade' }),
+@@ -147,7 +147,7 @@
+ );
+ 
+ /** SAT plans recorded with "Plan SAT" (AF.commissioning: system, date, client witnesses, prerequisites). */
+-export const satPlans = pgTable('sat_plans', {
++export const satPlans = ksTable('sat_plans', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   systemName: text('system_name').notNull(),
+@@ -160,7 +160,7 @@
+ });
+ 
+ /** Handover dossier (DOE) items (COMMISSIONING.dossier: HLT-026 × 8) with their Codex document type and document. */
+-export const handoverItems = pgTable(
++export const handoverItems = ksTable(
+   'handover_items',
+   {
+     id: id(),
+@@ -180,7 +180,7 @@
+ // ── Lessons learned, closure, satisfaction (07 §2.7) ───────────────────────────────────────────────────
+ 
+ /** Lessons learned (LESSONS 3732: HLT-026 × 4; lessons recorded in Keystone continue at LL-10). */
+-export const lessonsLearned = pgTable(
++export const lessonsLearned = ksTable(
+   'lessons_learned',
+   {
+     id: id(),
+@@ -203,7 +203,7 @@
+ );
+ 
+ /** Project closure checklist (CLOSURE 3733: HLT-026 × 10). */
+-export const closureItems = pgTable(
++export const closureItems = ksTable(
+   'closure_items',
+   {
+     id: id(),
+@@ -220,7 +220,7 @@
+ );
+ 
+ /** Customer-satisfaction survey (SATISFACTION 3734: HLT-026 × 5 criteria, 0–5 by 0.5). */
+-export const satisfactionScores = pgTable(
++export const satisfactionScores = ksTable(
+   'satisfaction_scores',
+   {
+     id: id(),
+--- a/src/server/db/schema/organisation.ts
++++ b/src/server/db/schema/organisation.ts
+@@ -1,11 +1,11 @@
+ // Organisation and reference data (docs/spec/11 §3.1): persons, users (personas), departments, zones,
+ // countries, cities, clients.
+-import { boolean, date, doublePrecision, integer, pgTable, text, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
++import { boolean, date, doublePrecision, integer, text, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+ import type { ZoneCode } from '../codes';
+-import { id, num, timestamps } from './_common';
++import { id, num, timestamps, ksTable } from './_common';
+ 
+ /** Client organisations (CLIENT_CODES 3167 + clients cited by projects). */
+-export const clients = pgTable('clients', {
++export const clients = ksTable('clients', {
+   id: id(),
+   name: text('name').notNull().unique(),
+   /** Registered 3-letter code (HAV…); null for clients never registered (new code proposed by clientCode3). */
+@@ -15,7 +15,7 @@
+ });
+ 
+ /** Departments (DEPTS 3268). */
+-export const departments = pgTable('departments', {
++export const departments = ksTable('departments', {
+   id: id(),
+   name: text('name').notNull().unique(),
+   headPersonId: uuid('head_person_id').references((): AnyPgColumn => persons.id),
+@@ -29,7 +29,7 @@
+  * Staff and external contacts (PEOPLE, OWN, PERSONAS, DEPTS heads, zone managers, ENG_DISC leads, DOC_WHO and
+  * the project managers cited by projects). Some are only known by their short name ("S. Perrin").
+  */
+-export const persons = pgTable('persons', {
++export const persons = ksTable('persons', {
+   id: id(),
+   /** "Julien Wagner"; null when the prototype only knows the short form. */
+   fullName: text('full_name'),
+@@ -53,7 +53,7 @@
+ });
+ 
+ /** Users who sign in — the 8 "View as" personas (PERSONAS 3747). One row per role in the prototype. */
+-export const users = pgTable('users', {
++export const users = ksTable('users', {
+   id: id(),
+   /** RoleKey (director, pm, depthead, member, englead, quality, procurement, client). */
+   role: text('role').notNull().unique(),
+@@ -68,7 +68,7 @@
+ });
+ 
+ /** Department capacity over the 8-week resource window (ROLES 3132). */
+-export const departmentCapacities = pgTable('department_capacities', {
++export const departmentCapacities = ksTable('department_capacities', {
+   id: id(),
+   departmentId: uuid('department_id').notNull().references(() => departments.id),
+   periodStart: date('period_start', { mode: 'string' }).notNull(),
+@@ -80,7 +80,7 @@
+ });
+ 
+ /** Zones (ZONES 3170, ZONE_BOUNDS 3172). */
+-export const zones = pgTable('zones', {
++export const zones = ksTable('zones', {
+   code: text('code').$type<ZoneCode>().primaryKey(),
+   /** EN source string ("Europe & North America"). */
+   label: text('label').notNull(),
+@@ -93,14 +93,14 @@
+ });
+ 
+ /** Countries → zone (COUNTRY_ZONE 3171). */
+-export const countries = pgTable('countries', {
++export const countries = ksTable('countries', {
+   name: text('name').primaryKey(),
+   zoneCode: text('zone_code').$type<ZoneCode>().notNull().references(() => zones.code),
+   sortOrder: integer('sort_order').notNull(),
+ });
+ 
+ /** Cities used to resolve free-text sites (CITY_COUNTRY 3174, zoneOfSite). */
+-export const cities = pgTable('cities', {
++export const cities = ksTable('cities', {
+   name: text('name').primaryKey(),
+   countryName: text('country_name').notNull().references(() => countries.name),
+ });
+--- a/src/server/db/schema/planning.ts
++++ b/src/server/db/schema/planning.ts
+@@ -1,9 +1,9 @@
+ // Planning (docs/spec/11 §3.3, docs/spec/05 §0.5 / §1 / §2): WBS nodes, activities, logic links, resource
+ // assignments, milestones, schedule bars (TASKS), pipeline stage plans and the project control header
+ // (the display figures of projectData()).
+-import { boolean, date, integer, pgTable, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+ import type { CalendarCode, ConstraintType, LinkType, MilestoneStatus, PipelineWindow } from '../codes';
+-import { id, keur, months, num, timestamps } from './_common';
++import { id, keur, months, num, timestamps, ksTable } from './_common';
+ import { departments, persons } from './organisation';
+ import { projects } from './portfolio';
+ 
+@@ -11,7 +11,7 @@
+  * WBS nodes: the project root ("1", level 0) and work packages ("1.1"…, level 1) — the summary rows of
+  * `ACTS` (`HACTS` 3196 / generated). `position` is the row's index in ACTS (activities share the sequence).
+  */
+-export const wbsNodes = pgTable(
++export const wbsNodes = ksTable(
+   'wbs_nodes',
+   {
+     id: id(),
+@@ -40,7 +40,7 @@
+ );
+ 
+ /** Activities (ACTS rows with an id). Dates are kept as the prototype's display strings plus ISO dates. */
+-export const activities = pgTable(
++export const activities = ksTable(
+   'activities',
+   {
+     id: id(),
+@@ -103,7 +103,7 @@
+ );
+ 
+ /** Logic links (`p` = [[predId, type, lag]] on the successor). */
+-export const activityLinks = pgTable(
++export const activityLinks = ksTable(
+   'activity_links',
+   {
+     id: id(),
+@@ -121,7 +121,7 @@
+ );
+ 
+ /** Activity resource assignments (A1250_RES 3227). */
+-export const activityAssignments = pgTable('activity_assignments', {
++export const activityAssignments = ksTable('activity_assignments', {
+   id: id(),
+   activityId: uuid('activity_id').notNull().references(() => activities.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -149,7 +149,7 @@
+ });
+ 
+ /** Milestones (HMILES 3122 / generated MILES). Months are fractional offsets from the project start. */
+-export const milestones = pgTable('milestones', {
++export const milestones = ksTable('milestones', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -164,7 +164,7 @@
+  * Schedule bars (HTASKS 3113 / generated TASKS): one bar per work package, as shown on the Schedule screen.
+  * Kept as data (golden values) — not recomputed from the activities (OPEN QUESTION A-7).
+  */
+-export const scheduleBars = pgTable('schedule_bars', {
++export const scheduleBars = ksTable('schedule_bars', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   wbsNodeId: uuid('wbs_node_id').references(() => wbsNodes.id),
+@@ -180,7 +180,7 @@
+ });
+ 
+ /** Pipeline stage plan (PIPE_PLAN 3665): windows in month offsets from Jan 2026. */
+-export const pipelineStagePlans = pgTable('pipeline_stage_plans', {
++export const pipelineStagePlans = ksTable('pipeline_stage_plans', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -194,7 +194,7 @@
+  * docs/spec/05 §0.5, 04 §1.8) for projects with planning data. `chartMonths`/`ganttMonths` derive from
+  * `startMonth`, `p3` from the project short code, `pct` from progress and BAC from the project budget.
+  */
+-export const projectControls = pgTable('project_controls', {
++export const projectControls = ksTable('project_controls', {
+   projectId: uuid('project_id').primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+   /** Project start, month offset from Jan 2026 (DEFS.start). */
+   startMonth: integer('start_month').notNull(),
+--- a/src/server/db/schema/platform.ts
++++ b/src/server/db/schema/platform.ts
+@@ -1,8 +1,8 @@
+ // Platform (docs/spec/11 §3.4 Notification, §3.12 AuditEntry / ActivityEvent; screens 01 §5.5 notifications,
+ // 10 §2 activity feed and audit trail).
+-import { integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
++import { integer, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+ import type { ActivityKind, NotificationKind } from '../codes';
+-import { id } from './_common';
++import { id, ksTable } from './_common';
+ import { persons, users } from './organisation';
+ import { projects } from './portfolio';
+ 
+@@ -10,7 +10,7 @@
+  * Notifications (NOTIFS 3545). The prototype addresses them to roles (`audience`); each one is expanded into
+  * notification_recipients rows for the users holding those roles, which carry the per-user read state.
+  */
+-export const notifications = pgTable('notifications', {
++export const notifications = ksTable('notifications', {
+   id: id(),
+   /** "n1" for seed rows; generated ids for new ones. */
+   code: text('code').notNull().unique(),
+@@ -32,7 +32,7 @@
+ });
+ 
+ /** Delivery of a notification to a user, with the per-user read state (replaces `state.readNotifs`). */
+-export const notificationRecipients = pgTable(
++export const notificationRecipients = ksTable(
+   'notification_recipients',
+   {
+     notificationId: uuid('notification_id').notNull().references(() => notifications.id, { onDelete: 'cascade' }),
+@@ -43,7 +43,7 @@
+ );
+ 
+ /** Cross-project activity feed (ACTIVITY 3557), newest first. Actors are persons or systems (Lucca, System, Sage X3). */
+-export const activityEvents = pgTable('activity_events', {
++export const activityEvents = ksTable('activity_events', {
+   id: id(),
+   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+   actorPersonId: uuid('actor_person_id').references(() => persons.id),
+@@ -57,7 +57,7 @@
+ });
+ 
+ /** Append-only audit trail (AUDIT 3572): who changed what, when — exportable for ISO 9001 audits. */
+-export const auditEntries = pgTable('audit_entries', {
++export const auditEntries = ksTable('audit_entries', {
+   id: id(),
+   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+   actorPersonId: uuid('actor_person_id').references(() => persons.id),
+--- a/src/server/db/schema/plm.ts
++++ b/src/server/db/schema/plm.ts
+@@ -2,9 +2,9 @@
+ // Drawing; screens 09 §1 BOM, §5 Drawings): project BOM lines, the assembly configured per project, revision
+ // comparisons and the drawings mirrored from the SolidWorks PDM vault. ECOs are owned by Vigie (see vigie.ts): rows
+ // here cite them by their number only.
+-import { boolean, date, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { BomScope, DrawingState, RevisionDiffKind, VaultSyncScope, VaultSyncSource } from '../codes';
+-import { id, num, timestamps } from './_common';
++import { id, num, timestamps, ksTable } from './_common';
+ import { parts } from './catalogue';
+ import { persons } from './organisation';
+ import { activities } from './planning';
+@@ -15,7 +15,7 @@
+  * quantity is the total in the project (assemblies and their components are both listed, as the prototype does —
+  * valuations must not add both, 09 OQ6).
+  */
+-export const projectBomLines = pgTable(
++export const projectBomLines = ksTable(
+   'project_bom_lines',
+   {
+     id: id(),
+@@ -35,7 +35,7 @@
+ );
+ 
+ /** Multi-level structure configured for a project (`TREES = {HLT: TREE}` 3426): root assembly × quantity. */
+-export const projectAssemblyRoots = pgTable(
++export const projectAssemblyRoots = ksTable(
+   'project_assembly_roots',
+   {
+     id: id(),
+@@ -48,7 +48,7 @@
+ );
+ 
+ /** Revision comparison of an assembly (REV_DIFF 3427: ASM-RMG-250 rev B → C, 12 Sep 2026, ECO-2026-014). */
+-export const revisionDiffs = pgTable(
++export const revisionDiffs = ksTable(
+   'revision_diffs',
+   {
+     id: id(),
+@@ -63,7 +63,7 @@
+ );
+ 
+ /** Lines of a revision comparison ("ASM-DRV-700 / EL-VFD-200" 2 → 3, Quantity). */
+-export const revisionDiffLines = pgTable('revision_diff_lines', {
++export const revisionDiffLines = ksTable('revision_diff_lines', {
+   id: id(),
+   diffId: uuid('diff_id').notNull().references(() => revisionDiffs.id, { onDelete: 'cascade' }),
+   /** "parent / child" or "parent / old → new" (the new part is the last ref). */
+@@ -81,7 +81,7 @@
+  * Drawings of the SolidWorks PDM vault linked to catalogue parts (DRAWINGS 3439, 13 rows) — a read-only mirror:
+  * revisions and states change in the vault (OPEN QUESTION E-7 for the sync contract).
+  */
+-export const drawings = pgTable('drawings', {
++export const drawings = ksTable('drawings', {
+   id: id(),
+   /** "DWG-AS-9000". */
+   number: text('number').notNull().unique(),
+@@ -111,7 +111,7 @@
+  * Revision history of a drawing as the vault reports it. The prototype synthesises A…current (A–D only, `dwgVals`
+  * 4378): the current revision carries the check-in date and the ECO, older ones are "Superseded".
+  */
+-export const drawingRevisions = pgTable(
++export const drawingRevisions = ksTable(
+   'drawing_revisions',
+   {
+     drawingId: uuid('drawing_id').notNull().references(() => drawings.id, { onDelete: 'cascade' }),
+@@ -125,7 +125,7 @@
+ );
+ 
+ /** PDM vault synchronisations ("Last vault sync 07:40", "Drawings in vault 1 248"; Sync vault form AF.drawings). */
+-export const pdmVaultSyncs = pgTable('pdm_vault_syncs', {
++export const pdmVaultSyncs = ksTable('pdm_vault_syncs', {
+   id: id(),
+   syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
+   /** Drawings in the whole vault at that sync (beyond the ones linked to catalogue parts). */
+--- a/src/server/db/schema/portfolio.ts
++++ b/src/server/db/schema/portfolio.ts
+@@ -1,14 +1,14 @@
+ // Portfolio and projects (docs/spec/11 §3.2): projects, sites, members, lifecycle reference (stages, gates,
+ // transitions, stage deliverables), deliverable checks, stage history, machine types and project templates.
+-import { boolean, date, doublePrecision, integer, pgTable, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
++import { boolean, date, doublePrecision, integer, primaryKey, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+ import type { CalendarCode, CostType, MachineTypeCode, StageCode, StageGroup, TransitionMode, ValidationStatus, ZoneCode } from '../codes';
+-import { id, keur, months, num, timestamps } from './_common';
++import { id, keur, months, num, timestamps, ksTable } from './_common';
+ import { clients, countries, persons, zones } from './organisation';
+ 
+ // ── Lifecycle reference ────────────────────────────────────────────────────────────────────────────────
+ 
+ /** Lifecycle stages (STATUSES 3136, LIFE 3148, GATES 3147, ST_SHORT 3905). */
+-export const lifecycleStages = pgTable('lifecycle_stages', {
++export const lifecycleStages = ksTable('lifecycle_stages', {
+   code: text('code').$type<StageCode>().primaryKey(),
+   /** Prototype value, French domain label in both languages: "Fabrication & Assemblage". */
+   label: text('label').notNull().unique(),
+@@ -24,7 +24,7 @@
+ });
+ 
+ /** Allowed transitions (TRANS 3146): next stage in order, or 'annule'; none from Clos / Annulé. */
+-export const lifecycleTransitions = pgTable(
++export const lifecycleTransitions = ksTable(
+   'lifecycle_transitions',
+   {
+     fromStage: text('from_stage').$type<StageCode>().notNull().references(() => lifecycleStages.code),
+@@ -35,7 +35,7 @@
+ );
+ 
+ /** Exit deliverables of each stage (STAGE_DELIVS 3140, French labels). */
+-export const stageDeliverableDefs = pgTable(
++export const stageDeliverableDefs = ksTable(
+   'stage_deliverable_defs',
+   {
+     id: id(),
+@@ -50,7 +50,7 @@
+ // ── Machine types and project templates ────────────────────────────────────────────────────────────────
+ 
+ /** Machine types (MACHINE_TYPES 3166) with the REX payment pattern (REX_FIN 3101). */
+-export const machineTypes = pgTable('machine_types', {
++export const machineTypes = ksTable('machine_types', {
+   code: text('code').$type<MachineTypeCode>().primaryKey(),
+   /** Display code: EMP, MEMU, SPUR, AUTRE, R&D. */
+   label: text('label').notNull().unique(),
+@@ -71,7 +71,7 @@
+ });
+ 
+ /** Standard phases of a machine type (NP_TEMPLATES[mt].phases; edited on the Machine types screen). */
+-export const machineTypePhases = pgTable(
++export const machineTypePhases = ksTable(
+   'machine_type_phases',
+   {
+     machineTypeCode: text('machine_type_code').$type<MachineTypeCode>().notNull().references(() => machineTypes.code, { onDelete: 'cascade' }),
+@@ -82,7 +82,7 @@
+ );
+ 
+ /** Reference cost categories of a machine type, k€ (NP_TEMPLATES[mt].cats). */
+-export const machineTypeCostCategories = pgTable(
++export const machineTypeCostCategories = ksTable(
+   'machine_type_cost_categories',
+   {
+     machineTypeCode: text('machine_type_code').$type<MachineTypeCode>().notNull().references(() => machineTypes.code, { onDelete: 'cascade' }),
+@@ -95,7 +95,7 @@
+ );
+ 
+ /** ITP inspection systems of a machine type (ITP_TEMPLATES 3716) — the systems of a project's inspection plan. */
+-export const machineTypeItpSystems = pgTable(
++export const machineTypeItpSystems = ksTable(
+   'machine_type_itp_systems',
+   {
+     machineTypeCode: text('machine_type_code').$type<MachineTypeCode>().notNull().references(() => machineTypes.code, { onDelete: 'cascade' }),
+@@ -106,7 +106,7 @@
+ );
+ 
+ /** REX references of a machine type (REX_FIN[mt].refs). */
+-export const rexReferences = pgTable('rex_references', {
++export const rexReferences = ksTable('rex_references', {
+   id: id(),
+   machineTypeCode: text('machine_type_code').$type<MachineTypeCode>().notNull().references(() => machineTypes.code),
+   position: integer('position').notNull(),
+@@ -117,7 +117,7 @@
+ });
+ 
+ /** New-project templates (NP_TEMPLATES 3179, incl. 'blank'; NP_TEMPLATES_OLD is ignored). French data. */
+-export const projectTemplates = pgTable('project_templates', {
++export const projectTemplates = ksTable('project_templates', {
+   /** 'blank' or the machine type code ('rnd' for R&D). */
+   code: text('code').primaryKey(),
+   machineTypeCode: text('machine_type_code').$type<MachineTypeCode>().references(() => machineTypes.code),
+@@ -131,7 +131,7 @@
+   sortOrder: integer('sort_order').notNull(),
+ });
+ 
+-export const projectTemplatePhases = pgTable(
++export const projectTemplatePhases = ksTable(
+   'project_template_phases',
+   {
+     templateCode: text('template_code').notNull().references(() => projectTemplates.code),
+@@ -141,7 +141,7 @@
+   (t) => [primaryKey({ columns: [t.templateCode, t.position] })],
+ );
+ 
+-export const projectTemplateCostCategories = pgTable(
++export const projectTemplateCostCategories = ksTable(
+   'project_template_cost_categories',
+   {
+     templateCode: text('template_code').notNull().references(() => projectTemplates.code),
+@@ -156,7 +156,7 @@
+ // ── Projects ───────────────────────────────────────────────────────────────────────────────────────────
+ 
+ /** Projects (PROJECTS/META/STAGE_OF + EXTRA via initialProjects 3163, PROJ_ID 3168). */
+-export const projects = pgTable('projects', {
++export const projects = ksTable('projects', {
+   id: id(),
+   /** "HLT-026". */
+   code: text('code').notNull().unique(),
+@@ -207,7 +207,7 @@
+ });
+ 
+ /** Project site (GEO 3169). Zone = zoneOverride ?? country zone. */
+-export const projectSites = pgTable('project_sites', {
++export const projectSites = ksTable('project_sites', {
+   projectId: uuid('project_id').primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+   city: text('city').notNull(),
+   countryName: text('country_name').notNull().references(() => countries.name),
+@@ -217,7 +217,7 @@
+ });
+ 
+ /** Project team (DEFS[code].team). */
+-export const projectMembers = pgTable(
++export const projectMembers = ksTable(
+   'project_members',
+   {
+     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+@@ -229,7 +229,7 @@
+ );
+ 
+ /** Ticked stage deliverables (STAGE_DONE_DEFAULT 3141). Absent row = not done. */
+-export const stageDeliverableChecks = pgTable(
++export const stageDeliverableChecks = ksTable(
+   'stage_deliverable_checks',
+   {
+     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+@@ -242,7 +242,7 @@
+ );
+ 
+ /** Stage history (STAGE_HISTORY 3142): one row per stage entered, auto or forced. */
+-export const stageTransitions = pgTable(
++export const stageTransitions = ksTable(
+   'stage_transitions',
+   {
+     id: id(),
+--- a/src/server/db/schema/prioritisation.ts
++++ b/src/server/db/schema/prioritisation.ts
+@@ -1,14 +1,14 @@
+ // Portfolio prioritisation & capacity (docs/spec/11 §3.2 PortfolioScore / ScoreWeight; screen 03 §6): scoring
+ // axes with their default weights, per-project scores, per-user weights, and the demand rates of the capacity
+ // what-if (hours per €1M of budget by department, logic 4505).
+-import { integer, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
++import { integer, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+ import type { ScoreAxis } from '../codes';
+-import { num } from './_common';
++import { num, ksTable } from './_common';
+ import { departments, persons, users } from './organisation';
+ import { projects } from './portfolio';
+ 
+ /** Scoring axes (SCORE_AXES 3539) with their default weight. */
+-export const scoreAxes = pgTable('score_axes', {
++export const scoreAxes = ksTable('score_axes', {
+   code: text('code').$type<ScoreAxis>().primaryKey(),
+   /** EN source string: "Strategic fit". */
+   label: text('label').notNull(),
+@@ -17,7 +17,7 @@
+ });
+ 
+ /** Score 1–5 of a project on an axis (SCORES 3540, obsolete codes remapped; for `risk`, 5 = low risk). */
+-export const portfolioScores = pgTable(
++export const portfolioScores = ksTable(
+   'portfolio_scores',
+   {
+     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+@@ -32,7 +32,7 @@
+ );
+ 
+ /** Weights edited on the Prioritisation screen (`pfWeights`), per user (scope OPEN QUESTION L-5). Absent = default. */
+-export const scoreWeights = pgTable(
++export const scoreWeights = ksTable(
+   'score_weights',
+   {
+     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+@@ -44,7 +44,7 @@
+ );
+ 
+ /** Demand per €1M of budget by department (capacity what-if: Engineering 140 h, Site 90, MEP 60, C&P 70, Quality 40). */
+-export const capacityDemandRates = pgTable('capacity_demand_rates', {
++export const capacityDemandRates = ksTable('capacity_demand_rates', {
+   departmentId: uuid('department_id').primaryKey().references(() => departments.id, { onDelete: 'cascade' }),
+   hoursPerMeur: num('hours_per_meur').notNull(),
+   position: integer('position').notNull(),
+--- a/src/server/db/schema/purchasing.ts
++++ b/src/server/db/schema/purchasing.ts
+@@ -2,9 +2,9 @@
+ // quotation with their quotes and award, purchase orders and their lines, goods receipts with incoming quality control,
+ // and supplier invoices checked by the 3-way match. Amounts are full euros (`*_eur`). Sage X3 is the accounting
+ // reference: `x3_*` columns carry the ERP references once pushed.
+-import { date, integer, pgTable, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
++import { date, integer, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+ import type { AwardRule, Incoterm, PoOrigin, PoStatus, ReceiptAttachmentKind, ReceiptStatus, RfqStatus, SupplierGrade, SupplierInvoiceStatus } from '../codes';
+-import { eur, id, num, timestamps } from './_common';
++import { eur, id, num, timestamps, ksTable } from './_common';
+ import { parts } from './catalogue';
+ import { persons } from './organisation';
+ import { activities } from './planning';
+@@ -12,7 +12,7 @@
+ import { storageLocations, suppliers } from './suppliers';
+ 
+ /** Requests for quotation (RFQS 3526; New RFQ form AF.procurement). */
+-export const rfqs = pgTable('rfqs', {
++export const rfqs = ksTable('rfqs', {
+   id: id(),
+   /** "RFQ-2026-031". */
+   number: text('number').notNull().unique(),
+@@ -47,7 +47,7 @@
+ });
+ 
+ /** Supplier quotes of an RFQ (`quotes: [supplier, unit price €, lead weeks, terms, grade, score]`). */
+-export const rfqQuotes = pgTable(
++export const rfqQuotes = ksTable(
+   'rfq_quotes',
+   {
+     id: id(),
+@@ -70,7 +70,7 @@
+  * Purchase orders (HLT_POS 3406 + genPOs 3415 per project with data; drafts from the BOM shortfall assistant and RFQ
+  * awards). Value = Σ line qty × line unit price (derived).
+  */
+-export const purchaseOrders = pgTable('purchase_orders', {
++export const purchaseOrders = ksTable('purchase_orders', {
+   id: id(),
+   /** "PO-1082"; drafts PO-1100…. */
+   number: text('number').notNull().unique(),
+@@ -100,7 +100,7 @@
+ });
+ 
+ /** Order lines (`lines: [ref, ordered qty, received qty]`). */
+-export const poLines = pgTable(
++export const poLines = ksTable(
+   'po_lines',
+   {
+     id: id(),
+@@ -120,7 +120,7 @@
+ );
+ 
+ /** Goods receipts / deliveries (HLT_DELIV 3468 + genDeliv 4449; announced in Keystone: BL-2026-0600…). */
+-export const goodsReceipts = pgTable('goods_receipts', {
++export const goodsReceipts = ksTable('goods_receipts', {
+   id: id(),
+   /** "BL-2026-0533". */
+   number: text('number').notNull().unique(),
+@@ -149,7 +149,7 @@
+ });
+ 
+ /** Receipt lines (`lines: [ref, ordered, delivered, accepted, rejected, location]`). */
+-export const receiptLines = pgTable(
++export const receiptLines = ksTable(
+   'receipt_lines',
+   {
+     id: id(),
+@@ -166,7 +166,7 @@
+ );
+ 
+ /** Receipt documents (delivery note, certificates: `docs[]`) and photos (`photos` count; file names unknown in the seed). */
+-export const receiptAttachments = pgTable('receipt_attachments', {
++export const receiptAttachments = ksTable('receipt_attachments', {
+   id: id(),
+   receiptId: uuid('receipt_id').notNull().references(() => goodsReceipts.id, { onDelete: 'cascade' }),
+   kind: text('kind').$type<ReceiptAttachmentKind>().notNull(),
+@@ -182,7 +182,7 @@
+  * The PO and receipt amounts are the values the match compares; the receipt amount follows the accepted quantities
+  * once the receipt is decided in Keystone.
+  */
+-export const supplierInvoices = pgTable('supplier_invoices', {
++export const supplierInvoices = ksTable('supplier_invoices', {
+   id: id(),
+   /** "INV-HC-7781". */
+   number: text('number').notNull().unique(),
+--- a/src/server/db/schema/quality.ts
++++ b/src/server/db/schema/quality.ts
+@@ -1,9 +1,9 @@
+ // Quality — client deliverables register with RACI-B and client acceptance (PV de réception) (docs/spec/11 §3.7
+ // Deliverable / DeliverableRaci; screens 07 §2.3.b, client portal 03 §8.4, My approvals "Deliverable acceptance").
+ // Keystone owns the deliverables. Non-conformities (NCR, 8D) are owned by Vigie: see the read-only mirror in vigie.ts.
+-import { date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { DeliverableStatus, DeliverableType, RaciCode } from '../codes';
+-import { id, timestamps } from './_common';
++import { id, timestamps, ksTable } from './_common';
+ import { documents } from './documents';
+ import { persons } from './organisation';
+ import { wbsNodes } from './planning';
+@@ -15,7 +15,7 @@
+  * ("12 Mar · N. Bensaïd", "Accept by 2 Oct", "Issue 30 Sep", "25 Sep · comments issued"): it is split into dates and
+  * people below; the display text is derived (DAL `acceptanceText`).
+  */
+-export const deliverables = pgTable(
++export const deliverables = ksTable(
+   'deliverables',
+   {
+     id: id(),
+@@ -56,7 +56,7 @@
+ );
+ 
+ /** RACI-B of a deliverable: R produces, A signs off, C consulted, I informed, B backup (names as the register shows them). */
+-export const deliverableRaci = pgTable(
++export const deliverableRaci = ksTable(
+   'deliverable_raci',
+   {
+     deliverableId: uuid('deliverable_id').notNull().references(() => deliverables.id, { onDelete: 'cascade' }),
+--- a/src/server/db/schema/resources.ts
++++ b/src/server/db/schema/resources.ts
+@@ -1,9 +1,9 @@
+ // Resources and HR (docs/spec/11 §3.3 Calendar / WhatIf, §3.6; screens 06 resources, rates, skills, leave,
+ // hours; 05 §4 what-if levelling): weekly allocations, rate cards and multipliers, skills and certifications,
+ // leave and public holidays, Lucca hours imports, what-if levers and scenarios.
+-import { boolean, date, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, jsonb, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { HoursMatching, LeaveType, RateMultiplierKey, WhatIfActionKind, WhatIfLeverCode, WhatIfPriority } from '../codes';
+-import { id, keur, num, timestamps } from './_common';
++import { id, keur, num, timestamps, ksTable } from './_common';
+ import { departments, persons } from './organisation';
+ import { activities, wbsNodes } from './planning';
+ import { projects } from './portfolio';
+@@ -15,7 +15,7 @@
+  * holds one total per week (projectId null); project-level rows are allowed for later use.
+  * Pool membership and order: persons.resourcePoolPosition.
+  */
+-export const allocations = pgTable(
++export const allocations = ksTable(
+   'allocations',
+   {
+     id: id(),
+@@ -31,7 +31,7 @@
+ // ── Rates ──────────────────────────────────────────────────────────────────────────────────────────────
+ 
+ /** Hourly cost rate per role (RATE_ROLES 3454). Visible to director and pm only (enforced by the screen). */
+-export const rateRoles = pgTable('rate_roles', {
++export const rateRoles = ksTable('rate_roles', {
+   id: id(),
+   /** "Project manager", "Contractor — structural (external)". */
+   role: text('role').notNull().unique(),
+@@ -47,7 +47,7 @@
+ });
+ 
+ /** Premium multipliers (MULTS 3455). */
+-export const rateMultipliers = pgTable('rate_multipliers', {
++export const rateMultipliers = ksTable('rate_multipliers', {
+   key: text('key').$type<RateMultiplierKey>().primaryKey(),
+   /** EN source string: "Overtime > 8 h/day". */
+   label: text('label').notNull(),
+@@ -57,7 +57,7 @@
+ });
+ 
+ /** Legacy rate per job title (RATES 3262) — only the Task screen's cost note uses it (OPEN QUESTION A-10). */
+-export const jobTitleRates = pgTable('job_title_rates', {
++export const jobTitleRates = ksTable('job_title_rates', {
+   jobTitle: text('job_title').primaryKey(),
+   rateEur: num('rate_eur').notNull(),
+   position: integer('position').notNull(),
+@@ -66,7 +66,7 @@
+ // ── Skills ─────────────────────────────────────────────────────────────────────────────────────────────
+ 
+ /** Skill families (SKILLS 3456; matrix column order). */
+-export const skills = pgTable('skills', {
++export const skills = ksTable('skills', {
+   id: id(),
+   name: text('name').notNull().unique(),
+   /** "Add skill" form category (Engineering, Site, Automation, Management, Safety); null for seed skills. */
+@@ -75,7 +75,7 @@
+ });
+ 
+ /** Level 0–5 of a person on a skill (SKILL_LV 3457; 0 = none). */
+-export const personSkills = pgTable(
++export const personSkills = ksTable(
+   'person_skills',
+   {
+     personId: uuid('person_id').notNull().references(() => persons.id, { onDelete: 'cascade' }),
+@@ -86,7 +86,7 @@
+ );
+ 
+ /** Certifications (CERTS 3458, one free-text line per person split on " · "). Expiry tracked in Lucca. */
+-export const certifications = pgTable('certifications', {
++export const certifications = ksTable('certifications', {
+   id: id(),
+   personId: uuid('person_id').notNull().references(() => persons.id, { onDelete: 'cascade' }),
+   name: text('name').notNull(),
+@@ -97,7 +97,7 @@
+ // ── Leave and calendar ─────────────────────────────────────────────────────────────────────────────────
+ 
+ /** Leave types with the working days lost in a week (LEAVE_DAYS 3460). */
+-export const leaveTypes = pgTable('leave_types', {
++export const leaveTypes = ksTable('leave_types', {
+   code: text('code').$type<LeaveType>().primaryKey(),
+   /** Lucca label "CP", "RTT", "Sick", "Training". */
+   label: text('label').notNull(),
+@@ -106,7 +106,7 @@
+ });
+ 
+ /** Approved absences mirrored from Lucca (LEAVE 3459, week-indexed in the prototype → one row per week). */
+-export const leaveEntries = pgTable('leave_entries', {
++export const leaveEntries = ksTable('leave_entries', {
+   id: id(),
+   personId: uuid('person_id').notNull().references(() => persons.id, { onDelete: 'cascade' }),
+   leaveType: text('leave_type').$type<LeaveType>().notNull().references(() => leaveTypes.code),
+@@ -123,7 +123,7 @@
+ });
+ 
+ /** Public holidays (SETTINGS0.holidays 3467, France 2026; HOLIDAYS 3461 = those on a weekday of the 8-week window). */
+-export const publicHolidays = pgTable(
++export const publicHolidays = ksTable(
+   'public_holidays',
+   {
+     id: id(),
+@@ -139,7 +139,7 @@
+ // ── Lucca hours ────────────────────────────────────────────────────────────────────────────────────────
+ 
+ /** Monthly import of hours declared in Lucca on the project analytic code (HOURS 3735: HLT-026, September 2026). */
+-export const hoursImports = pgTable(
++export const hoursImports = ksTable(
+   'hours_imports',
+   {
+     id: id(),
+@@ -157,7 +157,7 @@
+ );
+ 
+ /** Matched lines: resource × work package, planned vs declared hours. */
+-export const hoursLines = pgTable('hours_lines', {
++export const hoursLines = ksTable('hours_lines', {
+   id: id(),
+   importId: uuid('import_id').notNull().references(() => hoursImports.id, { onDelete: 'cascade' }),
+   personId: uuid('person_id').notNull().references(() => persons.id),
+@@ -170,7 +170,7 @@
+ });
+ 
+ /** Hours declared without a planned task ("To assign"). */
+-export const unassignedHours = pgTable('unassigned_hours', {
++export const unassignedHours = ksTable('unassigned_hours', {
+   id: id(),
+   importId: uuid('import_id').notNull().references(() => hoursImports.id, { onDelete: 'cascade' }),
+   personId: uuid('person_id').notNull().references(() => persons.id),
+@@ -186,7 +186,7 @@
+ // ── What-if levelling ──────────────────────────────────────────────────────────────────────────────────
+ 
+ /** Levelling levers with their static effects (LEVERS 3462; OPEN QUESTION S-7). */
+-export const whatIfLevers = pgTable('whatif_levers', {
++export const whatIfLevers = ksTable('whatif_levers', {
+   code: text('code').$type<WhatIfLeverCode>().primaryKey(),
+   /** EN source string. */
+   label: text('label').notNull(),
+@@ -201,7 +201,7 @@
+ });
+ 
+ /** Auto-level rule: levers enabled for a priority (AUTO 3463). */
+-export const whatIfAutoLevers = pgTable(
++export const whatIfAutoLevers = ksTable(
+   'whatif_auto_levers',
+   {
+     priority: text('priority').$type<WhatIfPriority>().notNull(),
+@@ -215,14 +215,14 @@
+  * Levelling context of a project: the 8-week peak-load profile the scenarios start from (hard-coded
+  * [100,110,130,125,110,100,80,60] for HLT-026 in the prototype, 05 §4.4).
+  */
+-export const whatIfContexts = pgTable('whatif_contexts', {
++export const whatIfContexts = ksTable('whatif_contexts', {
+   projectId: uuid('project_id').primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+   weekStart: date('week_start', { mode: 'string' }).notNull(),
+   peakLoad: integer('peak_load').array().notNull(),
+ });
+ 
+ /** Scenarios (state.whatif A/B of HLT-026; "New scenario" form fields). */
+-export const whatIfScenarios = pgTable(
++export const whatIfScenarios = ksTable(
+   'whatif_scenarios',
+   {
+     id: id(),
+@@ -251,7 +251,7 @@
+   (t) => [unique().on(t.projectId, t.name)],
+ );
+ 
+-export const whatIfScenarioLevers = pgTable(
++export const whatIfScenarioLevers = ksTable(
+   'whatif_scenario_levers',
+   {
+     scenarioId: uuid('scenario_id').notNull().references(() => whatIfScenarios.id, { onDelete: 'cascade' }),
+@@ -266,7 +266,7 @@
+  * extra resource (shorter duration) or a shifted start (start constraint). `params` holds the figures ({ hoursPerDay },
+  * { extraUnits, hoursPerDay }, { shiftDays } …); the effects are computed on an in-memory copy of the plan.
+  */
+-export const whatIfScenarioActions = pgTable('whatif_scenario_actions', {
++export const whatIfScenarioActions = ksTable('whatif_scenario_actions', {
+   id: id(),
+   scenarioId: uuid('scenario_id').notNull().references(() => whatIfScenarios.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+--- a/src/server/db/schema/scheduling.ts
++++ b/src/server/db/schema/scheduling.ts
+@@ -1,8 +1,8 @@
+ // Scheduling (chapter 4 — docs/spec/11 §3.3 Calendar, spec 05 §0 / §2, open questions S-1, S-2, S-8): work calendars and
+ // their exceptions, and the log of "Reschedule" runs (the CPM engine is src/domain/cpm.ts, the calendars src/domain/calendar.ts).
+-import { boolean, date, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, jsonb, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { ScheduleRunOutcome } from '../codes';
+-import { id, num, timestamps } from './_common';
++import { id, num, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { projects } from './portfolio';
+ 
+@@ -11,7 +11,7 @@
+  * seeded with the codes of `CalendarCode`; an MS Project / P6 import may add project calendars (`projectId` set). Projects
+  * reference a calendar by `projects.calendar`, activities by `activities.calendar_code` (codes, no foreign key: the DAL checks).
+  */
+-export const calendars = pgTable('calendars', {
++export const calendars = ksTable('calendars', {
+   code: text('code').primaryKey(),
+   /** EN source name ("Chantier 6d · 10h"). */
+   name: text('name').notNull(),
+@@ -33,7 +33,7 @@
+ });
+ 
+ /** Exceptions of one calendar: an extra non-working day (closure) or an exceptional working day (Saturday worked). */
+-export const calendarExceptions = pgTable(
++export const calendarExceptions = ksTable(
+   'calendar_exceptions',
+   {
+     id: id(),
+@@ -48,7 +48,7 @@
+ );
+ 
+ /** "Reschedule" runs (S-1: manual, like F9 in P6): what changed, for the toast, the audit and "a second run changes nothing". */
+-export const scheduleRuns = pgTable('schedule_runs', {
++export const scheduleRuns = ksTable('schedule_runs', {
+   id: id(),
+   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+   ranAt: timestamp('ran_at', { withTimezone: true }).notNull().defaultNow(),
+--- a/src/server/db/schema/settings.ts
++++ b/src/server/db/schema/settings.ts
+@@ -1,9 +1,9 @@
+ // Administration (docs/spec/11 §3.1 ReferenceList / ReferenceValue / AppSetting, §3.12 Connector / SyncRun /
+ // ImportFormat; screens 10 §1 Settings and 10 §2 Activity & integrations). Stock locations are `storage_locations`
+ // (suppliers.ts); the activity feed and the audit trail are platform.ts.
+-import { boolean, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, integer, jsonb, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { ConnectorDirection, ConnectorKind, ConnectorStatus, ImportFormatDirection, ReferenceListKey } from '../codes';
+-import { id, timestamps } from './_common';
++import { id, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ 
+ /**
+@@ -11,7 +11,7 @@
+  * categories 7, deliverable types 8, public holidays 11, location types 5. "Remove" deactivates the value (records that
+  * use it keep their code, OPEN QUESTION A-14); "Reset to defaults" restores the seed list.
+  */
+-export const referenceValues = pgTable(
++export const referenceValues = ksTable(
+   'reference_values',
+   {
+     id: id(),
+@@ -30,7 +30,7 @@
+ );
+ 
+ /** Key / value settings ("health.thresholds" = { risk: 0.97, off: 0.9 }) with the last editor. */
+-export const appSettings = pgTable('app_settings', {
++export const appSettings = ksTable('app_settings', {
+   key: text('key').primaryKey(),
+   value: jsonb('value').$type<unknown>().notNull(),
+   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+@@ -42,7 +42,7 @@
+  * Connectors to the systems of record (CONNECTORS 3570: 9) plus Vigie. Rows of kind `vigie` / `cursus` show the live
+  * state of Keystone's connector layer (src/server/integrations); the others keep the recorded state of their last sync.
+  */
+-export const connectors = pgTable('connectors', {
++export const connectors = ksTable('connectors', {
+   id: id(),
+   name: text('name').notNull().unique(),
+   kind: text('kind').$type<ConnectorKind>().notNull(),
+@@ -69,7 +69,7 @@
+ });
+ 
+ /** Synchronisations run from "Sync now" (simulated for connectors without an implementation). */
+-export const connectorSyncRuns = pgTable('connector_sync_runs', {
++export const connectorSyncRuns = ksTable('connector_sync_runs', {
+   id: id(),
+   connectorId: uuid('connector_id').notNull().references(() => connectors.id, { onDelete: 'cascade' }),
+   startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+@@ -81,7 +81,7 @@
+ });
+ 
+ /** File import / export formats (IMPORTS 3571: 6). */
+-export const importFormats = pgTable('import_formats', {
++export const importFormats = ksTable('import_formats', {
+   position: integer('position').primaryKey(),
+   name: text('name').notNull(),
+   description: text('description').notNull(),
+--- a/src/server/db/schema/site.ts
++++ b/src/server/db/schema/site.ts
+@@ -2,9 +2,9 @@
+ // site sheet, equipment, client prerequisites, rotation plan, collisions, mission costs and daily reports. Individual
+ // clearances and the people Go / No Go belong to Cursus (cursus.ts mirror); the site HSE register to Vigie (vigie.ts);
+ // the site punch list is a register of `punch_items` (operations.ts).
+-import { boolean, date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { CollisionKind, ConfirmStatus, EquipmentSource, HseIncident, Weather } from '../codes';
+-import { id, keur, num, timestamps } from './_common';
++import { id, keur, num, timestamps, ksTable } from './_common';
+ import { persons } from './organisation';
+ import { activities } from './planning';
+ import { projects } from './portfolio';
+@@ -14,7 +14,7 @@
+  * and kept as data. `cursusChantierId` is the site's id in Cursus ("K-2614"), used by the HTTP Cursus connector — null in
+  * the seed: OPEN QUESTION C-3, how Keystone projects map to Cursus chantiers (Cursus numbers them K-26xx).
+  */
+-export const siteSheets = pgTable('site_sheets', {
++export const siteSheets = ksTable('site_sheets', {
+   id: id(),
+   projectId: uuid('project_id').notNull().unique().references(() => projects.id, { onDelete: 'cascade' }),
+   siteName: text('site_name').notNull(),
+@@ -37,7 +37,7 @@
+ });
+ 
+ /** Equipment on site (SITE_EQUIP 3575: shipped with the machine, rented locally, provided by the client). */
+-export const siteEquipment = pgTable(
++export const siteEquipment = ksTable(
+   'site_equipment',
+   {
+     id: id(),
+@@ -55,7 +55,7 @@
+ );
+ 
+ /** Client prerequisites (SITE_PREREQ 3576): dated and signed by the client, each one conditions a site activity. */
+-export const sitePrerequisites = pgTable(
++export const sitePrerequisites = ksTable(
+   'site_prerequisites',
+   {
+     id: id(),
+@@ -77,7 +77,7 @@
+ );
+ 
+ /** Site team rotation plan (SITE_ROTATION 3577): who, role on site, mission dates, lodging, travel, rotation. */
+-export const siteRotations = pgTable(
++export const siteRotations = ksTable(
+   'site_rotations',
+   {
+     id: id(),
+@@ -98,7 +98,7 @@
+ );
+ 
+ /** Collisions detected on the site team (SITE_COLLISIONS 3578): load, certificate, document, leave. */
+-export const siteCollisions = pgTable(
++export const siteCollisions = ksTable(
+   'site_collisions',
+   {
+     id: id(),
+@@ -116,7 +116,7 @@
+ );
+ 
+ /** Mission cost lines charged to the Site work package (SITE_COSTS 3579), k€. */
+-export const missionCostLines = pgTable(
++export const missionCostLines = ksTable(
+   'mission_cost_lines',
+   {
+     id: id(),
+@@ -133,7 +133,7 @@
+  * Daily site reports (SITE_REPORTS 3580 + reports saved with the "Daily report" form). Numbered per project
+  * (DR-001…) in date order; `linkRef` points to an NCR ("NCR-029") or nothing.
+  */
+-export const dailyReports = pgTable(
++export const dailyReports = ksTable(
+   'daily_reports',
+   {
+     id: id(),
+--- a/src/server/db/schema/stock.ts
++++ b/src/server/db/schema/stock.ts
+@@ -1,9 +1,9 @@
+ // Stock (docs/spec/11 §3.8 StockPosition, StockMovement; screen 08 §4): positions per article and storage location
+ // imported from Sage X3, local movements recorded in Keystone and flagged until pushed back to X3 (the accounting
+ // reference), and the X3 exchange runs of the mock connector.
+-import { date, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { date, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type { StockMovementType, StockSource, X3SyncKind } from '../codes';
+-import { num, id, timestamps } from './_common';
++import { num, id, timestamps, ksTable } from './_common';
+ import { parts } from './catalogue';
+ import { persons } from './organisation';
+ import { activities } from './planning';
+@@ -15,7 +15,7 @@
+  * Stock positions (STOCK0 3475, 18 lines). Available = on hand − reserved; value = on hand × last purchase price;
+  * below minimum = min > 0 ∧ on hand < min (all derived).
+  */
+-export const stockPositions = pgTable(
++export const stockPositions = ksTable(
+   'stock_positions',
+   {
+     id: id(),
+@@ -38,7 +38,7 @@
+ );
+ 
+ /** Stock movements (MOVES0 3484 + movements recorded in Keystone). */
+-export const stockMovements = pgTable('stock_movements', {
++export const stockMovements = ksTable('stock_movements', {
+   id: id(),
+   /** "25 Sep 14:10" (Europe/Paris). */
+   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+@@ -64,7 +64,7 @@
+ });
+ 
+ /** Sage X3 exchanges ("X3 import 07:15 · 15 lines from Sage X3"; Import from X3, Push to X3). */
+-export const x3SyncRuns = pgTable('x3_sync_runs', {
++export const x3SyncRuns = ksTable('x3_sync_runs', {
+   id: id(),
+   kind: text('kind').$type<X3SyncKind>().notNull(),
+   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+--- a/src/server/db/schema/suppliers.ts
++++ b/src/server/db/schema/suppliers.ts
+@@ -1,16 +1,16 @@
+ // Suppliers and storage locations (docs/spec/11 §3.8 Supplier, StorageLocation; screens 08 §1.4.4 scorecard, 08 §4
+ // stock). Kept apart from the catalogue and the purchasing tables so both can reference them without an import cycle.
+ // Relative imports only: drizzle-kit loads these files directly.
+-import { boolean, integer, pgTable, text } from 'drizzle-orm/pg-core';
++import { boolean, integer, text } from 'drizzle-orm/pg-core';
+ import type { LocationType, SupplierGrade } from '../codes';
+-import { id, num, timestamps } from './_common';
++import { id, num, timestamps, ksTable } from './_common';
+ 
+ /**
+  * Suppliers and manufacturers: the 8 companies of the supplier scorecard (SUPPLIERS 3538) plus every other company the
+  * data set cites — part manufacturers (`PARTS.mfr`, incl. Keystone's own workshops), RFQ bidders, invoice issuers.
+  * The scorecard fields are null for companies that are not rated.
+  */
+-export const suppliers = pgTable('suppliers', {
++export const suppliers = ksTable('suppliers', {
+   id: id(),
+   /** "Halvorsen Cranes". */
+   name: text('name').notNull().unique(),
+@@ -35,7 +35,7 @@
+ });
+ 
+ /** Storage locations & workshops (SETTINGS0.locations; Settings › "Stock locations & workshops"). */
+-export const storageLocations = pgTable('storage_locations', {
++export const storageLocations = ksTable('storage_locations', {
+   id: id(),
+   /** "Entrepôt central — Lyon" (data value, French). */
+   name: text('name').notNull().unique(),
+--- a/src/server/db/schema/vigie.ts
++++ b/src/server/db/schema/vigie.ts
+@@ -8,16 +8,16 @@
+ // (their approval-key decision, step advancement) until Vigie acknowledges it. Creation, editing, dispositions,
+ // interchangeability, effectivity, release and the workflow itself happen in Vigie's database, never here: no
+ // Keystone writer touches the mirror tables except the connector's refresh.
+-import { boolean, date, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+ import type {
+   EcoApproverKey, EcoDecision, EcoDisposition, EcoProgressKind, EcoStatus, EcoTargetType, EcoType, HseItemKind, HseStatus, Interchangeability, NcrProgressKind,
+   NcrSeverity, NcrSource, NcrStatus, NcrVerificationDecision, VigieSyncStatus,
+ } from '../codes';
+-import { eur, id, keur } from './_common';
++import { eur, id, keur, ksTable } from './_common';
+ import { persons } from './organisation';
+ 
+ /** ECOs as Vigie reports them (seed: the prototype's ECOS 3432 with their derived status, 6 rows). */
+-export const vigieEcos = pgTable('vigie_ecos', {
++export const vigieEcos = ksTable('vigie_ecos', {
+   id: id(),
+   /** Vigie's business id ("ECO-2026-015") — the key of every exchange and deep link. */
+   number: text('number').notNull().unique(),
+@@ -54,7 +54,7 @@
+ });
+ 
+ /** Approval keys of an ECO and their state in Vigie (englead, quality, pm). */
+-export const vigieEcoApprovals = pgTable(
++export const vigieEcoApprovals = ksTable(
+   'vigie_eco_approvals',
+   {
+     ecoId: uuid('eco_id').notNull().references(() => vigieEcos.id, { onDelete: 'cascade' }),
+@@ -69,7 +69,7 @@
+ );
+ 
+ /** Parts an ECO affects, by catalogue reference (`parts[]`). */
+-export const vigieEcoParts = pgTable(
++export const vigieEcoParts = ksTable(
+   'vigie_eco_parts',
+   {
+     ecoId: uuid('eco_id').notNull().references(() => vigieEcos.id, { onDelete: 'cascade' }),
+@@ -80,7 +80,7 @@
+ );
+ 
+ /** Projects an ECO is declared for, by Keystone project code (`projects[]` 3-letter keys resolved: HLT → HLT-026). */
+-export const vigieEcoProjects = pgTable(
++export const vigieEcoProjects = ksTable(
+   'vigie_eco_projects',
+   {
+     ecoId: uuid('eco_id').notNull().references(() => vigieEcos.id, { onDelete: 'cascade' }),
+@@ -95,7 +95,7 @@
+  * its disposition (null = pending). Keystone reads it for the stock and PU/PR "keep for the installed base" warnings,
+  * the part record and the ECO list; dispositions are decided in Vigie.
+  */
+-export const vigieEcoEffectivity = pgTable(
++export const vigieEcoEffectivity = ksTable(
+   'vigie_eco_effectivity',
+   {
+     ecoId: uuid('eco_id').notNull().references(() => vigieEcos.id, { onDelete: 'cascade' }),
+@@ -121,7 +121,7 @@
+  * advancement. Each entry stays "pending sync with Vigie" until the connector delivers it; Vigie then updates the
+  * ECO and the next refresh brings the result into the mirror.
+  */
+-export const vigieEcoProgress = pgTable('vigie_eco_progress', {
++export const vigieEcoProgress = ksTable('vigie_eco_progress', {
+   id: id(),
+   ecoId: uuid('eco_id').notNull().references(() => vigieEcos.id, { onDelete: 'cascade' }),
+   /** ECO number at the time of recording (the outbox payload does not depend on the mirror row). */
+@@ -157,7 +157,7 @@
+  * severity, causes, actions, cost and due dates are managed in Vigie; Keystone records the viewer's step decisions in
+  * `vigie_ncr_progress`. NCR numbers are unique per project, as the prototype numbered them.
+  */
+-export const vigieNcrs = pgTable(
++export const vigieNcrs = ksTable(
+   'vigie_ncrs',
+   {
+     id: id(),
+@@ -202,7 +202,7 @@
+  * verification (approve → Closed, reject → back to Corrective action). Stays "pending sync with Vigie" until delivered;
+  * the NCR's status changes in Keystone only when Vigie reports it.
+  */
+-export const vigieNcrProgress = pgTable('vigie_ncr_progress', {
++export const vigieNcrProgress = ksTable('vigie_ncr_progress', {
+   id: id(),
+   ncrId: uuid('ncr_id').notNull().references(() => vigieNcrs.id, { onDelete: 'cascade' }),
+   projectCode: text('project_code').notNull(),
+@@ -232,7 +232,7 @@
+  * Site HSE register as Vigie reports it (SITE_HSE 3582, HLT-026 × 5). Read-only in Keystone: prevention plans and
+  * permits are issued and signed in Vigie ("Manage in Vigie"); incidents are declared there ("Report in Vigie").
+  */
+-export const vigieHseItems = pgTable(
++export const vigieHseItems = ksTable(
+   'vigie_hse_items',
+   {
+     id: id(),
+--- a/src/server/db/schema/work.ts
++++ b/src/server/db/schema/work.ts
+@@ -4,9 +4,9 @@
+ //
+ // Dates: the prototype keeps working-day offsets from Mon 21 Sep 2026 (`start`, `due`, `propStart`…); they are
+ // stored as ISO dates and converted back with codes.ts dayOffsetOfIso (the DAL returns both).
+-import { boolean, date, integer, pgTable, primaryKey, text, timestamp, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
++import { boolean, date, integer, primaryKey, text, timestamp, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+ import type { AttachmentKind, Priority, RequestEventAction, RequestStatus, TaskOrigin, TaskStatus, TimeEntrySource } from '../codes';
+-import { id, num, timestamps } from './_common';
++import { id, num, timestamps, ksTable } from './_common';
+ import { storedFiles } from './files';
+ import { departments, persons } from './organisation';
+ import { activities } from './planning';
+@@ -14,7 +14,7 @@
+ import { whatIfScenarios } from './resources';
+ 
+ /** Tasks (TODOS 3228, DESC 3261; new tasks from approved resource requests T-2341…). */
+-export const tasks = pgTable('tasks', {
++export const tasks = ksTable('tasks', {
+   id: id(),
+   /** "T-2314" (global). */
+   number: text('number').notNull().unique(),
+@@ -53,7 +53,7 @@
+ });
+ 
+ /** Checklist items (CHECKS 3257). */
+-export const taskChecklistItems = pgTable('task_checklist_items', {
++export const taskChecklistItems = ksTable('task_checklist_items', {
+   id: id(),
+   taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+   position: integer('position').notNull(),
+@@ -63,7 +63,7 @@
+ });
+ 
+ /** Comments (COMMENTS 3258). Author = the viewer who posts (not the prototype's hard-coded Marie Lefebvre). */
+-export const taskComments = pgTable('task_comments', {
++export const taskComments = ksTable('task_comments', {
+   id: id(),
+   taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+   authorPersonId: uuid('author_person_id').notNull().references(() => persons.id),
+@@ -74,7 +74,7 @@
+ });
+ 
+ /** Attachments (FILES 3259: name, "48 KB · H. Sauvage · today", icon). Upload storage is not modelled (storageRef). */
+-export const taskAttachments = pgTable('task_attachments', {
++export const taskAttachments = ksTable('task_attachments', {
+   id: id(),
+   taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+   name: text('name').notNull(),
+@@ -92,7 +92,7 @@
+ });
+ 
+ /** Time entries (ENTRIES 3260; "Log" on the Task screen). */
+-export const timeEntries = pgTable('time_entries', {
++export const timeEntries = ksTable('time_entries', {
+   id: id(),
+   taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+   personId: uuid('person_id').references(() => persons.id),
+@@ -105,7 +105,7 @@
+ });
+ 
+ /** Resource requests (REQUESTS 3270): a PM asks a department for a person or a contract role on an activity. */
+-export const resourceRequests = pgTable('resource_requests', {
++export const resourceRequests = ksTable('resource_requests', {
+   id: id(),
+   /** "RQ-044" (global; new RQ-045…). */
+   number: text('number').notNull().unique(),
+@@ -142,7 +142,7 @@
+ });
+ 
+ /** Decision trail of a request (seeded from `sent` and the `response` text). */
+-export const resourceRequestEvents = pgTable('resource_request_events', {
++export const resourceRequestEvents = ksTable('resource_request_events', {
+   id: id(),
+   requestId: uuid('request_id').notNull().references(() => resourceRequests.id, { onDelete: 'cascade' }),
+   action: text('action').$type<RequestEventAction>().notNull(),
+@@ -158,7 +158,7 @@
+  * Activities offered by the "New resource request" dialog of a project (NR_ACTS 3283 for HLT-026: A1250, A1260,
+  * A1320, A1420, A1430 — a curated list). Projects without choices offer their open activities (DAL).
+  */
+-export const requestActivityChoices = pgTable(
++export const requestActivityChoices = ksTable(
+   'request_activity_choices',
+   {
+     projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+--- a/src/server/db/types.ts
++++ b/src/server/db/types.ts
+@@ -1,8 +1,16 @@
+-import type { PgliteDatabase } from 'drizzle-orm/pglite';
++import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+ import type * as schema from './schema';
+ 
+-/** Typed Drizzle handle over the Keystone schema. */
+-export type DB = PgliteDatabase<typeof schema>;
++/** Result of db.execute() common to both drivers (PGlite `Results`, node-postgres `QueryResult`): the rows. */
++export interface QueryRows<T> {
++  rows: T[];
++}
++export interface KsQueryResultHKT extends PgQueryResultHKT {
++  readonly type: QueryRows<this['row']>;
++}
++
++/** Typed Drizzle handle over the Keystone schema: PGlite (local) or node-postgres (shared EPC2i server). */
++export type DB = PgDatabase<KsQueryResultHKT, typeof schema>;
+ 
+ /** Transaction handle (same query API as DB). */
+ export type Tx = Parameters<Parameters<DB['transaction']>[0]>[0];
+--- /dev/null
++++ b/scripts/db-check-pg.ts
+@@ -0,0 +1,646 @@
++// End-to-end database check: opens a PGlite in a temporary directory, applies ./drizzle, seeds from the
++// prototype data set, prints row counts and verifies golden values through the DAL.
++//   npx tsx --conditions=react-server scripts/db-check.ts
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++import { isDeepStrictEqual } from 'node:util';
++import { getTableName, is, sql } from 'drizzle-orm';
++import { PgTable } from 'drizzle-orm/pg-core';
++import { healthOf } from '@/domain/health';
++import { getCostControl, listChangeRequests } from '@/server/dal/cost';
++import { getStageChecklist, getStageHistory, listStages, toggleStageDeliverable } from '@/server/dal/lifecycle';
++import { getOwnerDirectory, getPersonByName, listDepartmentCapacities, listPeople, listUsers, listZones } from '@/server/dal/people';
++import { getActivities, getActivityAssignments, getBaselines, getPipelinePlans, listScheduleSummaries } from '@/server/dal/planning';
++import { createProject, getProject, getProjectData, listProjects, nextAnalyticCode, nextProjectNumber } from '@/server/dal/projects';
++import { createChangeRequest, getChangeControl } from '@/server/dal/changes';
++import { getContingency } from '@/server/dal/contingency';
++import { getHoursReconciliation, getLeaveCalendar, getRateCard, getSkillsMatrix } from '@/server/dal/hr';
++import { countUnreadNotifications, listActivity, listAudit } from '@/server/dal/notifications';
++import { approveResourceRequest, createResourceRequest, getDepartmentApprovals, listResourceRequests } from '@/server/dal/requests';
++import { getResourcePool, getWhatIf } from '@/server/dal/resources';
++import { createRisk, getRiskRegister, listRisks } from '@/server/dal/risks';
++import { getTask, listTasks } from '@/server/dal/tasks';
++import { getTrends } from '@/server/dal/trends';
++import { getBudgetContract } from '@/server/dal/budget';
++import { getCashFlow, listBillingPlans } from '@/server/dal/cashflow';
++import { getContract, issueInvoice, lateBillingMilestonesByProject } from '@/server/dal/contract';
++import { approveDocumentStep, depositInCodex, getCodexSyncState, getDocumentRecord, listDocumentTypes, listProjectDocuments, listVaultDocuments } from '@/server/dal/documents';
++import { getProjectsMap } from '@/server/dal/geo';
++import { createInterface, lateInterfacesByProject, listInterfaces } from '@/server/dal/interfaces';
++import { createMeeting, listMeetings, meetingsToWriteByProject, sendMinutes } from '@/server/dal/meetings';
++import { getPortfolioSchedule } from '@/server/dal/pipeline';
++import { getCapacityWhatIf, getPrioritisation } from '@/server/dal/prioritisation';
++import { getStakeholderRegister } from '@/server/dal/stakeholders';
++import { getProjectAssembly, getProjectBom, getRevisionComparison, getSpareList } from '@/server/dal/bom';
++import { acceptReceipt, announceDelivery, listReceipts, qcQueue, registerReceipt } from '@/server/dal/deliveries';
++import { getVaultSyncState, listDrawings } from '@/server/dal/drawings';
++import { ecoApprovalQueue, getEco, listEcos, recordEcoProgress } from '@/server/dal/eco';
++import { listParts } from '@/server/dal/parts';
++import {
++  approvePurchaseOrder, awardRfq, countOrdersToReceive, createDraftPurchaseOrders, createRfq, getBomShortfall, getPurchaseOrder, invoiceQueue, listPurchaseOrders, listRfqs,
++  listSupplierInvoices, poApprovalQueue, rfqAwardQueue, submitPurchaseOrder,
++} from '@/server/dal/purchasing';
++import { getX3StockSync, listStock } from '@/server/dal/stock';
++import { getSupplierScorecard, listStorageLocations } from '@/server/dal/suppliers';
++import { getVigieEcoConnector } from '@/server/integrations/vigie/eco-connector';
++import { getVigieQualityConnector } from '@/server/integrations/vigie/quality-connector';
++import { getCursusConnector } from '@/server/integrations/cursus/connector';
++import { getClientPortal, raiseClientIssue } from '@/server/dal/client';
++import { listClaims, listInterventions, openClaim } from '@/server/dal/claims';
++import { getCommissioning } from '@/server/dal/commissioning';
++import { getEngineeringRegister } from '@/server/dal/engineering';
++import { addMachine, listMachines, machinesByZone } from '@/server/dal/fleet';
++import { getPlumbingCounts, listConnectors, listImportFormats } from '@/server/dal/integrations';
++import { addPunchItem, getItpPlan, listPunchItems } from '@/server/dal/itp';
++import { listMachineTypes } from '@/server/dal/mtypes';
++import { getPidValidation } from '@/server/dal/pid';
++import { advanceNcr, decideDeliverable, deliverableAcceptanceQueue, getNcr, listDeliverables, listNcrs, ncrVerificationQueue } from '@/server/dal/quality';
++import { addLesson, getRex } from '@/server/dal/rex';
++import { getSettings } from '@/server/dal/settings';
++import { getSite, remindInCursus, saveDailyReport } from '@/server/dal/site';
++import { setDb } from '@/server/db/client';
++import { riskCategory, riskResponse, riskStatus, stage } from '@/server/db/codes';
++import { openDatabase, openServerDatabase } from '@/server/db/open';
++import * as schema from '@/server/db/schema';
++import { PROTO, PROTO_GEN } from '@/server/prototype';
++import { schedule } from '@/domain/cpm';
++import { createBaselineSnapshot, getBaselineActivities, listProjectBaselines } from '@/server/dal/baselines';
++import { listCalendars, loadWorkCalendars, setProjectCalendar } from '@/server/dal/calendars';
++import { getBaselineRegister } from '@/server/dal/changes-baselines';
++import { addClientCommunication } from '@/server/dal/client-comms';
++import { createImportJob, getImportJob, saveImportPreview } from '@/server/dal/import-jobs';
++import { loadScheduleNetwork } from '@/server/dal/schedule-network';
++
++/**
++ * Seed row counts of the delivery-2 tables: risks 8 (HLT) + 5 × 4 generated; snapshots 6 projects × 13 weeks;
++ * request events = 10 "sent" + 6 decisions; notification recipients = Σ NOTIFS audiences; person skills 8 × 10.
++ */
++const D2_COUNTS: Record<string, number> = {
++  risks: 28, status_snapshots: 78, status_reports: 0, contingency_registers: 1, contingency_draws: 3,
++  tasks: 27, task_checklist_items: 11, task_comments: 3, task_attachments: 3, time_entries: 4, resource_requests: 10, resource_request_events: 16, request_activity_choices: 5,
++  allocations: 64, rate_roles: 10, rate_multipliers: 5, job_title_rates: 8, skills: 10, person_skills: 80, certifications: 8, leave_types: 4,
++  leave_entries: 12, public_holidays: 11, hours_imports: 1, hours_lines: 10, unassigned_hours: 2,
++  whatif_levers: 5, whatif_auto_levers: 9, whatif_contexts: 1, whatif_scenarios: 2, whatif_scenario_levers: 10,
++  notifications: 10, notification_recipients: 24, activity_events: 12, audit_entries: 8,
++};
++
++/**
++ * Seed row counts of the delivery-3 tables: 42 DOCS with revisions A…current (Σ = 68), one approval row per circuit
++ * step (Σ = 96), downloads 2 × 30 released, acknowledgements of the 7 shared documents not released on 26/28/29 Sep;
++ * HLT-026 contract (2 amendments, 2 bonds, 5 milestones, 3 invoices) + the BILLING rows of NDC, RCF, WSA, MSR (15);
++ * MEETINGS 6 (25 invitees, 14 agenda points, 18 lines, 3 transcripts with 13 proposals); SCORES 10 × 5 axes.
++ */
++const D3_COUNTS: Record<string, number> = {
++  document_types: 28, document_type_circuit_steps: 65, document_approver_assignments: 10, documents: 42, document_revisions: 68, document_approvals: 96,
++  document_links: 18, document_acknowledgements: 7, document_downloads: 60, document_deposits: 0, document_index_syncs: 1,
++  contracts: 1, contract_amendments: 2, contract_bonds: 2, billing_plans: 6, payment_milestones: 20, customer_invoices: 3, portfolio_cash_forecasts: 6,
++  meetings: 6, meeting_participants: 25, meeting_agenda_points: 14, meeting_lines: 18, meeting_transcripts: 3, meeting_transcript_proposals: 13,
++  client_questions: 5, stakeholders: 8, raci_matrices: 1, raci_columns: 6, raci_rows: 7, raci_cells: 35, project_interfaces: 7,
++  score_axes: 5, portfolio_scores: 50, score_weights: 0, capacity_demand_rates: 5,
++};
++
++/**
++ * Seed row counts of the delivery-4 tables: 31 companies (8 rated + manufacturers, bidders, invoice issuers); 6 Settings
++ * locations + the generated receipts' unconfigured "Magasin chantier — Lyon"; PARTS 54 (12 equivalence rows, 15 last
++ * prices, 28 assembly links of TREE, 25 spare-list lines, 59 BOM lines); 13 drawings with revisions A…current (28);
++ * RFQS 4 (8 quotes); 21 orders (HLT_POS 6 + genPOs 15, 35 lines); 15 receipts (HLT_DELIV 5 + 10 generated, 25 lines,
++ * 44 documents & photos); INVOICES 6; STOCK0 18, MOVES0 5; the Vigie mirror of the 6 ECOS (18 approval keys, 12 parts,
++ * 7 projects, 24 effectivity targets) with an empty outbox.
++ */
++const D4_COUNTS: Record<string, number> = {
++  suppliers: 31, storage_locations: 7, parts: 54, part_equivalents: 12, part_last_prices: 15, assembly_links: 28, spare_list_lines: 25, project_bom_lines: 59,
++  project_assembly_roots: 1, revision_diffs: 1, revision_diff_lines: 5, drawings: 13, drawing_revisions: 28, pdm_vault_syncs: 1,
++  rfqs: 4, rfq_quotes: 8, purchase_orders: 21, po_lines: 35, goods_receipts: 15, receipt_lines: 25, receipt_attachments: 44, supplier_invoices: 6,
++  stock_positions: 18, stock_movements: 5, x3_sync_runs: 1,
++  vigie_ecos: 6, vigie_eco_approvals: 18, vigie_eco_parts: 12, vigie_eco_projects: 7, vigie_eco_effectivity: 24, vigie_eco_progress: 0,
++};
++
++/**
++ * Seed row counts of the delivery-5 tables: deliverables HLT_DELIVS 10 + 5 × 4 generated (RACI 5 each); the Vigie NCR
++ * mirror HLT_NCRS 5 + 5 × 2 generated and the site HSE register 5; ITP 13 inspections; punch PUNCH 5 + SITE_PUNCH 3;
++ * commissioning 6 systems × 5 steps, 8 dossier items; LESSONS 4, CLOSURE 10, SATISFACTION 5; FLEET 8 (AS_MAINT 31 part
++ * revisions), CLAIMS 8, INTERVENTIONS 6; the site sheet with 8 equipment, 6 prerequisites, 6 rotations, 4 collisions,
++ * 6 cost lines, 2 reports; Cursus 5 people (1 sync); CLIENT_ISSUES 3, CLIENT_DOCS 5; ENG_* registers; PID 1 / 24 / 5;
++ * machine-type aggregate 28 phases, 25 cost categories, 17 ITP systems; SETTINGS0 60 values; CONNECTORS 9 + Vigie; IMPORTS 6.
++ */
++const D5_COUNTS: Record<string, number> = {
++  deliverables: 30, deliverable_raci: 150, vigie_ncrs: 15, vigie_ncr_progress: 0, vigie_hse_items: 5, itp_plans: 1, itp_inspections: 13, punch_items: 8,
++  commissioning_systems: 6, commissioning_steps: 30, handover_items: 8, sat_plans: 0, lessons_learned: 4, closure_items: 10, satisfaction_scores: 5,
++  machines: 8, machine_part_revisions: 31, warranty_claims: 8, interventions: 6, site_sheets: 1, site_equipment: 8, site_prerequisites: 6, site_rotations: 6,
++  site_collisions: 4, mission_cost_lines: 6, daily_reports: 2, cursus_clearances: 5, cursus_requests: 0, cursus_sync_runs: 1, client_issues: 3,
++  client_document_categories: 5, eng_disciplines: 4, eng_inputs: 12, eng_consistency_rules: 6, eng_checks: 10, eng_outputs: 6, eng_changes: 4, eng_import_tools: 4,
++  eng_column_mappings: 6, eng_import_deltas: 4, eng_imports: 0, pid_sheets: 1, pid_tags: 24, pid_validation_steps: 5, machine_type_phases: 28,
++  machine_type_cost_categories: 25, machine_type_itp_systems: 17, reference_values: 60, app_settings: 1, connectors: 10, connector_sync_runs: 0, import_formats: 6,
++};
++
++/**
++ * Seed row counts of the chapter 4 tables: the 4 built-in calendars; BL1 of the 5 generated projects (+ BL0/BL1/BL2 of
++ * HLT-026) and its snapshot of every activity (ALL_BYID 145); everything else starts empty.
++ */
++const CH4_COUNTS: Record<string, number> = {
++  calendars: 4, calendar_exceptions: 0, baselines: 8, baseline_activities: 145, schedule_runs: 0, stored_files: 0, import_jobs: 0, import_job_rows: 0, export_log: 0,
++  client_communications: 0, whatif_scenario_actions: 0,
++};
++
++let failures = 0;
++function check(label: string, ok: boolean, detail?: unknown) {
++  if (!ok) failures++;
++  console.log(`${ok ? '  ok  ' : '  FAIL'} ${label}${!ok && detail !== undefined ? ' — ' + JSON.stringify(detail).slice(0, 600) : ''}`);
++}
++const same = (a: unknown, b: unknown) => isDeepStrictEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
++
++/** First differing path between two JSON values (for failure messages). */
++function diff(a: unknown, b: unknown, p = ''): string | null {
++  if (same(a, b)) return null;
++  if (a && b && typeof a === 'object' && typeof b === 'object') {
++    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
++      const d = diff((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], `${p}.${k}`);
++      if (d) return d;
++    }
++  }
++  return `${p}: ${JSON.stringify(a)?.slice(0, 200)} ≠ ${JSON.stringify(b)?.slice(0, 200)}`;
++}
++
++async function main() {
++  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'keystone-db-check-'));
++  const t0 = Date.now();
++  const db = process.env.DATABASE_URL ? await openServerDatabase(process.env.DATABASE_URL, { seed: true }) : await openDatabase(path.join(dir, 'pg'));
++  setDb(db);
++  console.log(`Database ${dir}/pg migrated and seeded in ${Date.now() - t0} ms\n\nRow counts`);
++
++  const counts: Record<string, number> = {};
++  for (const t of Object.values(schema)) {
++    if (!is(t, PgTable)) continue;
++    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(t);
++    counts[getTableName(t)] = n;
++    console.log(`  ${getTableName(t).padEnd(34)} ${String(n).padStart(5)}`);
++  }
++
++  console.log('\nDelivery 2 tables (golden row counts)');
++  for (const [table, n] of Object.entries(D2_COUNTS)) check(`${table} = ${n}`, counts[table] === n, counts[table]);
++
++  console.log('\nDelivery 3 tables (golden row counts)');
++  for (const [table, n] of Object.entries(D3_COUNTS)) check(`${table} = ${n}`, counts[table] === n, counts[table]);
++
++  console.log('\nDelivery 4 tables (golden row counts)');
++  for (const [table, n] of Object.entries(D4_COUNTS)) check(`${table} = ${n}`, counts[table] === n, counts[table]);
++
++  console.log('\nDelivery 5 tables (golden row counts)');
++  for (const [table, n] of Object.entries(D5_COUNTS)) check(`${table} = ${n}`, counts[table] === n, counts[table]);
++
++  console.log('\nChapter 4 tables (golden row counts)');
++  for (const [table, n] of Object.entries(CH4_COUNTS)) check(`${table} = ${n}`, counts[table] === n, counts[table]);
++
++  console.log('\nProjects');
++  const list = await listProjects();
++  check('17 projects', list.length === 17, list.length);
++  check('6 projects with data', list.filter((p) => p.hasData).length === 6);
++  const hlt = await getProject('HLT-026');
++  check('HLT-026 budget 4800 · actual 3360 · progress .64', hlt?.budget === 4800 && hlt.actual === 3360 && hlt.progress === 0.64, hlt);
++  check('HLT-026 #026 · HAV004 · DAS 2 · EMP · Fabrication & Assemblage · R. Aubert · Le Havre · euna',
++    hlt?.displayId === '#026' && hlt.analytic === 'HAV004' && hlt.das === '2' && hlt.machineType === 'EMP' && hlt.status === 'Fabrication & Assemblage'
++      && hlt.stage === 'fabrication_assemblage' && hlt.pm === 'R. Aubert' && hlt.city === 'Le Havre' && hlt.zone === 'euna', hlt);
++  check('Health HLT-026 at risk, RCF-019 off track', hlt?.health === 'at_risk' && (await getProject('RCF-019'))?.health === 'off_track');
++  check('ERP-202 machine type R&D (stored rnd)', (await getProject('ERP-202'))?.machineType === 'R&D');
++
++  // Same values as the former prototype-backed contract (TEMPORARY implementation of projects.ts).
++  const legacy = PROTO_GEN.initialProjects.map((p) => {
++    const id = PROTO.PROJ_ID[p.code];
++    const geo = PROTO.GEO[p.code];
++    return {
++      code: p.code, name: p.name, displayId: id?.id ?? p.code, analytic: id?.ana ?? null, das: id?.das ?? null, machineType: id?.mt ?? null,
++      status: p.status, pm: p.pm, client: p.client, start: p.start, finish: p.finish, budget: p.budget, actual: p.actual, progress: p.progress,
++      spi: p.spi ?? null, city: geo?.city ?? null, country: geo?.country ?? null, zone: (geo && (geo.zone || PROTO.COUNTRY_ZONE[geo.country])) || 'euna',
++      hasData: !!PROTO_GEN.projectData[p.code], health: healthOf(p),
++    };
++  });
++  const current = list.map((p) => Object.fromEntries(Object.keys(legacy[0]).map((k) => [k, p[k as keyof typeof p]])));
++  check('listProjects() = prototype initialProjects() (legacy contract fields)', same(current, legacy), diff(current, legacy));
++
++  console.log('\nprojectData() reproduced from the DB');
++  for (const code of Object.keys(PROTO_GEN.projectData)) {
++    const pd = await getProjectData(code);
++    check(`${code} projectData deep-equal`, same(pd, PROTO_GEN.projectData[code]), diff(pd, PROTO_GEN.projectData[code]));
++  }
++  const sums = await listScheduleSummaries();
++  check('listScheduleSummaries() = projectData headers + MILES', same(Object.keys(sums), Object.keys(PROTO_GEN.projectData))
++    && Object.entries(sums).every(([c, s]) => s.finishText === PROTO_GEN.projectData[c].finishText && same(s.milestones.map((m) => [m.name, m.baselineMonth, m.forecastMonth, m.statusLabel]), PROTO_GEN.projectData[c].MILES)));
++  check('EWA-051 (no data) → null', (await getProjectData('EWA-051')) === null && (await getCostControl('EWA-051')) === null);
++  const cc = await getCostControl('HLT-026');
++  check('HLT-026 streams carry HLT_STREAMS monthly values', same(cc?.streams.map((s) => [s.name, s.basis, s.monthly]), PROTO.HLT_STREAMS));
++  check('HLT-026 EVM at data date: PV 3420 · EV 3080 · AC 3360', cc?.pv[8] === 3420 && cc.ev.at(-1) === 3080 && cc.ac.at(-1) === 3360);
++  const acts = await getActivities('HLT-026');
++  const a1620 = acts.find((a) => a.id === 'A1620');
++  check('A1620 FNLT 18 Dec violated, 05 Jan ’27 → 2027-01-05', a1620?.constraint === 'FNLT 18 Dec' && a1620.violated && a1620.startDate === '2027-01-05', a1620);
++  check('A1250 resource assignments (4)', (await getActivityAssignments('HLT-026', 'A1250')).length === 4);
++
++  console.log('\nLifecycle');
++  const stages = await listStages();
++  check('13 stages, deliverables = STAGE_DELIVS', stages.length === 13 && same(Object.fromEntries(stages.filter((s) => s.deliverables.length).map((s) => [s.label, s.deliverables])), PROTO.STAGE_DELIVS));
++  check('transitions = TRANS', same(Object.fromEntries(stages.map((s) => [s.label, s.next.map((n) => stage.label(n))])), PROTO.TRANS));
++  check('gates = GATES, descriptions = LIFE',
++    same(Object.fromEntries(stages.filter((s) => s.gate).map((s) => [s.label, s.gate])), PROTO.GATES) && same(Object.fromEntries(stages.map((s) => [s.label, s.description])), PROTO.LIFE));
++  for (const code of Object.keys(PROTO.STAGE_HISTORY)) {
++    const h = (await getStageHistory(code)).map((e) => [e.label, e.date, e.mode, e.reason]);
++    check(`${code} stage history = STAGE_HISTORY`, same(h, PROTO.STAGE_HISTORY[code]), diff(h, PROTO.STAGE_HISTORY[code]));
++  }
++  for (const [code, byStage] of Object.entries(PROTO.STAGE_DONE_DEFAULT as Record<string, Record<string, number[]>>)) {
++    const cl = await getStageChecklist(code);
++    const got = Object.fromEntries(Object.keys(byStage).map((label) => [label, cl[stage.code(label)].map(Number)]));
++    check(`${code} stage deliverables = STAGE_DONE_DEFAULT`, same(got, byStage), diff(got, byStage));
++  }
++
++  console.log('\nPeople & organisation');
++  check('OWN directory', same(await getOwnerDirectory(), PROTO.OWN), diff(await getOwnerDirectory(), PROTO.OWN));
++  const people = await listPeople();
++  check('PMs cited by projects resolve to persons', PROTO_GEN.initialProjects.every((p) => people.some((x) => x.shortName === p.pm)));
++  check('Marion Kerviel heads Engineering', (await getPersonByName('M. Kerviel'))?.department === 'Engineering');
++  check('8 users (personas)', same((await listUsers()).map((u) => [u.role, u.name, u.title]), Object.entries(PROTO.PERSONAS as Record<string, [string, string]>).map(([r, [n, t]]) => [r, n, t])));
++  check('zones + bounds', same((await listZones()).map((z) => [z.code, z.label, z.manager]), PROTO.ZONES) && same(Object.fromEntries((await listZones()).map((z) => [z.code, z.bounds])), PROTO.ZONE_BOUNDS));
++  check('department capacities = ROLES', same((await listDepartmentCapacities()).map((d) => [d.department, d.capacityH, d.demandH]), PROTO.ROLES));
++
++  console.log('\nChange & baselines');
++  const crs = await listChangeRequests('HLT-026');
++  check('HLT-026 register: HLT_CRS_X + CR-005', crs.length === 6 && crs.find((c) => c.id === 'CR-008')?.status === 'in_review' && crs.find((c) => c.id === 'CR-005')?.status === 'rejected');
++  const bls = await getBaselines('HLT-026');
++  check('BASELINES reproduced', same(bls.map((b) => [b.code, b.name, b.setOn, b.bac, b.finish, b.stateLabel]), PROTO.BASELINES), diff(bls.map((b) => [b.code, b.name, b.setOn, b.bac, b.finish, b.stateLabel]), PROTO.BASELINES));
++  check('pipeline plans (5 projects × 6 windows)', same(Object.fromEntries(Object.entries(await getPipelinePlans()).map(([c, w]) => [c, w.map((x) => [x.label, x.startMonth, x.endMonth])])), PROTO.PIPE_PLAN));
++
++  console.log('\nDelivery 2 data (DAL vs prototype)');
++  const risksHlt = await listRisks('HLT-026');
++  const risksProto = risksHlt.map((r) => ({
++    id: r.id, title: r.title, cat: riskCategory.label(r.category), p: r.probability, i: r.impact, owner: r.owner, resp: riskResponse.label(r.response), plan: r.plan,
++    act: r.activity?.code ?? '', emv: r.emv, trig: r.trigger, status: riskStatus.label(r.status), trend: r.trend,
++  }));
++  check('RISKS_HLT reproduced', same(risksProto, PROTO.RISKS_HLT), diff(risksProto, PROTO.RISKS_HLT));
++  const reg = await getRiskRegister('HLT-026');
++  check('risk KPIs: 7 open · 5 score ≥ 8 · EMV 340 · contingency 150', reg?.risks.filter((r) => r.status === 'open').length === 7
++    && reg.risks.filter((r) => r.status === 'open' && r.score >= 8).length === 5 && reg.openEmv === 340 && reg.contingency === 150);
++  check('generated risk registers (NDC-031 EMV 53/26/20/16, owner S. Perrin)', same((await listRisks('NDC-031')).map((r) => [r.id, r.emv, r.ownerShort]), [['R-01', 53, 'S. Perrin'], ['R-02', 26, 'S. Perrin'], ['R-03', 20, 'S. Perrin'], ['R-04', 16, 'S. Perrin']]));
++  const chg = await getChangeControl('HLT-026');
++  check('change register = HLT_CRS_X + CR-005, approver chain follows the project', chg?.changeRequests.length === 6
++    && same(chg.changeRequests[3].chain.map((c) => c.approver), ['Romain Aubert', 'Marie Lefebvre', 'Nadia Bensaïd', 'Monthly · next 8 Oct']));
++  const tr = await getTrends('HLT-026');
++  check('HLT_SNAPS reproduced, next status report 2 Oct', same(tr?.series, PROTO.HLT_SNAPS) && tr?.nextReport?.text === '2 Oct');
++  const cg = await getContingency('HLT-026');
++  check('contingency 150 · drawn 48 · remaining 102 · exposure 340', cg?.initial === 150 && cg.drawn === 48 && cg.remaining === 102 && cg.exposure === 340);
++  check('contingency default round(BAC × 3 %) (NDC-031 = 63)', (await getContingency('NDC-031'))?.initial === 63);
++  const pool = await getResourcePool();
++  check('PEOPLE reproduced (pool order, job titles, loads)', same(pool.people.map((p) => [p.name, p.jobTitle, p.loads]), PROTO.PEOPLE));
++  const reqs = (await listResourceRequests()).map((r) => ({
++    id: r.id, pm: r.requestedBy, project: r.projectShort, person: r.resource, dept: r.department, title: r.title, act: r.activity?.code, hours: r.hours,
++    start: r.startDay, due: r.dueDay, prio: r.priority, status: r.status, sent: r.sentText, note: r.note, response: r.response,
++    propStart: r.proposedStartDay, propDue: r.proposedDueDay, todoId: r.taskId,
++  }));
++  check('REQUESTS reproduced', same(reqs, PROTO.REQUESTS), diff(reqs, PROTO.REQUESTS));
++  check('Engineering approvals: RQ-043, RQ-041 pending (52 h)', same((await getDepartmentApprovals('Engineering'))?.pending.map((r) => r.id), ['RQ-043', 'RQ-041']));
++  const todos = (await listTasks()).map((t) => ({
++    id: t.id, person: t.assignee, title: t.title, project: t.project.short, act: t.activity?.code, status: t.status, prio: t.priority, start: t.startDay, due: t.dueDay,
++    est: t.estimateH, logged: t.loggedH, cl: [t.checklist.done, t.checklist.total], labels: t.labels, pct: t.pct,
++  }));
++  check('TODOS reproduced', same(todos, PROTO.TODOS), diff(todos, PROTO.TODOS));
++  const t2314 = await getTask('T-2314');
++  check('T-2314 comments, files, entries', same(t2314?.comments.map((c) => [c.author, c.when, c.text]), PROTO.COMMENTS['T-2314'])
++    && same(t2314?.attachments.map((f) => [f.name, f.meta, f.icon]), PROTO.FILES['T-2314']) && same(t2314?.entries.map((e) => [e.dateText, e.hours, e.note]), PROTO.ENTRIES['T-2314']));
++  const rc = await getRateCard();
++  check('RATE_ROLES and MULTS reproduced', same(rc.roles.map((r) => [r.role, r.baseRateEur]), PROTO.RATE_ROLES) && same(rc.multipliers.map((m) => [m.key, m.label, m.factor]), PROTO.MULTS));
++  const sm = await getSkillsMatrix();
++  check('SKILL_LV and CERTS reproduced', same(Object.fromEntries(sm.people.map((p) => [p.name, p.levels])), PROTO.SKILL_LV)
++    && same(Object.fromEntries(sm.people.filter((p) => p.certText).map((p) => [p.name, p.certText])), PROTO.CERTS));
++  const lc = await getLeaveCalendar();
++  check('LEAVE and HOLIDAYS reproduced', same(Object.fromEntries(lc.people.map((p) => [p.name, Object.fromEntries(p.weeks.flatMap((w, i) => (w.typeLabel ? [[String(i), w.typeLabel]] : [])))])), PROTO.LEAVE)
++    && same(Object.fromEntries(lc.holidays.map((h) => [h.weekIndex, h.label])), PROTO.HOLIDAYS));
++  const hr = await getHoursReconciliation('HLT-026');
++  check('HOURS reproduced', same(hr && { imported: hr.importedText, code: hr.analyticCode, lines: hr.lines.map((l) => [l.person, l.wbsLabel, l.plannedH, l.declaredH]), unassigned: hr.unassigned.map((u) => [u.person, u.hours, u.reason]) }, PROTO.HOURS['HLT-026']));
++  const wi = await getWhatIf('HLT-026');
++  // Chapter 4 (S-7): levers derived from the plan (A1250 assignments) replace the prototype's LEVERS / AUTO.
++  check('what-if levers derived from A1250, scenarios A/B', wi?.levers.length === 3 && wi.levers.every((l) => l.activity === 'A1250') && same(wi.scenarios.map((x) => x.name), ['A', 'B']));
++  check('unread notifications per role 3/4/1/2/1/1/1/1', same(await Promise.all(['director', 'pm', 'depthead', 'member', 'englead', 'quality', 'procurement', 'client'].map(countUnreadNotifications)), [3, 4, 1, 2, 1, 1, 1, 1]));
++  check('ACTIVITY and AUDIT reproduced', same((await listActivity()).map((a) => [a.when, a.who, a.what, a.kind]), PROTO.ACTIVITY) && same((await listAudit()).map((a) => [a.when, a.who, a.object, a.change, a.area]), PROTO.AUDIT));
++
++  await delivery3Reads();
++  await delivery4Reads();
++  await delivery5Reads();
++  await chapter4Reads();
++
++  console.log('\nNumbering & writes (temporary database)');
++  check('next project number #045', (await nextProjectNumber()) === PROTO_GEN.nextProjectId);
++  check('next analytic HAV002 / LOG001', (await nextAnalyticCode('Port authority')) === 'HAV002' && (await nextAnalyticCode('Logistics BU')) === 'LOG001');
++  const r1 = await toggleStageDeliverable('HLT-026', 'fabrication_assemblage', 2);
++  const r2 = await toggleStageDeliverable('HLT-026', 'fabrication_assemblage', 3);
++  const hlt2 = await getProject('HLT-026');
++  check('ticking the last deliverable auto-advances HLT-026 to FAT', r1 === null && r2 === 'fat' && hlt2?.status === 'FAT', { r1, r2, s: hlt2?.status });
++  const h2 = await getStageHistory('HLT-026');
++  check('history entry FAT · 25 Sep 2026 · auto', h2.length === 7 && same(h2.at(-1) && [h2.at(-1)!.label, h2.at(-1)!.date, h2.at(-1)!.mode], ['FAT', '25 Sep 2026', 'auto']));
++  const code = await createProject({
++    name: 'Eastbank Annex', client: 'Logistics BU', das: '2', machineType: 'EMP', currency: 'EUR', templateCode: 'EMP',
++    categories: [{ name: 'Études', type: 'labor', budget: 160 }, { name: 'Matière & structure', type: 'material', budget: 560 }], contingencyPct: 5, calendar: 'standard_5x8_workshop',
++  });
++  const created = (await listProjects())[0];
++  check('createProject → LOG-045, first in register, Initiative, New, €756k', code === 'LOG-045' && created.code === code && created.status === 'Initiative' && created.isNew && created.budget === 756 && created.analytic === 'LOG001', created);
++  check('next project number then #046', (await nextProjectNumber()) === '#046');
++  check('new risk R-21, CR-011, request RQ-045', (await createRisk('HLT-026', { title: 'Check', category: 'technical', response: 'mitigate' }, 'Romain Aubert')) === 'R-21'
++    && (await createChangeRequest('HLT-026', { title: 'Check', types: ['scope'], amountKeur: 1, scheduleDays: 0 }, 'Romain Aubert')) === 'CR-011'
++    && (await createResourceRequest({ projectCode: 'HLT-026', title: 'Check', activityCode: 'A1250', person: 'Julien Wagner', priority: 'med' }, 'Romain Aubert')) === 'RQ-045');
++  check('approving RQ-043 creates task T-2341 (contract role)', (await approveResourceRequest('RQ-043', 'Marion Kerviel')) === 'T-2341' && (await getTask('T-2341'))?.assignee === 'Contract structural engineer');
++  check('audit rows appended (8 seed + 4)', (await listAudit()).length === 12);
++  await delivery3Writes();
++  await delivery4Writes();
++  await delivery5Writes();
++  await chapter4Writes();
++
++  fs.rmSync(dir, { recursive: true, force: true });
++  console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed');
++  process.exit(failures ? 1 : 0);
++}
++
++/** Delivery 3 data through the DAL vs the prototype figures quoted by the specs (10 §4–5, 04 §3–4, 03 §3, §6–7, 05 §3, §5–6, 07 §2.5). */
++async function delivery3Reads() {
++  console.log('\nDelivery 3 data (DAL vs prototype)');
++  const docs = await listProjectDocuments('HLT-026');
++  check('vault HLT-026 + QMS: 40 records · 28 released · 1 awaiting approval · 7 shared · 1 acknowledgement pending · 25 withdrawn revisions',
++    same([docs.length, docs.filter((d) => d.status === 'released').length, docs.filter((d) => d.status === 'release_proposed').length, docs.filter((d) => d.shared).length,
++      docs.filter((d) => d.shared && !d.acknowledged).length, docs.reduce((s, d) => s + d.withdrawnRevisions, 0)], [40, 28, 1, 7, 1, 25]));
++  check('vault all projects: 42 records (DOCS)', same((await listVaultDocuments()).map((d) => d.number), PROTO.DOCS.map((d: { id: string }) => d.id)));
++  const sync = await getCodexSyncState();
++  check('Codex sync 08:02 · 412 records', sync?.time === '08:02' && sync.records === 412, sync);
++  const pid = await getDocumentRecord('PID-HLT-026');
++  check('PID-HLT-026: rev D, revisions D→A, proof signed 24/25/26 Sep, client acknowledgement pending',
++    same(pid?.revisions.map((r) => [r.revision, r.issuedOn, r.withdrawnOn]), [['D', '2026-09-26', null], ['C', '2026-09-05', '2026-09-26'], ['B', '2026-08-15', '2026-09-05'], ['A', '2026-07-25', '2026-08-15']])
++      && same(pid?.approvals.map((a) => a.signedOn), ['2026-09-24', '2026-09-25', '2026-09-26']) && pid?.acknowledged === false, pid?.revisions);
++  const types = await listDocumentTypes();
++  check('document types register = DOC_TYPES, In Codex counts', same(types.map((t) => [t.code, t.label, t.circuitText, t.retention, t.isoClause, t.isClientDeliverable]),
++    PROTO.DOC_TYPES.map((t: { code: string; label: string; circuit: string; retention: string; iso: string; client: boolean }) => [t.code, t.label, t.circuit, t.retention, t.iso, t.client]))
++    && types.find((t) => t.code === 'LST')?.inCodex === 4);
++  const ct = await getContract('HLT-026');
++  check('contract HLT-026: €5.52M (5 400 + signed 120), invoiced 3 036, paid 1 656, retention 83, next INV-2026-004',
++    ct?.valueKeur === 5520 && ct.invoicedKeur === 3036 && ct.paidKeur === 1656 && ct.retentionKeur === 83 && ct.nextInvoiceNumber === 'INV-2026-004', ct && [ct.valueKeur, ct.invoicedKeur, ct.paidKeur]);
++  check('invoices INV-2026-001…003, M3 due 10 Nov (calendar days)', same(ct?.invoices.map((i) => [i.number, i.milestoneNumber, i.dueOn, i.statusLabel]),
++    [['INV-2026-001', 'M1', '2026-04-26', 'Paid'], ['INV-2026-002', 'M2', '2026-08-29', 'Paid'], ['INV-2026-003', 'M3', '2026-11-10', 'Awaiting payment']]));
++  check('no late billing milestone (badge), no contract on NDC-031', same(await lateBillingMilestonesByProject(), {}) && (await getContract('NDC-031')) === null);
++  check('Budget cash tab reads the contract from the DB, orders placed 713', (await getBudgetContract('HLT-026'))?.openCommit === 713);
++  const plans = await listBillingPlans();
++  check('billing plans: HLT-026 from the contract, BILLING elsewhere', plans['HLT-026']?.fromContract === true && plans['NDC-031']?.contractValueKeur === 2350 && plans['ERP-202']?.internal === true);
++  const cash = await getCashFlow(null);
++  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
++  // A-12 (chapter 4): the forecast is computed from the billing plans and cost forecasts (prototype plan: net +365, low −490).
++  check('cash flow: 5 rows · contract 10 090 · invoiced 5 258 · outstanding 1 940 · net +2 836 · low −521',
++    same([cash.rows.map((r) => r.project.code), sum(cash.rows.map((r) => r.plan.contractValueKeur)), sum(cash.rows.map((r) => r.plan.invoicedKeur)),
++      sum(cash.rows.map((r) => sum(r.plan.milestones.filter((m) => m.status === 'invoiced').map((m) => m.amountKeur)))),
++      sum(cash.forecast.map((m) => m.cashInKeur - m.cashOutKeur)), Math.min(...cash.forecast.map((_, i) => sum(cash.forecast.slice(0, i + 1).map((m) => m.cashInKeur - m.cashOutKeur))))],
++    [['HLT-026', 'NDC-031', 'RCF-019', 'ERP-202', 'MSR-012'], 10090, 5258, 1940, 2836, -521]));
++  const pf = await getPrioritisation('director', null);
++  check('prioritisation: 10 ranked (SCORES remapped), WSA-044 first (81), HLT-026 72 · margin 13 % (contract)',
++    pf.ranking.length === 10 && pf.ranking[0].project.code === 'WSA-044' && pf.ranking[0].score === 81
++      && same(pf.ranking.find((r) => r.project.code === 'HLT-026') && [pf.ranking.find((r) => r.project.code === 'HLT-026')!.score, pf.ranking.find((r) => r.project.code === 'HLT-026')!.marginPct], [72, 13]));
++  // A-12: capacity from the pool's allocations, demand per €1M from the active portfolio (prototype constants: 1 560 h).
++  check('capacity what-if WSA-044: gap 151 h', (await getCapacityWhatIf('WSA-044'))?.gapH === 151);
++  const ms = await listMeetings('HLT-026');
++  const acts = ms.flatMap((m) => m.agenda.flatMap((a) => a.lines)).filter((l) => l.type === 'action');
++  check('meetings HLT-026: 5 · 1 notes in progress · 6 open actions · 0 overdue; MTG-121 on NDC-031',
++    ms.length === 5 && ms.filter((m) => m.status === 'notes_in_progress').length === 1 && acts.filter((l) => !l.done).length === 6 && !acts.some((l) => l.overdue)
++      && same(await meetingsToWriteByProject(), { 'HLT-026': 1, 'NDC-031': 1 }));
++  const stk = await getStakeholderRegister('HLT-026');
++  check('stakeholders 8 · 1 stale (DREAL Normandie) · RACI 7 × 6', stk.stakeholders.length === 8 && same(stk.stakeholders.filter((s) => s.stale).map((s) => s.name), ['DREAL Normandie'])
++    && stk.raci?.rows.length === 7 && stk.raci.columns.length === 6);
++  const ifc = await listInterfaces('HLT-026');
++  check('interfaces: 7 · IF-07 late (10 d) · badge 1', ifc.length === 7 && same(ifc.filter((i) => i.status === 'late').map((i) => [i.number, i.daysToNeed]), [['IF-07', -10]])
++    && same(await lateInterfacesByProject(), { 'HLT-026': 1 }));
++  const ps = await getPortfolioSchedule(null);
++  check('portfolio schedule: 7 in progress · 5 pipeline · average board wait 28 d', ps.rows.filter((r) => !r.pipeline).length === 7 && ps.rows.filter((r) => r.pipeline).length === 5 && ps.averageBoardWaitDays === 28);
++  const map = await getProjectsMap(null);
++  check('projects map: 17 located · 11 sites · 6 countries · 7 active · 5 pipeline · 3 at risk (1 off track)',
++    same([map.points.length, map.groups.length, map.countries.length, map.points.filter((p) => p.category === 'active').length, map.points.filter((p) => p.category === 'pipeline').length,
++      map.points.filter((p) => p.health && p.health !== 'on_track').length, map.points.filter((p) => p.health === 'off_track').length], [17, 11, 6, 7, 5, 3, 1]));
++}
++
++/** Delivery 3 numbering and writers (after the Delivery 2 writes: T-2341 is taken). */
++async function delivery3Writes() {
++  check('deposit → CER-HLT-042 (count + 40), first in the vault', (await depositInCodex({ typeCode: 'CER', project: 'HLT-026', linkedPo: 'PO-2026-118' }, 'Marie Lefebvre')).number === 'CER-HLT-042'
++    && (await listVaultDocuments())[0].number === 'CER-HLT-042');
++  await approveDocumentStep('RPT-HLT-014', 'Gabriel Comte');
++  check('RPT-HLT-014 released after its 2 approvals', (await approveDocumentStep('RPT-HLT-014', 'Romain Aubert')).released);
++  check('issue invoice on M4 → INV-2026-004', (await issueInvoice('HLT-026', { milestone: 'M4' }, 'Romain Aubert')) === 'INV-2026-004');
++  check('new meeting MTG-130', (await createMeeting('HLT-026', { title: 'Check', type: 'internal', series: 'one_off', date: '2026-10-06', invitees: ['R. Aubert'], agenda: [] }, 'Romain Aubert')) === 'MTG-130');
++  const sent = await sendMinutes('MTG-118', 'Romain Aubert');
++  check('MTG-118 minutes → MIN-HLT-027, tasks T-2342 / T-2343', same(sent, { minutesNumber: 'MIN-HLT-027', invited: 5, tasks: ['T-2342', 'T-2343'] }), sent);
++  check('new interface IF-10', (await createInterface('HLT-026', { title: 'Check', keystoneSide: 'site', otherParty: 'Client', dataExpected: 'Data', neededBy: '2026-11-02', owner: 'R. Aubert' }, 'Romain Aubert')) === 'IF-10');
++  check('audit rows appended (12 + 7)', (await listAudit()).length === 19);
++}
++
++/** Delivery 4 data through the DAL vs the prototype figures quoted by the specs (09 §1–5, 08 §1–4, §7.5). */
++async function delivery4Reads() {
++  console.log('\nDelivery 4 data (DAL vs prototype)');
++  const keur = (v: number) => Math.round(v / 10) / 100;
++  const bom = (await getProjectBom('HLT-026'))!;
++  check('BOM HLT-026: 35 articles · 2 042 units · €14.05M at list price (prototype sum) · 2 not validated · 1 outdated · 7 restricted',
++    same([bom.summary.articles, bom.summary.units, Math.round(bom.summary.listValueEur / 10000) / 100, bom.summary.notValidated, bom.summary.outdatedOrObsolete, bom.summary.exportRestricted], [35, 2042, 14.05, 2, 1, 7]), bom.summary);
++  check('BOM value without the assembly double count (09 OQ6) < list sum', bom.summary.valueEur < bom.summary.listValueEur && bom.lines.filter((l) => l.valuedByComponents).length === 8);
++  const others = await Promise.all(['NDC-031', 'RCF-019', 'ERP-202', 'WSA-044', 'MSR-012'].map(async (c) => { const b = (await getProjectBom(c))!; return [b.summary.articles, keur(b.summary.listValueEur)]; }));
++  check('BOM articles / value: NDC 8 / €3.83M, RCF 5 / €150k, ERP 2 / €1.32M, WSA 6 / €4.01M, MSR 3 / €351k', same(others.map(([n, v]) => [n, v >= 1000 ? Math.round(v / 10) / 100 : Math.round(v)]), [[8, 3.83], [5, 150], [2, 1.32], [6, 4.01], [3, 351]]), others);
++  check('no BOM, tree or orders on EWA-051 (no Harbor Line fallback)', (await getProjectBom('EWA-051'))!.lines.length === 0 && (await getProjectAssembly('EWA-051')) === null && (await listPurchaseOrders('EWA-051')).length === 0);
++  const asm = (await getProjectAssembly('HLT-026'))!;
++  const bog = asm.rows.find((r) => r.ref === 'ASM-BOG-300')!;
++  check('assembly tree: ASM-RMG-250 ×2 unit €713,996 · extended €1,427,992; ASM-BOG-300 ext 8 · unit €11,222',
++    same([asm.root.unitCostEur, asm.root.extendedCostEur, bog.extended, bog.unitCostEur], [713996, 1427992, 8, 11222]), [asm.root.unitCostEur, bog.unitCostEur]);
++  check('compare revisions B → C: +€19,180 per crane (ECO-2026-014)', (await getRevisionComparison('HLT-026'))?.totalDeltaEur === 19180);
++  const sp = (await getSpareList('HLT-026'))!;
++  check('PU/PR complete system ×2: 12 lines (4 PU) · €235k · 4 long lead · 3 under change · 10 below recommended stock (real on-hand)',
++    same([sp.rows.length, sp.rows.filter((r) => r.kind === 'PU').length, Math.round(sp.rows.reduce((a, r) => a + r.totalEur, 0) / 1000), sp.rows.filter((r) => (r.leadWeeks ?? 0) > 8).length,
++      sp.rows.filter((r) => r.underChange).length, sp.rows.filter((r) => r.inStock < r.recommendedQty).length], [12, 4, 235, 4, 3, 10]));
++  const parts = await listParts();
++  check('PLM: 54 parts · 16 manufactured · 87 % validated · 4 awaiting · FD-DET-OPT, SG-BRK-SS outdated in use · 13 restricted · 9 wks',
++    same([parts.length, parts.filter((p) => p.makeBuy === 'manufactured').length, Math.round((parts.filter((p) => p.status === 'validated').length / parts.length) * 100), parts.filter((p) => p.status === 'not_validated').length,
++      parts.filter((p) => (p.status === 'outdated' || p.status === 'obsolete') && p.usage.length).map((p) => p.ref), parts.filter((p) => p.exportRestriction).length,
++      Math.round(parts.filter((p) => p.leadWeeks).reduce((a, p) => a + p.leadWeeks!, 0) / parts.filter((p) => p.leadWeeks).length)], [54, 16, 87, 4, ['FD-DET-OPT', 'SG-BRK-SS'], 13, 9]));
++  const ecos = await listEcos();
++  const open = ecos.filter((e) => e.open);
++  check('ECOs (Vigie mirror, mock connector): 6 · 3 open · 1 in approval · 2 released (€10,360) · 2 projects · 5 parts · 12 dispositions pending',
++    getVigieEcoConnector().mode === 'mock' && same([ecos.length, open.length, ecos.filter((e) => e.status === 'in_approval').length, ecos.filter((e) => e.status === 'released').reduce((a, e) => a + e.costEur, 0),
++      new Set(open.flatMap((e) => e.projects)).size, new Set(open.flatMap((e) => e.parts)).size, open.reduce((a, e) => a + e.pendingDispositions, 0)], [6, 3, 1, 10360, 2, 5, 12]));
++  check('ECO-2026-015: open POs PO-1082 (HLT) and none elsewhere; PM approval pending for R. Aubert', same((await getEco('ECO-2026-015'))!.openPurchaseOrders.map((o) => o.number), ['PO-1082'])
++    && same((await ecoApprovalQueue({ name: 'Romain Aubert', role: 'pm' })).map((e) => e.number), ['ECO-2026-015']));
++  const dw = await listDrawings();
++  const vs = (await getVaultSyncState())!;
++  check('drawings: 13 · 10 released · 2 WIP/under review · 1 obsolete · vault 1 248 · last sync 07:40',
++    same([dw.length, dw.filter((d) => d.state === 'released').length, dw.filter((d) => d.state === 'wip' || d.state === 'under_review').length, dw.filter((d) => d.state === 'obsolete').length, vs.drawingsInVault, vs.time], [13, 10, 2, 1, 1248, '07:40']));
++  const pos = await listPurchaseOrders('HLT-026');
++  const sf = await getBomShortfall('HLT-026');
++  check('orders HLT-026: 5 open / 6 · committed €6.09M · 1 late (PO-1063) · 1 awaiting approval · shortfall 15 articles €884k',
++    same([pos.filter((o) => !['received', 'cancelled'].includes(o.status)).length, pos.length, Math.round(pos.filter((o) => o.status !== 'cancelled' && o.status !== 'draft').reduce((a, o) => a + o.valueEur, 0) / 10000) / 100,
++      pos.filter((o) => o.late).map((o) => o.number), pos.filter((o) => o.status === 'awaiting_approval').length, sf.lines.length, Math.round(sf.valueEur / 1000)], [5, 6, 6.09, ['PO-1063'], 1, 15, 884]));
++  const rs = await listReceipts('HLT-026');
++  check('deliveries HLT-026: 5 · 1 announced · 1 QC pending · 4 rejected (0.5 %) · 4 orders to receive',
++    same([rs.length, rs.filter((r) => r.status === 'announced').length, rs.filter((r) => r.status === 'qc_pending').length, rs.reduce((a, r) => a + r.totals.rejected, 0),
++      Math.round((rs.reduce((a, r) => a + r.totals.rejected, 0) / rs.reduce((a, r) => a + r.totals.delivered, 0)) * 1000) / 10, await countOrdersToReceive('HLT-026')], [5, 1, 1, 4, 0.5, 4]));
++  const stock = await listStock();
++  const x3 = (await getX3StockSync())!;
++  check('stock: €1.25M · 18 lines · 6 locations · 1 below min (MD-GAS-OUT) · 2 in quarantine · X3 07:15 · 15 lines · 3 local',
++    same([Math.round(stock.reduce((a, r) => a + r.valueEur, 0) / 10000) / 100, stock.length, (await listStorageLocations()).length, stock.filter((r) => r.belowMin).map((r) => r.ref),
++      stock.filter((r) => r.locationType === 'quarantine').reduce((a, r) => a + r.onHand, 0), x3.time, x3.x3Lines, x3.localLines], [1.25, 18, 6, ['MD-GAS-OUT'], 2, '07:15', 15, 3]));
++  const rfqs = await listRfqs();
++  const inv = await listSupplierInvoices();
++  const sc = await getSupplierScorecard('HLT-026');
++  check('sourcing: 3 open RFQs (1 to award) · 8 quotes · 5 invoices to process €1,724,160 · 3 blocked · 2 awaiting receipt · 8 suppliers (4 A, 1 C) · OTD 90 % · quality 97 % · 3 supplier NCRs',
++    same([rfqs.filter((r) => r.status !== 'awarded').length, rfqs.filter((r) => r.status === 'comparing').length, rfqs.reduce((a, r) => a + r.quotes.length, 0),
++      inv.filter((i) => i.status !== 'paid').length, inv.filter((i) => i.status !== 'paid').reduce((a, i) => a + i.amountEur, 0), inv.filter((i) => i.status === 'blocked' || i.status === 'no_po').length,
++      inv.filter((i) => i.status === 'awaiting_receipt').length, sc.rows.length, sc.rows.filter((s) => s.grade === 'A').length, sc.rows.filter((s) => s.grade === 'C').length,
++      Math.round(sc.rows.reduce((a, s) => a + s.onTimeDeliveryPct, 0) / 8), Math.round(sc.rows.reduce((a, s) => a + s.qualityAcceptancePct, 0) / 8), sc.supplierNcrs],
++    [3, 1, 8, 5, 1724160, 3, 2, 8, 4, 1, 90, 97, 3]));
++  check('My approvals queues: PO-1082 (director, PM) · BL-2026-0521 (quality, procurement) · RFQ-2026-031 · 3 invoices',
++    same([(await poApprovalQueue('HLT-026', 'Marie Lefebvre')).map((o) => o.number), (await poApprovalQueue('HLT-026', 'Romain Aubert')).map((o) => o.number), (await poApprovalQueue('HLT-026', 'Fabien Bertrand')).length,
++      (await qcQueue('HLT-026')).map((r) => r.number), (await rfqAwardQueue()).map((r) => r.number), (await invoiceQueue()).map((i) => i.number)],
++    [['PO-1082'], ['PO-1082'], 0, ['BL-2026-0521'], ['RFQ-2026-031'], ['INV-HC-7781', 'INV-BX-55120', 'INV-LE-2210']]));
++}
++
++/** Delivery 4 numbering and writers (after the Delivery 2 and 3 writes). */
++async function delivery4Writes() {
++  const before = (await listAudit()).length;
++  const drafts = await createDraftPurchaseOrders('HLT-026', 'Fabien Bertrand');
++  check('shortfall → 13 drafts PO-1100…PO-1112, one per manufacturer', drafts.length === 13 && drafts[0] === 'PO-1100' && drafts[12] === 'PO-1112', drafts);
++  await submitPurchaseOrder('PO-1100', 'Fabien Bertrand');
++  await approvePurchaseOrder('PO-1100', 'Romain Aubert');
++  const bl = await announceDelivery('HLT-026', {}, 'Fabien Bertrand');
++  await registerReceipt(bl, {}, 'Hélène Sauvage');
++  await acceptReceipt(bl, {}, 'Gabriel Comte');
++  check('PO-1100 approved → announce BL-2026-0600 → register → accept: order received, 192 plates in the Le Havre store',
++    bl === 'BL-2026-0600' && (await getPurchaseOrder('PO-1100'))?.status === 'received' && (await listStock()).find((s) => s.ref === 'KS-PLT-S355')?.onHand === 192);
++  check('award RFQ-2026-031 to Dillinger → draft PO-1113 at 1 195 €; new RFQ → RFQ-2026-035',
++    (await awardRfq('RFQ-2026-031', 'Dillinger', 'Fabien Bertrand')).purchaseOrderNumber === 'PO-1113'
++      && (await createRfq({ title: 'Check', suppliers: 'ABB', articles: 'EL-VFD-200', replyDueOn: '2026-10-15' }, 'Fabien Bertrand')) === 'RFQ-2026-035');
++  const rec = await recordEcoProgress('ECO-2026-015', { key: 'pm', decision: 'ok' }, { name: 'Romain Aubert', role: 'pm' });
++  check('ECO-2026-015 PM approval recorded, pending sync with Vigie (Vigie status unchanged)', rec.syncStatus === 'pending' && (await getEco('ECO-2026-015'))?.status === 'in_approval'
++    && (await getEco('ECO-2026-015'))?.approvalsView.find((a) => a.key === 'pm')?.pendingSync === true);
++  check('audit rows appended (19 + 21)', (await listAudit()).length === before + 21 && before === 19, [before, (await listAudit()).length]);
++}
++
++async function delivery5Reads() {
++  console.log('\nDelivery 5 data (DAL vs prototype)');
++  const ncrs = await listNcrs('HLT-026');
++  const open = ncrs.filter((n) => n.open);
++  check('NCRs HLT-026 (Vigie mirror, mock): 5 · 4 open · 1 critical · €44k · 3 from goods receipt; 2 on each other project with data; none on EWA-051',
++    getVigieQualityConnector().mode === 'mock' && same([ncrs.length, open.length, open.filter((n) => n.severity === 'critical').length, ncrs.reduce((a, n) => a + n.costKeur, 0),
++      ncrs.filter((n) => n.source === 'goods_receipt').length, (await listNcrs('NDC-031')).map((n) => n.number), (await listNcrs('EWA-051')).length], [5, 4, 1, 44, 3, ['NCR-040', 'NCR-041'], 0]));
++  const dl = await listDeliverables('HLT-026');
++  check('deliverables HLT-026: 10 · 3 accepted · 2 submitted (D-014 "Accept by 2 Oct", D-016) · D-021 due 2027-01-14; D-110…D-113 elsewhere',
++    same([dl.length, dl.filter((d) => d.status === 'accepted').length, dl.filter((d) => d.status === 'submitted').map((d) => d.number), dl[2].acceptanceText, dl.at(-1)!.dueOn,
++      (await listDeliverables('RCF-019')).map((d) => d.number)], [10, 3, ['D-014', 'D-016'], 'Accept by 2 Oct', '2027-01-14', ['D-110', 'D-111', 'D-112', 'D-113']]));
++  const plan = (await getItpPlan('HLT-026'))!;
++  const punch = (await listPunchItems('HLT-026', 'itp')).filter((p) => p.open);
++  check('ITP HLT-026: 3 / 13 passed · 1 failed · 5 hold points ahead · EMP 6 systems · 2 custom · 4 open punch (B 2 · C 2)',
++    same([plan.inspections.filter((i) => i.result === 'passed').length, plan.inspections.length, plan.inspections.filter((i) => i.result === 'failed').length,
++      plan.inspections.filter((i) => i.pointType === 'hold' && i.result !== 'passed').length, plan.template, plan.systems.length, plan.customCount, punch.length,
++      punch.filter((p) => p.category === 'B').length, punch.filter((p) => p.category === 'C').length], [3, 13, 1, 5, 'EMP', 6, 2, 4, 2, 2]));
++  const cm = (await getCommissioning('HLT-026'))!;
++  const cells = cm.systems.flatMap((x) => x.cells);
++  check('commissioning HLT-026: 0 / 6 handed over · 1 / 30 steps done · 2 blocked (IF-02, IF-05) · dossier 19 % · 4 missing',
++    same([cm.systems.filter((x) => x.cells[4].status === 'done').length, cells.filter((c) => c.status === 'done').length, cells.filter((c) => c.status === 'blocked').map((c) => c.blockingRef),
++      Math.round(((cm.dossier.filter((x) => x.status === 'ready').length + cm.dossier.filter((x) => x.status === 'partial').length * 0.5) / cm.dossier.length) * 100),
++      cm.dossier.filter((x) => x.status === 'missing').length], [0, 1, ['IF-02', 'IF-05'], 19, 4]));
++  const rex = await getRex('HLT-026');
++  check('REX HLT-026: 4 lessons (1 applied, 1 to validate) · closure 1 done 3 in progress · satisfaction 4.0 / 5',
++    same([rex.lessons.length, rex.lessons.filter((l) => l.status === 'applied').length, rex.lessons.filter((l) => l.status === 'proposed').length,
++      rex.closure.filter((c) => c.status === 'done').length, rex.closure.filter((c) => c.status === 'in_progress').length,
++      (rex.satisfaction.reduce((a, x) => a + x.score, 0) / rex.satisfaction.length).toFixed(1)], [4, 1, 1, 1, 3, '4.0']));
++  const ms = await listMachines();
++  const z = await machinesByZone();
++  check('installed base: 8 machines · 6 clients · 6 in warranty · 1 extended · MCH-035 ends in 31 d · 4 with open claims · zones 6 / 1 / 1',
++    same([ms.length, new Set(ms.map((m) => m.client)).size, ms.filter((m) => m.warrantyStatus === 'in_warranty').length, ms.filter((m) => m.warrantyStatus === 'extended').length,
++      ms.filter((m) => m.warrantyEndingSoon).map((m) => [m.number, m.warrantyEndsInDays]), ms.filter((m) => m.openClaims).length, [z.byZone.euna, z.byZone.afr, z.byZone.apac]],
++    [8, 6, 6, 1, [['MCH-035', 31]], 4, [6, 1, 1]]));
++  const claims = await listClaims();
++  const ivs = await listInterventions();
++  check('warranty claims: 5 open (2 major) · 4 interventions planned (next 6 Oct 2026) · €34k warranty · €6k chargeable · 1 linked to an ECO',
++    same([claims.filter((c) => c.open).length, claims.filter((c) => c.open && c.severity !== 'minor').length, ivs.filter((i) => i.status === 'planned').length,
++      ivs.filter((i) => i.status === 'planned').map((i) => i.scheduledOn).sort()[0], claims.filter((c) => c.coverage !== 'chargeable').reduce((a, c) => a + c.costKeur, 0),
++      claims.filter((c) => c.coverage === 'chargeable').reduce((a, c) => a + c.costKeur, 0), claims.filter((c) => c.ecoNumber).length], [5, 2, 4, '2026-10-06', 34, 6, 1]));
++  const site = (await getSite('HLT-026'))!;
++  check('site HLT-026: NO GO (5 conditions open) · prerequisites 4 / 6 · Cursus 3 / 5 (1 reserve, mock) · equipment 6 / 8 · 4 collisions · budget 98.3 k€ (11.3 committed) · 2 permits pending',
++    getCursusConnector().mode === 'mock' && same([site.go.ok, site.go.conditions.filter((c) => !c.ok).length, site.prerequisites.filter((p) => p.status !== 'pending').length,
++      site.cursus.people.filter((p) => p.verdict !== 'no_go').length, site.cursus.people.filter((p) => p.verdict === 'go_with_reserve').length,
++      site.equipment.filter((e) => e.status === 'confirmed').length, site.collisions.length, Math.round(site.missionCosts.reduce((a, m) => a + m.budgetKeur, 0) * 10) / 10,
++      Math.round(site.missionCosts.reduce((a, m) => a + m.actualKeur, 0) * 10) / 10, site.hse.filter((h) => h.status === 'pending').length], [false, 5, 4, 3, 1, 6, 4, 98.3, 11.3, 2]));
++  check('no site sheet, commissioning, ITP, REX, register or P&ID on NDC-031 / EWA-051', (await getSite('NDC-031')) === null && (await getCommissioning('EWA-051')) === null
++    && (await getItpPlan('NDC-031')) === null && (await getRex('EWA-051')).lessons.length === 0 && (await getEngineeringRegister('NDC-031')) === null && (await getPidValidation('EWA-051')) === null);
++  const cp = await getClientPortal('HLT-026');
++  check('client portal HLT-026: waiting CR-008, D-014, D-016 · 5 decided · 2 open issues · 7 shared documents',
++    same([cp.decisions.map((d) => d.id), cp.decided.length, cp.issues.filter((i) => i.status !== 'closed').length, cp.documents.length], [['CR-008', 'D-014', 'D-016'], 5, 2, 7]));
++  const eng = (await getEngineeringRegister('HLT-026'))!;
++  check('engineering HLT-026: 4 blocking · 4 outdated inputs · 5 / 13 released · 2 / 6 outputs ready',
++    same([eng.checks.filter((c) => c.open && c.severity === 'blocking').length, eng.inputs.filter((i) => i.outdated).length, eng.deliverables.filter((d) => d.status === 'released').length,
++      eng.deliverables.length, eng.outputs.filter((o) => o.state === 'ready').length, eng.outputs.length], [4, 4, 5, 13, 2, 6]));
++  const pid = (await getPidValidation('HLT-026'))!;
++  check('P&ID HLT-026: rev C · 22 in scope · 13 linked (59 %) · 6 unmapped · 3 reference issues', same([pid.sheet.revision, pid.coverage.inScope, pid.coverage.linked, pid.coverage.pct, pid.coverage.unmapped, pid.coverage.referenceIssues], ['C', 22, 13, 59, 6, 3]));
++  const mts = await listMachineTypes();
++  check('machine types: 5 active · 17 ITP systems · EMP reference budget 1 940 k€ · 5 REX patterns',
++    same([mts.filter((m) => m.active).length, mts.reduce((a, m) => a + m.itpSystems.length, 0), mts[0].costTotalKeur, mts.filter((m) => m.rexReferences.length).length], [5, 17, 1940, 5]));
++  const st = await getSettings();
++  check('settings: 6 locations (5 types) · 10 skills · 6 cost categories · 0.97 / 0.9 · 11 holidays',
++    same([st.locations.length, new Set(st.locations.map((l) => l.type)).size, st.lists.skills.length, st.lists.costCats.length, st.health, st.lists.holidays.length], [6, 5, 10, 6, { risk: 0.97, off: 0.9 }, 11]));
++  const conns = await listConnectors();
++  const pc = await getPlumbingCounts();
++  // A-12: "Events today" = events of the data date (Paris day); the prototype's 6 included one of 26 Sep.
++  check('connectors: 9 + Vigie (live: 6 ECOs · 15 NCRs · 5 HSE items) · Cursus live · 1 warning · 5 events today · 8 audit entries · 6 formats',
++    same([conns.length, conns.at(-1)!.lastVolume, conns.find((c) => c.name === 'Cursus')!.lastVolume, conns.filter((c) => c.status === 'warning').map((c) => c.name), pc.eventsToday,
++      pc.auditLast7Days, (await listImportFormats()).length], [10, '6 ECOs · 15 NCRs · 5 HSE items', '5 people · HLT-026', ['Outlook / Exchange'], 5, 8, 6]));
++  check('My approvals: client contact D-014, D-016 · quality no NCR in verification',
++    same([(await deliverableAcceptanceQueue('HLT-026', { name: 'Nadia Bensaïd', role: 'client' })).map((d) => d.number), (await ncrVerificationQueue('HLT-026', { name: 'Gabriel Comte', role: 'quality' })).length],
++      [['D-014', 'D-016'], 0]));
++}
++
++/** Delivery 5 numbering and writers (after the Delivery 2–4 writes). */
++async function delivery5Writes() {
++  const before = (await listAudit()).length;
++  const pm = { name: 'Romain Aubert', role: 'pm' };
++  const r = await advanceNcr('HLT-026', 'NCR-028', pm);
++  check('NCR-028 → Root cause recorded, pending sync with Vigie (Vigie status unchanged)', r.syncStatus === 'pending' && (await getNcr('HLT-026', 'NCR-028'))?.status === 'containment');
++  await decideDeliverable('HLT-026', 'D-014', 'accepted', { name: 'Nadia Bensaïd', role: 'client' });
++  check('D-014 accepted by the client contact (PV): "25 Sep · N. Bensaïd"', (await listDeliverables('HLT-026')).find((d) => d.number === 'D-014')?.acceptanceText === '25 Sep · N. Bensaïd');
++  const numbers = [
++    await addPunchItem('HLT-026', { description: 'Check', category: 'C', source: 'site_walk' }, pm),
++    await addLesson('HLT-026', { theme: 'site', whatHappened: 'Check', recommendation: 'Check', appliesTo: 'Other' }, pm),
++    await addMachine({ name: 'Check crane', machineType: 'EMP', client: 'Port authority', site: 'Le Havre · quay 5' }, pm),
++    await openClaim({ machineNumber: 'MCH-050', issue: 'Check', severity: 'minor', coverage: 'warranty', owner: 'T. Kerbrat' }, pm),
++    await raiseClientIssue('HLT-026', 'Check', { name: 'Nadia Bensaïd', role: 'client' }),
++    await saveDailyReport('HLT-026', { date: '2026-09-30', weather: 'clear', progress: 'Check', incident: 'none' }, pm),
++  ];
++  check('numbering: P-10 · LL-10 · MCH-050 · WC-020 · CI-08 · DR-003', same(numbers, ['P-10', 'LL-10', 'MCH-050', 'WC-020', 'CI-08', 'DR-003']), numbers);
++  const rem = await remindInCursus('HLT-026', 'Thomas Kerbrat', pm);
++  check('Cursus reminder for T. Kerbrat pending sync with Cursus (mock)', rem.syncStatus === 'pending');
++  check('audit rows appended (9 writes)', (await listAudit()).length === before + 9, [before, (await listAudit()).length]);
++}
++
++async function chapter4Reads() {
++  console.log('\nChapter 4 data (seed, calendars, CPM)');
++  check('built-in calendars', same((await listCalendars()).map((c) => c.code), ['standard_5x8', 'standard_5x8_workshop', 'site_6x10', 'continuous_24h']));
++  const cals = await loadWorkCalendars('HLT-026');
++  check('Standard calendar skips the French holidays (Easter Monday 6 Apr 2026)', !cals.standard_5x8.isWorkDay('2026-04-06') && cals.site_6x10.isWorkDay('2026-09-26'));
++  check('Change control register unchanged for a generated project (seeded BL1)', same(await getBaselineRegister('NDC-031'), [
++    { code: 'BL1', name: 'Approved baseline', setOn: '9 Apr 2026', setOnDate: '2026-04-09', bac: 2100, finish: '1 Apr 2027', finishDate: '2027-04-01', state: 'current', stateLabel: 'Current', changeRequest: null },
++  ]));
++  check('HLT-026 baselines BL0 (no snapshot) · BL1 (21 activities, displayed) · BL2 (proposed)', same((await listProjectBaselines('HLT-026')).map((b) => [b.code, b.activityCount, b.displayed]), [['BL0', 0, false], ['BL1', 21, true], ['BL2', 0, false]]));
++  check('A1250 BL1 finish 31 Aug', (await getBaselineActivities('HLT-026', 'BL1')).find((a) => a.activityCode === 'A1250')?.finishText === '31 Aug');
++  const net = await loadScheduleNetwork('HLT-026');
++  check('HLT-026 network: 21 activities, 30 links, data date 25 Sep 2026', net?.activities.length === 21 && net.links.length === 30 && net.dataDate === '2026-09-25');
++  const r = net && schedule(net.input);
++  check('CPM on HLT-026 (not persisted): A1250 → 9 Oct, A1260 5 Oct → 6 Nov, A1620 FNLT 18 Dec missed',
++    r?.activities.A1250.finish === '2026-10-09' && r.activities.A1260.start === '2026-10-05' && r.activities.A1260.finish === '2026-11-06' && r.activities.A1620.violation?.type === 'FNLT');
++}
++
++async function chapter4Writes() {
++  console.log('\nChapter 4 writes');
++  const bl = await createBaselineSnapshot('HLT-026', { actorName: 'Romain Aubert', comment: 'db-check' });
++  check('"Set baseline" → BL3 with 21 activities', bl.code === 'BL3' && bl.activityCount === 21, bl);
++  await setProjectCalendar('NDC-031', 'site_6x10', 'Romain Aubert');
++  check('project calendar set', (await loadScheduleNetwork('NDC-031'))?.projectCalendar === 'site_6x10');
++  check('client exchange COM-001', (await addClientCommunication('HLT-026', { occurredOn: '2026-09-25', channel: 'phone', contactName: 'N. Bensaïd', subject: 'db-check' }, 'Romain Aubert')) === 'COM-001');
++  const job = await createImportJob({ kind: 'parts', mode: 'update', fileName: 'parts.csv', actorName: 'Antoine Girard' });
++  await saveImportPreview(job, [{ status: 'ok', action: 'update', key: 'EL-PLC-S7', data: {} }], { rows: 1 });
++  check('import job previewed (nothing written)', (await getImportJob(job))?.status === 'previewed');
++}
++
++main().catch((e) => {
++  console.error(e);
++  process.exit(1);
++});

@@ -23,10 +23,12 @@ data/historique.json       tables et colonnes ajoutées ou supprimées (génér�
 data/flux.json             flux entre logiciels, systèmes externes, points d'attention (saisi)
 data/usages.json           écrans de chaque outil et tables lues ou écrites (saisi)
 data/doublons.json         groupes de doublons et options (saisi)
+data/referentiels.json     sites, organigramme, pays de départ (D14, D15, D17)
 data/declarations/         schémas déclarés par les outils (reçus par le serveur ; /data/declarations en production)
 integration/declarer-schema.mjs   module à ajouter dans chaque outil
 serveur.mjs                       serveur de Matrix : la page, POST /api/declarations, /api/sante
 outils/collecteur.mjs             lit les schémas (déclarations, sinon code source) et compare
+outils/edition.mjs                documentation, décisions, référentiels, journal (/data/edition.json)
 outils/page.mjs                   construit la page à partir de maquette/source.html et des données
 outils/construire-maquette.mjs    assemble maquette/matrix.html (version publiée comme artefact)
 outils/generer-liste-doublons.mjs génère docs/doublons-a-trancher.md
@@ -57,7 +59,10 @@ Le `Dockerfile` à la racine installe la dépendance et lance `node serveur.mjs`
 | Port interne (Ports Exposes) | `3000` |
 | Volume persistant | `/data` (catalogue à jour, historique des schémas, déclarations reçues) |
 | Variable d'environnement | `MATRIX_TOKEN` : jeton partagé avec les quatre outils ; sans lui, les déclarations sont refusées |
+| Variable d'environnement | `MATRIX_MOT_DE_PASSE` : mot de passe d'accès à Matrix (identifiant libre, enregistré dans le journal). Sans lui, la consultation est ouverte et les modifications sont refusées |
 | Contrôle de santé | intégré à l'image (`GET /api/sante`) ; rien à configurer |
 
 - Le catalogue embarqué dans l'image sert de point de départ. À chaque déploiement, il est comparé au catalogue du volume : les écarts vont dans l'historique.
-- Tant que l'authentification n'est pas branchée, protéger l'accès au niveau de l'hébergeur (authentification HTTP de Coolify, par exemple). Les outils déclarent alors leurs tables avec `MATRIX_URL=https://identifiant:mot-de-passe@matrix.votre-domaine` ; le jeton part dans l'en-tête `X-Matrix-Token`.
+- Avec `MATRIX_MOT_DE_PASSE`, le navigateur demande un identifiant et ce mot de passe ; l'identifiant saisi signe les modifications dans le journal. `/api/sante` et la réception des déclarations (`POST /api/declarations`, jeton) restent accessibles sans mot de passe.
+- Ce que le service informatique saisit dans Matrix (documentation des tables, décisions, référentiels, journal) est enregistré dans `/data/edition.json`.
+- Si vous préférez l'authentification HTTP de Coolify à `MATRIX_MOT_DE_PASSE`, les outils déclarent leurs tables avec `MATRIX_URL=https://identifiant:mot-de-passe@matrix.votre-domaine` ; le jeton part dans l'en-tête `X-Matrix-Token`.

@@ -1,0 +1,373 @@
+{
+ "_lisezmoi": "Référentiels publiés par Matrix (décisions D14 sites, D15 organigramme, D17 pays). Valeurs de départ reprises de infra/postgres/partage/10-matrix-referentiels.sql ; en production, les modifications faites dans Matrix sont enregistrées dans /data/edition.json.",
+ "sites": [
+  {
+   "code": "lyon",
+   "libelle": "Lyon — siège et atelier",
+   "ville": "Lyon",
+   "pays_iso2": "FR",
+   "ordre": 10,
+   "actif": true
+  },
+  {
+   "code": "le_havre",
+   "libelle": "Le Havre — magasin",
+   "ville": "Le Havre",
+   "pays_iso2": "FR",
+   "ordre": 20,
+   "actif": true
+  },
+  {
+   "code": "marseille",
+   "libelle": "Marseille — magasin",
+   "ville": "Marseille",
+   "pays_iso2": "FR",
+   "ordre": 30,
+   "actif": true
+  }
+ ],
+ "organigramme": [
+  {
+   "code": "DIR",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Direction générale",
+   "libelle_en": "Executive management",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 10,
+   "actif": true
+  },
+  {
+   "code": "COM",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Commercial",
+   "libelle_en": "Sales",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 20,
+   "actif": true
+  },
+  {
+   "code": "PRJ",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Projets & contrôle",
+   "libelle_en": "Projects & controls",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 30,
+   "actif": true
+  },
+  {
+   "code": "ING",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Ingénierie",
+   "libelle_en": "Engineering",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 40,
+   "actif": true
+  },
+  {
+   "code": "MEP",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Lots techniques (MEP)",
+   "libelle_en": "MEP",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 50,
+   "actif": true
+  },
+  {
+   "code": "CHA",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Opérations chantier",
+   "libelle_en": "Site operations",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 60,
+   "actif": true
+  },
+  {
+   "code": "QUA",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Qualité",
+   "libelle_en": "Quality",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 70,
+   "actif": true
+  },
+  {
+   "code": "HSE",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "HSE",
+   "libelle_en": "HSE",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 80,
+   "actif": true
+  },
+  {
+   "code": "ACH",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Achats & stock",
+   "libelle_en": "Procurement & stock",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 90,
+   "actif": true
+  },
+  {
+   "code": "RHU",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Ressources humaines",
+   "libelle_en": "Human resources",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 100,
+   "actif": true
+  },
+  {
+   "code": "FIN",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Finance & administration",
+   "libelle_en": "Finance & administration",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 110,
+   "actif": true
+  },
+  {
+   "code": "JUR",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Juridique",
+   "libelle_en": "Legal",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 120,
+   "actif": true
+  },
+  {
+   "code": "DSI",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Systèmes d’information",
+   "libelle_en": "Information systems",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 130,
+   "actif": true
+  },
+  {
+   "code": "CMN",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Communication",
+   "libelle_en": "Communication",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 140,
+   "actif": true
+  },
+  {
+   "code": "RDI",
+   "niveau": "departement",
+   "parent_code": null,
+   "libelle_fr": "Recherche & innovation",
+   "libelle_en": "Research & innovation",
+   "responsable_matricule": null,
+   "site_code": null,
+   "ordre": 150,
+   "actif": true
+  }
+ ],
+ "pays": [
+  {
+   "iso2": "FR",
+   "iso3": "FRA",
+   "nom_fr": "France",
+   "nom_en": "France",
+   "actif": true
+  },
+  {
+   "iso2": "GB",
+   "iso3": "GBR",
+   "nom_fr": "Royaume-Uni",
+   "nom_en": "United Kingdom",
+   "actif": true
+  },
+  {
+   "iso2": "NL",
+   "iso3": "NLD",
+   "nom_fr": "Pays-Bas",
+   "nom_en": "Netherlands",
+   "actif": true
+  },
+  {
+   "iso2": "DE",
+   "iso3": "DEU",
+   "nom_fr": "Allemagne",
+   "nom_en": "Germany",
+   "actif": true
+  },
+  {
+   "iso2": "BE",
+   "iso3": "BEL",
+   "nom_fr": "Belgique",
+   "nom_en": "Belgium",
+   "actif": true
+  },
+  {
+   "iso2": "ES",
+   "iso3": "ESP",
+   "nom_fr": "Espagne",
+   "nom_en": "Spain",
+   "actif": true
+  },
+  {
+   "iso2": "IT",
+   "iso3": "ITA",
+   "nom_fr": "Italie",
+   "nom_en": "Italy",
+   "actif": true
+  },
+  {
+   "iso2": "CA",
+   "iso3": "CAN",
+   "nom_fr": "Canada",
+   "nom_en": "Canada",
+   "actif": true
+  },
+  {
+   "iso2": "US",
+   "iso3": "USA",
+   "nom_fr": "États-Unis",
+   "nom_en": "United States",
+   "actif": true
+  },
+  {
+   "iso2": "MA",
+   "iso3": "MAR",
+   "nom_fr": "Maroc",
+   "nom_en": "Morocco",
+   "actif": true
+  },
+  {
+   "iso2": "CI",
+   "iso3": "CIV",
+   "nom_fr": "Côte d’Ivoire",
+   "nom_en": "Côte d’Ivoire",
+   "actif": true
+  },
+  {
+   "iso2": "SN",
+   "iso3": "SEN",
+   "nom_fr": "Sénégal",
+   "nom_en": "Senegal",
+   "actif": true
+  },
+  {
+   "iso2": "KE",
+   "iso3": "KEN",
+   "nom_fr": "Kenya",
+   "nom_en": "Kenya",
+   "actif": true
+  },
+  {
+   "iso2": "ZA",
+   "iso3": "ZAF",
+   "nom_fr": "Afrique du Sud",
+   "nom_en": "South Africa",
+   "actif": true
+  },
+  {
+   "iso2": "EG",
+   "iso3": "EGY",
+   "nom_fr": "Égypte",
+   "nom_en": "Egypt",
+   "actif": true
+  },
+  {
+   "iso2": "AU",
+   "iso3": "AUS",
+   "nom_fr": "Australie",
+   "nom_en": "Australia",
+   "actif": true
+  },
+  {
+   "iso2": "MY",
+   "iso3": "MYS",
+   "nom_fr": "Malaisie",
+   "nom_en": "Malaysia",
+   "actif": true
+  },
+  {
+   "iso2": "SG",
+   "iso3": "SGP",
+   "nom_fr": "Singapour",
+   "nom_en": "Singapore",
+   "actif": true
+  },
+  {
+   "iso2": "ID",
+   "iso3": "IDN",
+   "nom_fr": "Indonésie",
+   "nom_en": "Indonesia",
+   "actif": true
+  },
+  {
+   "iso2": "VN",
+   "iso3": "VNM",
+   "nom_fr": "Vietnam",
+   "nom_en": "Vietnam",
+   "actif": true
+  },
+  {
+   "iso2": "JP",
+   "iso3": "JPN",
+   "nom_fr": "Japon",
+   "nom_en": "Japan",
+   "actif": true
+  },
+  {
+   "iso2": "IN",
+   "iso3": "IND",
+   "nom_fr": "Inde",
+   "nom_en": "India",
+   "actif": true
+  },
+  {
+   "iso2": "GH",
+   "iso3": "GHA",
+   "nom_fr": "Ghana",
+   "nom_en": "Ghana",
+   "actif": true
+  },
+  {
+   "iso2": "BR",
+   "iso3": "BRA",
+   "nom_fr": "Brésil",
+   "nom_en": "Brazil",
+   "actif": true
+  },
+  {
+   "iso2": "SA",
+   "iso3": "SAU",
+   "nom_fr": "Arabie saoudite",
+   "nom_en": "Saudi Arabia",
+   "actif": true
+  }
+ ]
+}

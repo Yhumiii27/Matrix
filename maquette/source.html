@@ -230,6 +230,12 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .option-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .option-id { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--color-neutral-600); display: grid; place-items: center; font-size: 10.5px; font-weight: 600; }
 .option[aria-pressed="true"] .option-id { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-bg); }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 12px; color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
+.form-error { color: var(--color-accent-300); font-size: 12px; margin: 0; }
+.table td .input { min-height: 30px; padding: 4px 8px; font-size: 12.5px; min-width: 90px; }
+.table td select.input { width: 100%; }
 .code { font-family: var(--font-mono); font-size: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); overflow-x: auto; white-space: pre; }
 .toasts { position: fixed; right: max(20px, env(safe-area-inset-right, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); z-index: 50; display: flex; flex-direction: column; gap: 8px; }
 .toast { background: var(--color-surface); box-shadow: var(--shadow-md); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; }
@@ -304,6 +310,7 @@ select.input option { background: var(--color-surface); color: var(--color-text)
       <section class="screen" id="s-graphe" data-title="Graphe des liens" hidden></section>
       <section class="screen" id="s-flux" data-title="Flux entre logiciels" hidden></section>
       <section class="screen" id="s-doublons" data-title="Doublons à trancher" hidden></section>
+      <section class="screen pad" id="s-referentiels" data-title="Référentiels publiés" hidden></section>
       <section class="screen pad" id="s-qualite" data-title="Qualité des schémas" hidden></section>
       <section class="screen pad" id="s-administration" data-title="Administration" hidden></section>
     </main>
@@ -318,6 +325,16 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 'use strict';
 const DATA = JSON.parse(document.getElementById('matrix-data').textContent);
 const CAT = DATA.catalogue, FLUX = DATA.flux, USAGES = DATA.usages, DOUBLONS = DATA.doublons.groupes, HIST = DATA.historique.evenements;
+// SERVEUR : page servie par Matrix (modifications enregistrées sur le serveur) ; sinon maquette en lecture seule.
+const SERVEUR = !!DATA.serveur;
+const EDITION = DATA.edition || { documentation: {}, decisions: {}, referentiels: { sites: [], organigramme: [], pays: [] }, journal: [] };
+async function envoyer(chemin, corps) {
+  const r = await fetch(chemin, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps) });
+  const j = await r.json().catch(() => ({ erreur: 'réponse illisible du serveur' }));
+  if (!r.ok) throw new Error(j.erreur || `erreur ${r.status}`);
+  Object.assign(EDITION, j.edition);
+  return j.resultat;
+}
 
 // ── Icônes (tracés Codex + quelques ajouts) ─────────────────────────────
 const ICONS = {
@@ -341,6 +358,9 @@ const ICONS = {
   fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7',
+  pen: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
+  plus: 'M12 5v14M5 12h14',
 };
 const icon = (name, size = 16, sw = 1.6) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 const hydrateIcons = root => root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon, +(el.dataset.size || 16)); el.removeAttribute('data-icon'); });
@@ -393,18 +413,37 @@ for (const f of FLUX.flux) {
   f.cible.forEach(n => T.get(key(f.vers, n))?.flux.push({ f, sens: 'cible' }));
 }
 for (const g of DOUBLONS) for (const o of g.tables) T.get(key(o.app, o.table))?.refs.push(g);
+// Documentation saisie dans Matrix : elle complète ou remplace ce que dit le schéma.
+function appliquerDoc(t, d) {
+  t.origine ??= { description: t.description, domain: t.domain };
+  t.description = d?.description ?? t.origine.description;
+  t.domain = d?.domaine ?? t.origine.domain;
+  t.responsable = d?.responsable ?? null;
+  t.note = d?.note ?? null;
+  t.doc = d ?? null;
+}
+for (const [k, d] of Object.entries(EDITION.documentation)) { const t = T.get(k); if (t) appliquerDoc(t, d); }
 const FUSION = new Set(['doublon', 'miroir', 'chevauchement']);
 const NATURE = { doublon: ['Doublon', 'tag-accent'], miroir: ['Miroir', 'tag-outline'], chevauchement: ['Chevauchement', 'tag-outline'], homonyme: ['Homonyme', 'tag-neutral'], technique: ['Technique', 'tag-neutral'] };
 const natureTag = n => `<span class="tag ${NATURE[n][1]}">${NATURE[n][0]}</span>`;
 
-// Décisions sur les doublons : propres à ce navigateur, à copier pour les transmettre.
+// Décisions sur les doublons : enregistrées sur le serveur Matrix ; dans la maquette publiée, propres au navigateur.
 const Decisions = (() => {
   let d = {};
-  try { d = JSON.parse(localStorage.getItem('matrix.decisions') || '{}') || {}; } catch { d = {}; }
+  if (SERVEUR) d = Object.fromEntries(Object.entries(EDITION.decisions).map(([k, v]) => [k, v.option]));
+  else { try { d = JSON.parse(localStorage.getItem('matrix.decisions') || '{}') || {}; } catch { d = {}; } }
+  const officielle = id => DOUBLONS.find(g => g.id === id)?.decision || null;
   return {
-    get: id => d[id] || DOUBLONS.find(g => g.id === id)?.decision?.option || null,
-    officielle: id => DOUBLONS.find(g => g.id === id)?.decision || null,
-    set(id, v) { if (v && v !== DOUBLONS.find(g => g.id === id)?.decision?.option) d[id] = v; else delete d[id]; try { localStorage.setItem('matrix.decisions', JSON.stringify(d)); } catch { /* stockage indisponible */ } navBadge(); },
+    get: id => d[id] || officielle(id)?.option || null,
+    officielle,
+    async set(id, v) {
+      if (SERVEUR) { await envoyer('/api/decisions', { id, option: v }); if (v) d[id] = v; else delete d[id]; }
+      else {
+        if (v && v !== officielle(id)?.option) d[id] = v; else delete d[id];
+        try { localStorage.setItem('matrix.decisions', JSON.stringify(d)); } catch { /* stockage indisponible */ }
+      }
+      navBadge();
+    },
     count: () => DOUBLONS.filter(g => d[g.id] || g.decision).length,
   };
 })();
@@ -426,6 +465,7 @@ const NAV = [
   ['graphe', 'Graphe des liens', 'graph'],
   ['flux', 'Flux entre logiciels', 'flux'],
   ['doublons', 'Doublons', 'ref'],
+  ['referentiels', 'Référentiels', 'list'],
   ['qualite', 'Qualité des schémas', 'pulse'],
   ['administration', 'Administration', 'shield'],
 ];
@@ -499,7 +539,10 @@ function tableSheet(t, tab = 'colonnes', opts = {}) {
       ${opts.close ? `<button class="btn btn-ghost btn-icon" data-close aria-label="Fermer l’aperçu">${icon('close', 14)}</button>` : ''}
     </div>
     <div class="tags">${appTag(t.app)}<span class="tag tag-neutral">${esc(t.domain)}</span>${t.sensitive ? `<span class="tag tag-outline">${icon('lock', 10)} Données sensibles</span>` : ''}${t.flux.length ? `<span class="tag tag-accent">Échangée</span>` : ''}${t.nouvelle ? `<span class="tag tag-outline">Nouvelle · à documenter</span>` : ''}</div>
-    ${t.description ? `<p class="text-muted" style="font-size:12.5px">${esc(t.description)}</p>` : ''}
+    ${t.description ? `<p class="text-muted" style="font-size:12.5px">${esc(t.description)}</p>` : `<p class="text-muted sub">Pas encore de description.</p>`}
+    ${t.responsable || t.note ? `<dl class="dl">${t.responsable ? `<dt>Responsable</dt><dd>${esc(t.responsable)}</dd>` : ''}${t.note ? `<dt>Note</dt><dd style="white-space:pre-wrap">${esc(t.note)}</dd>` : ''}</dl>` : ''}
+    ${t.doc ? `<p class="sub text-muted">Documentée par ${esc(t.doc.majPar || '—')} le ${new Date(t.doc.majLe).toLocaleDateString('fr-FR')}</p>` : ''}
+    ${SERVEUR ? `<div><button class="btn btn-secondary btn-sm" data-documenter="${esc(t.key)}">${icon('pen', 13)} Documenter</button></div>` : ''}
     <div class="mini-kpis"><div><b>${t.columns.length}</b><span>colonnes</span></div><div><b>${linkCount(t)}</b><span>liens</span></div><div><b>${screens.size + t.flux.length}</b><span>usages</span></div></div>
     <dl class="dl"><dt>Clé</dt><dd class="mono">${esc(t.pk.join(', ') || '—')}</dd>${t.uniques.length ? `<dt>Unicité</dt><dd class="mono">${t.uniques.map(u => esc(u.join(' + '))).join(' · ')}</dd>` : ''}<dt>Base</dt><dd>${esc(APPS[t.app].moteur)}</dd></dl>
     ${seg('tab', [['colonnes', 'Colonnes', t.columns.length], ['liens', 'Liens', linkCount(t)], ['usages', 'Usages', screens.size + t.flux.length]], tab)}
@@ -522,8 +565,38 @@ function fluxSheet(f, opts = {}) {
     ${opts.actions !== false ? `<div class="actions"><button class="btn btn-primary" data-graph-flux="${f.id}">${icon('graph', 14)} Voir dans le graphe</button></div>` : ''}`;
 }
 
+// Formulaire de documentation d'une table (page servie par Matrix uniquement)
+const Documentation = {
+  ouvrir(k, conteneur) {
+    const t = T.get(k); if (!t || !conteneur) return;
+    const domaines = [...new Set(tablesOf(t.app).map(x => x.domain))].sort((a, b) => a.localeCompare(b, 'fr'));
+    conteneur.innerHTML = `<div class="quick-head"><div class="quick-title mono">${esc(t.name)}</div></div>
+      <div class="tags">${appTag(t.app)}</div>
+      <form id="doc-form" style="display:flex;flex-direction:column;gap:12px">
+        <div class="field"><label class="field-label" for="doc-description">Description</label><textarea class="input" id="doc-description" rows="4" maxlength="2000">${esc(t.description || '')}</textarea></div>
+        <div class="field"><label class="field-label" for="doc-domaine">Domaine</label><input class="input" id="doc-domaine" list="doc-domaines" maxlength="80" value="${esc(t.domain || '')}"><datalist id="doc-domaines">${domaines.map(d => `<option value="${esc(d)}">`).join('')}</datalist></div>
+        <div class="field"><label class="field-label" for="doc-responsable">Responsable de la donnée</label><input class="input" id="doc-responsable" maxlength="120" placeholder="Nom ou fonction" value="${esc(t.responsable || '')}"></div>
+        <div class="field"><label class="field-label" for="doc-note">Note</label><textarea class="input" id="doc-note" rows="4" maxlength="4000" placeholder="Règles de gestion, précautions, liens utiles…">${esc(t.note || '')}</textarea></div>
+        <p class="form-error" id="doc-erreur" hidden></p>
+        <div class="actions"><button class="btn btn-primary" type="submit">Enregistrer</button><button class="btn btn-secondary" type="button" id="doc-annuler">Annuler</button></div>
+      </form>`;
+    const rafraichir = () => { conteneur.innerHTML = tableSheet(t, 'colonnes', { close: true }); Library.refresh(); };
+    conteneur.querySelector('#doc-annuler').addEventListener('click', rafraichir);
+    conteneur.querySelector('#doc-form').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const v = id => conteneur.querySelector(id).value;
+      try {
+        const d = await envoyer('/api/documentation', { app: t.app, table: t.name, description: v('#doc-description'), domaine: v('#doc-domaine'), responsable: v('#doc-responsable'), note: v('#doc-note') });
+        appliquerDoc(t, d); rafraichir(); toast(`${t.name} : documentation enregistrée`);
+      } catch (err) { const p = conteneur.querySelector('#doc-erreur'); p.textContent = err.message; p.hidden = false; }
+    });
+  },
+};
+
 // Délégation des clics communs aux fiches
 document.addEventListener('click', e => {
+  const doc = e.target.closest('[data-documenter]');
+  if (doc) { Documentation.ouvrir(doc.dataset.documenter, doc.closest('.quick')); return; }
   const el = e.target.closest('[data-open],[data-flux],[data-graph],[data-graph-flux],[data-copy],[data-go],[data-doublon]');
   if (!el) return;
   if (el.dataset.open) Library.open(el.dataset.open);
@@ -681,6 +754,7 @@ const Library = (() => {
   }
   return {
     render,
+    refresh() { if (root) update(); },
     open(k) { st.sel = k; st.tab = 'colonnes'; const t = T.get(k); if (t) { st.open.add(t.app); if (st.app && st.app !== t.app) { st.app = null; st.domain = null; } } if (current !== 'bibliotheque') go('bibliotheque'); if (rendered.bibliotheque) update(); setTimeout(() => document.querySelector(`#lib-rows tr[data-sel="${CSS.escape(k)}"]`)?.scrollIntoView({ block: 'center' }), 0); },
     select({ app = null, domain = null, q = '' }) { st.app = app; st.domain = domain; st.q = q; st.filtre = 'toutes'; if (app) st.open.add(app); go('bibliotheque'); if (rendered.bibliotheque) { $('lib-q').value = q; update(); } },
     search(q) { st.app = null; st.domain = null; st.q = q; st.filtre = 'toutes'; go('bibliotheque'); if (rendered.bibliotheque) { $('lib-q').value = q; update(); } },
@@ -1093,7 +1167,11 @@ const Dups = (() => {
       <aside class="quick" id="db-quick"></aside></div>`;
     root.addEventListener('click', e => {
       const r = e.target.closest('tr[data-g]'); if (r && !e.target.closest('button')) { st.sel = r.dataset.g; update(); }
-      const opt = e.target.closest('[data-choix]'); if (opt) { const v = opt.dataset.choix; Decisions.set(st.sel, Decisions.get(st.sel) === v ? null : v); update(); toast(Decisions.get(st.sel) ? `${st.sel} : option ${v} retenue` : `${st.sel} : décision retirée`); }
+      const opt = e.target.closest('[data-choix]');
+      if (opt) {
+        const v = opt.dataset.choix, id = st.sel, nv = Decisions.get(id) === v ? null : v;
+        Decisions.set(id, nv).then(() => { update(); toast(nv ? `${id} : option ${v} retenue` : `${id} : décision retirée`); }, err => toast(`${id} non enregistré : ${err.message}`));
+      }
       if (e.target.closest('#db-copy')) copyDecisions();
     });
     root.addEventListener('keydown', e => { const r = e.target.closest('tr[data-g]'); if (r && e.key === 'Enter') { st.sel = r.dataset.g; update(); } });
@@ -1117,7 +1195,7 @@ const Dups = (() => {
       <td>${natureTag(g.nature)}</td><td>${gravTag(g.gravite)}</td>
       <td class="nowrap"><span class="tag tag-ghost">${g.recommandation}</span></td>
       <td class="nowrap">${d ? `<span class="tag tag-accent" title="${g.decision && g.decision.option === d ? 'Décision ' + g.decision.statut + ' du ' + new Date(g.decision.le).toLocaleDateString('fr-FR') : 'Choix enregistré dans ce navigateur'}">${icon('tick', 10, 2)} ${d}${g.decision && g.decision.option === d && g.decision.statut === 'provisoire' ? ' · provisoire' : ''}</span>` : '<span class="text-muted sub">à trancher</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Aucun groupe dans ce filtre.</td></tr>`;
-    $('db-foot').textContent = `${Decisions.count()} décision(s) sur ${DOUBLONS.length} · ${DOUBLONS.filter(g => g.decision).length} enregistrée(s) dans Matrix, les autres choix restent dans ce navigateur`;
+    $('db-foot').textContent = SERVEUR ? `${Decisions.count()} décision(s) sur ${DOUBLONS.length} · enregistrées sur le serveur Matrix et tracées dans le journal` : `${Decisions.count()} décision(s) sur ${DOUBLONS.length} · ${DOUBLONS.filter(g => g.decision).length} enregistrée(s) dans Matrix, les autres choix restent dans ce navigateur`;
     const g = DOUBLONS.find(x => x.id === st.sel); const d = Decisions.get(g.id);
     $('db-quick').innerHTML = `<div class="quick-head"><div class="quick-title">${esc(g.objet)}</div></div>
       <div class="tags"><span class="tag tag-ghost">${g.id}</span>${natureTag(g.nature)}${gravTag(g.gravite)}</div>
@@ -1139,6 +1217,65 @@ const Dups = (() => {
 RENDER.doublons = () => Dups.render();
 
 // ── Qualité ─────────────────────────────────────────────────────────────
+// ── Référentiels publiés par Matrix (D14 sites, D15 organigramme, D17 pays) ─────
+RENDER.referentiels = () => {
+  const root = $('s-referentiels');
+  const NIVEAUX = [['departement', 'Département'], ['service', 'Service'], ['equipe', 'Équipe']];
+  const DEF = {
+    sites: { titre: 'Sites', decision: 'D14', cle: 'code', vue: 'matrix.pub_sites', nouveau: () => ({ code: '', libelle: '', ville: '', pays_iso2: 'FR', ordre: 0, actif: true }),
+      cols: [['code', 'Code', 'texte', 'lyon'], ['libelle', 'Libellé', 'texte'], ['ville', 'Ville', 'texte'], ['pays_iso2', 'Pays', 'pays'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
+    organigramme: { titre: 'Organigramme', decision: 'D15', cle: 'code', vue: 'matrix.pub_organigramme', nouveau: () => ({ code: '', niveau: 'service', parent_code: '', libelle_fr: '', libelle_en: '', responsable_matricule: '', site_code: '', ordre: 0, actif: true }),
+      cols: [['code', 'Code', 'texte', 'PRJ-CPL'], ['niveau', 'Niveau', 'niveau'], ['parent_code', 'Rattaché à', 'parent'], ['libelle_fr', 'Libellé', 'texte'], ['libelle_en', 'Libellé anglais', 'texte'], ['responsable_matricule', 'Responsable', 'texte', 'Matricule'], ['site_code', 'Site', 'site'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
+    pays: { titre: 'Pays', decision: 'D17', cle: 'iso2', vue: 'matrix.pub_pays', nouveau: () => ({ iso2: '', iso3: '', nom_fr: '', nom_en: '', actif: true }),
+      cols: [['iso2', 'ISO 2', 'texte', 'FR'], ['iso3', 'ISO 3', 'texte', 'FRA'], ['nom_fr', 'Nom', 'texte'], ['nom_en', 'Nom anglais', 'texte'], ['actif', 'Actif', 'case']] },
+  };
+  let liste = 'sites', brouillon = null;
+  const copie = () => JSON.parse(JSON.stringify(EDITION.referentiels[liste]));
+  const champ = (row, i, [k, , type, ph]) => {
+    const v = row[k] ?? '', id = `ref-${liste}-${i}-${k}`;
+    if (!SERVEUR) return type === 'case' ? (v ? icon('tick', 14, 1.8) : '<span class="text-muted">non</span>') : type === 'niveau' ? esc(NIVEAUX.find(n => n[0] === v)?.[1] || v) : `<span class="${k === 'code' || k === 'iso2' ? 'mono' : ''}">${esc(v) || '<span class="text-muted">—</span>'}</span>`;
+    const sel = (opts) => `<select class="input" id="${id}" data-i="${i}" data-k="${k}">${opts.map(([val, lib]) => `<option value="${esc(val)}" ${String(val) === String(v) ? 'selected' : ''}>${esc(lib)}</option>`).join('')}</select>`;
+    if (type === 'case') return `<input type="checkbox" id="${id}" data-i="${i}" data-k="${k}" ${v ? 'checked' : ''} aria-label="Actif">`;
+    if (type === 'niveau') return sel(NIVEAUX);
+    if (type === 'pays') return sel(EDITION.referentiels.pays.map(p => [p.iso2, `${p.iso2} · ${p.nom_fr}`]));
+    if (type === 'site') return sel([['', '—'], ...EDITION.referentiels.sites.map(x => [x.code, x.libelle])]);
+    if (type === 'parent') return sel([['', '—'], ...brouillon.filter((u, j) => j !== i && u.code && u.niveau !== 'equipe').map(u => [u.code, `${u.code} · ${u.libelle_fr}`])]);
+    return `<input class="input ${k === 'code' || k === 'iso2' || k === 'iso3' ? 'mono' : ''}" id="${id}" data-i="${i}" data-k="${k}" ${type === 'nombre' ? 'type="number" step="1" style="width:80px"' : ''} placeholder="${esc(ph || '')}" value="${esc(v)}">`;
+  };
+  const draw = () => {
+    const d = DEF[liste];
+    brouillon ??= copie();
+    const modifie = JSON.stringify(brouillon) !== JSON.stringify(EDITION.referentiels[liste]);
+    root.innerHTML = `<div class="wrap">
+      <div class="top" style="margin-bottom:14px"><div>${seg('ref', Object.entries(DEF).map(([k, x]) => [k, x.titre, EDITION.referentiels[k].length]), liste)}</div>
+        ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary btn-sm" id="ref-ajouter">${icon('plus', 13)} Ajouter une ligne</button><button class="btn btn-secondary btn-sm" id="ref-annuler" ${modifie ? '' : 'disabled'}>Annuler les modifications</button><button class="btn btn-primary btn-sm" id="ref-enregistrer" ${modifie ? '' : 'disabled'}>Enregistrer</button></div>` : ''}</div>
+      <p class="text-muted prose" style="margin-bottom:12px">Liste unique décidée en ${d.decision}, publiée aux quatre outils par la vue <span class="mono">${d.vue}</span> et par <span class="mono">GET /api/referentiels/${liste}</span>.${SERVEUR ? ' Chaque enregistrement est contrôlé avec les mêmes règles que la base et tracé dans le journal.' : ' La modification se fait sur le serveur Matrix.'}</p>
+      <p class="form-error" id="ref-erreur" hidden></p>
+      <div class="table-wrap"><table class="table"><thead><tr>${d.cols.map(c => `<th>${c[1]}</th>`).join('')}${SERVEUR ? '<th></th>' : ''}</tr></thead>
+      <tbody>${brouillon.map((row, i) => `<tr>${d.cols.map(c => `<td>${champ(row, i, c)}</td>`).join('')}${SERVEUR ? `<td><button class="btn btn-ghost btn-icon" data-retirer="${i}" title="Retirer la ligne" aria-label="Retirer la ligne">${icon('close', 13)}</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="${d.cols.length + 1}" class="empty">Liste vide.</td></tr>`}</tbody></table></div>
+      ${modifie ? '<p class="sub text-muted" style="margin-top:10px">Modifications non enregistrées.</p>' : ''}</div>`;
+  };
+  root.addEventListener('input', e => {
+    const f = e.target.closest('[data-k]'); if (!f) return;
+    const row = brouillon[+f.dataset.i], k = f.dataset.k;
+    row[k] = f.type === 'checkbox' ? f.checked : f.type === 'number' ? Number(f.value) : f.value;
+    if (f.tagName === 'SELECT' || f.type === 'checkbox') draw();
+    else { const b = $('ref-enregistrer'), a = $('ref-annuler'); if (b) b.disabled = a.disabled = false; }
+  });
+  root.addEventListener('click', async e => {
+    if (e.target.closest('#ref-ajouter')) { brouillon.push(DEF[liste].nouveau()); draw(); return; }
+    const r = e.target.closest('[data-retirer]'); if (r) { brouillon.splice(+r.dataset.retirer, 1); draw(); return; }
+    if (e.target.closest('#ref-annuler')) { brouillon = copie(); draw(); return; }
+    if (e.target.closest('#ref-enregistrer')) {
+      const lignes = brouillon.map(x => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, v === '' ? null : v])));
+      try { await envoyer(`/api/referentiels/${liste}`, lignes); brouillon = copie(); draw(); toast(`${DEF[liste].titre} : enregistré`); }
+      catch (err) { const p = $('ref-erreur'); p.textContent = err.message; p.hidden = false; }
+    }
+  });
+  onSeg(root, 'ref', v => { liste = v; brouillon = null; draw(); });
+  draw();
+};
+
 RENDER.qualite = () => {
   const m = APP_IDS.map(a => {
     const ts = tablesOf(a);
@@ -1161,12 +1298,7 @@ RENDER.administration = () => {
   const root = $('s-administration'); let tab = 'connexions';
   const ROLES = ['Administrateur des données', 'Responsable de domaine', 'Lecteur'];
   const PERMS = [['Consulter le catalogue et le graphe', [1, 1, 1]], ['Voir un extrait des données', [1, 1, 0]], ['Voir les données sensibles', [1, 0, 0]], ['Documenter une table ou une colonne', [1, 1, 0]], ['Lancer une collecte', [1, 0, 0]], ['Exécuter une requête de modification', [1, 0, 0]], ['Gérer les connexions et les droits', [1, 0, 0]]];
-  const JOURNAL = [
-    ['15/10 09:12', 'Service informatique', 'Collecte des schémas', '4 bases · 289 tables'],
-    ['14/10 17:40', 'Service informatique', 'Description modifiée', 'cursus.employes'],
-    ['14/10 11:05', 'Responsable RH', 'Extrait consulté', 'cursus.formations (20 lignes)'],
-    ['13/10 16:22', 'Service informatique', 'Correspondance ajoutée', 'Personnes : EMP-0018 ↔ tnguyen'],
-  ];
+  const JOURNAL = (EDITION.journal || []).slice().reverse();
   const draw = () => {
     let body = '';
     if (tab === 'connexions') body = `<div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th>Aujourd’hui</th><th>Cible validée le 15/10/2026</th><th>Rôle de l’outil</th><th>Accès de Matrix</th></tr></thead><tbody>
@@ -1184,6 +1316,9 @@ RENDER.administration = () => {
           <li>La nouvelle table est comparée à celles des autres outils. Si elle ressemble à une table existante, elle est signalée comme doublon possible.</li>
           <li>Tant qu’un outil n’envoie pas de déclaration, Matrix lit son schéma dans le code source (migrations).</li>
         </ol>
+        <div class="block-title" style="margin-top:22px">Déclarations reçues <span>${(DATA.declarations || []).length}</span></div>
+        ${(DATA.declarations || []).length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Outil</th><th>Reçue le</th><th>Version</th><th class="num">Tables</th></tr></thead><tbody>${DATA.declarations.map(d => `<tr><td class="nowrap">${appMark(d.app)} ${APPS[d.app].nom}</td><td class="tabnum">${new Date(d.declareLe).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td class="mono text-muted">${esc(d.version || '—')}</td><td class="num">${d.tables}</td></tr>`).join('')}</tbody></table></div>`
+          : `<p class="text-muted">Aucun outil n’a encore déclaré son schéma. Les déclarations arrivent quand le module de déclaration est installé dans l’outil et que MATRIX_URL et MATRIX_TOKEN y sont définis.</p>`}
         <div class="block-title" style="margin-top:22px">Historique des schémas <span>${HIST.length}</span></div>
         ${HIST.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Base</th><th>Changement</th><th>Objet</th></tr></thead><tbody>${HIST.slice().reverse().map(e => `<tr><td class="tabnum text-muted nowrap">${new Date(e.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td>${APPS[e.app].nom}</td><td>${TYPES[e.type]}${e.doublonsPossibles ? ` <span class="tag tag-outline">doublon possible : ${esc(e.doublonsPossibles.join(', '))}</span>` : ''}</td><td class="mono">${esc(e.table)}${e.colonne ? '.' + esc(e.colonne) : ''}</td></tr>`).join('')}</tbody></table></div>`
           : `<p class="text-muted">Aucun changement depuis la première collecte du ${new Date(CAT.generatedAt).toLocaleDateString('fr-FR')}.</p>`}
@@ -1191,8 +1326,9 @@ RENDER.administration = () => {
 node outils/collecteur.mjs ..            # relire les schémas dans les dépôts et comparer
 node outils/construire-maquette.mjs      # reconstruire la maquette publiée</div>`;
     }
-    else if (tab === 'droits') body = `<div class="table-wrap"><table class="table"><thead><tr><th>Droit</th>${ROLES.map(r => `<th style="text-align:center">${r}</th>`).join('')}</tr></thead><tbody>${PERMS.map(([p, g]) => `<tr><td>${p}</td>${g.map(v => `<td style="text-align:center"><span class="perm ${v ? 'on' : 'off'}">${icon(v ? 'tick' : 'dash', 15, 1.8)}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="sub text-muted" style="margin-top:10px">Matrice proposée, à valider. L’authentification passera par le même fournisseur que les autres outils (question O-02 de Codex).</p>`;
-    else body = `<p class="sub text-muted" style="margin-bottom:8px">Exemple de journal, pour illustrer ce qui sera tracé.</p><div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Qui</th><th>Action</th><th>Objet</th></tr></thead><tbody>${JOURNAL.map(r => `<tr><td class="tabnum text-muted nowrap">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="mono">${r[3]}</td></tr>`).join('')}</tbody></table></div>`;
+    else if (tab === 'droits') body = `<div class="table-wrap"><table class="table"><thead><tr><th>Droit</th>${ROLES.map(r => `<th style="text-align:center">${r}</th>`).join('')}</tr></thead><tbody>${PERMS.map(([p, g]) => `<tr><td>${p}</td>${g.map(v => `<td style="text-align:center"><span class="perm ${v ? 'on' : 'off'}">${icon(v ? 'tick' : 'dash', 15, 1.8)}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="sub text-muted" style="margin-top:10px">Matrice proposée, à valider. En attendant l’authentification commune aux outils (question O-02 de Codex), Matrix est protégé par un mot de passe (variable MATRIX_MOT_DE_PASSE) : toute personne qui le connaît a les droits d’administrateur, et ses modifications sont tracées sous l’identifiant saisi.</p>`;
+    else body = JOURNAL.length ? `<p class="sub text-muted" style="margin-bottom:8px">Modifications faites dans Matrix : documentation, décisions, référentiels. ${JOURNAL.length} dernières.</p><div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Qui</th><th>Action</th><th>Objet</th><th>Détail</th></tr></thead><tbody>${JOURNAL.map(r => `<tr><td class="tabnum text-muted nowrap">${new Date(r.quand).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td>${esc(r.qui)}</td><td>${esc(r.action)}</td><td class="mono">${esc(r.objet)}</td><td class="text-muted">${esc(r.detail)}</td></tr>`).join('')}</tbody></table></div>`
+      : `<p class="text-muted">${SERVEUR ? 'Aucune modification pour l’instant. Chaque documentation de table, décision ou changement de référentiel fait dans Matrix apparaîtra ici, avec son auteur.' : 'Le journal est tenu par le serveur Matrix.'}</p>`;
     root.querySelector('#ad-body').innerHTML = body;
   };
   root.innerHTML = `<div class="wrap"><div style="margin-bottom:16px">${seg('ad', [['connexions', 'Connexions'], ['collecte', 'Collecte'], ['droits', 'Rôles & droits'], ['journal', 'Journal']], tab)}</div><div id="ad-body"></div></div>`;

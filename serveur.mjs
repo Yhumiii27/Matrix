@@ -6,6 +6,11 @@
 //   GET  /api/declarations      dernières déclarations reçues, par outil
 //   POST /api/declarations      déclaration du schéma d'un outil (contrat matrix.schema/1, voir
 //                               integration/declarer-schema.mjs et docs/declaration-des-tables.md)
+//   GET  /api/edition           documentation, décisions, référentiels et journal saisis dans Matrix
+//   PUT  /api/documentation     documenter une table      { app, table, description, domaine, responsable, note }
+//   PUT  /api/decisions         décision sur un doublon   { id, option }  (option null pour la retirer)
+//   PUT  /api/referentiels/:nom remplacer un référentiel  [ … lignes … ]  (sites, organigramme, pays)
+//   GET  /api/referentiels/:nom un référentiel publié (lu par les outils)
 //
 // Variables d'environnement :
 //   PORT               port d'écoute (défaut 3000)
@@ -13,6 +18,8 @@
 //                      /data dans l'image Docker, à monter sur un volume persistant)
 //   MATRIX_TOKEN       jeton partagé avec les outils ; sans lui, les déclarations sont refusées (503)
 //   MATRIX_SOURCES_DIR dossier contenant les dépôts keystone/, codex/, cursus/, vigie/ (facultatif)
+//   MATRIX_MOT_DE_PASSE mot de passe d'accès à Matrix (identifiant libre, authentification HTTP Basic). Sans lui,
+//                      la consultation reste ouverte et, en production, les modifications sont refusées.
 
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
@@ -21,12 +28,15 @@ import { createRequire } from 'node:module';
 import { timingSafeEqual } from 'node:crypto';
 import { collect } from './outils/collecteur.mjs';
 import { construirePage, RACINE } from './outils/page.mjs';
+import { chargerEdition, documenter, decider, enregistrerReferentiel } from './outils/edition.mjs';
 
 const PORT = +(process.env.PORT ?? 3000);
 const DATA = process.env.MATRIX_DATA_DIR ?? join(RACINE, 'data');
 const DECL = join(DATA, 'declarations');
 const SOURCES = process.env.MATRIX_SOURCES_DIR ?? null;
 const TOKEN = process.env.MATRIX_TOKEN ?? '';
+const MOT_DE_PASSE = process.env.MATRIX_MOT_DE_PASSE ?? '';
+const PRODUCTION = process.env.NODE_ENV === 'production';
 const APPS = ['keystone', 'codex', 'cursus', 'vigie'];
 const MAX_OCTETS = 10 * 1024 * 1024;
 const EMBARQUE = join(RACINE, 'data');
@@ -88,6 +98,32 @@ function recevoir(doc) {
   return { app: doc.app, inchange: false, nouvellesTables: miens.filter(e => e.type === 'table_ajoutee').map(e => e.table), changements: miens };
 }
 
+// ── Accès ─────────────────────────────────────────────────────────────────
+
+const egal = (a, b) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
+
+// Renvoie l'identifiant de la personne connectée, '' si l'accès est libre, ou null si l'accès est refusé.
+function utilisateur(req) {
+  if (!MOT_DE_PASSE) return '';
+  const m = String(req.headers.authorization ?? '').match(/^Basic (.+)$/);
+  if (!m) return null;
+  const brut = Buffer.from(m[1], 'base64').toString('utf8');
+  const i = brut.indexOf(':');
+  if (i < 0 || !egal(brut.slice(i + 1), MOT_DE_PASSE)) return null;
+  return brut.slice(0, i).trim() || 'administrateur';
+}
+
+function lireCorps(req, res, suite) {
+  let taille = 0; const morceaux = [];
+  req.on('data', m => { taille += m.length; if (taille > MAX_OCTETS) { json(res, 413, { erreur: 'requête trop volumineuse' }); req.destroy(); } else morceaux.push(m); });
+  req.on('end', () => {
+    if (res.writableEnded) return;
+    let corps;
+    try { corps = JSON.parse(Buffer.concat(morceaux).toString('utf8')); } catch { return json(res, 400, { erreur: 'JSON invalide' }); }
+    suite(corps);
+  });
+}
+
 // ── HTTP ─────────────────────────────────────────────────────────────────
 
 const require = createRequire(import.meta.url);
@@ -102,6 +138,32 @@ const demarrage = rafraichir();
 createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
+    const libre = url.pathname === '/api/sante' || (req.method === 'POST' && url.pathname === '/api/declarations');
+    const qui = libre ? '' : utilisateur(req);
+    if (qui === null) {
+      res.writeHead(401, { ...ENTETES, 'www-authenticate': 'Basic realm="Matrix", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' });
+      return res.end('Accès réservé : identifiez-vous avec le mot de passe de Matrix.');
+    }
+    if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));
+    const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays)$/);
+    if (req.method === 'GET' && ref) return json(res, 200, chargerEdition(DATA).referentiels[ref[1]].filter(x => x.actif !== false || url.searchParams.get('tous') === '1'));
+    if (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions')) {
+      if (PRODUCTION && !MOT_DE_PASSE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE sur le serveur pour autoriser les modifications.' });
+      if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { erreur: 'contenu JSON attendu' });
+      const origine = req.headers.origin;
+      if (origine && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
+      const auteur = qui || 'anonyme';
+      return lireCorps(req, res, corps => {
+        try {
+          let r;
+          if (ref) r = enregistrerReferentiel(DATA, ref[1], corps, auteur);
+          else if (url.pathname === '/api/documentation') r = documenter(DATA, lireJson(join(DATA, 'catalogue.json')), corps ?? {}, auteur);
+          else r = decider(DATA, corps ?? {}, auteur);
+          page = null;
+          json(res, 200, { ok: true, resultat: r, edition: chargerEdition(DATA) });
+        } catch (e) { json(res, 422, { erreur: e.message }); }
+      });
+    }
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       res.writeHead(200, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
       return res.end(pageCourante());

@@ -5,7 +5,8 @@
 //   - 'document' : page complète servie par serveur.mjs, avec la bibliothèque de graphe servie localement
 //     (/vendor/cytoscape.min.js) au lieu du CDN.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { chargerEdition } from './edition.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,10 +16,19 @@ const CDN_CYTOSCAPE = 'https://cdn.jsdelivr.net/npm/cytoscape@3.33.1/dist/cytosc
 const lire = f => JSON.parse(readFileSync(f, 'utf8'));
 
 /** Rassemble les données de la page. Le catalogue et l'historique viennent de dataDir ; le reste du dépôt. */
-export function donnees({ dataDir = join(RACINE, 'data') } = {}) {
+export function donnees({ dataDir = join(RACINE, 'data'), serveur = false } = {}) {
   const connaissance = join(RACINE, 'data');
   const historique = join(dataDir, 'historique.json');
+  const edition = chargerEdition(dataDir);
+  const declDir = join(dataDir, 'declarations');
+  const declarations = existsSync(declDir) ? readdirSync(declDir).filter(f => f.endsWith('.json')).map(f => {
+    const d = lire(join(declDir, f));
+    return { app: d.app, declareLe: d.declareLe, version: d.version, tables: d.tables.length };
+  }) : [];
   return {
+    serveur,
+    edition: { ...edition, journal: edition.journal.slice(-300) },
+    declarations,
     catalogue: lire(join(dataDir, 'catalogue.json')),
     flux: lire(join(connaissance, 'flux.json')),
     usages: lire(join(connaissance, 'usages.json')),
@@ -28,7 +38,7 @@ export function donnees({ dataDir = join(RACINE, 'data') } = {}) {
 }
 
 export function construirePage({ forme = 'fragment', dataDir } = {}) {
-  const json = JSON.stringify(donnees({ dataDir })).replace(/</g, '\\u003c');
+  const json = JSON.stringify(donnees({ dataDir, serveur: forme === 'document' })).replace(/</g, '\\u003c');
   const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json);
   if (forme === 'fragment') return source;
   const fin = source.indexOf('</style>') + '</style>'.length;

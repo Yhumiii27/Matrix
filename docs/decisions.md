@@ -7,6 +7,7 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | M-01 | 15/10/2026 | Serveur PostgreSQL commun, un schéma par outil ? | « Oui, je valide le format postgreSQL commun avec un schema par outil » | Base `epc2i` ; schémas `keystone`, `codex`, `cursus`, `vigie`, `matrix` ; un rôle par outil, propriétaire de son seul schéma. Plan : `docs/architecture-postgres.md`, socle : `infra/postgres/`. |
 | M-02 | 15/10/2026 | Doublons entre outils : quelle table garder ou fusionner ? | Liste « Décisions sur les doublons (20/20) », une option par groupe (texte intégral dans `data/doublons.json`, champ `decision.citation`). | Les 20 options proposées sont retenues : D02, D03 et D04 en option B, les autres en option A. Synthèse ci-dessous ; plan de mise en œuvre : `docs/convergence-des-donnees.md`. |
 | M-03 / D06 | 15/10/2026 | Cursus remplace-t-il Lucca pour la saisie des heures ? | « Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas. » Puis, dans la liste des doublons : « D06 Temps passés : option A ». | Décision **provisoire** : option A du groupe D06 (Cursus fait foi pour la saisie ; Keystone et Vigie reçoivent les heures validées). Tout est préparé (`docs/remplacement-lucca.md`) ; rien n'est retiré de Lucca tant que ce n'est pas confirmé. |
+| M-05 | 17/10/2026 | Modifier le code des quatre outils ? Par quoi reprendre le développement ? | Réponse au choix proposé : « Les trois, dans l'ordre » (Matrix seul, puis la déclaration dans les 4 outils, puis la bascule PostgreSQL). | Autorisation de modifier Keystone, Codex, Cursus et Vigie, sur une branche et avec une demande de fusion par outil à valider. |
 
 ## Doublons : qui fait foi (décisions M-02)
 
@@ -39,5 +40,4 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 |---|---|
 | M-03 | Confirmation du remplacement de Lucca par Cursus (aujourd'hui provisoire). |
 | M-04 | Qui documente les tables : le service informatique seul, ou un responsable par domaine ? |
-| M-05 | Autorisation de modifier le code des quatre outils (Keystone, Codex, Cursus, Vigie), sur une branche et avec une demande de fusion par outil à valider. |
 | M-06 | Fournisseur d'authentification : même réponse que la question O-02 de Codex. |

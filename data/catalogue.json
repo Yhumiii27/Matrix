@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-18T09:07:07.276Z",
+ "generatedAt": "2026-10-18T10:32:40.821Z",
  "apps": [
   {
    "id": "keystone",
@@ -30250,6 +30250,16 @@
      ],
      "domain": "Traçabilité et notifications",
      "description": "Journal des consultations (SEC-11), distinct du journal des modifications : fichier servi par /fichiers (`fichier`, entité de la pièce), données de santé d'un accident du travail affichées (`sante`, event) et registre des accidents bénins ouvert (`registre_benin`, site). Écrit par logAccess (src/server/access-log.ts), une entrée par personne, nature et élément sur une fenêtre de quelques minutes ; lu par les seuls rôles habilités aux données de santé. Durée de conservation : à fixer avec le DPO (SEC-10).",
+     "sensitive": [
+      "id",
+      "at",
+      "person_id",
+      "kind",
+      "entity_type",
+      "entity_id",
+      "attachment_id",
+      "health"
+     ],
      "vueLe": "2026-10-18T09:07:07.276Z",
      "nouvelle": {
       "le": "2026-10-18T09:07:07.276Z",
@@ -31067,6 +31077,19 @@
      ],
      "domain": "Référentiels",
      "description": "Pièces jointes (photos de signalement, documents maîtrisés, rapports de contrôle…), stockées dans .data/uploads.",
+     "sensitive": [
+      "id",
+      "entity_type",
+      "entity_id",
+      "file_name",
+      "mime_type",
+      "size",
+      "storage_path",
+      "uploaded_by",
+      "created_at",
+      "health",
+      "comment_id"
+     ],
      "vueLe": "2026-10-15T12:46:21.087Z"
     },
     {
@@ -31603,6 +31626,25 @@
      ],
      "domain": "Signalements et événements",
      "description": "Registre des accidents du travail bénins (EVT-04, art. L. 441-4 et D. 441-1 à D. 441-4 CSS) : un registre par site (établissement), une inscription par AT sans arrêt ni soins médicaux (events.injury = 'soins'), jamais supprimée (annulation motivée, numéro non réattribué). Données de santé : animateur QHSE et direction seulement (canSeeHealth).",
+     "sensitive": [
+      "id",
+      "site_id",
+      "number",
+      "event_id",
+      "care_given_at",
+      "caregiver_id",
+      "caregiver_name",
+      "caregiver_qualification",
+      "care",
+      "signed_on",
+      "escalated_at",
+      "escalated_by_id",
+      "created_at",
+      "created_by_id",
+      "cancelled_at",
+      "cancelled_by_id",
+      "cancel_reason"
+     ],
      "vueLe": "2026-10-18T09:07:07.276Z",
      "nouvelle": {
       "le": "2026-10-18T09:07:07.276Z",
@@ -31779,6 +31821,10 @@
      ],
      "domain": "Traçabilité et notifications",
      "description": "Journal des modifications des fiches principales (qui, quand, quoi, motif) : écrit par logChange (src/server/changelog.ts).",
+     "sensitive": [
+      "details",
+      "reason"
+     ],
      "vueLe": "2026-10-18T09:07:07.276Z",
      "nouvelle": {
       "le": "2026-10-18T09:07:07.276Z",
@@ -33409,7 +33455,15 @@
      "description": "Signalements et événements (AT, presqu’accident, NC…)",
      "sensitive": [
       "injury",
-      "lost_days"
+      "lost_days",
+      "cpam_declared_on",
+      "lesion_nature",
+      "lesion_site",
+      "care_given",
+      "reserves_on",
+      "cpam_waived_at",
+      "cpam_waived_by_id",
+      "cpam_waiver_reason"
      ],
      "vueLe": "2026-10-15T12:46:21.087Z"
     },

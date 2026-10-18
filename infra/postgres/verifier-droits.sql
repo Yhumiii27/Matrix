@@ -5,8 +5,13 @@
 -- Le script crée des tables d'essai (préfixe zz_) dans les schémas des outils, joue chaque rôle (SET ROLE) et
 -- compare le résultat obtenu au résultat attendu. Les cas 100 à 136 éprouvent la convention de partage
 -- (infra/postgres/partage/README.md) : un outil lit les vues pub_ d'un autre, et droits.verifier() signale tout
--- autre droit croisé ainsi que toute vue pub_ qui lit une colonne sensible. Tout se passe dans une transaction annulée à la fin : rien ne
--- reste dans la base, et les tables des outils ne sont pas touchées. Code de sortie 3 si un cas échoue.
+-- autre droit croisé ainsi que toute vue pub_ qui lit une colonne sensible. Les cas 140 à 152 éprouvent les tables
+-- fermées en entier (colonne « * » de droits.colonnes_sensibles) et un droit posé hors du déclencheur. Les cas 200 et
+-- suivants portent sur les vraies tables de Vigie, quand elles existent : chaque colonne de santé et chaque table
+-- fermée de droits.colonnes_sensibles est refusée à Matrix, puis, rendue lisible dans une sous-transaction annulée,
+-- signalée par droits.verifier() (deux cas par entrée ; aucun avant la première migration de Vigie).
+-- Tout se passe dans une transaction annulée à la fin : rien ne reste dans la base, et les tables des outils ne sont
+-- pas touchées (aucune ligne lue ni écrite). Code de sortie 3 si un cas échoue.
 
 \set ON_ERROR_STOP on
 \connect epc2i
@@ -33,7 +38,8 @@ CREATE TEMP TABLE resultats (n integer, cas text, role text, attendu text, obten
 INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif, origine) VALUES
   ('vigie', 'zz_essai', 'secret', 'essai', 'ajout'),
   ('vigie', 'zz_part', 'secret', 'essai', 'ajout'),
-  ('vigie', 'zz_pub', 'secret', 'essai', 'ajout');
+  ('vigie', 'zz_pub', 'secret', 'essai', 'ajout'),
+  ('vigie', 'zz_ferme', '*', 'essai', 'ajout');
 
 -- Joue une commande dans une sous-transaction annulée aussitôt, et dit si droits.verifier() signale alors une erreur
 -- dont l'objet ressemble au motif (LIKE). Sert aux écarts à la convention de partage, qui ne doivent pas rester.
@@ -142,7 +148,18 @@ BEGIN
     (107, 'créer une table chez l''outil lu', 'keystone_app', 'CREATE TABLE vigie.zz_k2 (id integer)', 'refusé'),
     (108, 'Matrix lit la vue pub_', 'matrix_app', 'SELECT * FROM vigie.pub_zz_ok', 'autorisé'),
     (109, 'créer une vue de contrôle *_v1 dans cursus', 'cursus_app', 'CREATE VIEW cursus.zz_controle_v1 WITH (security_barrier) AS SELECT id, libelle FROM cursus.zz_ouverte', 'autorisé'),
-    (110, 'Matrix lit la vue de contrôle *_v1', 'matrix_app', 'SELECT * FROM cursus.zz_controle_v1', 'autorisé')
+    (110, 'Matrix lit la vue de contrôle *_v1', 'matrix_app', 'SELECT * FROM cursus.zz_controle_v1', 'autorisé'),
+    -- Table fermée en entier (colonne « * » : données de santé, journal de consultation) : rien n'est lisible.
+    (140, 'créer une table fermée en entier', 'vigie_app', 'CREATE TABLE vigie.zz_ferme (id integer PRIMARY KEY, note text)', 'autorisé'),
+    (141, 'lire une colonne de la table fermée', 'matrix_app', 'SELECT id FROM vigie.zz_ferme', 'refusé'),
+    (142, 'compter les lignes de la table fermée', 'matrix_app', 'SELECT count(*) FROM vigie.zz_ferme', 'refusé'),
+    (143, 'l''outil accorde la table fermée à matrix_lecture', 'vigie_app', 'GRANT SELECT ON vigie.zz_ferme TO matrix_lecture', 'autorisé'),
+    (144, 'lire la table fermée après ce GRANT', 'matrix_app', 'SELECT id FROM vigie.zz_ferme', 'refusé'),
+    (145, 'ajouter une colonne à la table fermée', 'vigie_app', 'ALTER TABLE vigie.zz_ferme ADD COLUMN ajoutee text', 'autorisé'),
+    (146, 'lire la colonne ajoutée', 'matrix_app', 'SELECT ajoutee FROM vigie.zz_ferme', 'refusé'),
+    (147, 'créer une vue sur la table fermée', 'vigie_app', 'CREATE VIEW vigie.zz_vue_ferme AS SELECT id FROM vigie.zz_ferme', 'autorisé'),
+    (148, 'lire la vue sur la table fermée', 'matrix_app', 'SELECT id FROM vigie.zz_vue_ferme', 'refusé'),
+    (149, 'administration : lire la table fermée', 'matrix_admin', 'SELECT note FROM vigie.zz_ferme', 'autorisé')
   ) AS t(n, cas, role, q, attendu) ORDER BY n LOOP
     INSERT INTO resultats VALUES (c.n, c.cas, c.role, c.attendu, pg_temp.essai(c.role, c.q));
   END LOOP;
@@ -171,8 +188,46 @@ FROM (VALUES
   (133, 'vue *_v1 de cursus accordée à matrix_app', 'cursus_app', 'GRANT SELECT ON cursus.zz_controle_v1 TO matrix_app', '%', 'non signalé'),
   (134, 'vue pub_ accordée à un deuxième lecteur', 'vigie_app', 'GRANT USAGE ON SCHEMA vigie TO codex_app; GRANT SELECT ON vigie.pub_zz_ok TO codex_app', '%', 'non signalé'),
   (135, 'lecteur attendu qui perd son SELECT (restauration)', 'vigie_app', 'REVOKE SELECT ON vigie.pub_zz_ok FROM keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé'),
-  (136, 'lecteur attendu qui perd son USAGE (restauration)', 'vigie_app', 'REVOKE USAGE ON SCHEMA vigie FROM keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé')
+  (136, 'lecteur attendu qui perd son USAGE (restauration)', 'vigie_app', 'REVOKE USAGE ON SCHEMA vigie FROM keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé'),
+  (150, 'vue pub_ qui lit une table fermée en entier', 'vigie_app', 'CREATE VIEW vigie.pub_zz_ferme AS SELECT id FROM vigie.zz_ferme', 'vigie.pub_zz_ferme', 'signalé'),
+  -- Droit posé hors du déclencheur droits_ddl (drapeau de droits.appliquer_droits() levé à la main) : seul
+  -- droits.verifier() le voit.
+  (151, 'colonne sensible redevenue lisible (hors déclencheur)', 'postgres', 'SET LOCAL droits.application_en_cours = ''on''; GRANT SELECT (secret) ON vigie.zz_pub TO matrix_lecture', 'vigie.zz_pub.secret', 'signalé'),
+  (152, 'table fermée redevenue lisible (hors déclencheur)', 'postgres', 'SET LOCAL droits.application_en_cours = ''on''; GRANT SELECT ON vigie.zz_ferme TO matrix_lecture', 'vigie.zz_ferme', 'signalé')
 ) AS t(n, cas, role, q, motif, attendu);
+
+-- Vraies tables de Vigie (cas 200 et suivants) : chaque entrée vigie de droits.colonnes_sensibles dont la table et la
+-- colonne existent (colonnes de santé de events, copies dans change_log, tables fermées en entier). Matrix ne la lit
+-- pas (LIMIT 0 : aucune ligne n'est lue, le droit est contrôlé quand même), et droits.verifier() la signale si elle
+-- redevient lisible. Aucun cas avant la première migration de Vigie.
+INSERT INTO resultats
+SELECT 198 + 2 * row_number() OVER (ORDER BY s.table_nom, s.colonne_nom),
+       format('Matrix lit vigie.%s%s (%s)', s.table_nom, CASE WHEN s.colonne_nom = '*' THEN '' ELSE '.' || s.colonne_nom END, s.motif),
+       'matrix_app', 'refusé',
+       pg_temp.essai('matrix_app', CASE WHEN s.colonne_nom = '*'
+                                        THEN format('SELECT 1 FROM vigie.%I LIMIT 0', s.table_nom)
+                                        ELSE format('SELECT %I FROM vigie.%I LIMIT 0', s.colonne_nom, s.table_nom) END)
+FROM droits.colonnes_sensibles s
+WHERE s.schema_nom = 'vigie' AND s.table_nom NOT LIKE 'zz\_%'
+  AND to_regclass(format('vigie.%I', s.table_nom)) IS NOT NULL
+  AND (s.colonne_nom = '*' OR EXISTS (SELECT FROM pg_attribute a
+                                      WHERE a.attrelid = to_regclass(format('vigie.%I', s.table_nom))
+                                        AND a.attname = s.colonne_nom AND a.attnum > 0 AND NOT a.attisdropped));
+INSERT INTO resultats
+SELECT 199 + 2 * row_number() OVER (ORDER BY s.table_nom, s.colonne_nom),
+       format('vigie.%s%s redevenue lisible : signalée par droits.verifier()', s.table_nom, CASE WHEN s.colonne_nom = '*' THEN '' ELSE '.' || s.colonne_nom END),
+       'postgres', 'signalé',
+       pg_temp.signale('postgres',
+                       CASE WHEN s.colonne_nom = '*'
+                            THEN format('SET LOCAL droits.application_en_cours = ''on''; GRANT SELECT ON vigie.%I TO matrix_lecture', s.table_nom)
+                            ELSE format('SET LOCAL droits.application_en_cours = ''on''; GRANT SELECT (%I) ON vigie.%I TO matrix_lecture', s.colonne_nom, s.table_nom) END,
+                       CASE WHEN s.colonne_nom = '*' THEN format('vigie.%s', s.table_nom) ELSE format('vigie.%s.%s', s.table_nom, s.colonne_nom) END)
+FROM droits.colonnes_sensibles s
+WHERE s.schema_nom = 'vigie' AND s.table_nom NOT LIKE 'zz\_%'
+  AND to_regclass(format('vigie.%I', s.table_nom)) IS NOT NULL
+  AND (s.colonne_nom = '*' OR EXISTS (SELECT FROM pg_attribute a
+                                      WHERE a.attrelid = to_regclass(format('vigie.%I', s.table_nom))
+                                        AND a.attname = s.colonne_nom AND a.attnum > 0 AND NOT a.attisdropped));
 
 -- Appartenances.
 INSERT INTO resultats
@@ -210,6 +265,7 @@ SELECT count(*) FILTER (WHERE attendu <> obtenu) > 0 AS echec, count(*) AS cas F
   SELECT gravite, objet, constat FROM droits.verifier() WHERE gravite = 'erreur';
   DO $$ BEGIN RAISE EXCEPTION 'Vérification des droits : écarts constatés.'; END $$;
 \endif
-\echo 'Tous les cas sont conformes :' :cas 'cas.'
+SELECT count(*) FILTER (WHERE n >= 200) AS cas_vigie FROM resultats \gset
+\echo 'Tous les cas sont conformes :' :cas 'cas (dont' :cas_vigie 'sur les tables de Vigie).'
 
 ROLLBACK;

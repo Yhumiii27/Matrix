@@ -28,6 +28,8 @@
 -- Règles appliquées à matrix_lecture, relation par relation (schémas keystone, codex, cursus, vigie) :
 --   - table sans colonne listée               SELECT sur la table ;
 --   - table avec colonnes listées             SELECT sur chaque autre colonne, rien sur les colonnes listées ;
+--   - table listée avec la colonne « * »      table entière fermée, colonnes futures comprises (données de santé,
+--                                             journal de consultation : vigie.benign_accidents, access_log, attachments) ;
 --   - colonne listée absente de la table      table entière fermée (la colonne a pu être renommée) ;
 --   - table protégée renommée ou déplacée     table entière fermée, jusqu'à la mise à jour de la liste ;
 --   - vue qui lit une colonne listée          vue fermée (une vue lit avec les droits de son propriétaire) ;
@@ -98,7 +100,7 @@ CREATE TABLE IF NOT EXISTS droits.colonnes_sensibles (
   CONSTRAINT colonnes_sensibles_schema_ck CHECK (schema_nom IN ('keystone', 'codex', 'cursus', 'vigie')),
   CONSTRAINT colonnes_sensibles_origine_ck CHECK (origine IN ('convention', 'proposition', 'ajout'))
 );
-COMMENT ON TABLE droits.colonnes_sensibles IS 'Colonnes que matrix_lecture ne lit jamais. origine : convention (décision du 15/10/2026, retirée par un superutilisateur seulement), proposition (à confirmer), ajout.';
+COMMENT ON TABLE droits.colonnes_sensibles IS 'Colonnes que matrix_lecture ne lit jamais ; colonne_nom = ''*'' ferme la table entière. origine : convention (décision du 15/10/2026 et données de santé de Vigie, retirée par un superutilisateur seulement), proposition (à confirmer), ajout.';
 
 -- Tables protégées, repérées par leur OID : un renommage de table est détecté et la table reste fermée.
 CREATE TABLE IF NOT EXISTS droits.relations_protegees (
@@ -168,6 +170,10 @@ BEGIN
   v_listees := droits._colonnes_listees(p_rel);
   IF cardinality(v_listees) = 0 THEN
     RETURN 'ouverte';
+  END IF;
+  -- Table fermée en entier (colonne « * ») : aucune colonne lisible, même ajoutée plus tard.
+  IF '*' = ANY (v_listees) THEN
+    RETURN 'fermee';
   END IF;
   -- Colonne listée absente (renommée ou supprimée) : on ne sait plus quelle colonne protéger.
   IF EXISTS (SELECT FROM unnest(v_listees) AS l(nom)
@@ -343,13 +349,13 @@ BEGIN
     END IF;
   END IF;
 
-  -- Mémoire des tables protégées.
-  IF v_etat = 'colonnes' THEN
+  -- Mémoire des tables protégées (une table fermée en entier aussi : renommée, elle reste fermée).
+  IF v_etat = 'colonnes' OR (v_etat = 'fermee' AND v_kind IN ('r', 'p', 'f') AND '*' = ANY (v_listees)) THEN
     INSERT INTO droits.relations_protegees (relid, schema_nom, table_nom) VALUES (p_rel, v_nsp, v_nom)
     ON CONFLICT (relid) DO UPDATE SET schema_nom = EXCLUDED.schema_nom, table_nom = EXCLUDED.table_nom, vu_le = now();
   ELSIF v_etat = 'ouverte' AND v_kind IN ('r', 'p', 'f') THEN
     DELETE FROM droits.relations_protegees WHERE relid = p_rel;
-  ELSIF v_etat = 'fermee' AND v_kind IN ('r', 'p', 'f') THEN
+  ELSIF v_etat = 'fermee' AND v_kind IN ('r', 'p', 'f') AND NOT ('*' = ANY (v_listees)) THEN
     RAISE WARNING 'droits : % est fermée à matrix_lecture (colonne de la liste absente : pas encore créée, renommée ou supprimée ; ou table renommée). Mettez à jour droits.colonnes_sensibles, ou passez la migration qui crée la colonne : les droits sont alors réappliqués.', v_id;
   END IF;
 END $$;
@@ -484,9 +490,12 @@ BEGIN
     AND a.attname = ANY (droits._colonnes_listees(c.oid))
     AND has_column_privilege('matrix_lecture', c.oid, a.attnum, 'SELECT');
 
-  -- Tables fermées et vues sensibles lisibles.
+  -- Tables fermées (en entier, ou faute d'une colonne de la liste) et vues sensibles lisibles.
   RETURN QUERY
-  SELECT 'erreur', format('%I.%I', n.nspname, c.relname), 'relation lisible par matrix_lecture alors qu''elle doit être fermée'
+  SELECT 'erreur', format('%I.%I', n.nspname, c.relname),
+         CASE WHEN c.relkind IN ('r', 'p', 'f') AND '*' = ANY (droits._colonnes_listees(c.oid))
+              THEN 'table fermée en entier (droits.colonnes_sensibles, colonne « * » : données de santé, journal de consultation) lisible par matrix_lecture'
+              ELSE 'relation lisible par matrix_lecture alors qu''elle doit être fermée' END
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie')
     AND ((c.relkind IN ('v', 'm') AND droits._vue_sensible(c.oid))
@@ -624,9 +633,10 @@ BEGIN
 
   -- Relations que Matrix ne lit pas.
   RETURN QUERY
-  SELECT CASE WHEN c.relkind IN ('v', 'm') THEN 'info' ELSE 'attention' END,
+  SELECT CASE WHEN c.relkind IN ('v', 'm') OR '*' = ANY (droits._colonnes_listees(c.oid)) THEN 'info' ELSE 'attention' END,
          format('%I.%I', n.nspname, c.relname),
          CASE WHEN c.relkind IN ('v', 'm') THEN 'vue fermée à matrix_lecture : elle lit une colonne sensible'
+              WHEN '*' = ANY (droits._colonnes_listees(c.oid)) THEN 'table fermée en entier à matrix_lecture (droits.colonnes_sensibles, colonne « * »)'
               WHEN droits._etat_table(c.oid) = 'fermee' THEN 'table fermée à matrix_lecture : colonne de la liste absente (pas encore créée, renommée ou supprimée) ou table renommée ; mettez à jour droits.colonnes_sensibles'
               ELSE 'table illisible par matrix_lecture' END
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -643,7 +653,8 @@ BEGIN
   LEFT JOIN pg_namespace n ON n.nspname = s.schema_nom
   LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relname = s.table_nom AND c.relkind IN ('r', 'p', 'f')
   WHERE c.oid IS NULL
-     OR NOT EXISTS (SELECT FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = s.colonne_nom AND a.attnum > 0 AND NOT a.attisdropped);
+     OR (s.colonne_nom <> '*'
+         AND NOT EXISTS (SELECT FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = s.colonne_nom AND a.attnum > 0 AND NOT a.attisdropped));
 
   -- Schémas : présence et propriétaire.
   RETURN QUERY
@@ -771,7 +782,28 @@ INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif
   ('cursus', 'visas', 'expire', 'Déplacement personnel : fin de validité du visa', 'convention'),
   ('cursus', 'entretiens', 'cr', 'Vie professionnelle : compte rendu d''entretien', 'convention'),
   ('vigie', 'events', 'injury', 'Santé : nature de la lésion (accident du travail)', 'convention'),
-  ('vigie', 'events', 'lost_days', 'Santé : jours d''arrêt de travail', 'convention')
+  ('vigie', 'events', 'lost_days', 'Santé : jours d''arrêt de travail', 'convention'),
+  -- Données de santé d'un accident du travail (Vigie : HEALTH_LABELS de src/components/events/shared.ts, réservées à
+  -- l'animateur QHSE et à la direction), application de la même convention (aucune donnée de santé lue par Matrix).
+  ('vigie', 'events', 'cpam_declared_on', 'Santé : date de déclaration de l''accident du travail à la CPAM', 'convention'),
+  ('vigie', 'events', 'lesion_nature', 'Santé : nature des lésions (déclaration d''accident du travail)', 'convention'),
+  ('vigie', 'events', 'lesion_site', 'Santé : siège des lésions', 'convention'),
+  ('vigie', 'events', 'care_given', 'Santé : soins dispensés, transport', 'convention'),
+  ('vigie', 'events', 'reserves_on', 'Santé : date des réserves motivées adressées à la CPAM', 'convention'),
+  ('vigie', 'events', 'cpam_waived_at', 'Santé : déclaration CPAM non faite par l''entreprise (date)', 'convention'),
+  ('vigie', 'events', 'cpam_waived_by_id', 'Santé : déclaration CPAM non faite par l''entreprise (auteur)', 'convention'),
+  ('vigie', 'events', 'cpam_waiver_reason', 'Santé : motif de l''absence de déclaration CPAM', 'convention'),
+  -- Copies de ces données dans le journal des modifications (logChange : champs de HEALTH_LABELS avec leurs valeurs,
+  -- noms des pièces médicales, inscriptions au registre des accidents bénins ; motif d'absence de déclaration CPAM).
+  -- Matrix garde le reste du journal (entité, action, résumé, auteur, date), que publie aussi vigie.pub_journal.
+  ('vigie', 'change_log', 'details', 'Santé (copie) : valeurs avant et après des champs modifiés, champs de santé d''un accident du travail compris', 'convention'),
+  ('vigie', 'change_log', 'reason', 'Santé (copie) : motif saisi, dont le motif d''absence de déclaration CPAM', 'convention'),
+  -- Tables fermées en entier (« * ») : registre des accidents bénins (soins, donneur de soins), journal des
+  -- consultations (qui a lu quelle donnée de santé ou pièce médicale), pièces jointes (le nom d'une pièce médicale,
+  -- par exemple un arrêt de travail, nomme souvent la victime ; attachments.health ne se filtre pas par colonne).
+  ('vigie', 'benign_accidents', '*', 'Santé : registre des accidents du travail bénins (soins dispensés, donneur de soins)', 'convention'),
+  ('vigie', 'access_log', '*', 'Journal des consultations : consultations des données de santé et des pièces médicales', 'convention'),
+  ('vigie', 'attachments', '*', 'Santé : pièces médicales (attachments.health) et leurs noms de fichier', 'convention')
 ON CONFLICT (schema_nom, table_nom, colonne_nom) DO UPDATE SET origine = 'convention', motif = EXCLUDED.motif;
 
 -- ── 5. Déclencheurs ──────────────────────────────────────────────────────

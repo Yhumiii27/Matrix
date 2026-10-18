@@ -17,8 +17,9 @@
 --      croisé. Une erreur annule tout le fichier. Aucun réglage du socle n'est à faire à la main.
 --
 -- Lancement : superutilisateur (postgres) ou administrateur nominatif membre de matrix_admin (qui peut prendre
--- le rôle de chaque outil, SET ROLE). Après les fichiers 10 à 60. Sans l'option -1 : le fichier ouvre lui-même
--- sa transaction.
+-- le rôle de chaque outil, SET ROLE). Après les migrations des outils (qui créent leurs vues pub_) et les fichiers
+-- 10 à 50 (60 seulement une fois le module ECR / ECO de Vigie construit). Sans l'option -1 : le fichier ouvre
+-- lui-même sa transaction.
 --   psql -h <hôte> -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql
 -- Rejouable : un GRANT déjà posé ne change rien ; une vue absente est signalée (WARNING) et passée.
 --
@@ -51,14 +52,19 @@ END $$;
 -- 1.1 Colonnes source de chaque vue pub_, lues en tant que propriétaire de chaque schéma.
 DO $controle$
 DECLARE
-  -- Convention du 15/10/2026 (« schéma.table.colonne », « .* » pour une table entière), plus les propositions
-  -- de init/03-droits.sql qui peuvent copier des données de santé (journal.payload, journal.message,
-  -- demandes_collab.label).
+  -- Convention du 15/10/2026 (« schéma.table.colonne », « .* » pour une table entière), données de santé de Vigie
+  -- (HEALTH_LABELS, leurs copies dans change_log, registre des accidents bénins, journal des consultations, pièces
+  -- jointes), plus les propositions de init/03-droits.sql qui peuvent copier des données de santé (journal.payload,
+  -- journal.message, demandes_collab.label).
   v_sensibles text[] := ARRAY[
     'cursus.employes.visite', 'cursus.employes.passeport_numero', 'cursus.employes.passeport_expire',
     'cursus.employes.naissance', 'cursus.employes.reprise_motif', 'cursus.employes.reprise_date',
     'cursus.vaccinations.*', 'cursus.visas.*', 'cursus.entretiens.cr',
-    'vigie.events.injury', 'vigie.events.lost_days',
+    'vigie.events.injury', 'vigie.events.lost_days', 'vigie.events.cpam_declared_on',
+    'vigie.events.lesion_nature', 'vigie.events.lesion_site', 'vigie.events.care_given', 'vigie.events.reserves_on',
+    'vigie.events.cpam_waived_at', 'vigie.events.cpam_waived_by_id', 'vigie.events.cpam_waiver_reason',
+    'vigie.change_log.details', 'vigie.change_log.reason',
+    'vigie.benign_accidents.*', 'vigie.access_log.*', 'vigie.attachments.*',
     'cursus.journal.payload', 'cursus.journal.message', 'cursus.demandes_collab.label'];
   v_liste text[];
   v_schema text;
@@ -205,6 +211,7 @@ BEGIN
       ('vigie.pub_non_conformites',          ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_hse_projet',               ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_journal',                  ARRAY['matrix_app']),
+      -- ECR et ECO : vues de 60-vigie-ecr-eco.sql, absentes tant que le module n'existe pas dans Vigie (WARNING).
       ('vigie.pub_ordres_modification',      ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_eco_approbations',         ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_eco_effectivite',          ARRAY['keystone_app', 'matrix_app']),

@@ -1,5 +1,14 @@
 -- Partage des données EPC2I, fichier 60 : demandes (ECR) et ordres (ECO) de modification, tenus par Vigie (D12).
 --
+-- ╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+-- ║ À NE PAS JOUER tant que le module ECR / ECO n'existe pas dans Vigie (état au 18/10/2026 : aucune table      ║
+-- ║ ecos, ecrs… dans le schéma de Vigie). Ce fichier est la spécification du futur module : ses tables iront dans ║
+-- ║ schema.ts et les migrations de Vigie (décision P-02 : le partage passe par les migrations de l'outil), puis ce ║
+-- ║ fichier sera aligné sur elles comme 50-vigie.sql. Joué aujourd'hui, il créerait dans vigie des tables          ║
+-- ║ inconnues de Vigie, que sa prochaine migration générée chercherait à supprimer. 90-droits.sql signale les     ║
+-- ║ quatre vues absentes (WARNING) sans échouer.                                                                 ║
+-- ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+--
 -- D12 option A : Vigie numérote, instruit, approuve et libère toutes les demandes et tous les ordres, qu'ils
 -- viennent de Codex, de Keystone ou de Vigie. Codex (change_requests) et Keystone (vigie_eco*) gardent des
 -- miroirs, remplis par SELECT sur les vues ci-dessous. Les écritures des autres outils passent par l'API Vigie :
@@ -8,9 +17,9 @@
 --   POST /api/ncrs/:project/:number/progress  Keystone fait avancer une NC (D13, même journal external_progress)
 --
 -- Ce fichier est le DDL PostgreSQL de référence. À reporter dans src/db/schema.ts de Vigie (pgTable), puis
--- npm run db:generate ; les vues et leurs droits vont dans une migration SQL écrite à la main (drizzle-kit ne
--- gère pas ces vues).
--- Exécution : en tant que vigie_app, après les migrations Drizzle de Vigie (voir README.md).
+-- npm run db:generate ; les vues vont dans une migration SQL écrite à la main (drizzle-kit ne gère pas ces vues) ;
+-- les droits des lecteurs restent dans 90-droits.sql.
+-- Exécution (une fois le module construit) : en tant que vigie_app, après les migrations de Vigie (voir README.md).
 --   psql "postgres://vigie_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/60-vigie-ecr-eco.sql
 -- Rejouable (CREATE TABLE IF NOT EXISTS, CREATE OR REPLACE VIEW). Droits : 90-droits.sql.
 -- Valeurs calculées, jamais stockées (convention de Vigie, CLAUDE.md) : pending_dispositions et locked.

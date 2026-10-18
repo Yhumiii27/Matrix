@@ -9,30 +9,31 @@ La convention :
 - Les écritures d'un outil chez un autre passent par une API, jamais par SQL.
 - Il n'y a pas de clé étrangère entre schémas. Une référence croisée est une colonne texte. L'application la contrôle à la saisie, puis Matrix contrôle les orphelins.
 - Une vue `pub_` est un contrat. On n'en retire ni ne renomme de colonne : un changement de ce type passe par une nouvelle vue `_v2`. On peut seulement ajouter des colonnes en fin de liste.
-- Aucune donnée de santé ni colonne sensible dans une vue `pub_`.
+- Aucune donnée de santé ni colonne sensible dans une vue `pub_` (liste `droits.colonnes_sensibles`, tables fermées en entier comprises).
+- Les vues `pub_` sont créées par les migrations de l'outil (décision P-02 du 18/10/2026 : Keystone `0035_share`, Codex `0001_partage`, Vigie `0009_partage`). Le fichier de partage de Matrix en est la copie qualifiée : il les recrée à l'identique et ne crée plus de colonne prérequise (sauf `20-cursus.sql`, tant que Cursus n'a pas basculé).
 
 ## Fichiers et ordre d'exécution
 
 | Ordre | Fichier | Rôle d'exécution | Contenu |
 |---|---|---|---|
-| 0 | `../init/01` à `03`, migrations des outils, `../cursus/schema.sql` | `postgres`, puis le rôle de chaque outil | Socle, tables des outils |
+| 0 | `../init/01` à `03`, puis migrations des outils (Keystone `npm run db:migrate` ; Codex et Vigie à leur démarrage), `../cursus/schema.sql` | `postgres`, puis le rôle de chaque outil | Socle, tables des outils, colonnes prérequises et vues `pub_` de Keystone, Codex et Vigie |
 | 1 | `10-matrix-referentiels.sql` | `matrix_app` | `matrix.pays`, `sites`, `organigramme`, `correspondances`, amorçage, vues `matrix.pub_*` |
 | 2 | `20-cursus.sql` | `cursus_app` | Colonnes prérequises, vues `cursus.pub_*` (D01, D08, D09, D18, D19) |
-| 2 | `30-keystone.sql` | `keystone_app` | Colonnes prérequises, vues `keystone.pub_*` (D02 à D05, D12, D13, D16, D18) |
-| 2 | `40-codex.sql` | `codex_app` | Colonnes prérequises, vues `codex.pub_*` (D10, D11, D18) |
-| 2 | `50-vigie.sql` | `vigie_app` | Colonnes et tables prérequises, vues `vigie.pub_*` (D13, D18) |
-| 2 | `60-vigie-ecr-eco.sql` | `vigie_app` | Tables ECR / ECO (D12) et leurs vues `pub_` |
+| 2 | `30-keystone.sql` | `keystone_app` | Contrôle des prérequis (migrations `0034`, `0035`), copie des 12 vues `keystone.pub_*` de `0035_share` (D02 à D05, D12, D13, D16, D18) |
+| 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 7 vues `codex.pub_*` (D10, D11, D18) |
+| 2 | `50-vigie.sql` | `vigie_app` | Contrôle des prérequis (migrations `0008`, `0009`), copie des 3 vues `vigie.pub_*` de `0009_partage` (D13, D18) |
+| — | `60-vigie-ecr-eco.sql` | `vigie_app` | **À ne pas jouer tant que le module ECR / ECO n'existe pas dans Vigie** (aucune de ses tables dans Vigie au 18/10/2026). Spécification des tables ECR / ECO (D12) et de leurs vues `pub_`, à reporter dans les migrations de Vigie. |
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues, `GRANT` des lecteurs, contrôle final par `droits.verifier()` |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
 
-Les fichiers de l'étape 2 sont indépendants entre eux : chaque vue ne lit que des tables de son propre schéma.
+Les fichiers de l'étape 2 sont indépendants entre eux : chaque vue ne lit que des tables de son propre schéma. Les vues de 30, 40 et 50 sont identiques à celles des migrations des outils (définition, options et commentaire, vérifié le 18/10/2026) : les rejouer ne change rien. Toute évolution d'une vue se fait d'abord dans une migration de l'outil, puis est recopiée ici.
 
 Commandes :
 
 ```sh
 psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
 psql "postgres://cursus_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/20-cursus.sql
-# … 30 (keystone_app), 40 (codex_app), 50 et 60 (vigie_app), sur le même modèle
+# … 30 (keystone_app), 40 (codex_app), 50 (vigie_app), sur le même modèle ; pas 60 (module ECR / ECO absent de Vigie)
 psql -h hôte -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql   # sans -1 : le fichier ouvre sa transaction
 psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/95-matrix-journal-unifie.sql
 ```
@@ -41,10 +42,11 @@ Tous les fichiers sont rejouables.
 
 ## Dépendances
 
-- Chaque fichier d'outil commence par une section « Prérequis : colonnes à ajouter ». Ces `ALTER TABLE … ADD COLUMN IF NOT EXISTS` sont à reporter dans les migrations de l'outil : Drizzle pour Keystone, Codex et Vigie ; `server/migrations-pg/` pour Cursus. Une fois reportés, ils deviennent sans effet.
-- `90-droits.sql` vient après 10 à 60. Une vue absente est signalée par un WARNING ; il suffit de relancer 90 quand elle existe.
+- Les colonnes prérequises appartiennent à l'outil et sont créées par ses migrations : Keystone `0034_share_prerequisites` (et `0024` pour `persons.matricule`), Codex `0001_partage`, Vigie `0008_partage_prerequis`. `30-keystone.sql` et `50-vigie.sql` ne créent rien : ils s'arrêtent sur « Colonnes absentes du schéma … » si la migration n'est pas passée. `40-codex.sql` garde ses `ADD COLUMN IF NOT EXISTS`, sans effet sur Codex à jour. `20-cursus.sql` crée encore les siens : ils iront dans `server/migrations-pg/` de Cursus à sa bascule.
+- Écarts de Vigie avec la première version de 50 : pas de tables `inductions` (pas de ligne « induction » dans `pub_hse_projet`), `document_actions` (D10) ni `journal` : `pub_journal` lit le journal des modifications `change_log`, sans motif ni détail des champs ; `closed_on` et `vigie_updated_at` de `pub_non_conformites` sont calculés. Écarts de Keystone avec la première version de 30 : `countries.iso2` reste facultatif (pas de `NOT NULL`, comme dans Drizzle), pas de contrainte de forme sur `persons.matricule` (matricules importés de Cursus).
+- `90-droits.sql` vient après 10 à 50. Une vue absente est signalée par un WARNING (aujourd'hui les 4 vues ECR / ECO de 60) ; il suffit de relancer 90 quand elle existe.
 - Le contrôle de 90 s'exécute avant tout `GRANT`. Il refuse le partage si une vue `pub_` lit une colonne sensible, dépend d'un autre schéma, n'appartient pas au propriétaire de son schéma ou utilise `security_invoker`. Après les `GRANT`, `droits.verifier()` contrôle l'ensemble (voir « Contrôle par le socle »).
-- `95` vient après 90 : il lit les quatre `pub_journal` accordées à `matrix_app`.
+- `95` vient après 90 : il réunit les `pub_journal` accordées à `matrix_app`, contrôle qu'elles suivent le contrat commun (11 colonnes, mêmes noms et types, dans le même ordre) et laisse de côté, avec un WARNING, celles des outils pas encore basculés. Il se rejoue après chaque bascule.
 - Les lecteurs n'ont pas de vue locale sur les vues d'un autre outil : ils lisent la vue `pub_` au moment du besoin, ou rafraîchissent un cache dans leur propre schéma (`codex.projects`, `codex.users`, `codex.departments`, `codex.sites`, `keystone.persons`, `keystone.departments`, `keystone.document_types`, miroirs `keystone.vigie_*`, `vigie.people`, `vigie.sites`, `vigie.training_titles`, `vigie.keystone_assignments`, `cursus.projets`, `cursus.equipes`, `cursus.missions`). Ce rafraîchissement relève du code des lecteurs et vient après 90 (`docs/convergence-des-donnees.md`, § 1.3).
 - Une migration d'outil qui touche une colonne lue par une vue `pub_` doit recréer la vue (`CREATE OR REPLACE VIEW`). PostgreSQL refuse sinon le `DROP COLUMN` ou le changement de type.
 - `matrix.journal_unifie` (fichier 95) est la seule vue qui lit d'autres schémas. Un `DROP SCHEMA <outil> CASCADE` la supprime : après la restauration d'un schéma, rejouer le fichier de l'outil, puis 90, puis 95 (`../README.md`, « Restaurer le schéma d'un outil »).
@@ -71,6 +73,14 @@ Tous les fichiers sont rejouables.
 Le contrôle de 90 (étape 1) garde sa propre liste, un peu plus large que `droits.colonnes_sensibles` : elle contient aussi `cursus.employes.reprise_date`, que la convention de partage exclut des vues `pub_`. Pour `matrix_lecture`, le classement de cette colonne reste la question P-04 de `docs/architecture-postgres.md`.
 
 ## Essais
+
+Essai du 18/10/2026, après la bascule de Keystone et de Vigie, sur un PostgreSQL 16.15 neuf (port 5443), en connexions réelles par mot de passe :
+
+- socle `init/01` à `03` ; tables créées par les migrateurs réels des outils : Keystone (branche `claude/shared-postgres`, `npm run db:migrate`, démonstration : 212 tables, 12 vues), Codex (`main`, `getDb()` avec `CODEX_SEED_DEMO=1` : 22 tables, 7 vues), Vigie (branche `claude/bascule-postgres`, ouverture en démonstration : 52 tables, 3 vues) ; Cursus sans bascule : tables créées par `../cursus/schema.sql` (28 tables), pour jouer 20 ;
+- fichiers 10, 20, 30, 40, 50, 90, 95 dans cet ordre, deux fois : aucun écart d'état (droits de table et de colonne, définitions et commentaires des vues, `droits.partage_lecteurs`, droits de schéma) entre les deux passages, ni après un rejeu de `init/03` ; les 22 vues de Keystone, Codex et Vigie identiques avant et après 30, 40 et 50 ;
+- 90 : 31 vues contrôlées et accordées (79 couples vue et lecteur), les 4 vues ECR / ECO signalées absentes ; `droits.verifier()` sans erreur ; `matrix.journal_unifie` réunit les quatre journaux ;
+- `../verifier-droits.sql` : 139 cas conformes, dont 30 sur les tables de Vigie ; `matrix_lecture` refusé sur chacune des 10 colonnes de santé de `vigie.events`, sur `change_log.details` et `reason`, et sur `benign_accidents`, `access_log` et `attachments` ;
+- chaque outil lit exactement les vues accordées : 52 lectures réussies, 1 016 refusées, aucune hors `pub_`.
 
 Faits le 15/10/2026 sur un PostgreSQL 16.15 neuf (port 55440), en connexions réelles par mot de passe :
 

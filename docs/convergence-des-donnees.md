@@ -31,7 +31,7 @@ Les numéros de ligne renvoient aux dépôts des outils, aux commits lus par les
 | Les écritures d'un outil chez un autre passent par une API. | Liste des routes au § 5.7. Aucun `INSERT` ni `UPDATE` croisé. |
 | Pas de clé étrangère entre schémas. | Une référence croisée est une colonne texte (ou uuid). L'outil la contrôle à la saisie contre la vue. Matrix cherche les orphelins (§ 7.1). |
 | Une vue `pub_` est un contrat. | On ajoute des colonnes en fin de liste. Retirer, renommer ou changer le type d'une colonne demande une vue `_v2`. Le commentaire de chaque vue porte « Contrat Dxx v1 » et ses lecteurs. |
-| Aucune donnée de santé ni colonne sensible dans une vue `pub_`. | `cursus.employes` : `visite`, `passeport_numero`, `passeport_expire`, `naissance`, `reprise_motif`, `reprise_date` ; `cursus.vaccinations` ; `cursus.visas` ; `cursus.entretiens.cr` ; `vigie.events` : `injury`, `lost_days`. `90-droits.sql` refuse tout le partage si une vue `pub_` lit l'une d'elles, et `droits.verifier()` signale une vue `pub_` qui lit une colonne de `droits.colonnes_sensibles` (essayé). |
+| Aucune donnée de santé ni colonne sensible dans une vue `pub_`. | `cursus.employes` : `visite`, `passeport_numero`, `passeport_expire`, `naissance`, `reprise_motif`, `reprise_date` ; `cursus.vaccinations` ; `cursus.visas` ; `cursus.entretiens.cr` ; `vigie.events` : `injury`, `lost_days` et, depuis le 18/10/2026, les 8 autres colonnes de santé d'un accident du travail (`HEALTH_LABELS` de Vigie) ; `vigie.change_log` : `details`, `reason` ; tables fermées en entier : `vigie.benign_accidents`, `access_log`, `attachments` (`docs/architecture-postgres.md`, § 2.3). `90-droits.sql` refuse tout le partage si une vue `pub_` lit l'une d'elles, et `droits.verifier()` signale une vue `pub_` qui lit une colonne de `droits.colonnes_sensibles` (essayé). |
 
 Règles techniques qui en découlent, vérifiées sur PostgreSQL 16.15 :
 
@@ -120,12 +120,12 @@ Reste à faire :
 | D10 Documents | Codex | `codex.documents` (+ 3 colonnes), `revisions`, `working_versions`, `workflows`, `workflow_steps` | `codex.pub_documents`, `pub_revisions_document`, `pub_validations` | Keystone, Vigie, Matrix | `keystone.documents` réduite à un index (`codex_id`), 3 tables supprimées ; `vigie.documents`, `document_versions` : migrées dans Codex puis supprimées | A |
 | D11 Registre des types | Codex | `codex.doc_types`, `families`, `functions`, `function_holders` | `codex.pub_types_document`, `pub_circuits_type`, `pub_titulaires_fonction` | Keystone, Vigie, Matrix | `keystone.document_types`, `document_type_circuit_steps`, `document_approver_assignments` : caches | A |
 | D12 ECR et ECO | Vigie | 9 tables à créer : `vigie.ecos`, `ecrs`, `eco_*`, `external_progress` | `vigie.pub_ordres_modification`, `pub_eco_approbations`, `pub_eco_effectivite`, `pub_demandes_modification` | Keystone, Codex, Matrix | `keystone.vigie_eco*` (5 tables) : cache ; `codex.change_requests` : cache | A |
-| D13 NC et HSE de projet | Vigie | `vigie.events` (NC, + 11 colonnes), `prevention_plans`, `permits`, `inductions` | `vigie.pub_non_conformites`, `pub_hse_projet` | Keystone, Matrix | `keystone.vigie_ncrs`, `vigie_hse_items` : cache | A |
+| D13 NC et HSE de projet | Vigie | `vigie.events` (NC, + 10 colonnes, migration `0008_partage_prerequis`), `prevention_plans`, `permits` ; `inductions` non créée (C-13) | `vigie.pub_non_conformites`, `pub_hse_projet` | Keystone, Matrix | `keystone.vigie_ncrs`, `vigie_hse_items` : cache | A |
 | D14 Sites | Matrix | `matrix.sites` | `matrix.pub_sites` | les 4 outils | `codex.sites` : cache ; `vigie.sites` : cache + attributs Seveso ; `cursus.employes.site_code` | A |
 | D15 Organisation | Matrix | `matrix.organigramme` | `matrix.pub_organigramme` | les 4 outils | `codex.departments` : cache (+ `active`) ; `keystone.departments` : cache (+ `org_code`) ; `cursus.equipes` : cache, clé = code Matrix | A |
 | D16 Clients et fournisseurs | Keystone | `keystone.clients`, `suppliers` | `keystone.pub_clients`, `pub_fournisseurs` (+ colonnes de `pub_projets`) | Vigie, Codex, Cursus, Matrix | `vigie.contractors` gardée + `supplier_id` ; clients en texte remplacés par le projet | A |
 | D17 Pays | Matrix | `matrix.pays` | `matrix.pub_pays` | les 4 outils | `keystone.countries` gardée + `iso2` ; `cursus.destinations` gardée, `pays` en cache | A |
-| D18 Journaux d'audit | chaque outil | `keystone.audit_entries`, `activity_events` ; `codex.audit_log` ; `cursus.journal` ; `vigie.journal` (à créer) | 4 vues `pub_journal`, réunies par `matrix.journal_unifie` | Matrix | toutes gardées | A |
+| D18 Journaux d'audit | chaque outil | `keystone.audit_entries`, `activity_events` ; `codex.audit_log` ; `cursus.journal` ; `vigie.change_log` (journal des modifications de Vigie, sans motif ni détail) | 4 vues `pub_journal`, réunies par `matrix.journal_unifie` | Matrix | toutes gardées | A |
 | D19 Paramètres et fichiers | chaque outil | `cursus.settings` (horizon d'alerte) | `cursus.pub_parametres` | Vigie (après C-12), Matrix | aucune ; Vigie garde sa constante tant que le QHSE n'a pas validé (C-12) | A |
 | D20 Homonymes | sans objet | | | | aucun renommage ; le schéma sert de préfixe | A |
 
@@ -486,9 +486,9 @@ Le rafraîchissement tourne au démarrage, chaque nuit et à la demande (écran 
 
 **Ce qui change.** Les NC de projet sont des événements de type NC de Vigie. Le registre HSE de chantier vient des plans de prévention, des permis, des accueils et des presqu'accidents de Vigie. Keystone garde ses miroirs `vigie_ncrs` et `vigie_hse_items`, rafraîchis depuis les vues, et son outbox `vigie_ncr_progress`.
 
-**Source.** `vigie.events` (`type = 'NC'`) avec 12 colonnes ajoutées par `50-vigie.sql` : `keystone_project_code` (D02), `nc_number` (« NCR-029 », unique par projet), `keystone_activity_code`, `part_ref`, `keystone_deliverable_number`, `supplier_id`, `supplier_name` (D16), `root_cause`, `nc_cost_keur`, `iso_clause`, `closed_on`, `updated_at`. `prevention_plans` et `permits` reçoivent `keystone_project_code`. Table `vigie.inductions` (accueils sécurité, à arbitrer : C-13). Types de permis `levage` et `travail_ht` ajoutés par contrôle applicatif.
+**Source.** `vigie.events` (`type = 'NC'`) avec 10 colonnes ajoutées par la migration de Vigie `0008_partage_prerequis` (18/10/2026) : `keystone_project_code` (D02), `nc_number` (« NCR-029 », unique par projet), `keystone_activity_code`, `part_ref`, `keystone_deliverable_number`, `supplier_id`, `supplier_name` (D16), `root_cause`, `nc_cost_keur`, `iso_clause`. `closed_on` et `vigie_updated_at` ne sont pas stockés : la vue les calcule (`event_steps`, `change_log`). `prevention_plans`, `permits` et `site_activities` reçoivent `keystone_project_code`. Pas de table `vigie.inductions` (accueils sécurité, à arbitrer : C-13) : `pub_hse_projet` n'a pas de ligne « induction ». Types de permis `levage` et `travail_ht` ajoutés par contrôle applicatif.
 
-**Vues.** `vigie.pub_non_conformites` (NC avec code projet et numéro ; jamais `injury` ni `lost_days` ; les colonnes reprennent celles du miroir pour un `INSERT … SELECT`) et `pub_hse_projet` (registre par projet). Lecteurs : keystone_app, matrix_app.
+**Vues.** `vigie.pub_non_conformites` (NC avec code projet et numéro, hors classées sans suite ; aucune colonne de santé ; les colonnes reprennent celles du miroir pour un `INSERT … SELECT`) et `pub_hse_projet` (registre par projet), créées par la migration de Vigie `0009_partage` et recopiées dans `50-vigie.sql`. Lecteurs : keystone_app, matrix_app.
 
 **Lecteur : Keystone.** Même miroir, rafraîchi par `SELECT` sur les deux vues à la place de `GET /api/ncrs` et `/api/hse` (`quality-connector.ts:79-89`). `vigie_ncrs` gagne `closed_on`, `supplier_id` et `owner_matricule` (`30-keystone.sql`). L'avancement d'une NC part par l'API (§ 5.7).
 
@@ -584,7 +584,7 @@ Le rafraîchissement tourne au démarrage, chaque nuit et à la demande (écran 
 
 **Rapprochement.** 0 entreprise de Vigie sur 6 ne se rapproche d'un fournisseur Keystone (noms masqués ; Keystone n'a que des fabricants et des soumissionnaires) : tous les `supplier_id` partent à nul et se renseignent à la main. Clients : 2 sur 3 pour Codex ; ceux de Vigie et de Cursus dépendent de D02 et D03. Les uuid de démonstration de Keystone changent à chaque rechargement (`seed/context.ts:7`) : des uuid déterministes pour les référentiels de démonstration évitent des `supplier_id` orphelins.
 
-**Code.** Vigie : `schema.ts:271` (fait par `50-vigie.sql`, à reporter), `saveContractor` (contrôle contre la vue), `ContractorDialogs.tsx`, `ContractorView`, import des plans de prévention (`matchByName`). Keystone : uuid déterministes de démonstration.
+**Code.** Vigie : `contractors.supplier_id` (fait par la migration `0008_partage_prerequis`), `saveContractor` (contrôle contre la vue), `ContractorDialogs.tsx`, `ContractorView`, import des plans de prévention (`matchByName`). Keystone : uuid déterministes de démonstration.
 
 **API.** Aucune : créer un fournisseur reste un acte de Keystone.
 
@@ -604,7 +604,7 @@ Le rafraîchissement tourne au démarrage, chaque nuit et à la demande (écran 
 
 | Outil | Lit | Table locale |
 |---|---|---|
-| Keystone | `pub_pays` | `countries` gardée, avec `iso2` (unique, rendu obligatoire par `30-keystone.sql` quand la table est complète) ; zones et villes restent locales. Étape 2, recommandée : clé de `countries` sur `iso2`, `cities.country_name`, `project_sites.country_name` et `site_sheets.country` en code ISO. |
+| Keystone | `pub_pays` | `countries` gardée, avec `iso2` (unique, facultatif comme dans le schéma Drizzle ; migration `0034_share_prerequisites`) ; zones et villes restent locales. Étape 2, recommandée : clé de `countries` sur `iso2`, `cities.country_name`, `project_sites.country_name` et `site_sheets.country` en code ISO. |
 | Cursus | `pub_pays` | `destinations` gardée (visa, vaccins, validité du passeport), avec `pays` en cache de `nom_fr`, rafraîchi par Cursus (règle 3 : le repli SQLite garde les noms). |
 | Codex, Vigie | rien aujourd'hui | aucune donnée de pays |
 
@@ -624,13 +624,13 @@ Le rafraîchissement tourne au démarrage, chaque nuit et à la demande (écran 
 
 **Ce qui change.** Chaque outil garde son journal et publie une vue `pub_journal` aux colonnes communes. Matrix les réunit en lecture dans `matrix.journal_unifie`. Vigie, qui n'a aucun journal (environ 80 actions serveur sans trace), en crée un.
 
-**Source.** `keystone.audit_entries` et `activity_events`, `codex.audit_log`, `cursus.journal` (avec `actor_emp_id`, `objet_ref`, `projet_code` ajoutées par `20-cursus.sql`), `vigie.journal` (créée par `50-vigie.sql`).
+**Source.** `keystone.audit_entries` et `activity_events`, `codex.audit_log`, `cursus.journal` (avec `actor_emp_id`, `objet_ref`, `projet_code` ajoutées par `20-cursus.sql`), `vigie.change_log` (journal des modifications, écrit par `logChange` ; `pub_journal` de la migration `0009_partage` n'en publie ni le motif ni le détail des champs, et écarte les accidents du travail et le registre des accidents bénins). La table `vigie.journal` prévue d'abord n'est pas créée.
 
 **Vues.** Quatre `pub_journal` aux mêmes colonnes et types (`ref_source`, `nature`, `quand`, `qui`, `qui_ref`, `qui_role`, `action`, `objet`, `detail`, `projet`, `qui_matricule`), lues par matrix_app seulement. `cursus.pub_journal` ne lit ni `payload` ni `message`. `matrix.journal_unifie` (fichier `95`) les réunit ; c'est la seule vue du partage qui lit d'autres schémas, et un `DROP SCHEMA … CASCADE` sur un outil la supprime (procédure de restauration du README du socle).
 
 **Lecteur : Matrix.** Écran « Journal » de l'administration : filtres par outil, période, auteur, objet, projet ; pagination par (`quand`, `ref_source`) ; export CSV.
 
-**Clés étrangères locales.** Aucune ne disparaît. `vigie.journal` vise `vigie.people` et `vigie.sites`.
+**Clés étrangères locales.** Aucune ne disparaît. `vigie.change_log.by_id` vise `vigie.people`.
 
 **Rapprochement.** Version 1 sans rapprochement (identifiants locaux) ; le matricule commun vient de D01 (`qui_matricule`), le code projet de D02 et D03.
 

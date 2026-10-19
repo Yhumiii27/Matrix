@@ -119,6 +119,16 @@ const SENSITIVE = {
   'vigie.events': ['injury', 'lost_days'],
 };
 
+// La liste qui fait foi est celle du socle (droits.colonnes_sensibles, infra/postgres/init/03-droits.sql, origine
+// « convention ») : elle remplace la liste ci-dessus quand le fichier est là. « * » ferme la table entière.
+const SOCLE_DROITS = join(here, '..', 'infra', 'postgres', 'init', '03-droits.sql');
+if (existsSync(SOCLE_DROITS)) {
+  const ligne = /\(\s*'(keystone|codex|cursus|vigie)',\s*'(\w+)',\s*'([\w*]+)',\s*'(?:[^']|'')*',\s*'convention'\)/g;
+  const lues = {};
+  for (const [, app, table, col] of readFileSync(SOCLE_DROITS, 'utf8').matchAll(ligne)) (lues[`${app}.${table}`] ??= []).push(col);
+  if (Object.keys(lues).length) { for (const k of Object.keys(SENSITIVE)) delete SENSITIVE[k]; Object.assign(SENSITIVE, lues); }
+}
+
 // ── Lecture des migrations Drizzle ───────────────────────────────────────
 
 function parseDrizzle(dir) {
@@ -265,7 +275,7 @@ function enrich(app, tables, comments, known = new Map()) {
     const out = { ...t, fks, domain: domain ?? k.domain ?? 'Nouvelles tables', description: description ?? k.description ?? null };
     delete out.vueLe; delete out.nouvelle; delete out.doublonsPossibles;
     const sens = SENSITIVE[`${app}.${t.name}`];
-    if (sens) out.sensitive = sens;
+    if (sens) out.sensitive = sens.includes('*') ? out.columns.map(c => c.name) : sens;
     return out;
   });
 }

@@ -2,11 +2,19 @@
 --
 -- Décisions : D02 projets, D03 chantiers, D04 affectations, D05 tâches, D16 clients et fournisseurs,
 -- D12 et D13 (référentiels lus par Vigie : articles, nomenclatures, parc, activités, livrables), D18 journal.
--- Prérequis portés par d'autres décisions : D01 (persons.matricule), D17 (countries.iso2), D15 (departments.org_code).
--- Exécution : en tant que keystone_app, après les migrations Drizzle de Keystone (voir README.md).
+-- Source : les 12 vues sont créées par la migration de Keystone drizzle/0035_share.sql (dépôt Keystone, décision P-02
+-- du 18/10/2026), leurs colonnes prérequises par drizzle/0034_share_prerequisites.sql (persons.matricule : 0024). Ce
+-- fichier en est la copie, qualifiée keystone. et commentée colonne par colonne : le rejouer sur un serveur où Keystone
+-- a passé ses migrations (npm run db:migrate) ne change rien (CREATE OR REPLACE VIEW, même définition). Il ne crée ni
+-- colonne ni contrainte : migration de Keystone d'abord, puis ce fichier, puis 90-droits.sql. Toute évolution d'une
+-- vue se fait d'abord dans une migration de Keystone, puis est recopiée ici.
+-- Exécution : en tant que keystone_app, après npm run db:migrate de Keystone (voir README.md).
 --   psql "postgres://keystone_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/30-keystone.sql
--- Rejouable. Les vues ne lisent que des tables du schéma keystone (aucune jointure vers matrix) : chaque outil
--- peut les recréer dans ses tests PGlite. Droits : 90-droits.sql.
+-- Rejouable. Les vues ne lisent que des tables du schéma keystone (aucune jointure vers matrix). Droits : 90-droits.sql.
+--
+-- Écarts avec la première version de ce fichier (15/10/2026), alignés sur Keystone : countries.iso2 reste facultatif
+-- (pas de NOT NULL : la colonne Drizzle est nullable) ; persons.matricule n'a pas de contrainte de forme (les matricules
+-- viennent de Cursus, contrôlés à l'import) ; projects.kind, departments.org_code et leurs contraintes sont ceux de 0034.
 --
 -- Attention aux migrations de Keystone : PostgreSQL refuse de supprimer ou de changer le type d'une colonne lue
 -- par une vue (« cannot drop column … view keystone.pub_chantiers depends on it »). drizzle-kit ne connaît pas
@@ -14,22 +22,24 @@
 
 \set ON_ERROR_STOP on
 
--- ═══ Prérequis : colonnes à ajouter (à reporter dans les migrations de l'outil) ═══
--- Destination : src/server/db/schema/*.ts puis une migration drizzle/00xx. ADD COLUMN IF NOT EXISTS : sans
--- effet si la colonne existe déjà ; la contrainte écrite dans la définition de colonne suit le même sort.
+-- ═══ Prérequis : migrations 0034 et 0035 de Keystone ═══
+-- Ce fichier ne crée rien d'autre que les vues. Une colonne absente signale une migration de Keystone non passée.
+DO $$
+DECLARE
+  v_manque text;
+BEGIN
+  SELECT string_agg(x.t || '.' || x.c, ', ') INTO v_manque
+  FROM (VALUES ('persons', 'matricule'), ('countries', 'iso2'), ('projects', 'kind'), ('departments', 'org_code'),
+               ('vigie_ecos', 'released_at'), ('vigie_ncrs', 'closed_on'), ('vigie_ncrs', 'supplier_id'),
+               ('vigie_ncrs', 'owner_matricule')) AS x(t, c)
+  WHERE NOT EXISTS (SELECT FROM information_schema.columns ic
+                    WHERE ic.table_schema = 'keystone' AND ic.table_name = x.t AND ic.column_name = x.c);
+  IF v_manque IS NOT NULL THEN
+    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites et 0035_share), puis rejouez ce fichier.', v_manque;
+  END IF;
+END $$;
 
--- D01 : matricule Cursus d'un salarié ; nul pour une personne externe (contact client, rôle contractuel).
-ALTER TABLE keystone.persons
-  ADD COLUMN IF NOT EXISTS matricule text
-    CONSTRAINT persons_matricule_unique UNIQUE
-    CONSTRAINT persons_matricule_check CHECK (matricule IS NULL OR (matricule ~ '^EMP-[0-9]{4,}$' AND client_id IS NULL));
-
--- D17 : code ISO du pays. Les 22 noms anglais de countries se rattachent tels quels à matrix.pays (amorçage du
--- fichier 10). La table de passage est écrite ici pour ne pas lire le schéma matrix depuis une migration.
-ALTER TABLE keystone.countries
-  ADD COLUMN IF NOT EXISTS iso2 char(2)
-    CONSTRAINT countries_iso2_unique UNIQUE
-    CONSTRAINT countries_iso2_check CHECK (iso2 ~ '^[A-Z]{2}$');
+-- D17 : code ISO des pays déjà en base (même instruction que 0035_share ; sans effet une fois remplis).
 UPDATE keystone.countries c SET iso2 = v.iso2
 FROM (VALUES ('France', 'FR'), ('United Kingdom', 'GB'), ('Netherlands', 'NL'), ('Germany', 'DE'), ('Belgium', 'BE'),
              ('Spain', 'ES'), ('Italy', 'IT'), ('Canada', 'CA'), ('United States', 'US'), ('Morocco', 'MA'),
@@ -37,51 +47,12 @@ FROM (VALUES ('France', 'FR'), ('United Kingdom', 'GB'), ('Netherlands', 'NL'), 
              ('Australia', 'AU'), ('Malaysia', 'MY'), ('Singapore', 'SG'), ('Indonesia', 'ID'), ('Vietnam', 'VN'),
              ('Japan', 'JP'), ('India', 'IN'), ('Ghana', 'GH'), ('Brazil', 'BR'), ('Saudi Arabia', 'SA')) AS v(name, iso2)
 WHERE c.name = v.name AND c.iso2 IS NULL;
--- NOT NULL seulement quand la table est remplie et complète : le jeu de démo (seed/organisation.ts:117-119)
--- n'écrit pas encore iso2 et échouerait sur une table vide déjà contrainte.
-DO $$
-DECLARE
-  v_manquants text;
-BEGIN
-  SELECT string_agg(name, ', ' ORDER BY name) INTO v_manquants FROM keystone.countries WHERE iso2 IS NULL;
-  IF NOT EXISTS (SELECT FROM keystone.countries) THEN
-    RAISE NOTICE 'keystone.countries est vide : iso2 reste facultatif. Rejouez ce fichier après le chargement des pays.';
-  ELSIF v_manquants IS NULL THEN
-    ALTER TABLE keystone.countries ALTER COLUMN iso2 SET NOT NULL;
-  ELSE
-    RAISE WARNING 'keystone.countries : pays sans code ISO (%), iso2 reste facultatif. Complétez puis rejouez ce fichier.', v_manquants;
-  END IF;
-END $$;
-
--- D02 : nature du projet. Les codes hors projet de Cursus (INT-PROD… ECOLE) deviennent des projets internes.
-ALTER TABLE keystone.projects
-  ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'client'
-    CONSTRAINT projects_kind_check CHECK (kind IN ('client', 'internal'));
-
--- D15 : unité de matrix.pub_organigramme (service, ou département sans service) que représente le département
--- Keystone. Le cache departments est rafraîchi depuis la vue par Keystone.
-ALTER TABLE keystone.departments
-  ADD COLUMN IF NOT EXISTS org_code text
-    CONSTRAINT departments_org_code_unique UNIQUE
-    CONSTRAINT departments_org_code_check CHECK (org_code ~ '^[A-Z]{3}(-[A-Z0-9]{2,12}){0,2}$');
-
--- D12 et D13 : colonnes des miroirs Keystone, remplis par SELECT sur les vues de Vigie.
-ALTER TABLE keystone.vigie_ecos ADD COLUMN IF NOT EXISTS released_at timestamptz;   -- domain/kpis.ts:337 (ecoReleaseDate)
-ALTER TABLE keystone.vigie_ncrs ADD COLUMN IF NOT EXISTS closed_on date;            -- dal/kpis.ts:150 (ncrClosureDates)
-ALTER TABLE keystone.vigie_ncrs ADD COLUMN IF NOT EXISTS supplier_id uuid;          -- D16 : keystone.suppliers.id
-ALTER TABLE keystone.vigie_ncrs ADD COLUMN IF NOT EXISTS owner_matricule text;      -- D01 : pilote de la NC
-
--- D14 (facultatif, aucune lecture aujourd'hui) : site Matrix d'un emplacement de stock.
--- ALTER TABLE keystone.storage_locations ADD COLUMN IF NOT EXISTS site_code text;
-
--- D18 : index de pub_journal (le catalogue ne signale aucun index secondaire sur ces tables).
-CREATE INDEX IF NOT EXISTS audit_entries_occurred_at_idx ON keystone.audit_entries (occurred_at);
-CREATE INDEX IF NOT EXISTS activity_events_occurred_at_idx ON keystone.activity_events (occurred_at);
 
 -- Non traités ici : D03 suppression de site_sheets.cursus_chantier_id ; D10 documents.codex_id NOT NULL UNIQUE
 -- (après la reprise) ; D09 suppression de certifications ; D11 document_types, document_type_circuit_steps et
 -- document_approver_assignments gardées comme caches de codex.pub_types_document, pub_circuits_type et
--- pub_titulaires_fonction (clés documents.type_code et document_deposits.type_code inchangées).
+-- pub_titulaires_fonction (clés documents.type_code et document_deposits.type_code inchangées) ; D14 (facultatif)
+-- storage_locations.site_code.
 
 -- ═══ Vues publiées ═══
 -- Contrat : on n'en retire ni ne renomme de colonne (sinon nouvelle vue _v2) ; ajout en fin de liste seulement.

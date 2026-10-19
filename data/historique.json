@@ -1,3 +1,3068 @@
 {
- "evenements": []
+ "evenements": [
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "persons",
+   "colonne": "rate_role_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "persons",
+   "colonne": "matricule"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "persons",
+   "colonne": "directory_team"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "persons",
+   "colonne": "directory_synced_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "roles"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "entra_object_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "email"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "department_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "last_sign_in_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "projects",
+   "colonne": "budget_rate"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "change_requests",
+   "colonne": "contract_impact"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "change_requests",
+   "colonne": "cost_category_code"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contingency_draws",
+   "colonne": "status"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contingency_draws",
+   "colonne": "requested_by_person_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contingency_draws",
+   "colonne": "requested_by_name"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contingency_draws",
+   "colonne": "decided_by_person_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contingency_draws",
+   "colonne": "decided_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contingency_draws",
+   "colonne": "decision_comment"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "risks",
+   "colonne": "cost_keur"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_supprimee",
+   "table": "rate_multipliers",
+   "colonne": "factor"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_supprimee",
+   "table": "rate_roles",
+   "colonne": "base_rate_eur"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_supprimee",
+   "table": "rate_roles",
+   "colonne": "effective_from"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "activity_events",
+   "colonne": "message_key"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "activity_events",
+   "colonne": "message_params"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "audit_entries",
+   "colonne": "actor_user_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "audit_entries",
+   "colonne": "before"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "audit_entries",
+   "colonne": "after"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "audit_entries",
+   "colonne": "reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "audit_entries",
+   "colonne": "message_key"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "audit_entries",
+   "colonne": "message_params"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "document_index_syncs",
+   "colonne": "source"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "document_index_syncs",
+   "colonne": "next_since"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contract_amendments",
+   "colonne": "sent_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contracts",
+   "colonne": "currency"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contracts",
+   "colonne": "payment_rule"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "contracts",
+   "colonne": "payment_days"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "customer_invoices",
+   "colonne": "currency"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "payment_milestones",
+   "colonne": "amendment_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "meeting_lines",
+   "colonne": "activity_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "parts",
+   "colonne": "hs_not_applicable"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "parts",
+   "colonne": "export_reviewed"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "parts",
+   "colonne": "validated_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "parts",
+   "colonne": "validated_by_person_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "purchase_orders",
+   "colonne": "currency"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "purchase_orders",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "purchase_orders",
+   "colonne": "cancelled_by_person_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "purchase_orders",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "receipt_attachments",
+   "colonne": "file_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "supplier_invoices",
+   "colonne": "currency"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stock_movements",
+   "colonne": "unit_cost_eur"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stock_movements",
+   "colonne": "value_eur"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stock_movements",
+   "colonne": "wbs_code"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stock_movements",
+   "colonne": "override_qty"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stock_movements",
+   "colonne": "override_from_project_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "vigie_eco_progress",
+   "colonne": "claimed_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "itp_inspections",
+   "colonne": "result_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "itp_inspections",
+   "colonne": "inspector_name"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "itp_inspections",
+   "colonne": "inspector_person_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "itp_inspections",
+   "colonne": "client_witness"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "itp_inspections",
+   "colonne": "result_comment"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "itp_inspections",
+   "colonne": "result_recorded_by_name"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "itp_inspections",
+   "colonne": "result_recorded_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "vigie_ncr_progress",
+   "colonne": "claimed_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "vigie_ncrs",
+   "colonne": "inspection_number"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "interventions",
+   "colonne": "done_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "interventions",
+   "colonne": "report"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "interventions",
+   "colonne": "part_ref"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "interventions",
+   "colonne": "part_revision"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "warranty_claims",
+   "colonne": "diagnosis"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "warranty_claims",
+   "colonne": "closed_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "site_prerequisites",
+   "colonne": "alerted_needed_by"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "site_prerequisites",
+   "colonne": "alerted_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "site_prerequisites",
+   "colonne": "risk_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "cursus_requests",
+   "colonne": "claimed_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "client_issues",
+   "colonne": "handled_by_name"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "client_issues",
+   "colonne": "handled_by_person_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "client_issues",
+   "colonne": "taken_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "client_issues",
+   "colonne": "answered_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "client_issues",
+   "colonne": "closed_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stored_files",
+   "colonne": "scan_status"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stored_files",
+   "colonne": "scanned_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "colonne_ajoutee",
+   "table": "stored_files",
+   "colonne": "scan_signature"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "plan_trash",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "job_locks",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "change_request_postings",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "change_request_activities",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "codex_document_outbox",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "deliverable_reviews",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "rate_multiplier_rates",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "rate_role_rates",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "cursus_events",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "itp_plan_systems",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "site_conflict_arbitrations",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_ajoutee",
+   "table": "codex_index_awaiting",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_supprimee",
+   "table": "client_document_categories"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_supprimee",
+   "table": "document_downloads"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "keystone",
+   "type": "table_supprimee",
+   "table": "job_title_rates"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "codex",
+   "type": "colonne_ajoutee",
+   "table": "documents",
+   "colonne": "distribution"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "codex",
+   "type": "colonne_ajoutee",
+   "table": "documents",
+   "colonne": "review_months"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "codex",
+   "type": "colonne_ajoutee",
+   "table": "documents",
+   "colonne": "process_code"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "codex",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "matricule"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "formations",
+   "colonne": "validation"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "formations",
+   "colonne": "archive"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "habilitations",
+   "colonne": "archive"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "habilitations",
+   "colonne": "sir"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "destinations",
+   "colonne": "secu"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "destinations",
+   "colonne": "archive"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "postes",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "equipes",
+   "colonne": "exigences"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "equipes",
+   "colonne": "nuit"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "projets",
+   "colonne": "statut"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "chantiers",
+   "colonne": "statut"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "poste_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "email"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "notifications"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "avis"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "restrictions"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "suivi"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "prochaine_visite"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "examen_aptitude"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "expose"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "matricule_paie"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "motif_sortie"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "fin_prevue"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "essai_fin"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "essai_renouvele_jusquau"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "autorisation_travail"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "naissance_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "employes",
+   "colonne": "derogation_travaux_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "demandes_visite",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "convoc_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "corrige_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "corrige_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "corrige_motif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "annule_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "annule_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "annule_motif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "inscriptions_closes"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "hab_titres",
+   "colonne": "mesure"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "hab_titres",
+   "colonne": "mesure_date"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "hab_titres",
+   "colonne": "mesure_motif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "hab_titres",
+   "colonne": "mesure_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "sessions",
+   "colonne": "plan_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "sessions",
+   "colonne": "bilan"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "sessions",
+   "colonne": "fin"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "sessions",
+   "colonne": "jours"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "sessions",
+   "colonne": "horaires"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_supprimee",
+   "table": "sessions",
+   "colonne": "inscrits"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "inscriptions",
+   "colonne": "convoc_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "participations",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "cout_reel"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "effectif_reel"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "report_de"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "corrige_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "corrige_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "corrige_motif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "annule_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "annule_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "plan_actions",
+   "colonne": "annule_motif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "exercices_clos",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "voyages",
+   "colonne": "detachement_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "voyages",
+   "colonne": "information_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "voyages",
+   "colonne": "annule_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "voyages",
+   "colonne": "annule_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "voyages",
+   "colonne": "annule_motif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "voyages",
+   "colonne": "demandeur"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_keystone",
+   "colonne": "ref"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_keystone",
+   "colonne": "statut"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_keystone",
+   "colonne": "decidee"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_keystone",
+   "colonne": "decideur"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_keystone",
+   "colonne": "voyage_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_keystone",
+   "colonne": "motif_refus"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "missions",
+   "colonne": "ref"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "taches",
+   "colonne": "ref"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "taches",
+   "colonne": "debut"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "taches",
+   "colonne": "fin"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "feuilles",
+   "colonne": "motif_depassement"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "feuilles",
+   "colonne": "heures_sup"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "feuilles",
+   "colonne": "lot_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "feuilles",
+   "colonne": "maj_dimanche"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "feuilles",
+   "colonne": "maj_ferie"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "feuilles",
+   "colonne": "cor"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "feuilles",
+   "colonne": "reouverture"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "mandats",
+   "source": "dépôt",
+   "doublonsPossibles": [
+    "vigie.keystone_assignments"
+   ]
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "lots_paie",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "soldes_sortie",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "rubriques_paie",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "signale_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "signale_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "justificatif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "justificatif_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "fin_initiale"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "annulee_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "annulee_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "signale_par_interesse"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "motif_refus"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "debut_demi"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "fin_demi"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "lot_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "absences",
+   "colonne": "sage"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "reports",
+   "colonne": "periode"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "reports",
+   "colonne": "expire"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "soldes_reprise",
+   "colonne": "arrete_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "soldes_reprise",
+   "colonne": "cp_solde"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "soldes_reprise",
+   "colonne": "cp_solde_suivant"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "soldes_reprise",
+   "colonne": "rtt_solde"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "soldes_reprise",
+   "colonne": "cet_solde"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "soldes_reprise",
+   "colonne": "heures_sup_annee"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "reprises",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "clotures",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "informations_cp",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "entretiens",
+   "colonne": "planifie_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "entretiens",
+   "colonne": "remise_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "entretiens",
+   "colonne": "remise_mode"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "entretiens",
+   "colonne": "remise_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "entretiens",
+   "colonne": "telecharge_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_collab",
+   "colonne": "declaration"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_collab",
+   "colonne": "motif_refus"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_collab",
+   "colonne": "suite"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_collab",
+   "colonne": "rouverte_le"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_collab",
+   "colonne": "rouverte_par"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "demandes_collab",
+   "colonne": "rouverte_motif"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "journal",
+   "colonne": "compte_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "journal",
+   "colonne": "identifiant"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "journal",
+   "colonne": "salaries"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "journal",
+   "colonne": "paie"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "colonne_ajoutee",
+   "table": "journal",
+   "colonne": "archivee"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "comptes",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "connexions",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "envois",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "notifications",
+   "source": "dépôt",
+   "doublonsPossibles": [
+    "vigie.notifications",
+    "keystone.notifications"
+   ]
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "releves",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "verdicts_keystone",
+   "source": "dépôt",
+   "doublonsPossibles": [
+    "keystone.pid_validation_steps",
+    "keystone.vigie_hse_items"
+   ]
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "cursus",
+   "type": "table_ajoutee",
+   "table": "relances",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "review_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "prevention_plan_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "permit_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "document_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "waste_stream_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "waste_entry_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "opened_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "priority"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "initial_due_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "done_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "source"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "domain"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "problem"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "detail"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "verify_method"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "effective"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "new_risk"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "risk_level"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "hours"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "estimated_cost"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "actual_cost"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "follows_action_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "follow_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "legacy_origin"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "qualification_person_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "actions",
+   "colonne": "qualification_title_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_supprimee",
+   "table": "actions",
+   "colonne": "title"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_supprimee",
+   "table": "actions",
+   "colonne": "description"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_supprimee",
+   "table": "actions",
+   "colonne": "origin"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_supprimee",
+   "table": "actions",
+   "colonne": "kind"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "attachments",
+   "colonne": "health"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "attachments",
+   "colonne": "comment_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_findings",
+   "colonne": "plan_item_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_findings",
+   "colonne": "clause"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_findings",
+   "colonne": "found_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_findings",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_findings",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_findings",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "done_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "auditor"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "scope"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "certification_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "review_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "postponed_from"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "audit_plan_items",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "organization"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "issued_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "certifications",
+   "colonne": "valid_until"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "contractors",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "contractors",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "contractors",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "control_records",
+   "colonne": "prev_last_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "control_records",
+   "colonne": "prev_next_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "control_records",
+   "colonne": "prev_reserves"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "control_records",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "control_records",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "control_records",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "controls",
+   "colonne": "requirement_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "controls",
+   "colonne": "action_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "controls",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "controls",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "controls",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "document_versions",
+   "colonne": "returned_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "document_versions",
+   "colonne": "return_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "declarant_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "cpam_declared_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "control_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "risk_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "document_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "prevention_plan_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "permit_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "dismissed_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "dismissed_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "dismiss_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "declarant_company"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "reported_via"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "victim_kind"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "victim_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "victim_name"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "victim_company"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "occurred_time"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "work_schedule"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "known_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "activity"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "circumstances"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "witnesses"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "third_party"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "lesion_nature"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "lesion_site"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "care_given"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "reserves_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "cpam_waived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "cpam_waived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "cpam_waiver_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "customer"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "customer_ref"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "env_aspect"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "events",
+   "colonne": "env_medium"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "service"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "left_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "left_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "entra_object_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "email"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "matricule"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "last_role"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "people",
+   "colonne": "last_login_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "permits",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "permits",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "ee_headcount"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "ee_supervisor"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "subcontracting"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "dangerous_phases"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "equipment"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "worker_instructions"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "emergency_organisation"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "coordination"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "sir_posts"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "prevention_plans",
+   "colonne": "first_signed_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_supprimee",
+   "table": "qualification_requirements",
+   "colonne": "renewal_action_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "qualifications",
+   "colonne": "id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "qualifications",
+   "colonne": "recorded_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "qualifications",
+   "colonne": "recorded_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "qualifications",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "qualifications",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "qualifications",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "requirements",
+   "colonne": "affects_projects"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "requirements",
+   "colonne": "linked_to"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "requirements",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "requirements",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "requirements",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "review_items",
+   "colonne": "review_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "review_items",
+   "colonne": "source"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "review_items",
+   "colonne": "owner_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "review_items",
+   "colonne": "due_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_supprimee",
+   "table": "review_items",
+   "colonne": "review_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "risks",
+   "colonne": "residual_reviewed_on"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "risks",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "risks",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "risks",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "sites",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "sites",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "sites",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "sites",
+   "colonne": "qhse_lead_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "sites",
+   "colonne": "siret"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "sites",
+   "colonne": "alsace_moselle"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "training_titles",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "training_titles",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "training_titles",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "training_titles",
+   "colonne": "first_aid"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "event_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "pop"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "qualification"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "destination_siret"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "destination_address"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "transporter_siret"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "transporter_address"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "transporter_receipt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_entries",
+   "colonne": "pickup_address"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "pop"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "qualification"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "collector_siret"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "collector_address"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "collector_receipt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "destination_siret"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "destination_address"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "waste_streams",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "work_units",
+   "colonne": "archived_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "work_units",
+   "colonne": "archived_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "work_units",
+   "colonne": "archive_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "map_zones",
+   "colonne": "qr_version"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "site_activities",
+   "colonne": "cancelled_at"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "site_activities",
+   "colonne": "cancelled_by_id"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "colonne_ajoutee",
+   "table": "site_activities",
+   "colonne": "cancel_reason"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "change_log",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "event_steps",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "notification_reads",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "requirement_evaluations",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "review_decisions",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "reviews",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "report_rate_limits",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "benign_accidents",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "duerp_access_requests",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "prevention_program_actions",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "prevention_programs",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "action_comments",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "action_counters",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "action_reminder_sends",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "notifications",
+   "source": "dépôt",
+   "doublonsPossibles": [
+    "cursus.notifications",
+    "keystone.notifications"
+   ]
+  },
+  {
+   "date": "2026-10-18T09:07:07.276Z",
+   "app": "vigie",
+   "type": "table_ajoutee",
+   "table": "access_log",
+   "source": "dépôt"
+  }
+ ]
 }

@@ -10,8 +10,8 @@ name: epc2i-postgres
 
 services:
   postgres:
-    # PostgreSQL 16 (décision du 15/10/2026). Pour figer la version mineure, remplacer par postgres:16.x-bookworm.
-    image: postgres:16-bookworm
+    # PostgreSQL 16 et les fichiers du socle (init/, sauvegarde/, partage/, verifier-droits.sql) : voir Dockerfile.
+    build: .
     restart: unless-stopped
     shm_size: 256mb
     stop_grace_period: 60s
@@ -53,11 +53,6 @@ services:
       - log_lock_waits=on
     volumes:
       - epc2i_pgdata:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d:ro
-      - ./sauvegarde:/opt/epc2i/sauvegarde:ro
-      - ./verifier-droits.sql:/opt/epc2i/verifier-droits.sql:ro
-      # Fichiers de partage (vues pub_, droits des lecteurs), joués à la main après la bascule de chaque outil.
-      - ./partage:/opt/epc2i/partage:ro
       - epc2i_sauvegardes:/sauvegardes
     ports:
       # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils

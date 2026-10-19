@@ -56,6 +56,8 @@ services:
       - ./init:/docker-entrypoint-initdb.d:ro
       - ./sauvegarde:/opt/epc2i/sauvegarde:ro
       - ./verifier-droits.sql:/opt/epc2i/verifier-droits.sql:ro
+      # Fichiers de partage (vues pub_, droits des lecteurs), joués à la main après la bascule de chaque outil.
+      - ./partage:/opt/epc2i/partage:ro
       - epc2i_sauvegardes:/sauvegardes
     ports:
       # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils

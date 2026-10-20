@@ -4,7 +4,8 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 
 | Fichier | Rôle |
 |---|---|
-| `docker-compose.yml` | PostgreSQL 16, volume de données persistant, scripts d'initialisation montés. Utilisable dans Coolify et en local. |
+| `docker-compose.yml` | PostgreSQL 16, volumes de données et de sauvegardes persistants. Utilisable dans Coolify et en local. |
+| `Dockerfile` | Image officielle PostgreSQL 16 avec les fichiers du socle copiés dedans (`init/`, `sauvegarde/`, `partage/`, `verifier-droits.sql`). |
 | `.env.example` | Les variables à fournir (mots de passe). |
 | `init/01-base-et-roles.sql` | Base `epc2i` et rôles. |
 | `init/02-schemas.sql` | Schémas `keystone`, `codex`, `cursus`, `vigie`, `matrix`, propriétaires et paramètres de session. |
@@ -33,9 +34,9 @@ Pourquoi un déclencheur d'événement : `ALTER DEFAULT PRIVILEGES` accorde `SEL
 
 ## Mise en service dans Coolify
 
-1. **Créer la ressource.** Nouvelle ressource « Docker Compose » depuis le dépôt Matrix. Répertoire de base : `/infra/postgres`. Fichier compose : `docker-compose.yml`. Les montages `./init`, `./sauvegarde`, `./verifier-droits.sql` et `./partage` se lisent dans ce répertoire ; dans le conteneur, les fichiers de partage sont dans `/opt/epc2i/partage/`.
+1. **Créer la ressource.** Nouvelle ressource « Docker Compose » depuis le dépôt Matrix. Répertoire de base : `/infra/postgres`. Fichier compose : `docker-compose.yml`. Les fichiers du socle sont copiés dans l'image à la construction (`Dockerfile`), pas montés : Coolify ne fournit pas au conteneur les fichiers du dépôt montés par chemin relatif (constat du 19/10/2026 : `verifier-droits.sql` y apparaissait comme un dossier vide). Dans le conteneur : `/docker-entrypoint-initdb.d/`, `/opt/epc2i/sauvegarde/`, `/opt/epc2i/partage/` et `/opt/epc2i/verifier-droits.sql`. Une modification de ces fichiers demande un redéploiement (nouvelle image) ; la base n'est pas touchée.
 2. **Saisir les variables** de `.env.example` : `POSTGRES_PASSWORD`, `KEYSTONE_APP_PASSWORD`, `CODEX_APP_PASSWORD`, `CURSUS_APP_PASSWORD`, `VIGIE_APP_PASSWORD`, `MATRIX_APP_PASSWORD`, `EPC2I_SAUVEGARDE_PASSWORD`. Un mot de passe par variable, généré par `openssl rand -base64 30 | tr -d '/+=' | cut -c1-32`. Ces caractères n'ont pas besoin d'être encodés dans une URL. Ce sont des variables d'exécution : ne cochez pas leur disponibilité au build.
-3. **Réseau.** Les outils déployés sur le même serveur Coolify joignent la base par le réseau Docker. Activez l'option de connexion au réseau prédéfini de Coolify sur cette ressource et sur chaque outil. Le nom d'hôte est le nom du conteneur affiché par Coolify (de la forme `postgres-<identifiant>`). Le port 5432 n'est publié que sur `127.0.0.1` de l'hôte, pour l'administration par tunnel SSH. Les libellés exacts dépendent de la version de Coolify : à vérifier à la première mise en service (question P-09).
+3. **Réseau.** Les outils déployés sur le même serveur Coolify joignent la base par le réseau Docker. Activez l'option de connexion au réseau prédéfini de Coolify sur cette ressource et sur chaque outil. Le compose rattache le service au réseau `coolify` avec l'alias fixe `epc2i-postgres` : c'est le nom d'hôte à mettre dans `DATABASE_URL` (`postgres://<outil>_app:…@epc2i-postgres:5432/epc2i`). Le nom du conteneur affiché par Coolify (`postgres-<identifiant>-<date du déploiement>`) change à chaque redéploiement : ne l'utilisez pas. Le port 5432 n'est publié que sur `127.0.0.1` de l'hôte, pour l'administration par tunnel SSH. Les libellés exacts dépendent de la version de Coolify : à vérifier à la première mise en service (question P-09).
 4. **Déployer.** Au premier démarrage, le volume est vide : l'image exécute les trois scripts de `init/`. Le journal du conteneur doit afficher « Étape 3 terminée », un tableau d'écarts vide, puis « PostgreSQL init process complete ». En cas d'erreur, le conteneur s'arrête : corrigez la cause (souvent une variable vide), supprimez le volume de données et redéployez. Dans Coolify, le volume porte un nom préfixé par la ressource : prenez celui que montre l'onglet des volumes de la ressource (son nom se termine par `epc2i_pgdata`). En local, Docker le nomme `epc2i-postgres_epc2i_pgdata` (nom de projet `epc2i-postgres` du compose) ; `docker compose down -v` le supprime avec celui des sauvegardes.
 5. **Vérifier les droits.** Dans le terminal du conteneur :
    ```bash
@@ -54,6 +55,7 @@ Avec Docker :
 ```bash
 cd infra/postgres
 cp .env.example .env          # puis remplir chaque mot de passe ; .env n'est jamais versionné
+docker network create coolify   # une fois ; autre nom : EPC2I_DOCKER_NETWORK
 docker compose up -d
 docker compose logs -f postgres   # attendre « PostgreSQL init process complete »
 psql "postgres://postgres@127.0.0.1:5432/postgres" -f verifier-droits.sql
@@ -93,7 +95,7 @@ Règles communes :
 
 ## Rejouer le socle
 
-Les scripts de `init/` ne s'exécutent automatiquement qu'une fois, sur un volume vide. Ils sont rejouables : on les relance après une modification de ces fichiers, pour réparer des droits, ou pour changer un mot de passe. Dans le conteneur, les variables d'environnement sont déjà présentes :
+Les scripts de `init/` ne s'exécutent automatiquement qu'une fois, sur un volume vide. Ils sont rejouables : on les relance après une modification de ces fichiers (redéployer d'abord, pour que l'image les contienne), pour réparer des droits, ou pour changer un mot de passe. Dans le conteneur, les variables d'environnement sont déjà présentes :
 
 ```bash
 docker compose exec postgres sh -c 'for f in /docker-entrypoint-initdb.d/*.sql; do psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f "$f" || exit 1; done'

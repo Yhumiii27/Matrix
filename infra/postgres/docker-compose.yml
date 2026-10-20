@@ -10,8 +10,8 @@ name: epc2i-postgres
 
 services:
   postgres:
-    # PostgreSQL 16 (décision du 15/10/2026). Pour figer la version mineure, remplacer par postgres:16.x-bookworm.
-    image: postgres:16-bookworm
+    # PostgreSQL 16 et les fichiers du socle (init/, sauvegarde/, partage/, verifier-droits.sql) : voir Dockerfile.
+    build: .
     restart: unless-stopped
     shm_size: 256mb
     stop_grace_period: 60s
@@ -53,16 +53,17 @@ services:
       - log_lock_waits=on
     volumes:
       - epc2i_pgdata:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d:ro
-      - ./sauvegarde:/opt/epc2i/sauvegarde:ro
-      - ./verifier-droits.sql:/opt/epc2i/verifier-droits.sql:ro
-      # Fichiers de partage (vues pub_, droits des lecteurs), joués à la main après la bascule de chaque outil.
-      - ./partage:/opt/epc2i/partage:ro
       - epc2i_sauvegardes:/sauvegardes
     ports:
       # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils
       # déployés dans Coolify passent par le réseau Docker : voir README.md.
       - "127.0.0.1:${EPC2I_PG_PORT:-5432}:5432"
+    networks:
+      partage:
+        # Nom d'hôte fixe des outils (DATABASE_URL=postgres://<outil>_app:…@epc2i-postgres:5432/epc2i). Le nom du
+        # conteneur donné par Coolify porte la date du déploiement et change à chaque redéploiement.
+        aliases:
+          - epc2i-postgres
     healthcheck:
       # 127.0.0.1 : le serveur temporaire de l'initialisation n'écoute pas en TCP, le service n'est donc
       # déclaré prêt qu'après les scripts de init/.
@@ -71,6 +72,12 @@ services:
       timeout: 5s
       retries: 6
       start_period: 60s
+
+networks:
+  # Réseau Docker des outils : « coolify » dans Coolify ; en local, à créer une fois (docker network create coolify).
+  partage:
+    name: ${EPC2I_DOCKER_NETWORK:-coolify}
+    external: true
 
 volumes:
   epc2i_pgdata:

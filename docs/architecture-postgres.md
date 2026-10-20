@@ -709,7 +709,7 @@ Changements dans Matrix :
 | P-06 | Réseau : les cinq outils seront-ils sur le même serveur Coolify (réseau Docker, sans TLS) ? Sinon, quel certificat, et PgBouncer est-il prévu ? |
 | P-07 | Qui détient le mot de passe du superutilisateur `postgres`, et qui reçoit un rôle d'administrateur nominatif ? |
 | P-08 | Sauvegardes : destination hors du serveur, chiffrement, durée de conservation des sauvegardes et des journaux. L'objectif de 15 minutes de Keystone (I-1b) s'applique-t-il à tout le serveur ? Il demande l'archivage continu des journaux de transactions (pgBackRest ou WAL-G), en plus du `pg_dump` nocturne. |
-| P-09 | Coolify : à confirmer à la première mise en service, la lecture des montages relatifs (`./init`) depuis le répertoire de base et le nom d'hôte du conteneur vu par les outils. |
+| P-09 | Coolify : à confirmer à la première mise en service, la lecture des montages relatifs (`./init`) depuis le répertoire de base et le nom d'hôte du conteneur vu par les outils. Constat du 19/10/2026 : le nom du conteneur porte la date du déploiement (`postgres-<identifiant>-AAAAMMJJTHHMMSS`) et le nom sans date ne se résout pas ; le compose donne donc l'alias fixe `epc2i-postgres` sur le réseau `coolify`. |
 | P-10 | D06 : date de la confirmation ou de l'abandon du remplacement de Lucca (M-03), et qui bascule `sourceHeures`. |
 | P-11 | Données de démonstration : acceptées sur le serveur de bêta ; en production, faut-il un remplissage « référence » par outil (zones, calendriers, utilisateurs pour Keystone, registre des types pour Codex, sites pour Vigie) ? |
 | P-12 | Tri : faut-il, plus tard, un tri français (collation ICU `fr-FR`) pour les listes affichées ? Il changerait l'ordre actuel, aligné sur PGlite. |

@@ -14,6 +14,9 @@
 -- pas touchées (aucune ligne lue ni écrite). Code de sortie 3 si un cas échoue.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script avant le ROLLBACK final,
+-- transaction ouverte, et tout lancement suivant attendait ses verrous.
+\pset pager off
 \connect epc2i
 
 BEGIN;

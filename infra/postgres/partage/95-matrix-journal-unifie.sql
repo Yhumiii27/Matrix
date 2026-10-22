@@ -28,7 +28,7 @@ DECLARE
                     'action:text,objet:text,detail:text,projet:text,qui_matricule:text';
   v_colonnes text;
 BEGIN
-  FOREACH v_outil IN ARRAY ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche'] LOOP
+  FOREACH v_outil IN ARRAY ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'] LOOP
     IF to_regclass(format('%I.pub_journal', v_outil)) IS NULL
        OR NOT has_table_privilege(format('%I.pub_journal', v_outil), 'SELECT') THEN
       v_absents := v_absents || v_outil;
@@ -57,7 +57,7 @@ BEGIN
   END IF;
   -- Un outil ajouté ou retiré change le nombre de branches, pas les colonnes : CREATE OR REPLACE suffit.
   EXECUTE 'CREATE OR REPLACE VIEW matrix.journal_unifie AS ' || array_to_string(v_branches, ' UNION ALL ');
-  RAISE NOTICE 'matrix.journal_unifie : %.', array_to_string(ARRAY(SELECT x FROM unnest(ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche']) AS x
+  RAISE NOTICE 'matrix.journal_unifie : %.', array_to_string(ARRAY(SELECT x FROM unnest(ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible']) AS x
                                                                   WHERE NOT x = ANY (v_absents)), ', ');
 END $journal$;
 

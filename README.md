@@ -1,6 +1,6 @@
 # Matrix
 
-Outil du service informatique pour gérer les bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie). Il propose :
+Outil du service informatique pour gérer les bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie, Arche, Crucible). Il propose :
 - une bibliothèque des tables ;
 - un graphe des liens entre tables et entre logiciels ;
 - la liste des doublons à trancher ;
@@ -46,7 +46,7 @@ node outils/construire-maquette.mjs      # reconstruire maquette/matrix.html
 node outils/generer-liste-doublons.mjs   # régénérer docs/doublons-a-trancher.md
 ```
 
-Pour relire les schémas, les dépôts `keystone/`, `codex/`, `cursus/` et `vigie/` doivent être clonés à côté de `Matrix/` (ou dans le dossier passé en argument).
+Pour relire les schémas, les dépôts `keystone/`, `codex/`, `cursus/`, `vigie/`, `arche/` et `crucible/` doivent être clonés à côté de `Matrix/` (ou dans le dossier passé en argument).
 
 ## Mise en ligne (Docker, Coolify)
 

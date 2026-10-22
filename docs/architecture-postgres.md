@@ -39,9 +39,10 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 | `cursus_app` | connexion | `cursus` | `cursus` | Idem. |
 | `vigie_app` | connexion | `vigie` | `vigie` | Idem. |
 | `arche_app` | connexion | `arche` | `arche` | Idem (ajouté le 22/10/2026 pour Arche, § 8 bis). |
+| `crucible_app` | connexion | `crucible` | `crucible` | Idem (ajouté le 22/10/2026 pour Crucible, § 8 ter). |
 | `matrix_app` | connexion | `matrix` | `matrix` | Tout sur `matrix` ; membre de `matrix_lecture`. |
-| `matrix_lecture` | groupe | | | `USAGE` sur `keystone`, `codex`, `cursus`, `vigie`, `arche` et `droits` ; `SELECT` sur leurs tables et vues, sauf les colonnes sensibles ; aucun droit sur les séquences ; lecture de `droits.colonnes_sensibles` et de `droits.verifier()`. |
-| `matrix_admin` | groupe, attribué nominativement | | | Tous les droits sur les tables, séquences et fonctions des six schémas ; peut prendre le rôle d'un outil (`SET ROLE`, sans en hériter) ; modifie la liste des colonnes sensibles, sauf celles de la convention. |
+| `matrix_lecture` | groupe | | | `USAGE` sur `keystone`, `codex`, `cursus`, `vigie`, `arche`, `crucible` et `droits` ; `SELECT` sur leurs tables et vues, sauf les colonnes sensibles ; aucun droit sur les séquences ; lecture de `droits.colonnes_sensibles` et de `droits.verifier()`. |
+| `matrix_admin` | groupe, attribué nominativement | | | Tous les droits sur les tables, séquences et fonctions des sept schémas ; peut prendre le rôle d'un outil (`SET ROLE`, sans en hériter) ; modifie la liste des colonnes sensibles, sauf celles de la convention. |
 | `epc2i_sauvegarde` | connexion | | | Membre de `pg_read_all_data` : lit tout, colonnes sensibles comprises, pour `pg_dump`. |
 | `postgres` | superutilisateur | `droits` | | Administration du socle seulement, jamais dans un outil. |
 
@@ -564,6 +565,29 @@ Le socle est prêt avant son code :
     ni `sites` ; Keystone relie `clients.code3` au code de la filiale. Listes vides jusqu'à la liste réelle (C-5) ;
   - D22, option A : Arche (CAPEX) et Keystone (projets) gardent chacun leur REX et publient `pub_rex`, accordée à
     `matrix_app` ; Matrix les réunira comme le journal unifié une fois le contrat commun fixé.
+
+## 8 ter. Crucible
+
+Crucible (dépôt `Yhumiii27/Crucible`) planifie et arbitre les moyens d'essai R&D partagés : laboratoire 67 (partagé avec
+EPC France), PDE et ses zones, atelier mécanique. Au 22/10/2026, sa livraison 1 (socle, copié d'Arche) est faite :
+11 tables dans le schéma `crucible` (`crucible.table(…)`, PostgreSQL seulement) et la vue `pub_journal`. Ses demandes au
+socle sont dans `docs/DEMANDES-MATRIX.md` de Crucible (M-1 à M-6) :
+
+- rôle `crucible_app` et schéma `crucible` (`init/01`, `init/02`), mot de passe `CRUCIBLE_APP_PASSWORD` ; mêmes règles que
+  les autres outils (`init/03`, `droits.verifier()`, cas 170 à 175 de `verifier-droits.sql`) ; colonne sensible
+  `crucible.users.entra_object_id` (l'adresse électronique n'est pas retenue, comme pour Arche) ; sauvegarde par schéma ;
+- `partage/80-crucible.sql` : copie qualifiée de `crucible.pub_journal` (migration `0002_share_journal`), ajoutée au
+  journal unifié (`partage/95`) ;
+- partage (`partage/90-droits.sql`) : Crucible lit `matrix.pub_pays`, `pub_sites`, `pub_organigramme`,
+  `pub_correspondances`, `pub_filiales`, `keystone.pub_projets`, `cursus.pub_salaries`, `pub_titres`,
+  `pub_titres_detenus`, `codex.pub_documents`, `pub_revisions_document`, puis les vues demandées par Crucible et pas
+  encore publiées (`keystone.pub_jalons_projets`, `cursus.pub_absences`, `vigie.pub_controles`,
+  `pub_suspensions_essais`) ; Keystone, Vigie et Matrix liront `crucible.pub_moyens` et `pub_reservations`, Matrix
+  `pub_occupation_hebdo` (livraison 2 de Crucible). Les vues absentes sont signalées sans erreur jusqu'à leur création ;
+- doublons (`docs/doublons-a-trancher.md`) : application des décisions déjà prises (D01 et D07 à D09 : Cursus fait foi
+  pour les opérateurs, leurs habilitations et leurs absences ; D02 : lien vers Keystone ; D14 et D21 : sites et entités
+  lus dans Matrix, le laboratoire 67, le PDE et EPC France à saisir dans les référentiels, demande M-6) et un groupe
+  nouveau, D23 (contrôles périodiques des moyens d'essai, Vigie ou Crucible), à trancher (M-11).
 
 ## 9. Heures validées : D06, option A, réversible
 

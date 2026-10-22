@@ -1,6 +1,6 @@
 # Doublons à trancher
 
-Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cursus, Vigie), relevées le 15 octobre 2026 ; Arche, d’après sa spécification, le 22 octobre 2026 (groupes D21 et suivants, et Arche ajouté aux groupes existants).
+Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cursus, Vigie), relevées le 15 octobre 2026 ; Arche, d’après sa spécification, et Crucible, d’après sa livraison 1 et sa spécification, le 22 octobre 2026 (groupes D21 et suivants, et compléments des groupes existants).
 
 **Méthode.**
 - Les noms et les colonnes de chaque paire de tables de deux outils différents ont été comparés automatiquement (`outils/collecteur.mjs`, fonction `similarTables`).
@@ -21,34 +21,35 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 | | Objet | Nature | Gravité | Tables | Proposé | Décision |
 |---|---|---|---|---|---|---|
-| D01 | Personnes | Doublon | Critique | Cursus.`employes`, Keystone.`persons`, Codex.`users`, Vigie.`people`, Arche.`users` | A | ☑ A ☐ B ☐ C (definitive) |
-| D02 | Projets | Miroir | Critique | Keystone.`projects`, Codex.`projects`, Vigie.`keystone_projects`, Cursus.`projets`, Arche.`keystone_projects` | B | ☐ A ☑ B ☐ C (definitive) |
+| D01 | Personnes | Doublon | Critique | Cursus.`employes`, Keystone.`persons`, Codex.`users`, Vigie.`people`, Arche.`users`, Crucible.`users`, Crucible.`people` | A | ☑ A ☐ B ☐ C (definitive) |
+| D02 | Projets | Miroir | Critique | Keystone.`projects`, Codex.`projects`, Vigie.`keystone_projects`, Cursus.`projets`, Arche.`keystone_projects`, Crucible.`projects` | B | ☐ A ☑ B ☐ C (definitive) |
 | D03 | Chantiers (fiche site d'un projet) | Doublon | Majeur | Keystone.`site_sheets`, Keystone.`site_rotations`, Cursus.`chantiers` | B | ☐ A ☑ B ☐ C (definitive) |
 | D04 | Affectations des personnes aux projets | Miroir | Majeur | Keystone.`allocations`, Keystone.`activity_assignments`, Cursus.`missions`, Vigie.`keystone_assignments` | B | ☐ A ☑ B (definitive) |
 | D05 | Tâches et heures prévues | Miroir | Mineur | Keystone.`tasks`, Cursus.`taches` | A | ☑ A ☐ B (definitive) |
 | D06 | Temps passés | Doublon | Critique | Cursus.`feuilles`, Keystone.`time_entries`, Keystone.`hours_lines`, Vigie.`hours_worked` | A | ☑ A ☐ B ☐ C (provisoire) |
-| D07 | Absences et congés | Doublon | Majeur | Cursus.`absences`, Keystone.`leave_entries`, Keystone.`leave_types` | A | ☑ A ☐ B (definitive) |
-| D08 | Catalogue des formations et habilitations | Doublon | Majeur | Cursus.`formations`, Cursus.`habilitations`, Vigie.`training_titles` | A | ☑ A ☐ B (definitive) |
-| D09 | Titres détenus par les personnes | Doublon | Majeur | Cursus.`certifications`, Cursus.`hab_titres`, Vigie.`qualifications`, Keystone.`certifications` | A | ☑ A ☐ B (definitive) |
+| D07 | Absences et congés | Doublon | Majeur | Cursus.`absences`, Keystone.`leave_entries`, Keystone.`leave_types`, Crucible.`absences` | A | ☑ A ☐ B (definitive) |
+| D08 | Catalogue des formations et habilitations | Doublon | Majeur | Cursus.`formations`, Cursus.`habilitations`, Vigie.`training_titles`, Crucible.`skills` | A | ☑ A ☐ B (definitive) |
+| D09 | Titres détenus par les personnes | Doublon | Majeur | Cursus.`certifications`, Cursus.`hab_titres`, Vigie.`qualifications`, Keystone.`certifications`, Crucible.`person_skills` | A | ☑ A ☐ B (definitive) |
 | D10 | Documents | Doublon | Critique | Codex.`documents`, Codex.`revisions`, Codex.`workflows`, Keystone.`documents`, Keystone.`document_revisions`, Keystone.`document_approvals`, Vigie.`documents`, Vigie.`document_versions` | A | ☑ A ☐ B (definitive) |
 | D11 | Registre des types de document et circuits | Doublon | Majeur | Codex.`doc_types`, Codex.`function_holders`, Keystone.`document_types`, Keystone.`document_type_circuit_steps`, Keystone.`document_approver_assignments` | A | ☑ A ☐ B (definitive) |
 | D12 | Demandes et ordres de modification (ECR / ECO) | Chevauchement | Majeur | Codex.`change_requests`, Keystone.`vigie_ecos` | A | ☑ A ☐ B (definitive) |
 | D13 | Non-conformités et éléments HSE de projet | Miroir | Mineur | Vigie.`events`, Keystone.`vigie_ncrs`, Keystone.`vigie_hse_items` | A | ☑ A (definitive) |
-| D14 | Sites et établissements | Doublon | Majeur | Codex.`sites`, Vigie.`sites`, Arche.`sites` | A | ☑ A ☐ B (definitive) |
+| D14 | Sites et établissements | Doublon | Majeur | Codex.`sites`, Vigie.`sites`, Arche.`sites`, Crucible.`sites` | A | ☑ A ☐ B (definitive) |
 | D15 | Organisation : départements et équipes | Chevauchement | Majeur | Codex.`departments`, Keystone.`departments`, Cursus.`equipes` | A | ☑ A ☐ B (definitive) |
 | D16 | Clients, fournisseurs et entreprises extérieures | Chevauchement | Mineur | Keystone.`clients`, Keystone.`suppliers`, Vigie.`contractors`, Arche.`subsidiaries` | A | ☑ A ☐ B (definitive) |
 | D17 | Pays | Chevauchement | Mineur | Cursus.`destinations`, Keystone.`countries`, Keystone.`public_holidays`, Arche.`subsidiaries` | A | ☑ A ☐ B (definitive) |
-| D18 | Journaux d'audit | Technique | Mineur | Keystone.`audit_entries`, Codex.`audit_log`, Cursus.`journal`, Arche.`audit_entries` | A | ☑ A ☐ B (definitive) |
-| D19 | Paramètres et fichiers joints | Technique | Mineur | Keystone.`app_settings`, Cursus.`settings`, Keystone.`stored_files`, Vigie.`attachments` | A | ☑ A (definitive) |
-| D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports`, Arche.`risks`, Arche.`decisions`, Arche.`changes`, Arche.`reviews` | A | ☑ A ☐ B (definitive) |
-| D21 | Filiales et zones du groupe | Chevauchement | Majeur | Arche.`zones`, Arche.`subsidiaries`, Arche.`sites`, Keystone.`clients` | A | ☑ A ☐ B ☐ C (definitive) |
+| D18 | Journaux d'audit | Technique | Mineur | Keystone.`audit_entries`, Codex.`audit_log`, Cursus.`journal`, Arche.`audit_entries`, Crucible.`audit_entries` | A | ☑ A ☐ B (definitive) |
+| D19 | Paramètres et fichiers joints | Technique | Mineur | Keystone.`app_settings`, Cursus.`settings`, Keystone.`stored_files`, Vigie.`attachments`, Crucible.`app_settings` | A | ☑ A (definitive) |
+| D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports`, Arche.`risks`, Arche.`decisions`, Arche.`changes`, Arche.`reviews`, Crucible.`resources`, Crucible.`incidents` | A | ☑ A ☐ B (definitive) |
+| D21 | Filiales et zones du groupe | Chevauchement | Majeur | Arche.`zones`, Arche.`subsidiaries`, Arche.`sites`, Keystone.`clients`, Crucible.`entities` | A | ☑ A ☐ B ☐ C (definitive) |
 | D22 | Retours d'expérience (REX) | Chevauchement | Mineur | Keystone.`lessons_learned`, Keystone.`rex_references`, Arche.`rex_entries` | A | ☑ A ☐ B (definitive) |
+| D23 | Contrôles périodiques et indisponibilités des moyens d'essai | Chevauchement | Majeur | Vigie.`controls`, Vigie.`control_records`, Crucible.`unavailabilities` | A | ☐ A ☐ B ☐ C |
 
 ## D01 · Personnes
 
 **Doublon · Critique**
 
-**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés EPC2i y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche.
+**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés EPC2i y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche. Crucible (22/10/2026, livraison 1) : crucible.users porte les comptes Entra ; crucible.people (prévue) porte les opérateurs planifiables avec leur matricule Cursus. Application de l'option A : les salariés EPC2i viennent de cursus.pub_salaries (lecture accordée à crucible_app, demande CU-2 de Crucible) ; les personnes d'EPC France, absentes de Cursus, restent saisies dans Crucible.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -57,6 +58,8 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Codex | `users` | Utilisateurs de la GED et comptes système | 25 personnes + comptes codex, keystone, vigie ; id texte |
 | Vigie | `people` | Personnel suivi dans la matrice d'habilitations | 12 personnes, noms provisoires entre crochets ([T. Nguyen]) |
 | Arche | `users` | Comptes Arche (Entra ID), personnes du groupe et des filiales | prévue (spécification d'Arche, livraison 0) |
+| Crucible | `users` | Comptes Crucible (Entra ID), EPC2i et entités partenaires (EPC France) | réelle (migration 0000_platform de Crucible) |
+| Crucible | `people` | Personnes planifiables : opérateurs, techniciens, pyrotechniciens | prévue (spécification de Crucible, docs/spec/02-objets.md) |
 
 **Colonnes qui se correspondent**
 
@@ -64,6 +67,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 - `employes.poste ↔ persons.job_title ↔ users.title ↔ people.job`
 - `employes.equipe ↔ persons.department_id ↔ users.department`
 - `— ↔ persons.email ↔ — ↔ —`
+- `employes.matricule ↔ people.matricule (Crucible)`
 
 **Options**
 
@@ -79,7 +83,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Miroir · Critique**
 
-**Ce que contiennent les tables.** Codex est cohérent avec Keystone. Vigie et Cursus utilisent des codes que Keystone ne connaît pas. Les codes internes de Cursus (INT-…) n'ont pas d'équivalent dans Keystone. Arche : miroir keystone_projects lu dans keystone.pub_projets, conforme à l'option B.
+**Ce que contiennent les tables.** Codex est cohérent avec Keystone. Vigie et Cursus utilisent des codes que Keystone ne connaît pas. Les codes internes de Cursus (INT-…) n'ont pas d'équivalent dans Keystone. Arche : miroir keystone_projects lu dans keystone.pub_projets, conforme à l'option B. Crucible (22/10/2026, livraison 1) : crucible.projects porte les projets R&D qui réservent des moyens d'essai, avec un lien facultatif vers keystone.pub_projets (keystone_code). Application de l'option B : un projet qui existe dans Keystone y garde son code et Crucible le lit ; la réponse S-1 de Crucible (22/10/2026) garde dans Crucible les projets R&D que Keystone ne connaît pas (Keystone n'a pas de nature « R&D »). À surveiller : si Keystone accueille les projets R&D comme projets internes, crucible.projects devient un miroir.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -88,12 +92,14 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Vigie | `keystone_projects` | Copie locale pour les listes de choix | 10 projets K-2024-097… : aucun code n'existe dans Keystone |
 | Cursus | `projets` | Codes à imputer sur les feuilles de temps | 14 codes : projets K-26xx et codes internes INT-PROD, INT-HSE, ECOLE… |
 | Arche | `keystone_projects` | Miroir des projets EPC2i liés à un CAPEX (lu dans keystone.pub_projets) | prévue (spécification d'Arche, livraison 0) |
+| Crucible | `projects` | Projets R&D demandeurs : classe de priorité, confidentialité, lien Keystone (keystone_code) ou programme Codex | réelle (migration 0000_platform de Crucible) |
 
 **Colonnes qui se correspondent**
 
 - `projects.code ↔ projects.code ↔ keystone_projects.id ↔ projets.code`
 - `projects.name ↔ projects.name ↔ keystone_projects.title ↔ projets.nom`
 - `clients.name ↔ projects.client ↔ keystone_projects.client ↔ —`
+- `projects.code ↔ projects.keystone_code (Crucible)`
 
 **Options**
 
@@ -222,13 +228,14 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Doublon · Majeur**
 
-**Ce que contiennent les tables.** Keystone prévoit déjà d'importer les congés (source, external_id). Cursus envoie l'événement absence.validee, sans destinataire pour l'instant.
+**Ce que contiennent les tables.** Keystone prévoit déjà d'importer les congés (source, external_id). Cursus envoie l'événement absence.validee, sans destinataire pour l'instant. Crucible (22/10/2026, spécification) : crucible.absences sert à ne pas planifier un opérateur absent. Application de l'option A : Cursus fait foi ; Crucible lit une vue cursus.pub_absences sans le motif (demande CU-1 de Crucible, à publier par Cursus) et ne saisit que les indisponibilités propres aux essais en attendant.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Cursus | `absences` | Demandes et validation des CP, RTT et récupérations | 9 absences |
 | Keystone | `leave_entries` | Congés connus du planning de ressources | 12 lignes ; colonnes source et external_id prévues pour un import |
 | Keystone | `leave_types` | Types de congé | 4 types |
+| Crucible | `absences` | Absences et indisponibilités des opérateurs (planification des essais) | prévue (spécification de Crucible, docs/spec/02-objets.md) |
 
 **Colonnes qui se correspondent**
 
@@ -250,13 +257,14 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Doublon · Majeur**
 
-**Ce que contiennent les tables.** Mêmes codes et mêmes durées de validité : SST 24 mois, électricité 36, ATEX 36, hauteur 36, CACES R489 60. Vigie mélange formations et habilitations dans une seule liste et ajoute « Accueil sécurité » et « CACES R484 », absents de Cursus.
+**Ce que contiennent les tables.** Mêmes codes et mêmes durées de validité : SST 24 mois, électricité 36, ATEX 36, hauteur 36, CACES R489 60. Vigie mélange formations et habilitations dans une seule liste et ajoute « Accueil sécurité » et « CACES R484 », absents de Cursus. Crucible (22/10/2026, spécification) : crucible.skills liste les habilitations exigées par type d'essai (pyrotechnie…). Application de l'option A : miroir de cursus.pub_titres, saisie locale seulement pour une compétence que Cursus ne connaît pas.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Cursus | `formations` | Catalogue des formations (durée, organisme, coût, validité) | 11 formations : sst, elec, atex, caces489, hauteur… |
 | Cursus | `habilitations` | Types d'habilitation et prérequis | 6 habilitations |
 | Vigie | `training_titles` | Titres suivis dans la matrice QHSE | 8 titres : sst, elec, atex, r489, hauteur… |
+| Crucible | `skills` | Compétences et habilitations utiles aux essais | prévue (spécification de Crucible, docs/spec/02-objets.md) |
 
 **Colonnes qui se correspondent**
 
@@ -277,7 +285,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Doublon · Majeur**
 
-**Ce que contiennent les tables.** Le même titre est enregistré dans deux ou trois outils. Keystone le saisit en texte libre, sans code. Les exigences par personne (vigie.qualification_requirements) et par chantier (cursus.chantiers.habs) sont deux tables différentes et restent distinctes.
+**Ce que contiennent les tables.** Le même titre est enregistré dans deux ou trois outils. Keystone le saisit en texte libre, sans code. Les exigences par personne (vigie.qualification_requirements) et par chantier (cursus.chantiers.habs) sont deux tables différentes et restent distinctes. Crucible (22/10/2026, spécification) : crucible.person_skills, miroir de cursus.pub_titres_detenus (option A), lu avant d'affecter un opérateur à un essai.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -285,6 +293,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Cursus | `hab_titres` | Habilitations délivrées et signées | ≈ 21 lignes |
 | Vigie | `qualifications` | Titres détenus, date d'obtention et d'expiration | ≈ 39 lignes |
 | Keystone | `certifications` | Certifications d'une personne, en texte libre | 8 lignes (« HV switching authorisation »…) |
+| Crucible | `person_skills` | Habilitations détenues par les opérateurs | prévue (spécification de Crucible, docs/spec/02-objets.md) |
 
 **Colonnes qui se correspondent**
 
@@ -420,18 +429,21 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Doublon · Majeur**
 
-**Ce que contiennent les tables.** Aucune valeur commune. Vigie attend les vrais noms de site. Les sites de chantier de Keystone (project_sites) sont un autre objet et restent à part. Arche : sa spécification prévoit sa propre table sites (usines et terrains des filiales). Application de l'option A : ces sites rejoignent la liste unique de Matrix (matrix.pub_sites, avec le code de la filiale) et Arche la lit ; voir D21.
+**Ce que contiennent les tables.** Aucune valeur commune. Vigie attend les vrais noms de site. Les sites de chantier de Keystone (project_sites) sont un autre objet et restent à part. Arche : sa spécification prévoit sa propre table sites (usines et terrains des filiales). Application de l'option A : ces sites rejoignent la liste unique de Matrix (matrix.pub_sites, avec le code de la filiale) et Arche la lit ; voir D21. Crucible (22/10/2026, livraison 1) : crucible.sites (code, nom, ville, pays) porte les sites du laboratoire 67 et du PDE. Application de l'option A : ces sites rejoignent la liste unique de Matrix (demande M-6 de Crucible, à saisir dans le référentiel) et crucible.sites.code reprend le code Matrix ; Crucible lit matrix.pub_sites.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Codex | `sites` | Sites du groupe | lyon, le_havre, marseille |
 | Vigie | `sites` | Sites industriels (classement Seveso) | ville-a, ville-b (noms provisoires) |
 | Arche | `sites` | Usines et terrains des filiales (site d'un CAPEX) | prévue (spécification d'Arche, livraison 0) |
+| Crucible | `sites` | Sites des installations d'essai (laboratoire 67, PDE) | réelle (migration 0000_platform de Crucible) |
 
 **Colonnes qui se correspondent**
 
 - `sites.key ↔ sites.id`
 - `sites.label ↔ sites.label`
+- `sites.code ↔ sites.code (Crucible)`
+- `sites.name, city, country_iso2 (Crucible) ↔ matrix.sites`
 
 **Options**
 
@@ -524,7 +536,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Technique · Mineur**
 
-**Ce que contiennent les tables.** Chaque outil trace ses propres actions. Vigie n'a pas de journal. Arche : journal propre et arche.pub_journal, déjà ajouté à matrix.journal_unifie (option A).
+**Ce que contiennent les tables.** Chaque outil trace ses propres actions. Vigie n'a pas de journal. Arche : journal propre et arche.pub_journal, déjà ajouté à matrix.journal_unifie (option A). Crucible : journal propre (audit_entries, activity_events) et crucible.pub_journal, ajoutée à matrix.journal_unifie (option A ; partage/80-crucible.sql).
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -532,6 +544,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Codex | `audit_log` | Journal d'audit |  |
 | Cursus | `journal` | Journal d'audit et d'intégration |  |
 | Arche | `audit_entries` | Journal d'Arche (repris du socle Keystone), publié par arche.pub_journal | prévue (spécification d'Arche, livraison 0) |
+| Crucible | `audit_entries` | Journal de Crucible (socle Keystone via Arche), publié par crucible.pub_journal | réelle (migration 0000_platform de Crucible) |
 
 **Options**
 
@@ -546,7 +559,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Technique · Mineur**
 
-**Ce que contiennent les tables.** Même structure, contenu propre à chaque outil. Ce ne sont pas des doublons.
+**Ce que contiennent les tables.** Même structure, contenu propre à chaque outil. Ce ne sont pas des doublons. Crucible (22/10/2026) : app_settings propre (option A).
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -554,6 +567,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Cursus | `settings` | Paramètres de Cursus |  |
 | Keystone | `stored_files` | Fichiers de Keystone |  |
 | Vigie | `attachments` | Pièces jointes de Vigie |  |
+| Crucible | `app_settings` | Réglages de Crucible | réelle (migration 0000_platform de Crucible) |
 
 **Colonnes qui se correspondent**
 
@@ -571,7 +585,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Homonyme · Mineur**
 
-**Ce que contiennent les tables.** Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration. Arche : risks, decisions, changes et reviews portent sur un CAPEX, pas sur un projet EPC2i ni sur un événement QHSE ; homonymes gardés et toujours nommés avec leur outil (option A). changes n'est pas un ECR / ECO (D12) : il ne modifie ni produit ni document.
+**Ce que contiennent les tables.** Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration. Arche : risks, decisions, changes et reviews portent sur un CAPEX, pas sur un projet EPC2i ni sur un événement QHSE ; homonymes gardés et toujours nommés avec leur outil (option A). changes n'est pas un ECR / ECO (D12) : il ne modifie ni produit ni document. Crucible (22/10/2026, spécification) : resources (moyens d'essai) et incidents (aléas de planification) sont des homonymes de keystone.resource_requests et des événements de Vigie ; un accident ou un presqu'accident pendant un essai se déclare dans Vigie.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -585,6 +599,8 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Arche | `decisions` | Registre des décisions d'un CAPEX | prévue (spécification d'Arche, livraison 0) |
 | Arche | `changes` | Changements après G2 (MoC : coût, délai, périmètre) | prévue (spécification d'Arche, livraison 0) |
 | Arche | `reviews` | Revues de pilotage d'un CAPEX | prévue (spécification d'Arche, livraison 0) |
+| Crucible | `resources` | Moyens d'essai réservables (bancs, cellules, zones du PDE) ; rien à voir avec keystone.resource_requests (demandes de personnes) | prévue (spécification de Crucible, docs/spec/02-objets.md) |
+| Crucible | `incidents` | Aléas de planification (panne, absence) ; un événement QHSE reste dans vigie.events | prévue (spécification de Crucible, docs/spec/02-objets.md) |
 
 **Options**
 
@@ -599,7 +615,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Chevauchement · Majeur**
 
-**Ce que contiennent les tables.** Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets EPC2i dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles.
+**Ce que contiennent les tables.** Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets EPC2i dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles. Crucible (22/10/2026, livraison 1) : crucible.entities (EPC2I, EPCFR) recoupe la liste des filiales. Application de l'option A : EPC France entre dans matrix.filiales (demande M-6 de Crucible ; code à 3 lettres, par exemple EFR) et crucible.entities en devient le miroir, la nature « interne » ou « partenaire » restant propre à Crucible ; matrix.pub_filiales est accordée à crucible_app.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -607,6 +623,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Arche | `subsidiaries` | Filiales : code à 3 lettres, pays, zone, devise | prévue (spécification d'Arche) |
 | Arche | `sites` | Usines et terrains des filiales | prévue (spécification d'Arche) |
 | Keystone | `clients` | Clients des projets EPC2i, dont les filiales (code3) | Les filiales commandent les machines à EPC2i |
+| Crucible | `entities` | Entités : EPC2i (exploitant), partenaires des installations partagées (EPC France) | réelle (migration 0000_platform de Crucible) |
 
 **Colonnes qui se correspondent**
 
@@ -614,6 +631,8 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 - `subsidiaries.name ↔ clients.name`
 - `subsidiaries.zone_code ↔ matrix.organigramme (niveau zone)`
 - `sites.name, city, country_iso2 ↔ matrix.sites`
+- `entities.code (Crucible) ↔ filiales.code`
+- `entities.name (Crucible) ↔ filiales.nom`
 
 **Options**
 
@@ -649,3 +668,29 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 **Pourquoi A.** Les deux REX n'ont ni les mêmes auteurs ni le même objet ; les réunir par une vue évite la double saisie sans faire entrer les filiales dans Keystone.
 
 **Décision definitive du 22/10/2026.** « D22 : option A (Deux registres, une vue commune) — réponse au choix proposé, « A · Deux registres (Recommandé) » »
+
+## D23 · Contrôles périodiques et indisponibilités des moyens d'essai
+
+**Chevauchement · Majeur**
+
+**Ce que contiennent les tables.** Crucible (spécification du 22/10/2026) bloque un moyen d'essai quand son contrôle périodique est échu (règle R-6) et prévoit des indisponibilités d'origine « Vigie ». Or Vigie tient déjà les contrôles périodiques réglementaires des équipements (vigie.controls : équipement en texte libre, prochaine échéance, réserves). Sans décision, le même contrôle serait saisi dans Vigie et dans Crucible, avec deux dates. Crucible a demandé à Vigie une vue pub_controles avec un code d'équipement commun (V-1) et une vue des interventions qui suspendent les essais (V-2).
+
+| Outil | Table | Rôle | Contenu |
+|---|---|---|---|
+| Vigie | `controls` | Contrôles périodiques réglementaires des équipements (dernier, prochain, réserves) | réelle |
+| Vigie | `control_records` | Historique des contrôles réalisés | réelle |
+| Crucible | `unavailabilities` | Indisponibilités d'un moyen : maintenance, contrôle périodique, panne, travaux (origine : saisie, Vigie, aléa) | prévue (spécification de Crucible, docs/spec/02-objets.md) |
+
+**Colonnes qui se correspondent**
+
+- `controls.equipment ↔ resources.code (Crucible, code commun à créer : equipement_code)`
+- `controls.next_on ↔ unavailabilities (origine Vigie)`
+- `controls.reserves ↔ unavailabilities.reason`
+
+**Options**
+
+- ☐ **A. Vigie fait foi pour les contrôles réglementaires ; Crucible les lit** *(proposé)* : Vigie publie vigie.pub_controles avec un code d'équipement commun aux moyens de Crucible (V-1) ; Crucible en déduit l'indisponibilité (contrôle échu, réserves) et ne saisit que la maintenance, les pannes et les travaux.
+- ☐ **B. Crucible fait foi pour les contrôles de ses moyens d'essai** : Les contrôles des bancs, cellules et zones d'essai sont saisis dans Crucible et publiés (crucible.pub_controles) ; Vigie ne garde que les autres équipements.
+- ☐ **C. Chacun garde les siens, sans lien** : Les contrôles sont saisis deux fois ; Matrix signale les écarts de date.
+
+**Pourquoi A.** Le contrôle réglementaire relève de la QHSE (Vigie, qui gère déjà échéances, réserves et alertes) ; Crucible n'a besoin que de savoir si le moyen est utilisable. C'est la demande V-1 de Crucible.

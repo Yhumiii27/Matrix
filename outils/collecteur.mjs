@@ -1,4 +1,4 @@
-// Collecteur Matrix : construit data/catalogue.json à partir des schémas des cinq outils.
+// Collecteur Matrix : construit data/catalogue.json à partir des schémas des six outils.
 //
 // Deux sources, par ordre de priorité :
 //   1. Les déclarations envoyées par les outils au démarrage (declarations/<outil>.json, contrat matrix.schema/1,
@@ -8,12 +8,13 @@
 //      - Cursus : objet TABLES de server/src/db.ts (SQLite, pas de clé étrangère déclarée)
 //      - Arche : migrations Drizzle dès qu'elles existent ; avant, tables de sa spécification
 //        (docs/spec/02-objets.md, livraison 0), marquées « prévu »
+//      - Crucible : migrations Drizzle + commentaires de src/server/db/schema/*.ts (tables crucible.table(…))
 //
 // À chaque passage, le collecteur compare le résultat à la collecte précédente :
 //   - une table ou une colonne apparue ou disparue est ajoutée à data/historique.json ;
 //   - une nouvelle table est marquée « à documenter » et comparée aux tables des autres outils (doublon possible).
 //
-// Usage : node outils/collecteur.mjs [dossier contenant keystone/ codex/ cursus/ vigie/ arche/]
+// Usage : node outils/collecteur.mjs [dossier contenant keystone/ codex/ cursus/ vigie/ arche/ crucible/]
 // Par défaut, le dossier parent du dépôt Matrix.
 // Variables : MATRIX_DATA_DIR (défaut data/), MATRIX_DECLARATIONS_DIR (défaut declarations/).
 
@@ -22,7 +23,7 @@ import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const ORDER = ['keystone', 'codex', 'cursus', 'vigie', 'arche'];
+const ORDER = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 
 // ── Domaines fonctionnels et descriptions ────────────────────────────────
 
@@ -110,6 +111,14 @@ const DESCRIPTIONS = {
     sites: 'Sites (classement Seveso)', training_titles: 'Titres d’habilitation et de formation', waste_streams: 'Flux de déchets',
     work_units: 'Unités de travail du DUERP',
   },
+  crucible: {
+    activity_events: 'Fil d’activité (lu par pub_journal)', app_settings: 'Réglages de l’application',
+    audit_entries: 'Piste d’audit, en ajout seul (lue par pub_journal)', entities: 'Entités : EPC2i, partenaires (EPC France…)',
+    facilities: 'Installations d’essai : laboratoire 67, PDE…', facility_partners: 'Entités partenaires d’une installation partagée',
+    job_runs: 'Tâches planifiées : dernier passage et bail', projects: 'Projets R&D demandeurs, classe de priorité, lien Keystone',
+    role_assignments: 'Rôles des comptes et leur portée (global, entité, installation, projet)', sites: 'Sites des installations (code Matrix à terme)',
+    users: 'Comptes (Entra ID)',
+  },
 };
 
 // Données sensibles (RGPD) repérées à la main.
@@ -125,7 +134,7 @@ const SENSITIVE = {
 // « convention ») : elle remplace la liste ci-dessus quand le fichier est là. « * » ferme la table entière.
 const SOCLE_DROITS = join(here, '..', 'infra', 'postgres', 'init', '03-droits.sql');
 if (existsSync(SOCLE_DROITS)) {
-  const ligne = /\(\s*'(keystone|codex|cursus|vigie|arche)',\s*'(\w+)',\s*'([\w*]+)',\s*'(?:[^']|'')*',\s*'convention'\)/g;
+  const ligne = /\(\s*'(keystone|codex|cursus|vigie|arche|crucible)',\s*'(\w+)',\s*'([\w*]+)',\s*'(?:[^']|'')*',\s*'convention'\)/g;
   const lues = {};
   for (const [, app, table, col] of readFileSync(SOCLE_DROITS, 'utf8').matchAll(ligne)) (lues[`${app}.${table}`] ??= []).push(col);
   if (Object.keys(lues).length) { for (const k of Object.keys(SENSITIVE)) delete SENSITIVE[k]; Object.assign(SENSITIVE, lues); }
@@ -194,7 +203,7 @@ function schemaComments(files) {
     lines.forEach((line, i) => {
       const sec = line.match(/^\/\/\s*[─—-]{2,}\s*(.+?)\s*[─—-]+\s*$/);
       if (sec) section = sec[1];
-      const t = line.match(/pgTable\(\s*'(\w+)'/) ?? (/pgTable\(\s*$/.test(line) ? lines[i + 1]?.match(/^\s*'(\w+)'/) : null);
+      const t = line.match(/(?:pgTable|\b\w+\.table)\(\s*'(\w+)'/) ?? (/(?:pgTable|\b\w+\.table)\(\s*$/.test(line) ? lines[i + 1]?.match(/^\s*'(\w+)'/) : null);
       if (!t) return;
       let j = i - 1;
       const doc = [];
@@ -221,6 +230,9 @@ function parseCursus(file) {
     uniques: (def.unique ?? []).map(u => u.map(snake)),
   }));
 }
+
+// Crucible : domaine d'une table d'après son fichier de schéma (src/server/db/schema/<fichier>.ts).
+const CRUCIBLE_FILES = { organisation: 'Organisation', platform: 'Socle' };
 
 // ── Arche : tables de la spécification (avant le premier code) ──────────
 
@@ -284,6 +296,12 @@ function fromRepos(root) {
     const spec = parseArcheSpec(join(ar, 'docs/spec/02-objets.md'));
     out.arche = { ...spec, source: 'spécification (docs/spec/02-objets.md, livraison 0) : tables prévues' };
   }
+  const cr = join(root, 'crucible');
+  if (existsSync(join(cr, 'drizzle'))) {
+    const dir = join(cr, 'src/server/db/schema');
+    const files = existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.ts') && !f.startsWith('_') && f !== 'index.ts').map(f => join(dir, f)) : [];
+    out.crucible = { tables: parseDrizzle(join(cr, 'drizzle')), comments: schemaComments(files), source: 'dépôt (migrations Drizzle)' };
+  }
   const cu = join(root, 'cursus', 'server/src/db.ts');
   if (existsSync(cu)) out.cursus = { tables: parseCursus(cu), comments: {}, source: 'dépôt (server/src/db.ts)' };
   return out;
@@ -313,6 +331,7 @@ function enrich(app, tables, comments, known = new Map()) {
     else if (app === 'codex') { domain = CODEX_SECTIONS[c.section] ?? c.section; description = c.doc ?? DESCRIPTIONS.codex[t.name]; }
     else if (app === 'vigie') { domain = c.section; description = c.doc ?? DESCRIPTIONS.vigie[t.name]; }
     else if (app === 'arche') { domain = c.section; description = c.doc; }
+    else if (app === 'crucible') { domain = CRUCIBLE_FILES[c.file] ?? c.section; description = DESCRIPTIONS.crucible[t.name] ?? c.doc; }
     else { [domain, description] = CURSUS_META[t.name] ?? []; }
     const fks = [...t.fks];
     if (app === 'cursus') for (const col of t.columns) {

@@ -10,6 +10,7 @@
 --   cursus    cursus_app     cursus
 --   vigie     vigie_app      vigie
 --   arche     arche_app      arche
+--   crucible  crucible_app   crucible
 --   matrix    matrix_app     matrix
 --
 -- Chaque outil crée ses tables et le journal de ses migrations dans son propre schéma. Aucun rôle d'outil n'a le
@@ -36,6 +37,7 @@ CREATE SCHEMA IF NOT EXISTS codex    AUTHORIZATION codex_app;
 CREATE SCHEMA IF NOT EXISTS cursus   AUTHORIZATION cursus_app;
 CREATE SCHEMA IF NOT EXISTS vigie    AUTHORIZATION vigie_app;
 CREATE SCHEMA IF NOT EXISTS arche    AUTHORIZATION arche_app;
+CREATE SCHEMA IF NOT EXISTS crucible AUTHORIZATION crucible_app;
 CREATE SCHEMA IF NOT EXISTS matrix   AUTHORIZATION matrix_app;
 
 -- Rejeu : remet le bon propriétaire si quelqu'un l'a changé.
@@ -44,15 +46,17 @@ ALTER SCHEMA codex    OWNER TO codex_app;
 ALTER SCHEMA cursus   OWNER TO cursus_app;
 ALTER SCHEMA vigie    OWNER TO vigie_app;
 ALTER SCHEMA arche    OWNER TO arche_app;
+ALTER SCHEMA crucible OWNER TO crucible_app;
 ALTER SCHEMA matrix   OWNER TO matrix_app;
 
-REVOKE ALL ON SCHEMA keystone, codex, cursus, vigie, arche, matrix FROM PUBLIC;
+REVOKE ALL ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, matrix FROM PUBLIC;
 
 COMMENT ON SCHEMA keystone IS 'Keystone (gestion de projets) : tables et journal des migrations (__drizzle_migrations). Propriétaire keystone_app.';
 COMMENT ON SCHEMA codex    IS 'Codex (GED) : tables et journal des migrations (__drizzle_migrations). Propriétaire codex_app.';
 COMMENT ON SCHEMA cursus   IS 'Cursus (RH) : tables et journal des migrations (schema_migrations). Propriétaire cursus_app.';
 COMMENT ON SCHEMA vigie    IS 'Vigie (QHSE) : tables et journal des migrations (__drizzle_migrations). Propriétaire vigie_app.';
 COMMENT ON SCHEMA arche    IS 'Arche (CAPEX des filiales, méthode DIG-PRODI) : tables et journal des migrations. Propriétaire arche_app.';
+COMMENT ON SCHEMA crucible IS 'Crucible (planification des moyens d''essai R&D partagés) : tables et journal des migrations (__drizzle_migrations). Propriétaire crucible_app.';
 COMMENT ON SCHEMA matrix   IS 'Matrix (catalogue des bases) : catalogue, correspondances, historique, journal. Propriétaire matrix_app.';
 
 -- Paramètres de session, appliqués à chaque connexion de l'outil sur epc2i (y compris derrière PgBouncer,
@@ -62,6 +66,7 @@ ALTER ROLE codex_app    IN DATABASE epc2i SET search_path TO codex;
 ALTER ROLE cursus_app   IN DATABASE epc2i SET search_path TO cursus;
 ALTER ROLE vigie_app    IN DATABASE epc2i SET search_path TO vigie;
 ALTER ROLE arche_app    IN DATABASE epc2i SET search_path TO arche;
+ALTER ROLE crucible_app IN DATABASE epc2i SET search_path TO crucible;
 ALTER ROLE matrix_app   IN DATABASE epc2i SET search_path TO matrix;
 
 -- Une transaction ouverte et oubliée garde ses verrous, dont le verrou d'écriture de l'outil (voir
@@ -71,6 +76,7 @@ ALTER ROLE codex_app    IN DATABASE epc2i SET idle_in_transaction_session_timeou
 ALTER ROLE cursus_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE vigie_app    IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE arche_app    IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE crucible_app IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE matrix_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 
 -- Extensions demandées par les outils (voir l'en-tête) : pg_trgm pour Codex. Rejeu : le schéma garde son
@@ -84,4 +90,4 @@ COMMENT ON SCHEMA extensions IS 'Extensions installées par le superutilisateur 
 
 COMMIT;
 
-\echo 'Étape 2 terminée : schémas keystone, codex, cursus, vigie, arche, matrix et extensions (pg_trgm) en place.'
+\echo 'Étape 2 terminée : schémas keystone, codex, cursus, vigie, arche, crucible, matrix et extensions (pg_trgm) en place.'

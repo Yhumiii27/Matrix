@@ -87,7 +87,7 @@ BEGIN
   FOR v_schema, v_proprio IN
     SELECT n.nspname::text, pg_get_userbyid(n.nspowner)::text
     FROM pg_namespace n
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'matrix')
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix')
     ORDER BY 1
   LOOP
     EXECUTE format('SET ROLE %I', v_proprio);
@@ -133,20 +133,20 @@ BEGIN
                     AND d.refclassid = 'pg_class'::regclass AND d.refobjid <> v.oid
     JOIN pg_class t ON t.oid = d.refobjid AND t.relkind IN ('r', 'p', 'v', 'm', 'f')
     JOIN pg_namespace nt ON nt.oid = t.relnamespace
-    WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'matrix')
+    WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix')
       AND v.relkind = 'v' AND v.relname LIKE 'pub\_%' AND t.relnamespace <> v.relnamespace
     ORDER BY 1);
   -- Propriétaire différent de celui du schéma (une vue d'un superutilisateur lirait tout), ou security_invoker.
   v_fautes := v_fautes || ARRAY(
     SELECT format('%s.%s appartient à %s au lieu de %s', n.nspname, c.relname, pg_get_userbyid(c.relowner), pg_get_userbyid(n.nspowner))
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'matrix') AND c.relkind = 'v'
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
       AND c.relname LIKE 'pub\_%' AND c.relowner <> n.nspowner
     ORDER BY 1);
   v_fautes := v_fautes || ARRAY(
     SELECT format('%s.%s s''exécute avec security_invoker', n.nspname, c.relname)
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'matrix') AND c.relkind = 'v'
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
       AND c.relname LIKE 'pub\_%'
       AND EXISTS (SELECT FROM unnest(c.reloptions) AS o(opt) WHERE lower(o.opt) IN ('security_invoker=true', 'security_invoker=on', 'security_invoker=1'))
     ORDER BY 1);
@@ -177,21 +177,21 @@ BEGIN
   FOR r IN
     SELECT * FROM (VALUES
       -- Matrix : référentiels (D14, D15, D17, D21) et correspondances.
-      ('matrix.pub_pays',                    ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
-      ('matrix.pub_sites',                   ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
-      ('matrix.pub_organigramme',            ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
-      ('matrix.pub_correspondances',         ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
+      ('matrix.pub_pays',                    ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
+      ('matrix.pub_sites',                   ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
+      ('matrix.pub_organigramme',            ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
+      ('matrix.pub_correspondances',         ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
       ('matrix.pub_zones',                   ARRAY['keystone_app', 'arche_app']),
-      ('matrix.pub_filiales',                ARRAY['keystone_app', 'arche_app']),
+      ('matrix.pub_filiales',                ARRAY['keystone_app', 'arche_app', 'crucible_app']),
       -- Cursus : personnes (D01), titres (D08, D09), paramètres (D19), journal (D18).
-      ('cursus.pub_salaries',                ARRAY['keystone_app', 'codex_app', 'vigie_app', 'matrix_app']),
-      ('cursus.pub_titres',                  ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
-      ('cursus.pub_titres_detenus',          ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
+      ('cursus.pub_salaries',                ARRAY['keystone_app', 'codex_app', 'vigie_app', 'crucible_app', 'matrix_app']),
+      ('cursus.pub_titres',                  ARRAY['keystone_app', 'vigie_app', 'crucible_app', 'matrix_app']),
+      ('cursus.pub_titres_detenus',          ARRAY['keystone_app', 'vigie_app', 'crucible_app', 'matrix_app']),
       ('cursus.pub_parametres',              ARRAY['vigie_app', 'matrix_app']),
       ('cursus.pub_journal',                 ARRAY['matrix_app']),
       -- Keystone : projets (D02), chantiers (D03), affectations (D04), tâches (D05), tiers (D16),
       -- référentiels de Vigie (D12, D13), journal (D18).
-      ('keystone.pub_projets',               ARRAY['codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'matrix_app']),
+      ('keystone.pub_projets',               ARRAY['codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app']),
       ('keystone.pub_chantiers',             ARRAY['cursus_app', 'matrix_app']),
       ('keystone.pub_affectations',          ARRAY['cursus_app', 'vigie_app', 'matrix_app']),
       ('keystone.pub_taches_jours',          ARRAY['cursus_app', 'matrix_app']),
@@ -203,9 +203,9 @@ BEGIN
       ('keystone.pub_activites',             ARRAY['vigie_app', 'matrix_app']),
       ('keystone.pub_livrables',             ARRAY['vigie_app', 'arche_app', 'matrix_app']),
       ('keystone.pub_journal',               ARRAY['matrix_app']),
-      -- Codex : documents (D10, lus aussi par Arche : dossiers et pack), registre (D11), journal (D18).
-      ('codex.pub_documents',                ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
-      ('codex.pub_revisions_document',       ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
+      -- Codex : documents (D10, lus aussi par Arche : dossiers et pack ; par Crucible : justifications et analyses de risque), registre (D11), journal (D18).
+      ('codex.pub_documents',                ARRAY['keystone_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app']),
+      ('codex.pub_revisions_document',       ARRAY['keystone_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app']),
       ('codex.pub_validations',              ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
       ('codex.pub_types_document',           ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
       ('codex.pub_circuits_type',            ARRAY['keystone_app', 'matrix_app']),
@@ -220,10 +220,10 @@ BEGIN
       ('vigie.pub_eco_approbations',         ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_eco_effectivite',          ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_demandes_modification',    ARRAY['codex_app', 'keystone_app', 'matrix_app']),
-      -- Keystone, vues demandées par Arche (R-186 à R-191), absentes tant que Keystone ne les publie pas (WARNING).
+      -- Keystone, vues demandées par Arche (R-186 à R-191 ; jalons demandés aussi par Crucible, K-2), absentes tant que Keystone ne les publie pas (WARNING).
       ('keystone.pub_catalogue_machines',    ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_reponses_besoins',      ARRAY['arche_app', 'matrix_app']),
-      ('keystone.pub_jalons_projets',        ARRAY['arche_app', 'matrix_app']),
+      ('keystone.pub_jalons_projets',        ARRAY['arche_app', 'crucible_app', 'matrix_app']),
       ('keystone.pub_avancement_projets',    ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_avenants',              ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_reserves',              ARRAY['arche_app', 'matrix_app']),
@@ -235,7 +235,18 @@ BEGIN
       ('arche.pub_journal',                  ARRAY['matrix_app']),
       -- D22 (22/10/2026) : REX des CAPEX (Arche) et des projets (Keystone), réunis par Matrix ; vues à créer par les outils.
       ('arche.pub_rex',                      ARRAY['matrix_app']),
-      ('keystone.pub_rex',                   ARRAY['matrix_app'])
+      ('keystone.pub_rex',                   ARRAY['matrix_app']),
+      -- Crucible : journal (D18) ; moyens d'essai, réservations confirmées et occupation (docs/spec/02-objets.md § 7 de
+      -- Crucible), vues à venir avec sa livraison 2 (WARNING tant qu'elles n'existent pas).
+      ('crucible.pub_journal',               ARRAY['matrix_app']),
+      ('crucible.pub_moyens',                ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
+      ('crucible.pub_reservations',          ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
+      ('crucible.pub_occupation_hebdo',      ARRAY['matrix_app']),
+      -- Vues demandées par Crucible à Cursus (CU-1 : absences sans motif) et à Vigie (V-1, V-2 : contrôles périodiques,
+      -- interventions qui suspendent les essais), absentes tant que ces outils ne les publient pas (WARNING).
+      ('cursus.pub_absences',                ARRAY['crucible_app', 'matrix_app']),
+      ('vigie.pub_controles',                ARRAY['crucible_app', 'matrix_app']),
+      ('vigie.pub_suspensions_essais',       ARRAY['crucible_app', 'matrix_app'])
     ) AS t(vue, lecteurs)
   LOOP
     v_oid := to_regclass(r.vue);
@@ -280,7 +291,7 @@ LEFT JOIN LATERAL (
   FROM aclexplode(c.relacl) a
   WHERE a.grantee NOT IN (c.relowner, (SELECT oid FROM pg_roles WHERE rolname = 'matrix_admin'))
 ) g ON true
-WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'matrix') AND c.relkind = 'v' AND c.relname LIKE 'pub\_%'
+WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v' AND c.relname LIKE 'pub\_%'
 GROUP BY n.nspname, c.relname, c.relowner
 ORDER BY 1;
 

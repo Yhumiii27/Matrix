@@ -13,7 +13,7 @@
 #   PGUSER                 défaut epc2i_sauvegarde (membre de pg_read_all_data)
 #   PGPASSWORD             défaut EPC2I_SAUVEGARDE_PASSWORD
 #
-# Résultat : <dossier>/<AAAA-MM-JJ_HHMMSS>/{keystone,codex,cursus,vigie,arche,matrix,droits}.dump, roles.sql, SHA256SUMS.
+# Résultat : <dossier>/<AAAA-MM-JJ_HHMMSS>/{keystone,codex,cursus,vigie,arche,crucible,matrix,droits}.dump, roles.sql, SHA256SUMS.
 # Le dossier n'apparaît sous son nom définitif qu'une fois toutes les copies réussies.
 # Les fichiers contiennent les données sensibles de Cursus et de Vigie : ils sont créés en lecture pour le seul
 # propriétaire, et toute copie hors du serveur doit être chiffrée.
@@ -34,7 +34,7 @@ partiel="$DEST/.$horodatage.partiel"
 mkdir -p "$partiel"
 echo "[sauvegarde] début $(date -Iseconds), serveur ${PGHOST:-local}, rôle $PGUSER"
 
-for schema in keystone codex cursus vigie arche matrix droits; do
+for schema in keystone codex cursus vigie arche crucible matrix droits; do
   # Schéma pas encore créé (serveur antérieur, socle pas rejoué) : signalé, sans faire échouer la sauvegarde.
   if [ "$(psql -XAtqc "SELECT count(*) FROM pg_namespace WHERE nspname = '$schema'")" = 0 ]; then
     echo "[sauvegarde] $schema : schéma absent, ignoré (rejouer init/02-schemas.sql)"

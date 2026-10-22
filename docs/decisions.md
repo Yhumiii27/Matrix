@@ -13,6 +13,7 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | P-01 | 22/10/2026 | Le socle de `main` est passé en PostgreSQL 18 (lot 11 de Codex) alors que le serveur en service est en 16. Que faire ? | Réponse au choix proposé : « Rester en 16 (Recommandé) ». | Le socle revient à `postgres:16-bookworm`, volume sur `/var/lib/postgresql/data` : un redéploiement garde la base en service. Codex doit retirer la collation `pg_unicode_fast` (18) de sa v2 avant de la déployer. |
 | M-07 | 22/10/2026 | Prendre en compte Arche (CAPEX des filiales) : bases liées, sans doublon. | « prends en compte ce nouveau soft Arche qui devra aussi voir ses bases liées et eviter les doublons » | Schéma `arche` et rôle `arche_app` dans le socle ; partage avec Keystone et Matrix ; Arche dans le catalogue, le graphe et les doublons (D21, D22). |
 | M-08 / D21 | 22/10/2026 | Filiales et zones du groupe : qui fait foi ? | Réponse au choix proposé : « A · Matrix (Recommandé) ». | Matrix publie les zones, les filiales et leurs sites (`matrix.pub_zones`, `pub_filiales`, `pub_sites` avec la filiale) ; Arche les lit au lieu de créer ses tables `zones`, `subsidiaries`, `sites` ; Keystone relie ses clients au code de la filiale. |
+| M-10 | 22/10/2026 | Prendre en compte Crucible (moyens d'essai R&D partagés) comme Arche : bases liées, sans doublon. | « prends en compte Crucible comme Arche, bases liées et doublons » | Schéma `crucible` et rôle `crucible_app` dans le socle (demandes M-1 à M-5 de Crucible) ; `partage/80-crucible.sql` ; lecteurs de `90-droits.sql` ; Crucible dans le catalogue, le graphe, les flux (F22 à F27) et les doublons (compléments de D01, D02, D07 à D09, D14, D18 à D21, nouveau D23). |
 | M-09 / D22 | 22/10/2026 | Retours d'expérience : un registre ou deux ? | Réponse au choix proposé : « A · Deux registres (Recommandé) ». | Arche garde le REX des CAPEX, Keystone celui des projets ; chacun publie une vue `pub_rex`, que Matrix réunit (comme le journal unifié). |
 
 ## Doublons : qui fait foi (décisions M-02)
@@ -41,6 +42,7 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | D20 Homonymes | — | Tables toujours nommées avec leur outil. |
 | D21 Filiales et zones du groupe | Matrix | Arche les lit ; Keystone relie ses clients à la filiale. |
 | D22 Retours d'expérience | Arche (CAPEX) et Keystone (projets) | Une vue `pub_rex` chacun, réunies par Matrix. |
+| D23 Contrôles périodiques des moyens d'essai | À trancher (M-11) | Recommandation : Vigie fait foi et publie `pub_controles` ; Crucible les lit (demande V-1 de Crucible). |
 
 ## Questions ouvertes
 
@@ -49,3 +51,4 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | M-03 | Confirmation du remplacement de Lucca par Cursus (aujourd'hui provisoire). |
 | M-04 | Qui documente les tables : le service informatique seul, ou un responsable par domaine ? |
 | M-06 | Fournisseur d'authentification : même réponse que la question O-02 de Codex. |
+| M-11 / D23 | Contrôles périodiques des moyens d'essai : Vigie fait foi et Crucible les lit (recommandé), Crucible fait foi pour ses moyens, ou chacun garde les siens ? |

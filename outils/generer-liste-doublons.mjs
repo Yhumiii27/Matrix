@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { groupes } = JSON.parse(readFileSync(join(root, 'data/doublons.json'), 'utf8'));
-const APP = { keystone: 'Keystone', codex: 'Codex', cursus: 'Cursus', vigie: 'Vigie', arche: 'Arche' };
+const APP = { keystone: 'Keystone', codex: 'Codex', cursus: 'Cursus', vigie: 'Vigie', arche: 'Arche', crucible: 'Crucible' };
 const NATURE = { doublon: 'Doublon', miroir: 'Miroir', chevauchement: 'Chevauchement', homonyme: 'Homonyme', technique: 'Technique' };
 const GRAV = { critique: 'Critique', majeur: 'Majeur', mineur: 'Mineur' };
 const cell = s => String(s).replace(/\|/g, '\\|');
@@ -13,7 +13,7 @@ const tables = g => g.tables.filter(t => t.table !== '—').map(t => `${APP[t.ap
 
 const out = [];
 out.push('# Doublons à trancher', '');
-out.push('Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cursus, Vigie), relevées le 15 octobre 2026 ; Arche, d’après sa spécification, le 22 octobre 2026 (groupes D21 et suivants, et Arche ajouté aux groupes existants).', '');
+out.push('Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cursus, Vigie), relevées le 15 octobre 2026 ; Arche, d’après sa spécification, et Crucible, d’après sa livraison 1 et sa spécification, le 22 octobre 2026 (groupes D21 et suivants, et compléments des groupes existants).', '');
 out.push('**Méthode.**');
 out.push('- Les noms et les colonnes de chaque paire de tables de deux outils différents ont été comparés automatiquement (`outils/collecteur.mjs`, fonction `similarTables`).');
 out.push('- Chaque groupe a ensuite été vérifié dans le code et dans les jeux de démonstration : qui saisit la donnée, qui la recopie, et si les valeurs se recoupent.', '');

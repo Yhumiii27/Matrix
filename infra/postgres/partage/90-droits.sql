@@ -18,7 +18,7 @@
 --
 -- Lancement : superutilisateur (postgres) ou administrateur nominatif membre de matrix_admin (qui peut prendre
 -- le rôle de chaque outil, SET ROLE). Après les migrations des outils (qui créent leurs vues pub_) et les fichiers
--- 10 à 50 (60 seulement une fois le module ECR / ECO de Vigie construit). Sans l'option -1 : le fichier ouvre
+-- 10 à 80 (60 seulement une fois le module ECR / ECO de Vigie construit). Sans l'option -1 : le fichier ouvre
 -- lui-même sa transaction.
 --   psql -h <hôte> -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql
 -- Rejouable : un GRANT déjà posé ne change rien ; une vue absente est signalée (WARNING) et passée.
@@ -42,7 +42,7 @@ BEGIN
     RETURN;
   END IF;
   SELECT string_agg(r, ', ') INTO v_manque
-  FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'matrix_app']) AS r
+  FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app']) AS r
   WHERE NOT pg_has_role(current_user, r, 'SET');
   IF v_manque IS NOT NULL THEN
     RAISE EXCEPTION 'Lancez 90-droits.sql en superutilisateur ou en administrateur membre de matrix_admin : % ne peut pas prendre le rôle %.', current_user, v_manque;
@@ -177,10 +177,10 @@ BEGIN
   FOR r IN
     SELECT * FROM (VALUES
       -- Matrix : référentiels (D14, D15, D17, D21) et correspondances.
-      ('matrix.pub_pays',                    ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
+      ('matrix.pub_pays',                    ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
       ('matrix.pub_sites',                   ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
       ('matrix.pub_organigramme',            ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
-      ('matrix.pub_correspondances',         ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
+      ('matrix.pub_correspondances',         ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
       ('matrix.pub_zones',                   ARRAY['keystone_app', 'arche_app']),
       ('matrix.pub_filiales',                ARRAY['keystone_app', 'arche_app', 'crucible_app']),
       -- Cursus : personnes (D01), titres (D08, D09), paramètres (D19), journal (D18).
@@ -203,7 +203,7 @@ BEGIN
       ('keystone.pub_activites',             ARRAY['vigie_app', 'matrix_app']),
       ('keystone.pub_livrables',             ARRAY['vigie_app', 'arche_app', 'matrix_app']),
       ('keystone.pub_journal',               ARRAY['matrix_app']),
-      -- Codex : documents (D10, lus aussi par Arche : dossiers et pack ; par Crucible : justifications et analyses de risque), registre (D11), journal (D18).
+      -- Codex : documents (D10, lus aussi par Arche : dossiers et pack ; par Crucible : références des essais), registre (D11), journal (D18).
       ('codex.pub_documents',                ARRAY['keystone_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app']),
       ('codex.pub_revisions_document',       ARRAY['keystone_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app']),
       ('codex.pub_validations',              ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
@@ -220,10 +220,10 @@ BEGIN
       ('vigie.pub_eco_approbations',         ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_eco_effectivite',          ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_demandes_modification',    ARRAY['codex_app', 'keystone_app', 'matrix_app']),
-      -- Keystone, vues demandées par Arche (R-186 à R-191 ; jalons demandés aussi par Crucible, K-2), absentes tant que Keystone ne les publie pas (WARNING).
+      -- Keystone, vues demandées par Arche (R-186 à R-191), absentes tant que Keystone ne les publie pas (WARNING).
       ('keystone.pub_catalogue_machines',    ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_reponses_besoins',      ARRAY['arche_app', 'matrix_app']),
-      ('keystone.pub_jalons_projets',        ARRAY['arche_app', 'crucible_app', 'matrix_app']),
+      ('keystone.pub_jalons_projets',        ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_avancement_projets',    ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_avenants',              ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_reserves',              ARRAY['arche_app', 'matrix_app']),
@@ -236,15 +236,17 @@ BEGIN
       -- D22 (22/10/2026) : REX des CAPEX (Arche) et des projets (Keystone), réunis par Matrix ; vues à créer par les outils.
       ('arche.pub_rex',                      ARRAY['matrix_app']),
       ('keystone.pub_rex',                   ARRAY['matrix_app']),
-      -- Crucible : journal (D18) ; moyens d'essai, réservations confirmées et occupation (docs/spec/02-objets.md § 7 de
-      -- Crucible), vues à venir avec sa livraison 2 (WARNING tant qu'elles n'existent pas).
+      -- Crucible (demande M-4, 22/10/2026) : journal (D18) ; moyens et réservations confirmées (livraison L3 de Crucible,
+      -- absentes jusque-là : WARNING), lus par Keystone (planning des projets) et Vigie (coactivité, plans de prévention).
       ('crucible.pub_journal',               ARRAY['matrix_app']),
       ('crucible.pub_moyens',                ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
       ('crucible.pub_reservations',          ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
-      ('crucible.pub_occupation_hebdo',      ARRAY['matrix_app']),
-      -- Vues demandées par Crucible à Cursus (CU-1 : absences sans motif) et à Vigie (V-1, V-2 : contrôles périodiques,
-      -- interventions qui suspendent les essais), absentes tant que ces outils ne les publient pas (WARNING).
+      -- Vues demandées pour Crucible, absentes tant que l'outil ne les publie pas (WARNING) : jalons de Keystone (K-2 de
+      -- Crucible), absences de Cursus sans motif (CU-1 de Crucible).
+      ('keystone.pub_jalons',                ARRAY['crucible_app', 'matrix_app']),
       ('cursus.pub_absences',                ARRAY['crucible_app', 'matrix_app']),
+      -- D23 (22/10/2026, option A) : Vigie fait foi pour les contrôles périodiques ; Crucible lit les contrôles et les
+      -- interventions qui suspendent les essais (V-1, V-2 de Crucible), absentes tant que Vigie ne les publie pas (WARNING).
       ('vigie.pub_controles',                ARRAY['crucible_app', 'matrix_app']),
       ('vigie.pub_suspensions_essais',       ARRAY['crucible_app', 'matrix_app'])
     ) AS t(vue, lecteurs)

@@ -9,8 +9,7 @@
 -- Rejouable : le script crée ce qui manque, puis remet les attributs, les appartenances et les mots de passe
 -- aux valeurs ci-dessous. Les mots de passe sont lus dans l'environnement, et aucun ne peut être vide :
 --   KEYSTONE_APP_PASSWORD  CODEX_APP_PASSWORD  CURSUS_APP_PASSWORD  VIGIE_APP_PASSWORD  ARCHE_APP_PASSWORD
---   CRUCIBLE_APP_PASSWORD
---   MATRIX_APP_PASSWORD    EPC2I_SAUVEGARDE_PASSWORD
+--   CRUCIBLE_APP_PASSWORD  MATRIX_APP_PASSWORD  EPC2I_SAUVEGARDE_PASSWORD
 --
 -- Rôles créés :
 --   keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app
@@ -123,8 +122,8 @@ COMMENT ON DATABASE epc2i IS 'Serveur commun EPC2I : un schéma par outil (keyst
 BEGIN;
 
 SELECT format('CREATE ROLE %I', nom)
-FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app',
-                  'matrix_app', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde']) AS nom
+FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app',
+                  'crucible_app', 'matrix_app', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde']) AS nom
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = nom) \gexec
 
 -- Rôles de groupe : pas de connexion directe.
@@ -152,7 +151,7 @@ COMMENT ON ROLE codex_app IS 'Connexion de Codex : propriétaire du schéma code
 COMMENT ON ROLE cursus_app IS 'Connexion de Cursus : propriétaire du schéma cursus ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE vigie_app IS 'Connexion de Vigie : propriétaire du schéma vigie ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE arche_app IS 'Connexion d''Arche (CAPEX des filiales) : propriétaire du schéma arche ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
-COMMENT ON ROLE crucible_app IS 'Connexion de Crucible (moyens d''essai R&D partagés) : propriétaire du schéma crucible ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
+COMMENT ON ROLE crucible_app IS 'Connexion de Crucible (moyens d''essais R&D partagés) : propriétaire du schéma crucible ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE matrix_app IS 'Connexion de Matrix : propriétaire du schéma matrix, lit les outils par matrix_lecture.';
 COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, sauf les colonnes de droits.colonnes_sensibles.';
 COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les sept schémas. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';

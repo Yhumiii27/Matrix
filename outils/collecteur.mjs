@@ -38,6 +38,9 @@ const KEYSTONE_MODULES = {
   settings: 'Paramètres', scheduling: 'Calendriers', files: 'Fichiers & imports',
 };
 
+// Crucible : fichier de schéma (src/server/db/schema/<fichier>.ts) → domaine.
+const CRUCIBLE_MODULES = { organisation: 'Organisation et droits', platform: 'Plateforme' };
+
 // Codex : intitulés de section du schéma (en anglais) → domaine.
 const CODEX_SECTIONS = {
   'Organisation (provisional until the org chart is provided)': 'Organisation',
@@ -110,14 +113,6 @@ const DESCRIPTIONS = {
     review_items: 'Points de la revue de direction', risk_actions: 'Lien risques ↔ actions', risks: 'Risques du DUERP',
     sites: 'Sites (classement Seveso)', training_titles: 'Titres d’habilitation et de formation', waste_streams: 'Flux de déchets',
     work_units: 'Unités de travail du DUERP',
-  },
-  crucible: {
-    activity_events: 'Fil d’activité (lu par pub_journal)', app_settings: 'Réglages de l’application',
-    audit_entries: 'Piste d’audit, en ajout seul (lue par pub_journal)', entities: 'Entités : EPC2i, partenaires (EPC France…)',
-    facilities: 'Installations d’essai : laboratoire 67, PDE…', facility_partners: 'Entités partenaires d’une installation partagée',
-    job_runs: 'Tâches planifiées : dernier passage et bail', projects: 'Projets R&D demandeurs, classe de priorité, lien Keystone',
-    role_assignments: 'Rôles des comptes et leur portée (global, entité, installation, projet)', sites: 'Sites des installations (code Matrix à terme)',
-    users: 'Comptes (Entra ID)',
   },
 };
 
@@ -195,7 +190,7 @@ function column(name, def) {
 
 // ── Commentaires des fichiers de schéma TypeScript ───────────────────────
 
-function schemaComments(files) {
+function schemaComments(files, declaration = /pgTable\(\s*'(\w+)'/, ouverte = /pgTable\(\s*$/) {
   const info = {};
   for (const file of files) {
     const lines = readFileSync(file, 'utf8').split('\n');
@@ -203,7 +198,7 @@ function schemaComments(files) {
     lines.forEach((line, i) => {
       const sec = line.match(/^\/\/\s*[─—-]{2,}\s*(.+?)\s*[─—-]+\s*$/);
       if (sec) section = sec[1];
-      const t = line.match(/(?:pgTable|\b\w+\.table)\(\s*'(\w+)'/) ?? (/(?:pgTable|\b\w+\.table)\(\s*$/.test(line) ? lines[i + 1]?.match(/^\s*'(\w+)'/) : null);
+      const t = line.match(declaration) ?? (ouverte.test(line) ? lines[i + 1]?.match(/^\s*'(\w+)'/) : null);
       if (!t) return;
       let j = i - 1;
       const doc = [];
@@ -230,9 +225,6 @@ function parseCursus(file) {
     uniques: (def.unique ?? []).map(u => u.map(snake)),
   }));
 }
-
-// Crucible : domaine d'une table d'après son fichier de schéma (src/server/db/schema/<fichier>.ts).
-const CRUCIBLE_FILES = { organisation: 'Organisation', platform: 'Socle' };
 
 // ── Arche : tables de la spécification (avant le premier code) ──────────
 
@@ -300,7 +292,7 @@ function fromRepos(root) {
   if (existsSync(join(cr, 'drizzle'))) {
     const dir = join(cr, 'src/server/db/schema');
     const files = existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.ts') && !f.startsWith('_') && f !== 'index.ts').map(f => join(dir, f)) : [];
-    out.crucible = { tables: parseDrizzle(join(cr, 'drizzle')), comments: schemaComments(files), source: 'dépôt (migrations Drizzle)' };
+    out.crucible = { tables: parseDrizzle(join(cr, 'drizzle')), comments: schemaComments(files, /crucible\.table\(\s*'(\w+)'/, /crucible\.table\(\s*$/), source: 'dépôt (migrations Drizzle)' };
   }
   const cu = join(root, 'cursus', 'server/src/db.ts');
   if (existsSync(cu)) out.cursus = { tables: parseCursus(cu), comments: {}, source: 'dépôt (server/src/db.ts)' };
@@ -331,7 +323,7 @@ function enrich(app, tables, comments, known = new Map()) {
     else if (app === 'codex') { domain = CODEX_SECTIONS[c.section] ?? c.section; description = c.doc ?? DESCRIPTIONS.codex[t.name]; }
     else if (app === 'vigie') { domain = c.section; description = c.doc ?? DESCRIPTIONS.vigie[t.name]; }
     else if (app === 'arche') { domain = c.section; description = c.doc; }
-    else if (app === 'crucible') { domain = CRUCIBLE_FILES[c.file] ?? c.section; description = DESCRIPTIONS.crucible[t.name] ?? c.doc; }
+    else if (app === 'crucible') { domain = CRUCIBLE_MODULES[c.file]; description = c.doc; }
     else { [domain, description] = CURSUS_META[t.name] ?? []; }
     const fks = [...t.fks];
     if (app === 'cursus') for (const col of t.columns) {

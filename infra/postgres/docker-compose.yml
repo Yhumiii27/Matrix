@@ -1,4 +1,4 @@
-# Serveur PostgreSQL commun EPC2I : une base epc2i, un schéma par outil (keystone, codex, cursus, vigie, matrix).
+# Serveur PostgreSQL commun EPC2I : une base epc2i, un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, matrix).
 #
 # Mise en service : voir README.md (Coolify ou poste local). Les mots de passe viennent de l'environnement
 # (fichier .env à côté de ce fichier en local, variables de la ressource dans Coolify) ; aucun n'est écrit ici.

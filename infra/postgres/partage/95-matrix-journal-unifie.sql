@@ -2,7 +2,8 @@
 --
 -- Chaque outil garde son journal et publie une vue pub_journal aux colonnes communes : Keystone (migration
 -- 0035_share, audit_entries et activity_events), Codex (migration 0001_partage, audit_log), Vigie (migration
--- 0009_partage, change_log), Cursus (20-cursus.sql, journal). Matrix les réunit ici, en lecture seule, pour l'écran
+-- 0009_partage, change_log), Cursus (20-cursus.sql, journal), Arche (0002_share_journal),
+-- Crucible (0002_share_journal). Matrix les réunit ici, en lecture seule, pour l'écran
 -- « Journal » de l'administration (docs/proposition.md).
 -- Contrat commun des quatre pub_journal, dans cet ordre : ref_source text, nature text, quand timestamptz, qui text,
 -- qui_ref text, qui_role text, action text, objet text, detail text, projet text, qui_matricule text (vérifié le

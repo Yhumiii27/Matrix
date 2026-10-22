@@ -568,27 +568,28 @@ Le socle est prêt avant son code :
 
 ## 8 ter. Crucible
 
-Crucible (dépôt `Yhumiii27/Crucible`) planifie et arbitre les moyens d'essai R&D partagés : laboratoire 67 (partagé avec
-EPC France), PDE et ses zones, atelier mécanique. Au 22/10/2026, sa livraison 1 (socle, copié d'Arche) est faite :
-11 tables dans le schéma `crucible` (`crucible.table(…)`, PostgreSQL seulement) et la vue `pub_journal`. Ses demandes au
-socle sont dans `docs/DEMANDES-MATRIX.md` de Crucible (M-1 à M-6) :
+Crucible (dépôt `Yhumiii27/Crucible`) planifie et arbitre les moyens d'essais R&D partagés (laboratoire 67, partagé avec
+EPC France ; PDE, laboratoire PDE, atelier mécanique). Au 22/10/2026, sa livraison 1 (plateforme) est faite, en
+PostgreSQL seulement, migrations `0000` à `0002` ; ses demandes au socle sont M-1 à M-6 de son `docs/DEMANDES-MATRIX.md`.
+Même démarche qu'Arche (M-07) :
 
-- rôle `crucible_app` et schéma `crucible` (`init/01`, `init/02`), mot de passe `CRUCIBLE_APP_PASSWORD` ; mêmes règles que
-  les autres outils (`init/03`, `droits.verifier()`, cas 170 à 175 de `verifier-droits.sql`) ; colonne sensible
-  `crucible.users.entra_object_id` (l'adresse électronique n'est pas retenue, comme pour Arche) ; sauvegarde par schéma ;
-- `partage/80-crucible.sql` : copie qualifiée de `crucible.pub_journal` (migration `0002_share_journal`), ajoutée au
-  journal unifié (`partage/95`) ;
-- partage (`partage/90-droits.sql`) : Crucible lit `matrix.pub_pays`, `pub_sites`, `pub_organigramme`,
-  `pub_correspondances`, `pub_filiales`, `keystone.pub_projets`, `cursus.pub_salaries`, `pub_titres`,
-  `pub_titres_detenus`, `codex.pub_documents`, `pub_revisions_document`, puis les vues demandées par Crucible et pas
-  encore publiées (`keystone.pub_jalons_projets`, `cursus.pub_absences`, `vigie.pub_controles`,
-  `pub_suspensions_essais`) ; Keystone, Vigie et Matrix liront `crucible.pub_moyens` et `pub_reservations`, Matrix
-  `pub_occupation_hebdo` (livraison 2 de Crucible). Les vues absentes sont signalées sans erreur jusqu'à leur création ;
-- doublons (`docs/doublons-a-trancher.md`) : application des décisions déjà prises (D01 et D07 à D09 : Cursus fait foi
-  pour les opérateurs, leurs habilitations et leurs absences ; D02 : lien vers Keystone ; D14 et D21 : sites et entités
-  lus dans Matrix, le laboratoire 67, le PDE et EPC France à saisir dans les référentiels, demande M-6) et un groupe
-  nouveau, D23 (contrôles périodiques des moyens d'essai), tranché le 22/10/2026 : option A, Vigie fait foi et publie
-  `vigie.pub_controles`, lue par Crucible (M-11).
+- rôle `crucible_app` et schéma `crucible` (`init/01`, `init/02`), mot de passe `CRUCIBLE_APP_PASSWORD` ; mêmes règles
+  que les autres outils (`init/03`, `droits.verifier()`, cas 170 à 175 de `verifier-droits.sql`) ; colonnes sensibles
+  `crucible.users.entra_object_id` et `crucible.users.email` (M-3, fermées à `matrix_lecture`) ; sauvegarde par schéma ;
+- partage : `partage/80-crucible.sql` recopie `crucible.pub_journal` (migration `0002_share_journal`, contrat D18), réunie
+  par `partage/95` ; `partage/90-droits.sql` : Crucible lit `keystone.pub_projets`, `cursus.pub_salaries`, `pub_titres`,
+  `pub_titres_detenus`, `codex.pub_documents`, `pub_revisions_document`, `matrix.pub_sites`, `pub_organigramme`, puis
+  `keystone.pub_jalons` (K-2 de Crucible) et `cursus.pub_absences` (CU-1) quand ces outils les publieront ; Keystone,
+  Vigie et Matrix lisent `crucible.pub_moyens` et `pub_reservations` (livraison L3 de Crucible). Les vues absentes sont
+  signalées sans erreur jusqu'à leur création ;
+- référentiel des sites (M-6) : le laboratoire 67 et le PDE n'y sont pas encore, leur localisation n'étant pas connue
+  (question P-1 de Crucible) ; l'entité EPC France attend la liste réelle des filiales (D21, C-5 d'Arche) ;
+- doublons (`data/doublons.json`, `docs/doublons-a-trancher.md`, 22/10/2026) : application des décisions déjà prises
+  (D01 et D07 à D09 : Cursus fait foi pour les opérateurs, leurs habilitations et leurs absences ; D02 : lien vers
+  Keystone, les projets R&D absents de Keystone restant dans Crucible (S-1 de Crucible) ; D14 et D21 : sites et entités
+  lus dans Matrix, `matrix.pub_filiales` accordée à `crucible_app`) et groupe nouveau D23, tranché (M-12, option A) :
+  Vigie fait foi pour les contrôles périodiques et publie `vigie.pub_controles` et `pub_suspensions_essais` (V-1, V-2
+  de Crucible), accordées à `crucible_app` ; Crucible n'y saisit que la maintenance, les pannes et les travaux.
 
 ## 9. Heures validées : D06, option A, réversible
 

@@ -1,11 +1,10 @@
--- Partage des données EPC2I, fichier 80 : vues publiées par Crucible (schéma crucible, moyens d'essai R&D partagés).
+-- Partage des données EPC2I, fichier 80 : vues publiées par Crucible (schéma crucible, moyens d'essais R&D partagés).
 --
 -- Copie qualifiée des vues pub_ créées par les migrations de Crucible (dépôt Yhumiii27/Crucible, règle P-02 : c'est
 -- Crucible qui crée ses vues, à sa migration ; ce fichier les recrée à l'identique) :
 --   - crucible.pub_journal : drizzle/0002_share_journal.sql (contrat D18, réunie par 95-matrix-journal-unifie.sql).
--- À venir avec les livraisons de Crucible (docs/spec/02-objets.md § 7) : pub_moyens, pub_reservations,
--- pub_occupation_hebdo. Demande M-4 de Crucible (docs/DEMANDES-MATRIX.md). Une vue pub_ est un contrat : on n'en
--- retire ni ne renomme de colonne (sinon _v2).
+-- À venir avec la livraison L3 de Crucible : pub_moyens, pub_reservations (lues par Keystone et Vigie). Demande M-4 de
+-- Crucible (docs/DEMANDES-MATRIX.md). Une vue pub_ est un contrat : on n'en retire ni ne renomme de colonne (sinon _v2).
 -- Exécution : en tant que crucible_app, après les migrations de Crucible :
 --   psql "postgres://crucible_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/80-crucible.sql
 -- Rejouable. Droits des lecteurs : 90-droits.sql.
@@ -18,7 +17,7 @@
 DO $prerequis$
 BEGIN
   IF to_regclass('crucible.audit_entries') IS NULL OR to_regclass('crucible.activity_events') IS NULL THEN
-    RAISE EXCEPTION 'Crucible n''a pas encore appliqué ses migrations sur ce serveur (0000 à 0002) : démarrez Crucible avec DATABASE_URL (rôle crucible_app), puis rejouez ce fichier.';
+    RAISE EXCEPTION 'Crucible n''a pas encore appliqué ses migrations sur ce serveur (0000 à 0002) : lancez npm run db:migrate de Crucible avec DATABASE_URL (rôle crucible_app), puis rejouez ce fichier.';
   END IF;
 END $prerequis$;
 

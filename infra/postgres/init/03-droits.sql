@@ -826,8 +826,10 @@ INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif
   -- professionnelle n'est pas retenue (aucun autre outil ne la protège, et arche.pub_capex la publie à Keystone).
   ('arche', 'users', 'entra_object_id', 'Identité : identifiant Entra ID du compte', 'convention'),
   ('arche', 'signatures', 'ip_hash', 'Sécurité : empreinte de l''adresse IP d''une signature', 'convention'),
-  -- Crucible (demande M-3, 22/10/2026) : identifiant de connexion. Adresse électronique non retenue, comme pour Arche.
+  -- Crucible (demande M-3, 22/10/2026) : identifiant de connexion et adresse électronique des comptes. Aucune vue pub_
+  -- de Crucible ne lit crucible.users au 22/10/2026 ; une vue future qui publierait l'adresse serait refusée par 90.
   ('crucible', 'users', 'entra_object_id', 'Identité : identifiant Entra ID du compte', 'convention'),
+  ('crucible', 'users', 'email', 'Identité : adresse électronique du compte', 'convention'),
   ('cursus', 'visas', '*', 'Déplacement personnel : visas (table entière)', 'convention'),
   ('vigie', 'events', 'injury', 'Santé : nature de la lésion (accident du travail)', 'convention'),
   ('vigie', 'events', 'lost_days', 'Santé : jours d''arrêt de travail', 'convention'),

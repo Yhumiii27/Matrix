@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-22T11:47:09.518Z",
+ "generatedAt": "2026-10-22T15:20:33.000Z",
  "apps": [
   {
    "id": "keystone",
@@ -39200,9 +39200,9 @@
      "pk": [
       "id"
      ],
-     "domain": "Socle",
-     "description": "Fil d’activité (lu par pub_journal)",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Plateforme",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "app_settings",
@@ -39241,9 +39241,9 @@
      "pk": [
       "key"
      ],
-     "domain": "Socle",
-     "description": "Réglages de l’application",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Plateforme",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "audit_entries",
@@ -39375,9 +39375,9 @@
      "pk": [
       "id"
      ],
-     "domain": "Socle",
-     "description": "Piste d’audit, en ajout seul (lue par pub_journal)",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Plateforme",
+     "description": "Append-only (database trigger): never updated nor deleted, in code or tests.",
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "entities",
@@ -39430,9 +39430,9 @@
      "pk": [
       "code"
      ],
-     "domain": "Organisation",
-     "description": "Entités : EPC2i, partenaires (EPC France…)",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "facilities",
@@ -39522,9 +39522,9 @@
      "pk": [
       "code"
      ],
-     "domain": "Organisation",
-     "description": "Installations d’essai : laboratoire 67, PDE…",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "facility_partners",
@@ -39573,9 +39573,9 @@
       "facility_code",
       "entity_code"
      ],
-     "domain": "Organisation",
-     "description": "Entités partenaires d’une installation partagée",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Organisation et droits",
+     "description": "Partner entities a facility is shared with (laboratoire 67 → EPC France).",
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "job_runs",
@@ -39628,9 +39628,9 @@
      "pk": [
       "name"
      ],
-     "domain": "Socle",
-     "description": "Tâches planifiées : dernier passage et bail",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Plateforme",
+     "description": "Scheduled jobs (src/server/jobs): last run and a lease, so that several runners never run the same job at once.",
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "projects",
@@ -39723,9 +39723,9 @@
      "pk": [
       "code"
      ],
-     "domain": "Organisation",
-     "description": "Projets R&D demandeurs, classe de priorité, lien Keystone",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "role_assignments",
@@ -39818,9 +39818,9 @@
      "pk": [
       "id"
      ],
-     "domain": "Organisation",
-     "description": "Rôles des comptes et leur portée (global, entité, installation, projet)",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "sites",
@@ -39873,9 +39873,9 @@
      "pk": [
       "code"
      ],
-     "domain": "Organisation",
-     "description": "Sites des installations (code Matrix à terme)",
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {
      "name": "users",
@@ -39975,12 +39975,13 @@
      "pk": [
       "id"
      ],
-     "domain": "Organisation",
-     "description": "Comptes (Entra ID)",
+     "domain": "Organisation et droits",
+     "description": null,
      "sensitive": [
-      "entra_object_id"
+      "entra_object_id",
+      "email"
      ],
-     "vueLe": "2026-10-22T15:22:18.608Z"
+     "vueLe": "2026-10-22T15:20:33.000Z"
     }
    ],
    "source": "dépôt (migrations Drizzle)"

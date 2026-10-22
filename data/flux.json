@@ -1,5 +1,5 @@
 {
-  "_lisezmoi": "Connaissance inter-applications saisie à la main d'après le code des quatre dépôts (15 octobre 2026), puis les contrats d'Arche (docs/CONTRATS.md, 22 octobre 2026) et les demandes de Crucible (docs/DEMANDES-*.md, même jour). Le collecteur ne peut pas la déduire des schémas. statut : reel = implémenté des deux côtés ; partiel = un seul côté est implémenté ; simule = remplacé par une écriture locale ; propose = contrat écrit mais rien de construit ; copie = données recopiées par le jeu de démo, sans synchronisation ; prevu = annoncé dans l'interface ou la doc.",
+  "_lisezmoi": "Connaissance inter-applications saisie à la main d'après le code des quatre dépôts (15 octobre 2026), puis les contrats d'Arche (docs/CONTRATS.md, 22 octobre 2026) et les demandes de Crucible (docs/DEMANDES-MATRIX.md, 22 octobre 2026). Le collecteur ne peut pas la déduire des schémas. statut : reel = implémenté des deux côtés ; partiel = un seul côté est implémenté ; simule = remplacé par une écriture locale ; propose = contrat écrit mais rien de construit ; copie = données recopiées par le jeu de démo, sans synchronisation ; prevu = annoncé dans l'interface ou la doc.",
   "flux": [
     {
       "id": "F01", "nom": "Verdict Go / No Go par chantier",
@@ -263,30 +263,59 @@
       "note": "Arche, décisions C-12 et N-17. Le droit de lecture n'est pas encore posé (demande à confirmer)."
     },
     {
-      "id": "F22", "nom": "Projets et jalons vus de Crucible",
+      "id": "F22", "nom": "Projets et jalons pour la planification des essais",
       "de": "keystone", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "keystone.pub_projets (existe) ; pub_jalons_projets (demande K-2 de Crucible, R-189 d'Arche, à créer dans Keystone)", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
-      "source": ["projects"], "cible": ["projects", "project_milestones"],
+      "point": "keystone.pub_projets (existe) ; pub_jalons (K-2 de Crucible, à créer dans Keystone)", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
+      "source": ["projects"], "cible": ["projects"],
       "champs": [
-        ["pub_projets.code", "projects.keystone_code (lien facultatif, S-1)"],
-        ["pub_jalons_projets : date, criticité", "project_milestones (source Keystone quand publiée, sinon saisie)"]
+        ["pub_projets : code, nom, client, statut", "projets de Crucible (projects.code ; saisis dans Crucible en attendant)"],
+        ["pub_jalons : jalon, mois prévu, statut, fin de l'activité liée", "rétro-planification des essais (livraison L3)"]
       ],
-      "note": "Crucible, docs/DEMANDES-KEYSTONE.md (K-1 à K-3) ; D02."
+      "note": "Crucible, docs/DEMANDES-MATRIX.md M-4 et docs/DEMANDES-KEYSTONE.md K-2 (décision S-2)."
     },
     {
       "id": "F23", "nom": "Opérateurs, habilitations et absences",
       "de": "cursus", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "cursus.pub_salaries, pub_titres, pub_titres_detenus (existent) ; pub_absences sans motif (demande CU-1, à créer dans Cursus)", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
-      "source": ["employes", "hab_titres", "absences"], "cible": ["people", "skills", "person_skills", "absences"],
+      "point": "cursus.pub_salaries, pub_titres, pub_titres_detenus (existent) ; pub_absences sans motif (CU-1 de Crucible, à créer dans Cursus)", "auth": "Rôle crucible_app, convention de partage",
+      "source": ["employes", "hab_titres", "habilitations", "absences"], "cible": [],
       "champs": [
-        ["employes.matricule", "people.matricule"],
-        ["titres détenus, date d'expiration", "person_skills (habilitations exigées par type d'essai)"],
-        ["absences : du, au, demi-journées, statut (sans motif)", "absences (opérateur non planifiable)"]
+        ["matricule, nom, habilitations détenues et leur échéance", "opérateurs qualifiés d'un moyen d'essai"],
+        ["absences validées ou demandées (du, au, demi-journées), sans motif", "ne pas planifier un opérateur absent (livraison L4)"]
       ],
-      "note": "Crucible, docs/DEMANDES-CURSUS.md (CU-1 à CU-3) ; D01, D07 à D09."
+      "note": "Crucible, M-4 et docs/DEMANDES-CURSUS.md CU-1 (décision S-3)."
     },
     {
-      "id": "F24", "nom": "Contrôles périodiques et interventions qui suspendent les essais",
+      "id": "F24", "nom": "Moyens d'essais et réservations confirmées",
+      "de": "crucible", "vers": "keystone", "mode": "Vue pub_ (lecture)", "statut": "propose",
+      "point": "crucible.pub_moyens, pub_reservations (livraison L3 de Crucible)", "auth": "Rôle keystone_app, convention de partage (droits posés d'avance par partage/90-droits.sql)",
+      "source": ["facilities", "projects"], "cible": [],
+      "champs": [
+        ["pub_reservations : moyen, projet, début, fin, statut", "essais planifiés dans le planning d'un projet (K-4 de Crucible, facultatif)"]
+      ],
+      "note": "Crucible, décision S-5."
+    },
+    {
+      "id": "F25", "nom": "Réservations pour la coactivité",
+      "de": "crucible", "vers": "vigie", "mode": "Vue pub_ (lecture)", "statut": "propose",
+      "point": "crucible.pub_reservations, pub_moyens (livraison L3 de Crucible)", "auth": "Rôle vigie_app, convention de partage (droits posés d'avance par partage/90-droits.sql)",
+      "source": ["facilities", "facility_partners"], "cible": ["prevention_plans"],
+      "champs": [
+        ["réservations d'un moyen partagé (laboratoire 67 et EPC France) : moyen, entité, début, fin", "détection de la coactivité et plans de prévention"]
+      ],
+      "note": "Crucible, docs/DEMANDES-VIGIE.md V-3 (décision R-7). Le plan de prévention reste dans Vigie."
+    },
+    {
+      "id": "F26", "nom": "Références documentaires des essais",
+      "de": "codex", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "prevu",
+      "point": "codex.pub_documents, pub_revisions_document", "auth": "Rôle crucible_app, convention de partage",
+      "source": ["documents", "revisions"], "cible": [],
+      "champs": [
+        ["identifiant et révision Codex", "références d'un moyen ou d'un essai (Crucible ne stocke aucun fichier)"]
+      ],
+      "note": "Crucible, M-4 (livraison L3)."
+    },
+    {
+      "id": "F27", "nom": "Contrôles périodiques et interventions qui suspendent les essais",
       "de": "vigie", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "prevu",
       "point": "vigie.pub_controles, pub_suspensions_essais (demandes V-1 et V-2 de Crucible, à créer dans Vigie)", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
       "source": ["controls", "control_records", "site_activities"], "cible": ["unavailabilities"],
@@ -295,36 +324,6 @@
         ["activités de coactivité : zone, du, au", "unavailabilities (intervention extérieure, R-7)"]
       ],
       "note": "Crucible, docs/DEMANDES-VIGIE.md ; D23, option A (22/10/2026) : Vigie fait foi."
-    },
-    {
-      "id": "F25", "nom": "Moyens d'essai et réservations confirmées vus de Keystone",
-      "de": "crucible", "vers": "keystone", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "crucible.pub_moyens, pub_reservations (livraison 2 de Crucible)", "auth": "Rôle keystone_app, convention de partage",
-      "source": ["resources", "bookings"], "cible": [],
-      "champs": [
-        ["pub_reservations : moyen, projet, début, fin, statut", "planning des projets EPC2i"]
-      ],
-      "note": "Crucible, docs/spec/02-objets.md § 7."
-    },
-    {
-      "id": "F26", "nom": "Réservations pour la coactivité et les plans de prévention",
-      "de": "crucible", "vers": "vigie", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "crucible.pub_reservations, pub_moyens (livraison 2 de Crucible)", "auth": "Rôle vigie_app, convention de partage",
-      "source": ["resources", "bookings"], "cible": [],
-      "champs": [
-        ["pub_reservations : moyen, entité, début, fin", "détection de coactivité (EPC France au laboratoire 67), plans de prévention"]
-      ],
-      "note": "Crucible, demande V-3 à Vigie."
-    },
-    {
-      "id": "F27", "nom": "Justifications techniques et analyses de risque",
-      "de": "codex", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "codex.pub_documents, pub_revisions_document", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
-      "source": ["documents", "revisions"], "cible": ["substitutions", "exclusion_rules"],
-      "champs": [
-        ["identifiant et révision Codex", "référence de la justification d'une substitution ou de l'analyse de risque d'une règle d'exclusion"]
-      ],
-      "note": "Crucible ne stocke aucun fichier ; droit de lecture posé par 90-droits.sql."
     }
   ],
   "externes": [

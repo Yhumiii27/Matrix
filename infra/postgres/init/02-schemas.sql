@@ -56,7 +56,7 @@ COMMENT ON SCHEMA codex    IS 'Codex (GED) : tables et journal des migrations (_
 COMMENT ON SCHEMA cursus   IS 'Cursus (RH) : tables et journal des migrations (schema_migrations). Propriétaire cursus_app.';
 COMMENT ON SCHEMA vigie    IS 'Vigie (QHSE) : tables et journal des migrations (__drizzle_migrations). Propriétaire vigie_app.';
 COMMENT ON SCHEMA arche    IS 'Arche (CAPEX des filiales, méthode DIG-PRODI) : tables et journal des migrations. Propriétaire arche_app.';
-COMMENT ON SCHEMA crucible IS 'Crucible (planification des moyens d''essai R&D partagés) : tables et journal des migrations (__drizzle_migrations). Propriétaire crucible_app.';
+COMMENT ON SCHEMA crucible IS 'Crucible (moyens d''essais R&D partagés) : tables et journal des migrations (__drizzle_migrations). Propriétaire crucible_app.';
 COMMENT ON SCHEMA matrix   IS 'Matrix (catalogue des bases) : catalogue, correspondances, historique, journal. Propriétaire matrix_app.';
 
 -- Paramètres de session, appliqués à chaque connexion de l'outil sur epc2i (y compris derrière PgBouncer,

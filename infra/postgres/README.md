@@ -22,7 +22,7 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 | Base | `epc2i`, UTF-8, tri `C`, classes de caractères `C.UTF-8`, fuseau des sessions `UTC`, format de date `ISO, MDY`. Ce sont les réglages de PGlite : les outils trient et lisent les dates comme aujourd'hui. |
 | Schémas | `keystone`, `codex`, `cursus`, `vigie`, `arche`, `crucible`, `matrix` (un propriétaire chacun) ; `droits` (propriétaire : le superutilisateur) ; `extensions` (propriétaire : le superutilisateur ; extension `pg_trgm`, index de recherche de Codex ; `USAGE` à `codex_app` seul, fermé aux autres outils) ; `public` fermé à tous. |
 | Rôles de connexion | `keystone_app`, `codex_app`, `cursus_app`, `vigie_app`, `arche_app`, `crucible_app` : propriétaire de son seul schéma, `search_path` = son schéma, aucun droit `CREATE` sur la base. Dans le schéma d'un autre outil, seulement `USAGE` et `SELECT` sur ses vues `pub_`, posés par `partage/90-droits.sql` (convention de partage). `matrix_app` : propriétaire de `matrix`, membre de `matrix_lecture`. `epc2i_sauvegarde` : membre de `pg_read_all_data`. |
-| Rôles de groupe | `matrix_lecture` : `SELECT` sur les six schémas des outils, sauf les colonnes sensibles. `matrix_admin` : tous les droits sur les sept schémas, attribué nominativement, requêtes journalisées. |
+| Rôles de groupe | `matrix_lecture` : `SELECT` sur les cinq schémas des outils, sauf les colonnes sensibles. `matrix_admin` : tous les droits sur les six schémas, attribué nominativement, requêtes journalisées. |
 | Fonctions | `droits.appliquer_droits()`, `droits.verifier()`, `droits.declarer_admin(nom)`. |
 | Tables du schéma `droits` | `colonnes_sensibles` (liste des colonnes sensibles), `relations_protegees` (tables déjà traitées), `partage_lecteurs` (lecteurs attendus des vues `pub_`, écrits par `partage/90-droits.sql`). |
 | Déclencheurs | `droits_ddl` (fin de chaque `CREATE`, `ALTER`, `GRANT`, `REVOKE`) et `droits_suppression` (`DROP`). |
@@ -84,7 +84,7 @@ Chaque outil reçoit une seule nouvelle variable obligatoire, `DATABASE_URL`, av
 | Cursus | `postgres://cursus_app:<CURSUS_APP_PASSWORD>@<hôte>:5432/epc2i` | `CURSUS_DEMO=0` en production ; `CURSUS_SECRET` (clé des sessions) ; `CURSUS_PG_POOL` ; `CURSUS_DB` ne sert plus qu'au repli SQLite. |
 | Vigie | `postgres://vigie_app:<VIGIE_APP_PASSWORD>@<hôte>:5432/epc2i` | `VIGIE_DEMO=1` (démonstration, bêta seulement : jeu de données chargé une fois, sélecteur de rôle ; sans elle, Vigie démarre vide sur « Créer le premier site ») ; `VIGIE_UPLOAD_DIR` et `VIGIE_BACKUP_DIR` restent nécessaires (pièces jointes, sauvegardes). |
 | Arche | `postgres://arche_app:<ARCHE_APP_PASSWORD>@<hôte>:5432/epc2i` | Outil CAPEX des filiales (dépôt `Yhumiii27/Arche`, livraison 0 : cadrage, pas encore de code). Schéma et rôle prêts depuis le 22/10/2026 ; vues `arche.pub_capex`, `pub_besoins_machines`, `pub_rampup`, `pub_journal` accordées par `partage/90-droits.sql` dès qu'Arche les crée. |
-| Crucible | `postgres://crucible_app:<CRUCIBLE_APP_PASSWORD>@<hôte>:5432/epc2i` | Planification des moyens d'essai R&D partagés (dépôt `Yhumiii27/Crucible`, livraison 1 : socle). PostgreSQL seulement, tables dans le schéma `crucible`. Schéma et rôle prêts depuis le 22/10/2026 ; `crucible.pub_journal` copiée par `partage/80-crucible.sql`, puis `pub_moyens`, `pub_reservations`, `pub_occupation_hebdo` accordées par `partage/90-droits.sql` dès que Crucible les crée. |
+| Crucible | `postgres://crucible_app:<CRUCIBLE_APP_PASSWORD>@<hôte>:5432/epc2i` | Planification des moyens d'essais R&D partagés (dépôt `Yhumiii27/Crucible`, PostgreSQL seulement). `CRUCIBLE_SEED` (`demo` ou `production`, lu sur un schéma vide par `npm run db:migrate`). Schéma et rôle prêts depuis le 22/10/2026 ; `crucible.pub_journal` (migration `0002_share_journal`, `partage/80-crucible.sql`) accordée à Matrix, `pub_moyens` et `pub_reservations` accordées d'avance à Keystone et Vigie par `partage/90-droits.sql`. |
 | Matrix | `postgres://matrix_app:<MATRIX_APP_PASSWORD>@<hôte>:5432/epc2i` | Lecture des outils par `matrix_lecture`, écriture dans `matrix`. |
 
 Règles communes :
@@ -115,7 +115,7 @@ CALL droits.declarer_admin('prenom_nom');
 \password prenom_nom
 ```
 
-`declarer_admin` crée le rôle s'il n'existe pas, l'ajoute à `matrix_admin` et pose `log_statement = 'all'`, que seul un superutilisateur peut retirer. L'administrateur lit et écrit dans les schémas des outils et de Matrix, colonnes sensibles comprises. Pour une opération de structure exceptionnelle, il prend le rôle de l'outil (`SET ROLE vigie_app;`), ce qui est aussi journalisé. Pour retirer un administrateur : `REVOKE matrix_admin FROM prenom_nom; DROP ROLE prenom_nom;`.
+`declarer_admin` crée le rôle s'il n'existe pas, l'ajoute à `matrix_admin` et pose `log_statement = 'all'`, que seul un superutilisateur peut retirer. L'administrateur lit et écrit dans les cinq schémas, colonnes sensibles comprises. Pour une opération de structure exceptionnelle, il prend le rôle de l'outil (`SET ROLE vigie_app;`), ce qui est aussi journalisé. Pour retirer un administrateur : `REVOKE matrix_admin FROM prenom_nom; DROP ROLE prenom_nom;`.
 
 Le superutilisateur `postgres` ne sert qu'à l'administration du socle et ne doit être utilisé par aucun outil.
 

@@ -24,7 +24,7 @@ La convention :
 | 2 | `50-vigie.sql` | `vigie_app` | Contrôle des prérequis (migrations `0008`, `0009`), copie des 3 vues `vigie.pub_*` de `0009_partage` (D13, D18) |
 | — | `60-vigie-ecr-eco.sql` | `vigie_app` | **À ne pas jouer tant que le module ECR / ECO n'existe pas dans Vigie** (aucune de ses tables dans Vigie au 18/10/2026). Spécification des tables ECR / ECO (D12) et de leurs vues `pub_`, à reporter dans les migrations de Vigie. |
 | 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche, copie de `arche.pub_journal` (D18) et `arche.pub_capex` |
-| 2 | `80-crucible.sql` | `crucible_app` | Contrôle des migrations de Crucible, copie de `crucible.pub_journal` (D18, migration `0002_share_journal`) |
+| 2 | `80-crucible.sql` | `crucible_app` | Contrôle des migrations de Crucible (`0000` à `0002`), copie de `crucible.pub_journal` (D18). `pub_moyens` et `pub_reservations` (lues par Keystone et Vigie, accordées d'avance par 90) viendront avec la livraison L3 de Crucible. |
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues, `GRANT` des lecteurs, contrôle final par `droits.verifier()` |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
 
@@ -35,7 +35,7 @@ Commandes :
 ```sh
 psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
 psql "postgres://cursus_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/20-cursus.sql
-# … 30 (keystone_app), 40 (codex_app), 50 (vigie_app), sur le même modèle ; pas 60 (module ECR / ECO absent de Vigie)
+# … 30 (keystone_app), 40 (codex_app), 50 (vigie_app), 70 (arche_app), 80 (crucible_app), sur le même modèle ; pas 60 (module ECR / ECO absent de Vigie)
 psql -h hôte -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql   # sans -1 : le fichier ouvre sa transaction
 psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/95-matrix-journal-unifie.sql
 ```
@@ -46,7 +46,7 @@ Tous les fichiers sont rejouables.
 
 - Les colonnes prérequises appartiennent à l'outil et sont créées par ses migrations : Keystone `0034_share_prerequisites` (et `0024` pour `persons.matricule`), Codex `0001_partage`, Vigie `0008_partage_prerequis`. `30-keystone.sql` et `50-vigie.sql` ne créent rien : ils s'arrêtent sur « Colonnes absentes du schéma … » si la migration n'est pas passée. `40-codex.sql` garde ses `ADD COLUMN IF NOT EXISTS`, sans effet sur Codex à jour. `20-cursus.sql` crée encore les siens : ils iront dans `server/migrations-pg/` de Cursus à sa bascule.
 - Écarts de Vigie avec la première version de 50 : pas de tables `inductions` (pas de ligne « induction » dans `pub_hse_projet`), `document_actions` (D10) ni `journal` : `pub_journal` lit le journal des modifications `change_log`, sans motif ni détail des champs ; `closed_on` et `vigie_updated_at` de `pub_non_conformites` sont calculés. Écarts de Keystone avec la première version de 30 : `countries.iso2` reste facultatif (pas de `NOT NULL`, comme dans Drizzle), pas de contrainte de forme sur `persons.matricule` (matricules importés de Cursus).
-- `90-droits.sql` vient après 10 à 50. Une vue absente est signalée par un WARNING (aujourd'hui les 4 vues ECR / ECO de 60) ; il suffit de relancer 90 quand elle existe.
+- `90-droits.sql` vient après 10 à 80. Une vue absente est signalée par un WARNING (aujourd'hui les 4 vues ECR / ECO de 60, et les vues demandées pas encore publiées : celles de Keystone pour Arche et Crucible, `cursus.pub_absences`, `arche.pub_besoins_machines`, `pub_rampup`, `pub_rex`, `crucible.pub_moyens`, `pub_reservations`) ; il suffit de relancer 90 quand elle existe.
 - Le contrôle de 90 s'exécute avant tout `GRANT`. Il refuse le partage si une vue `pub_` lit une colonne sensible, dépend d'un autre schéma, n'appartient pas au propriétaire de son schéma ou utilise `security_invoker`. Après les `GRANT`, `droits.verifier()` contrôle l'ensemble (voir « Contrôle par le socle »).
 - `95` vient après 90 : il réunit les `pub_journal` accordées à `matrix_app`, contrôle qu'elles suivent le contrat commun (11 colonnes, mêmes noms et types, dans le même ordre) et laisse de côté, avec un WARNING, celles des outils pas encore basculés. Il se rejoue après chaque bascule.
 - Les lecteurs n'ont pas de vue locale sur les vues d'un autre outil : ils lisent la vue `pub_` au moment du besoin, ou rafraîchissent un cache dans leur propre schéma (`codex.projects`, `codex.users`, `codex.departments`, `codex.sites`, `keystone.persons`, `keystone.departments`, `keystone.document_types`, miroirs `keystone.vigie_*`, `vigie.people`, `vigie.sites`, `vigie.training_titles`, `vigie.keystone_assignments`, `cursus.projets`, `cursus.equipes`, `cursus.missions`). Ce rafraîchissement relève du code des lecteurs et vient après 90 (`docs/convergence-des-donnees.md`, § 1.3).
@@ -76,6 +76,14 @@ Tous les fichiers sont rejouables.
 Le contrôle de 90 (étape 1) garde sa propre liste, un peu plus large que `droits.colonnes_sensibles` : elle contient aussi `cursus.employes.reprise_date`, que la convention de partage exclut des vues `pub_`. Pour `matrix_lecture`, le classement de cette colonne reste la question P-04 de `docs/architecture-postgres.md`.
 
 ## Essais
+
+Essai du 22/10/2026 (ajout de Crucible), sur PostgreSQL 16 (image du socle), en connexions réelles par mot de passe :
+
+- socle neuf : `init/01` à `03` sans écart, rejoués deux fois sans écart ; `../verifier-droits.sql` : 126 cas conformes (cas 170 à 175 pour Crucible) ;
+- mise à jour d'un serveur en service : volume initialisé par l'image de `main` (sans Crucible), puis redémarré sur la nouvelle image avec `CRUCIBLE_APP_PASSWORD` ; rejeu de `init/01` à `03` : schéma `crucible` et rôle `crucible_app` créés, `droits.verifier()` sans erreur ni attention. Sans `CRUCIBLE_APP_PASSWORD`, le nouveau `init/01` s'arrête sur « Mots de passe manquants : rien n'a été modifié » ;
+- Crucible en `crucible_app` (`npm run db:migrate`, `CRUCIBLE_SEED=demo`) : migrations `0000` à `0002` appliquées (11 tables et `pub_journal`), démonstration chargée ; second passage sans effet ;
+- fichiers 80, 10, 90, 95 deux fois : `crucible.pub_journal` identique avant et après 80 (définition, options, commentaire) ; 90 : 7 vues contrôlées et accordées, les vues demandées absentes signalées, `droits.verifier()` sans erreur ; `matrix.journal_unifie` réunit le journal de Crucible ; rejeu du socle ensuite sans écart, `../verifier-droits.sql` : 126 cas conformes ;
+- `matrix_app` refusé sur `crucible.users.email` et `entra_object_id`, lit les autres colonnes ; `crucible_app` lit `matrix.pub_sites` et `pub_organigramme`, refusé sur `matrix.pub_pays` ; `sauvegarde/sauvegarder.sh` produit `crucible.dump`.
 
 Essai du 22/10/2026 (lot 11 de Codex), sur un PostgreSQL 18.3 neuf, en connexions réelles par mot de passe :
 

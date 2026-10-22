@@ -533,7 +533,9 @@ SQLite reste le repli local (application Mac, développement, tests rapides) : a
 
 Migrations : dossier `server/migrations-pg/`, fichiers appliqués dans l'ordre au démarrage, journal `cursus.schema_migrations (nom text primary key, appliquee_le timestamptz)`. Le verrou `hashtext('cursus.migrations')` est pris **avant** de créer le journal (le prototype le créait avant, comme Vigie). Chaque fichier passe dans une transaction.
 
-### 8.4 Schéma cible : `infra/postgres/cursus/schema.sql`
+### 8.4 Schéma cible : `infra/postgres/cursus/schema.sql` (remplacé le 22/10/2026)
+
+Mise à jour du 22/10/2026 : le schéma de Cursus est désormais celui de ses migrations (`server/migrations-pg/0001_init.sql`, 50 tables, et `0002_partage.sql`, dépôt Cursus, PR 8.b). `infra/postgres/cursus/schema.sql` (28 tables) est supprimé de Matrix ; `partage/20-cursus.sql` est la copie qualifiée de `0002_partage`. Le texte ci-dessous décrit le plan initial.
 
 28 tables, noms inchangés, 37 clés étrangères, 8 unicités (7 contraintes et un index sur `lower(equipes.nom)`), 56 contraintes `CHECK`, 12 index. Le fichier suit le format de drizzle-kit, avec des noms qualifiés (`"cursus"."employes"`). Le collecteur de Matrix (`outils/collecteur.mjs`, `parseDrizzle`) les lit depuis le 15/10/2026 : 28 tables et 37 clés lues sur ce fichier (0 avant le changement). La vue `heures_validees` du prototype n'y est plus : les vues versionnées `heures_validees_v1`, `absences_validees_v1`, `annulations_v1` et `heures_site_mois_v1` (`docs/remplacement-lucca.md`, § 3.9) la remplacent dans la migration `echanges_rh`, qui ajoute les colonnes dont elles ont besoin (`feuilles.version`, `valide_le`, `site`, `rouverte_le` ; `absences.version`, `valide_le`, `annule_le`).
 

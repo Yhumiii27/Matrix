@@ -7,6 +7,114 @@ Format d'une entrée :
 - Détails techniques : (tables, champs, types, endpoints, exemples)
 - Validé par Guillaume le : (date)
 
+> Entrées recopiées le 22/10/2026 depuis les fichiers `docs/DEMANDES-MATRIX.md` d'Arche et de Crucible, rédigés avant
+> l'ouverture de cette boîte aux lettres. Le détail technique complet reste dans ces fichiers.
+
+## [2026-10-22] Arche → Matrix — M-1 · Rôle `arche_app`
+- Statut : FAITE
+- Demande : rôle de connexion `arche_app` (mot de passe `ARCHE_APP_PASSWORD`, SCRAM), accordé à `matrix_admin`, `CONNECT` sur `epc2i`.
+- Justification : Arche tourne sur PostgreSQL uniquement, sur le serveur commun.
+- Détails techniques : `infra/postgres/init/01-base-et-roles.sql`. Fait dans Yhumiii27/Matrix#10.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-2 · Schéma `arche`
+- Statut : FAITE
+- Demande : schéma `arche` propriété de `arche_app`, `search_path` et délai d'inactivité en transaction.
+- Justification : les tables d'Arche sont déclarées dans son schéma (`arche.table(…)`).
+- Détails techniques : `init/02-schemas.sql`. Fait dans Yhumiii27/Matrix#10.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-3 · Droits de base et colonnes sensibles
+- Statut : FAITE (avec un écart)
+- Demande : `arche` / `arche_app` partout où les outils sont énumérés (droits par défaut, contraintes du schéma `droits`, `droits.verifier()`) ; colonnes sensibles `users.email`, `users.entra_object_id`, `signatures.ip_hash`.
+- Justification : Matrix lit les tables d'Arche sans les données d'identité ni de sécurité.
+- Détails techniques : `init/03-droits.sql`. Écart : `users.email` n'est pas protégée, parce que `arche.pub_capex` publie `sponsor_email` et `chef_projet_email` (une vue `pub_` ne peut pas lire une colonne sensible). La protéger demanderait une `pub_capex_v2` sans ces colonnes.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-4 · Fichier de partage `70-arche.sql`
+- Statut : FAITE
+- Demande : copie qualifiée des vues `pub_` d'Arche, rejouable.
+- Justification : convention de partage (règle P-02 : l'outil crée ses vues, Matrix en garde la copie).
+- Détails techniques : `partage/70-arche.sql` : `arche.pub_journal`, `arche.pub_capex`. `pub_besoins_machines` et `pub_rampup` viendront avec les livraisons d'Arche qui les créent.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-5 · Droits des lecteurs
+- Statut : FAITE
+- Demande : Arche lit les vues `pub_` de Keystone (projets, livrables, parc machines, puis les vues R-186 à R-191), de Codex (documents, révisions, validations, types) et de Matrix (pays, sites, organigramme) ; Keystone et Matrix lisent `arche.pub_capex`, `pub_besoins_machines`, `pub_rampup`, Matrix `arche.pub_journal`.
+- Justification : liens d'Arche avec les projets EPC2i et les documents.
+- Détails techniques : `partage/90-droits.sql`. Les vues pas encore publiées sont signalées sans erreur.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-6 · Journal unifié
+- Statut : FAITE
+- Demande : ajouter `arche.pub_journal` à `matrix.journal_unifie`.
+- Justification : décision D18 (journaux consultés ensemble par Matrix).
+- Détails techniques : `partage/95-matrix-journal-unifie.sql`.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-7 · Sauvegardes et vérifications
+- Statut : FAITE
+- Demande : schéma `arche` dans la sauvegarde ; cas d'essai d'`arche_app` dans le contrôle des droits.
+- Justification : même niveau de garantie que les autres outils.
+- Détails techniques : `sauvegarde/sauvegarder.sh` ; `verifier-droits.sql`, cas 160 à 165.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-8 · Déclaration des tables
+- Statut : FAITE
+- Demande : accepter `app: 'arche'` sur `/api/declarations` ; Arche dans le collecteur et le catalogue.
+- Justification : Arche déclarera ses tables avec son connecteur Matrix.
+- Détails techniques : `serveur.mjs`, `outils/collecteur.mjs`, `data/catalogue.json`.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-9 · Filiales dans le référentiel d'organisation
+- Statut : FAITE
+- Demande : zones, filiales (code à 3 lettres, pays, zone, devise) et leurs sites publiés par Matrix.
+- Justification : Arche pilote les CAPEX par filiale ; la filiale est aussi le client des projets EPC2i dans Keystone.
+- Détails techniques : décision D21 (option A, Matrix fait foi) : `matrix.zones`, `matrix.filiales`, `matrix.sites.filiale_code` ; vues `pub_zones`, `pub_filiales`, `pub_sites`. Listes encore vides, en attente de la liste réelle des filiales. Côté Arche, ses tables `zones`, `subsidiaries` et `sites` deviennent des miroirs.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Crucible → Matrix — M-1 · Rôle `crucible_app`
+- Statut : FAITE
+- Demande : rôle de connexion `crucible_app` (`CRUCIBLE_APP_PASSWORD`, SCRAM), accordé à `matrix_admin`, `CONNECT` sur `epc2i`.
+- Justification : Crucible tourne sur PostgreSQL uniquement, sur le serveur commun.
+- Détails techniques : `init/01-base-et-roles.sql`. Fait dans Yhumiii27/Matrix#14.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Crucible → Matrix — M-2 · Schéma `crucible`
+- Statut : FAITE
+- Demande : schéma `crucible` propriété de `crucible_app`, `search_path` et délai d'inactivité en transaction.
+- Justification : les tables de Crucible sont déclarées dans son schéma (`crucible.table(…)`).
+- Détails techniques : `init/02-schemas.sql`. Fait dans Yhumiii27/Matrix#14.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Crucible → Matrix — M-3 · Droits de base et colonnes sensibles
+- Statut : FAITE
+- Demande : `crucible` / `crucible_app` partout où les outils sont énumérés ; colonnes sensibles `crucible.users.email` et `crucible.users.entra_object_id`.
+- Justification : Matrix lit les tables de Crucible sans les données d'identité.
+- Détails techniques : `init/03-droits.sql` ; les deux colonnes sont fermées à `matrix_lecture` ; cas 170 à 175 de `verifier-droits.sql`.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Crucible → Matrix — M-4 · Partage et droits des lecteurs
+- Statut : FAITE
+- Demande : fichier `partage/80-crucible.sql` ; Crucible lit `keystone.pub_projets` (puis les jalons), `cursus.pub_salaries`, `pub_titres`, `pub_titres_detenus` (puis `pub_absences`), `codex.pub_documents`, `pub_revisions_document`, `matrix.pub_sites`, `pub_organigramme` ; Keystone et Vigie lisent `crucible.pub_reservations` et `pub_moyens`.
+- Justification : planifier les essais à partir des projets, des opérateurs habilités et des documents ; publier les réservations pour le planning des projets et la coactivité.
+- Détails techniques : `partage/80-crucible.sql` (copie de `crucible.pub_journal`) et `partage/90-droits.sql`. Complété par Yhumiii27/Matrix#15 : `matrix.pub_filiales` (D21), `vigie.pub_controles` et `pub_suspensions_essais` (D23) accordées à `crucible_app`.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Crucible → Matrix — M-5 · Journal unifié, déclaration et catalogue
+- Statut : FAITE
+- Demande : `crucible.pub_journal` dans le journal unifié ; application `crucible` acceptée par `/api/declarations`, le catalogue et le collecteur.
+- Justification : décision D18 ; Crucible visible dans la bibliothèque et le graphe de Matrix.
+- Détails techniques : `partage/95-matrix-journal-unifie.sql`, `serveur.mjs`, `outils/collecteur.mjs`, `data/catalogue.json` (11 tables), flux F22 à F27, doublons (D23 nouveau).
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Crucible → Matrix — M-6 · Sites du laboratoire 67 et du PDE, entité EPC France
+- Statut : OUVERTE
+- Demande : ajouter au référentiel des sites de Matrix le site du laboratoire 67 et celui du PDE, s'ils ne sont pas Lyon, Le Havre ou Marseille ; ajouter EPC France à la liste des filiales (D21).
+- Justification : `crucible.sites` et `crucible.entities` doivent reprendre les codes de Matrix (décisions D14 et D21) au lieu de tenir leur propre liste.
+- Détails techniques : saisie dans l'écran « Référentiels » de Matrix (`data/referentiels.json`, tables `matrix.sites` et `matrix.filiales`). Il manque la localisation des deux sites (question P-1 de Crucible) et le code à 3 lettres d'EPC France.
+- Validé par Guillaume le :
+
 ## [2026-10-22] Vigie → Matrix — Déclarer sensibles les colonnes de santé des maladies professionnelles
 - Statut : OUVERTE
 - Demande : ajouter à la liste des colonnes sensibles de Matrix les 6 colonnes de `vigie.events` créées par la migration 0010 de Vigie pour les maladies professionnelles (type d'événement `MP`) : `mp_table`, `mp_disease`, `mp_certificate_on`, `mp_informed_on`, `mp_questionnaire_received_on`, `mp_questionnaire_returned_on` ; puis rejouer `infra/postgres/init/03-droits.sql` et `infra/postgres/partage/90-droits.sql` et contrôler par `droits.verifier()`.

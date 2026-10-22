@@ -1,11 +1,11 @@
 # Serveur PostgreSQL commun : plan de migration des quatre outils
 
-État au 15 octobre 2026, mis à jour le 18 octobre (décision P-02, bascule de Keystone et de Vigie, données de santé de Vigie). Ce plan met en œuvre deux décisions de l'utilisateur (`docs/decisions.md`) :
+État au 15 octobre 2026, mis à jour le 18 octobre (décision P-02, bascule de Keystone et de Vigie, données de santé de Vigie) et le 22 octobre (lot 11 de Codex : § 4.5, § 6 ; schéma `extensions` ; proposition PostgreSQL 18, P-01). Ce plan met en œuvre deux décisions de l'utilisateur (`docs/decisions.md`) :
 
 - **M-01** : « Oui, je valide le format postgreSQL commun avec un schema par outil ».
 - **M-03 / D06** : « Ce n'est pas certain que Cursus remplace Lucca a ce stade mais prépare tout comme si cela est le cas. » Le groupe D06 (temps passés) suit donc l'option A : Cursus fait foi pour la saisie des heures, Keystone et Vigie reçoivent les heures validées. Le choix reste réversible.
 
-Le socle du serveur est écrit et essayé : `infra/postgres/` (mise en service dans `infra/postgres/README.md`). Au 18/10/2026, Codex est basculé (fusionné dans `main`), Keystone et Vigie le sont sur leur branche (Yhumiii27/Keystone#15, Yhumiii27/Vigie#7), Cursus reste à faire (§ 8). Les flux d'heures et d'absences (contrats, changements fonctionnels par outil) sont décrits dans `docs/remplacement-lucca.md` ; ce plan-ci en traite la partie base de données.
+Le socle du serveur est écrit et essayé : `infra/postgres/` (mise en service dans `infra/postgres/README.md`). Au 18/10/2026, Codex est basculé (fusionné dans `main` ; le lot 11 du 22/10/2026 en reprend le migrateur et la concurrence, § 4.5 et § 6), Keystone et Vigie le sont sur leur branche (Yhumiii27/Keystone#15, Yhumiii27/Vigie#7), Cursus reste à faire (§ 8). Les flux d'heures et d'absences (contrats, changements fonctionnels par outil) sont décrits dans `docs/remplacement-lucca.md` ; ce plan-ci en traite la partie base de données.
 
 Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles communes aux outils Drizzle · 5. Keystone · 6. Codex · 7. Vigie · 8. Cursus · 9. Heures validées (D06) · 10. Ordre de bascule · 11. Ce que lit Matrix · 12. Risques · 13. Charge · 14. Questions ouvertes.
 
@@ -28,7 +28,7 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 | Fuseau des sessions | `UTC` (`ALTER DATABASE epc2i SET timezone`) | PGlite est en `Etc/GMT0` : Keystone lit les horodatages en chaînes, qui gardent le même format. Les journaux du serveur restent en heure de Paris. |
 | Format de date | `ISO, MDY` | Valeur de PGlite. |
 | Schéma `public` | fermé à tous (`REVOKE ALL … FROM PUBLIC`) | Un objet créé sans schéma échoue au lieu d'atterrir là. |
-| Transactions oubliées | `idle_in_transaction_session_timeout = 5min` pour les rôles des outils | Une transaction ouverte et oubliée garderait le verrou d'écriture de l'outil (§ 4.5). |
+| Transactions oubliées | `idle_in_transaction_session_timeout = 5min` pour les rôles des outils | Une transaction ouverte et oubliée garderait ses verrous : le verrou d'écriture de Keystone et de Vigie, les verrous de ligne de Codex (§ 4.5). |
 
 ### 2.2 Schémas et rôles
 
@@ -130,9 +130,9 @@ Keystone, Codex et Vigie ont la même pile (Next.js 16, Drizzle 0.45.3, PGlite 0
 Un seul module choisit le pilote, une fois par processus :
 
 - `DATABASE_URL` présente et non vide : pool `pg` (`drizzle-orm/node-postgres`), `application_name` = nom de l'outil, `options: -c search_path=<schéma>` (le `search_path` est aussi fixé sur le rôle, ce qui suffit derrière PgBouncer) ;
-- sinon : PGlite dans le dossier de données habituel ; Codex y fait `create schema if not exists codex; set search_path to codex` avant les migrations, Keystone et Vigie restent dans `public` (P-02) ;
+- sinon : PGlite dans le dossier de données habituel ; Codex y travaille dans le schéma `codex` (`search_path` « codex, public » posé au démarrage de PGlite, `src/lib/pglite-options.mjs`), Keystone et Vigie restent dans `public` (P-02) ;
 - `next build` ne doit jamais ouvrir le serveur commun : garde sur `process.env.NEXT_PHASE === 'phase-production-build'` (Next fixe cette variable pendant le build), qui force PGlite. Keystone et Vigie ouvrent la base pendant le build ; Codex non, la garde y est ajoutée par précaution ;
-- Codex : une ancienne base PGlite, dont les tables sont dans `public`, est refusée avec un message qui nomme le dossier et le remède : `npm run db:reset` pour `.data`, suppression du dossier de l'application Mac quand `CODEX_DATA_DIR` est fixé (§ 4.6), ou reprise. Sans ce garde-fou, le nouveau code crée le schéma à côté et les anciennes données deviennent invisibles sans avertissement. Keystone et Vigie n'en ont pas besoin en PGlite (rien n'y change) ; sur le serveur, ils refusent une base de l'ancienne disposition (tables de l'outil dans `public`) avec un message qui le dit (§ 5.1, § 7.1).
+- Codex (lot 11, 22/10/2026) : une ancienne base PGlite, dont les tables sont dans `public`, n'est jamais ouverte telle quelle. Celle de la branche v2 au 21/10/2026 (chaîne de migrations `0000` à `0005`, empreintes connues) est **reprise automatiquement** au démarrage, après une sauvegarde : dans une transaction, `public` devient `codex` (tables, données, séquences, fonctions, collation, `pg_trgm`), un `public` vide est recréé, le journal passe dans `codex.__drizzle_migrations`, puis `0001_partage` s'applique. Toute autre (démonstration de `main` d'avant le 17/10/2026, celle du volume Coolify `/data/pglite`) est refusée, intacte, avec un message qui nomme le dossier et le remède : `npm run db:reset` pour `.data`, suppression du dossier `pglite` quand `CODEX_DATA_DIR` est fixé (§ 4.6). Sur un serveur, Codex refuse toute base dont les tables sont dans `public`. Sans ce garde-fou, le nouveau code créerait le schéma à côté et les anciennes données deviendraient invisibles sans avertissement. Keystone et Vigie n'en ont pas besoin en PGlite (rien n'y change) ; sur le serveur, ils refusent une base de l'ancienne disposition (tables de l'outil dans `public`) avec un message qui le dit (§ 5.1, § 7.1).
 
 Type commun aux deux pilotes, essayé dans Keystone (`tsc` sans erreur sur 128 fichiers qui importent `DB` ou `Tx`) :
 
@@ -174,12 +174,12 @@ Le bloc `migrations` ne sert qu'aux commandes de drizzle-kit (`migrate`, `studio
 
 ### 4.3 Migrateur commun
 
-Principe commun aux trois outils, mis en œuvre par chacun : `migrateSchema` ci-dessous dans Codex, `applyServerMigrations` dans Keystone (§ 5.1), `migrateServer` dans Vigie (§ 7.1). Ces deux derniers ajoutent la réécriture `"public".` → `"<schéma>".` de chaque instruction (P-02) et ne servent que sur le serveur ; PGlite y garde `migrate()` de Drizzle (journal `drizzle.__drizzle_migrations`), qui ne pose pas de problème en base embarquée. Partout : journal `<schéma>.__drizzle_migrations`, verrou `hashtext('<schéma>.migrations')` pris avant de créer ou de lire le journal, jamais de `CREATE SCHEMA` sur le serveur commun.
+Principe commun aux trois outils, mis en œuvre par chacun : `applyMigrations` de `src/db/migrations.ts` dans Codex (§ 6.1 ; le `migrateSchema` ci-dessous est la première version, celle de la bascule du 15/10/2026, retirée au lot 11), `applyServerMigrations` dans Keystone (§ 5.1), `migrateServer` dans Vigie (§ 7.1). Ces deux derniers ajoutent la réécriture `"public".` → `"<schéma>".` de chaque instruction (P-02) et ne servent que sur le serveur ; PGlite y garde `migrate()` de Drizzle (journal `drizzle.__drizzle_migrations`), qui ne pose pas de problème en base embarquée. Partout : journal `<schéma>.__drizzle_migrations`, verrou `hashtext('<schéma>.migrations')` pris avant de créer ou de lire le journal, jamais de `CREATE SCHEMA` sur le serveur commun.
 
 `migrate(db, { migrationsSchema })` de Drizzle place bien le journal dans le schéma de l'outil, mais lance d'abord `CREATE SCHEMA IF NOT EXISTS` (`drizzle-orm/pg-core/dialect.js:54`). PostgreSQL vérifie le droit `CREATE` sur la base avant de constater que le schéma existe : `ERROR: permission denied for database epc2i`. Accorder ce droit permettrait à l'outil de créer d'autres schémas, contre la convention. Chaque outil reçoit donc ce migrateur, qui tient le même journal que Drizzle (table `<schéma>.__drizzle_migrations`, colonnes `id`, `hash`, `created_at`, même règle d'ordre) :
 
 ```ts
-// Codex : src/db/migrate.ts
+// Codex, première bascule (15/10/2026) : src/db/migrate.ts, remplacé au lot 11 par src/db/migrations.ts (§ 6.1)
 import 'server-only';
 import { sql } from 'drizzle-orm';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
@@ -213,14 +213,14 @@ export async function migrateSchema(db: DB, migrationsFolder: string): Promise<v
 
 Essais : la même logique a tourné sur PGlite puis sur le serveur en tant que `codex_app`, avec deux instances lancées en même temps (23 tables, une seule ligne au journal). Un journal créé avant la prise du verrou donne, au premier démarrage simultané, une erreur `duplicate key … pg_type_typname_nsp_index` (constaté par l'analyse Keystone) : le verrou passe donc en tête, dans les trois outils.
 
-Les clés de verrou consultatif sont communes à toute la base `epc2i` : chaque outil dérive les siennes de son nom de schéma pour ne jamais bloquer un autre outil : `hashtext('<schéma>.migrations')` pour les migrations, `hashtext('<schéma>.ecritures')` pour les écritures (§ 4.5). Keystone : `keystone.migrations`, `keystone.ecritures` ; Vigie : `vigie.migrations`, `vigie.ecritures` ; Codex : `codex.migrations`, `codex.ecritures`.
+Les clés de verrou consultatif sont communes à toute la base `epc2i` : chaque outil dérive les siennes de son nom de schéma pour ne jamais bloquer un autre outil : `hashtext('<schéma>.migrations')` pour les migrations, `hashtext('<schéma>.ecritures')` pour les écritures (§ 4.5). Keystone : `keystone.migrations`, `keystone.ecritures` ; Vigie : `vigie.migrations`, `vigie.ecritures` ; Codex : `codex.migrations` (verrou de session pris avant de lire le journal) et `codex.seed` (remplissage), pas de verrou d'écriture global (§ 4.5) ; ses autres verrous consultatifs (`codex:import`, `codex:transfer`) sont pris dans la transaction.
 
 ### 4.4 Politique des dépôts sur les migrations
 
 | Outil | Règle du dépôt | Conséquence |
 |---|---|---|
 | Keystone | `CLAUDE.md` : « generate a new one with `npm run db:generate` and never edit an existing one ». | Respectée : aucune migration réécrite (P-02, 18/10/2026) ; le partage arrive par `0034_share_prerequisites` et `0035_share`. |
-| Codex | `CLAUDE.md` : « Tant qu'il n'y a pas de base de production, on régénère une migration unique ». | Migration de base régénérée (`0000_init`, `pgSchema`), puis `0001_partage`. |
+| Codex | `CLAUDE.md` (lot 11) : « Ne plus jamais supprimer `drizzle/` ni régénérer ou modifier une migration déjà commitée ». | Migration de base régénérée une dernière fois le 22/10/2026 (`0000_init`, `pgSchema`), puis `0001_partage`, figées. |
 | Vigie | `CLAUDE.md` : « une migration publiée ne se modifie jamais » ; empreintes dans `drizzle/checksums.json`. | Respectée : aucune migration réécrite (P-02) ; le partage arrive par `0008_partage_prerequis` et `0009_partage`. |
 
 Dans les trois outils, les migrations publiées sont désormais **figées** : uniquement des migrations incrémentales.
@@ -233,7 +233,9 @@ PGlite exécute toutes les requêtes et transactions l'une après l'autre. Un po
 - Codex : 17 imports sur 20 échouent sur `documents_pkey` (`nextDocId`, `src/lib/codification.ts:10-16`) ;
 - Vigie (constat du 15/10/2026, corrigé depuis) : `nextRef` était appelé **hors transaction** dans 10 fonctions ; les numéros et références sont désormais calculés dans la transaction de l'écriture, sur un compteur (`nextActionNumber`, `nextEntityReference`), `nextRef` ne servant plus qu'à l'aperçu côté navigateur.
 
-Règle commune : **chaque transaction d'écriture prend le verrou d'écriture de l'outil**. Les écritures de l'outil passent l'une après l'autre, comme dans PGlite ; les lectures hors transaction restent parallèles. Code essayé dans Keystone (5 créations simultanées : 5 succès) :
+Deux réponses sont en place : un verrou d'écriture par outil (Keystone, Vigie), des verrous de ligne (Codex, depuis le lot 11).
+
+**Keystone et Vigie : chaque transaction d'écriture prend le verrou d'écriture de l'outil.** Les écritures de l'outil passent l'une après l'autre, comme dans PGlite ; les lectures hors transaction restent parallèles. Code essayé dans Keystone (5 créations simultanées : 5 succès) :
 
 ```ts
 /** db.transaction() prend d'abord le verrou d'écriture de l'outil : ses transactions passent l'une après l'autre. */
@@ -252,12 +254,21 @@ Le verrou ne protège que ce qui se passe dans la transaction. Un numéro calcul
 
 - **Keystone.** `createProject` calculait `nextProjectNumber` et `nextAnalyticCode` avant d'ouvrir `db.transaction` : deux créations simultanées obtenaient le même `#NNN`. Les deux calculs sont dans la transaction depuis la bascule (§ 5.1). La revue des 65 calculs « plus grand + 1 » de Keystone, à la recherche des autres cas de ce genre, reste à faire (§ 13).
 - **Vigie.** Références calculées dans la transaction de l'écriture (ci-dessus, § 7.1).
-- **Codex.** `nextDocId` est déjà appelé dans les transactions (§ 6.1).
+- **Codex.** Voir ci-dessous : plus de calcul « plus grand + 1 », des compteurs.
+
+**Codex : verrous de ligne en `READ COMMITTED`, sans verrou d'écriture global.** La première bascule (15/10/2026, § 6) avait transposé le verrou `codex.ecritures` de Keystone. Le lot 11 (22/10/2026) garde à sa place les règles de la branche v2 de Codex, revues transaction par transaction le 18/10/2026 (`docs/postgres.md` de Codex, « Transactions en `READ COMMITTED` ») :
+
+- isolation par défaut de PostgreSQL (`READ COMMITTED`), transactions en parallèle sur le pool (`CODEX_DB_POOL`, 10 par défaut) ;
+- une transaction qui lit l'état d'un document (ligne, révisions, versions de travail, circuits, demandes de modification) pour décider ce qu'elle écrit verrouille d'abord la ligne du document (`SELECT … FOR UPDATE` : `lockDoc`, `lockDocs` de `src/lib/lifecycle.ts`, `lockWorkflow` de `src/lib/actions.ts`), dans l'ordre des identifiants quand il y en a plusieurs, puis relit ; une seconde transaction sur le même document attend la première et lit ce qu'elle a écrit (double approbation, double mise en vigueur, demande en double, décision Vigie appliquée deux fois : refusées) ;
+- identifiants tirés d'un compteur (`codex.id_counters`, une instruction `INSERT … ON CONFLICT` dans la transaction de l'écriture : les tirages simultanés font la queue sur la ligne du compteur, une transaction annulée rend son numéro) ; import et reprise des documents d'une personne qui part sous `pg_advisory_xact_lock` (clés `codex:import`, `codex:transfer`) ; bail du planificateur par mise à jour conditionnelle ;
+- vérifié entre connexions sur PostgreSQL 18.3 par `npm run test:pg` de Codex (`tests/integration/postgres-server.test.ts`, `read-committed.test.ts` : 60 créations simultanées sur 10 connexions donnent 60 identifiants distincts et consécutifs ; l'ancien calcul « plus grand + 1 » donne bien un doublon).
+
+Le délai `idle_in_transaction_session_timeout` du socle (5 minutes, § 2.1) vaut pour ces verrous de ligne comme pour le verrou d'écriture.
 
 ### 4.6 Application Mac, Docker, Coolify
 
 - **Application Mac.** `next start` tourne dans le dossier du projet, et Next charge ses fichiers `.env*`. Un `DATABASE_URL` mis dans `.env.local` pour le développement brancherait l'application Mac sur le serveur commun. Dans la fonction `environment()` de chaque application : `env["DATABASE_URL"] = ""`. Next ne remplit depuis les fichiers `.env` que les clés absentes (`@next/env`, vérifié par les analyses) ; une valeur vide les bloque, et le module d'ouverture traite le vide comme une absence.
-- **Base de l'application Mac.** Keystone et Vigie : rien ne change, leur base PGlite reste dans `public` (P-02). Codex garde sa base PGlite hors du projet (`CODEX_DATA_DIR` = `~/Library/Application Support/Codex/data`, `desktop/CodexApp.swift`) : après la mise à jour du code, le garde-fou refuse l'ancienne base, et `npm run db:reset` n'y touche pas. Remède : quitter l'application, supprimer `~/Library/Application Support/Codex/data/pglite`, relancer : la démonstration est rechargée et les fichiers déposés (`…/data/files`) restent. Le message du garde-fou nomme ce dossier (§ 6.2).
+- **Base de l'application Mac.** Keystone et Vigie : rien ne change, leur base PGlite reste dans `public` (P-02). Codex garde sa base PGlite hors du projet (`CODEX_DATA_DIR` = `~/Library/Application Support/Codex/data`, `desktop/CodexApp.swift`) : une base de la branche v2 est reprise automatiquement dans le schéma `codex`, après sauvegarde (§ 4.1) ; une autre, plus ancienne, est refusée, et `npm run db:reset` n'y touche pas. Remède dans ce cas : quitter l'application, supprimer `~/Library/Application Support/Codex/data/pglite`, relancer : la démonstration est rechargée et les fichiers déposés (`…/data/files`) restent. Le message du garde-fou nomme ce dossier.
 - **Dockerfile.** Ne jamais mettre `DATABASE_URL` dans l'image. Le volume `/data` reste nécessaire : il porte les fichiers déposés, et la base de repli. Il porte aussi l'ancienne base PGlite : elle sert au retour arrière par redéploiement du commit précédent (§ 10). Mettre à jour le commentaire d'en-tête.
 - **Coolify.** `DATABASE_URL` en variable d'exécution seulement (jamais disponible au build), le volume `/data` gardé, l'option de réseau prédéfini activée (`infra/postgres/README.md`).
 - **Dépendances.** `pg` 8.23.1 en dépendance, `@types/pg` 8.23.1 en dépendance de développement. `drizzle-orm/node-postgres` est déjà dans `drizzle-orm` 0.45.3. `pg` est externe par défaut dans Next 16 : `serverExternalPackages` ne change pas.
@@ -336,112 +347,42 @@ Pas de reprise (P-03, 18/10/2026) : le schéma `keystone` part vide, rempli par 
 
 ## 6. Codex
 
-Bascule essayée de bout en bout le 15 octobre 2026 dans une copie de Codex. Le serveur d'essai est un PostgreSQL 16.15 doté du socle (`infra/postgres/init/`) ; Codex s'y connecte en `codex_app`. Le correctif (`infra/postgres/correctifs/codex.diff`) touche 17 fichiers et s'applique sans conflit sur `main` (`8abbe38`). Typecheck et lint sont propres. `next build` ne se connecte pas au serveur. La migration, son journal et le jeu de démonstration sont dans le schéma `codex`, rien n'est dans `public`. Les écrans, l'import, le webhook Vigie et les rafales d'imports passent sans erreur dans les deux modes. Deux instances démarrées ensemble ne produisent aucune erreur, et une ancienne base PGlite est refusée. Codex n'a pas de test automatisé.
+État au 22/10/2026 : lot 11 de Codex (branche v2 fusionnée avec la bascule de `main`, `docs/postgres.md` et `docs/historique.md` § 20 du dépôt Codex). La première bascule, essayée le 15/10/2026 dans une copie de Codex sur PostgreSQL 16.15 puis fusionnée dans `main` (`infra/postgres/correctifs/codex.diff`), est remplacée : son schéma `codex`, sa déclaration à Matrix et ses vues `pub_` restent, mais son migrateur (`src/db/migrate.ts`), son type commun (`src/db/types.ts`) et son verrou d'écriture `codex.ecritures` sont retirés au profit de ceux de la branche. Codex exige PostgreSQL 18 (P-01) et `pg_trgm` installé par le socle dans le schéma `extensions` (§ 2.2).
 
 ### 6.1 Fichiers
 
-| Fichier | Changement |
+| Fichier (dépôt Codex) | Rôle |
 |---|---|
-| `src/db/schema.ts` | `export const DB_SCHEMA = 'codex'` ; `const codex = pgSchema(DB_SCHEMA)` (non exporté) ; 22 `pgTable(` deviennent `codex.table(`. Les 3 index partiels sont générés qualifiés. |
-| `drizzle/` | `rm -rf drizzle && npx drizzle-kit generate --name init` (règle de `CLAUDE.md:77`) : 65 `"codex"."…"`, 0 `"public"`, pas de `CREATE SCHEMA`. Un second `generate` répond « No schema changes ». |
-| `drizzle.config.ts` | `schemaFilter: ['codex']`, `migrations: { schema: 'codex', table: '__drizzle_migrations' }`. |
-| `src/db/types.ts` (nouveau) | Type commun du § 4.1 ; `Db` devient un alias de `DB`. |
-| `src/db/migrate.ts` (nouveau) | Migrateur du § 4.3, `DB_SCHEMA` importé de `schema.ts`. |
-| `src/db/index.ts` | Code ci-dessous. Le comptage brut `client.query('select count(*)::int as n from users')` (ligne 21) devient `db.select({ n: count() }).from(schema.users)`. |
-| `src/db/seed.ts` | Première instruction de la transaction du remplissage (ligne 86) : `if ((await tx.$count(s.users)) > 0) return;`. Sans elle, deux instances qui démarrent ensemble sur un schéma vide avec `CODEX_SEED_DEMO=1` comptent toutes deux 0 utilisateur et remplissent toutes deux. La seconde échoue sur `duplicate key … departments_pkey` et sa première requête répond 500 (constaté). Le verrou d'écriture sérialise cette transaction : la seconde instance y trouve les utilisateurs de la première et s'arrête. Même règle que Keystone (§ 5.1, `seed/index.ts:69`). |
-| Prérequis du partage | `documents.distribution`, `review_months`, `process_code`, `users.matricule`, `departments.active` déclarés dans `schema.ts`, puis migration incrémentale `partage` avec les vues `pub_` (§ 4.9). |
-| `src/lib/codification.ts` | Rien : `nextDocId` est appelé dans des transactions, que le verrou d'écriture sérialise. L'analyse avait essayé un verrou propre à `nextDocId` (30 imports sur 30) ; le verrou d'écriture le rend inutile et protège aussi les contrôles d'état non verrouillés (`lockOf`, `addWorkingVersion` face à `requestValidation`, double approbation dans `decideStep`). |
-| `desktop/CodexApp.swift` | `env["DATABASE_URL"] = ""` après la ligne 98. Le Swift ne se compile que sous macOS ; l'effet est vérifié avec `next start` : un `DATABASE_URL` vide dans l'environnement l'emporte sur un `.env.local` qui pointe vers le serveur (PGlite ouvert, aucune connexion), et le `.env.local` seul branche bien Codex sur le serveur. |
-| `Dockerfile` (lignes 3-4), `.env.example` (section « Database » : `DATABASE_URL`, `CODEX_DB_POOL`, `CODEX_SEED_DEMO`), `README.md` (ligne 6, « Démarrer » avec un tableau des deux modes et la consigne `db:reset` pour une base antérieure au schéma, arborescence `db/`, tableau et consignes de « Mise en ligne », dont la ligne 124), `CLAUDE.md:75-78` | Les deux modes ; `codex.table(…)`, jamais `pgTable(…)` ; `pgSchema` jamais exporté ; migration unique figée dès les premières données à garder. |
-| `docs/decisions.md` | La décision M-01 répond en partie à O-03 : base commune sans accès croisé, l'intégration avec Keystone reste une API. |
-| `package.json`, `package-lock.json` | `pg` 8.23.1, `@types/pg` 8.23.1 en développement. Le lockfile d'origine vient de npm 11 : le mettre à jour avec npm 11 (`npx npm@11 install pg@8.23.1`). npm 10 retire les champs `libc` de tout le fichier, soit 256 lignes de bruit dans le diff. |
+| `src/db/schema.ts` | `codex.table(…)` au lieu de `pgTable(…)`, `pgSchema('codex')` non exporté (§ 4.2) : 31 tables. |
+| `drizzle/0000_init.sql`, `drizzle/0001_partage.sql`, `drizzle.config.ts` | Base de migrations figée le 22/10/2026 : `0000_init` (tout le schéma, régénérée ce jour-là, aucun `CREATE SCHEMA`, `CREATE EXTENSION` ni `public`), `0001_partage` (prérequis du partage et 7 vues `pub_`, dont `40-codex.sql` est la copie qualifiée). Ensuite, migrations incrémentales seulement (`npm run db:generate`). `schemaFilter: ['codex']`. |
+| `src/db/migrations.ts` | Migrateur (`applyMigrations`), à la place de `migrate()` de Drizzle : journal `codex.__drizzle_migrations` (`id`, `hash`, `created_at`, comme Drizzle), contrôle des empreintes SHA-256 (une base faite par une autre chaîne de migrations, ou par un Codex plus récent, est refusée avant toute écriture), toutes les migrations en attente dans une seule transaction, jamais de `CREATE SCHEMA`. Reprise d'une base PGlite de la branche v2 (§ 4.1). |
+| `src/db/sql-client.ts` | Connexion commune aux deux moteurs ; sur le serveur, pool `pg` de `CODEX_DB_POOL` connexions (10 par défaut), `application_name = codex`, `-c search_path=codex` ; `int8` rendus en nombres, dates comme PGlite. |
+| `src/db/index.ts` | `openDb` : refuse un serveur antérieur à PostgreSQL 18 (`codex_fold` replie la casse avec la collation `pg_unicode_fast`) et une base sans schéma `codex` ; prend `pg_advisory_lock(hashtext('codex.migrations'))` sur une connexion dédiée, migre, repose fonctions, déclencheurs et collation `codex_fr`, puis relâche ; ajoute le schéma de `pg_trgm` (`extensions`) au `search_path` de la seule transaction de migration (index `document_terms_term`, `extensions.gin_trgm_ops`) et, sans l'extension, refuse de migrer en donnant les commandes du socle ; remplissage sous `codex.seed`, seulement sur demande. |
+| `src/lib/pglite-options.mjs` | En PGlite, `search_path` « codex, public » posé au démarrage : même schéma `codex` que sur le serveur. |
+| `src/lib/lifecycle.ts`, `src/lib/actions.ts`, `src/lib/codification.ts` | Concurrence (§ 4.5) : verrous de ligne des documents en `READ COMMITTED`, identifiants tirés de `codex.id_counters`. |
+| `src/lib/export-core.mjs` | Export complet sur le serveur : instantané en `REPEATABLE READ` sur une connexion gardée. Le socle ne donne pas `TEMPORARY` à `codex_app` : l'instantané est fait de tables `unlogged` éphémères du schéma `codex`, `codex_export_<hasard>_<table>`, supprimées à la fin de l'export (une coupure en laisse ; aucun autre export ne les lit). Créées par `CREATE TABLE … AS`, elles passent par `droits_ddl` comme toute table de Codex (lisibles par `matrix_lecture` le temps de l'export, Codex n'ayant pas de colonne sensible) ; Matrix doit les tenir pour éphémères. |
+| `scripts/codex-migrate.mts` (`npm run db:migrate`) | Migrations au déploiement (`-- --check` : liste sans rien changer). Sur une base qui a des données, refus tant que `--no-backup` (ou `CODEX_MIGRATION_BACKUP=off`) n'est pas donné, une fois le `pg_dump` du serveur fait. Sans lui, le premier démarrage migre. |
+| `src/app/base-vide/`, `src/app/api/health/` | Base du serveur laissée vide (ni `CODEX_SEED` ni `CODEX_SEED_DEMO=1`) : chaque page mène à `/base-vide`, qui dit quelles variables poser ; `/api/health` répond 200 avec `"empty": true`. |
+| `src/lib/matrix.ts` | Déclaration du schéma à Matrix juste après les migrations (`MATRIX_URL`, `MATRIX_TOKEN`), jamais attendue ni bloquante, jamais pendant `next build` (`NEXT_PHASE`). |
+| `tests/integration/`, `.github/workflows/ci.yml` | `npm test` sur PGlite ; `npm run test:pg` rejoue toute la suite sur un serveur, chaque fichier dans une base disposée comme le socle (rôle sans `CREATE` ni `TEMPORARY`, `public` fermé, `pg_trgm` dans `extensions`) ; l'intégration continue le lance sur un service `postgres:18`. |
+| `desktop/CodexApp.swift`, `Dockerfile` | `DATABASE_URL` vide dans l'application Mac (§ 4.6) ; image : volume `/data` (fichiers, base de repli), aucun secret. |
 
-### 6.2 Code d'ouverture
+### 6.2 Ouverture et migrations
 
-```ts
-// src/db/index.ts
-import 'server-only';
-import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
-import { PGlite } from '@electric-sql/pglite';
-import { count, sql } from 'drizzle-orm';
-import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
-import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
-import { Pool } from 'pg';
-import { migrateSchema } from './migrate';
-import * as schema from './schema';
-import { DB_SCHEMA } from './schema';
-import { seed } from './seed';
-import type { DB } from './types';
+1. `DATABASE_URL` présente (hors `next build`) : pool du serveur ; sinon PGlite dans `CODEX_DATA_DIR/pglite`.
+2. Serveur : version 18 au moins, schéma `codex` présent et utilisable, sinon refus avec un message ; aucune table de Codex dans `public`.
+3. Verrou de session `codex.migrations` : un seul processus vérifie et migre, les autres attendent puis n'ont plus rien à faire (essayé : deux serveurs lancés ensemble sur une base vide, une migration, un remplissage).
+4. Plan de migration : base neuve, migrations en attente, reprise d'une base PGlite de la branche, ou refus (autre chaîne, base plus récente que le code). En PGlite, sauvegarde automatique avant une migration sur une base qui a des données ; sur le serveur, `pg_dump` d'abord (procédure du socle).
+5. Une transaction : journal, `pg_trgm` (déjà installé par le socle dans `extensions` ; sur une base à soi dont le rôle est propriétaire, créé dans `codex`), migrations, journal mis à jour.
+6. Fonctions et déclencheurs reposés à chaque démarrage (journal en ajout seul, version des documents, termes de recherche, `codex_fold`, `codex_unbom`, collation `codex_fr`) : ils ne sont pas dans les migrations.
+7. Base vide : remplie seulement avec `CODEX_SEED=minimal` (référentiel et administrateur initial), `CODEX_SEED=demo` ou `CODEX_SEED_DEMO=1` (démonstration, bêta), sous le verrou `codex.seed` ; sinon `/base-vide`.
+8. Déclaration à Matrix, en tâche de fond.
 
-export type Db = DB;
-export const DATA_DIR = path.resolve(/*turbopackIgnore: true*/ process.env.CODEX_DATA_DIR ?? path.join(process.cwd(), '.data'));
-export const FILES_DIR = path.join(DATA_DIR, 'files');
-const MIGRATIONS = path.join(process.cwd(), 'drizzle');
+### 6.3 Essais, données, variables
 
-async function openServer(url: string): Promise<DB> {
-  const pool = new Pool({ connectionString: url, max: Number(process.env.CODEX_DB_POOL) || 10, application_name: 'codex', options: `-c search_path=${DB_SCHEMA}` });
-  pool.on('error', (err) => console.error('[db] connexion inactive perdue', err));
-  const db: DB = drizzlePg(pool, { schema });
-  const transaction = db.transaction.bind(db);
-  db.transaction = ((fn, config) => transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${DB_SCHEMA}.ecritures`}))`);
-    return fn(tx);
-  }, config)) as DB['transaction'];
-  return db;
-}
-
-async function openEmbedded(): Promise<DB> {
-  const dir = path.join(DATA_DIR, 'pglite');
-  const client = new PGlite(dir);
-  const { rows } = await client.query<{ ancienne: boolean }>(
-    `select to_regclass('public.users') is not null and to_regclass('${DB_SCHEMA}.users') is null as ancienne`);
-  if (rows[0].ancienne) {
-    await client.close();
-    // Application Mac : CODEX_DATA_DIR pointe vers ~/Library/Application Support/Codex/data (§ 4.6).
-    const remede = process.env.CODEX_DATA_DIR ? `quittez l'application et supprimez ${dir}` : 'npm run db:reset';
-    throw new Error(`Base PGlite antérieure au schéma ${DB_SCHEMA} dans ${dir} : ${remede} (voir README).`);
-  }
-  await client.exec(`create schema if not exists ${DB_SCHEMA}; set search_path to ${DB_SCHEMA}`);
-  return drizzlePglite(client, { schema });
-}
-
-async function init(): Promise<DB> {
-  await mkdir(FILES_DIR, { recursive: true });
-  const url = process.env.NEXT_PHASE === 'phase-production-build' ? undefined : process.env.DATABASE_URL;
-  const db = url ? await openServer(url) : await openEmbedded();
-  await migrateSchema(db, MIGRATIONS);
-  if (!url || process.env.CODEX_SEED_DEMO === '1') {
-    const [{ n }] = await db.select({ n: count() }).from(schema.users);
-    if (n === 0) await seed(db);
-  }
-  return db;
-}
-
-const g = globalThis as unknown as { __codexDb?: Promise<DB> };
-export function getDb(): Promise<DB> {
-  g.__codexDb ??= init().catch((err) => { g.__codexDb = undefined; throw err; });
-  return g.__codexDb;
-}
-export { schema };
-```
-
-Ce code a tourné tel quel, avec `src/db/types.ts` du § 4.1 et `src/db/migrate.ts` du § 4.3 :
-
-- `tsc` l'accepte avec les deux pilotes, sans retouche des fichiers qui utilisent `Db` (`access.ts`, `lifecycle.ts`, `codification.ts`, `importer.ts`, `seed.ts`).
-- Le verrou d'écriture commun et le pool à 10 tiennent : 20 puis 30 imports simultanés donnent 50 réponses 201 et 50 identifiants distincts. Pendant la rafale, Codex ouvre 10 connexions `application_name = codex`.
-- Le garde-fou refuse une base PGlite créée par la migration d'origine (tables dans `public`). La page répond 500, le journal de Next affiche « Base PGlite antérieure au schéma codex … », et la base reste intacte.
-- Avec `CODEX_SEED_DEMO=1`, le serveur est rempli une seule fois. Un redémarrage ne rejoue ni la migration ni le remplissage.
-- `next build` avec `DATABASE_URL` présente n'ouvre aucune connexion et ne crée pas `.data` : Codex n'ouvre pas la base pendant le build.
-
-### 6.3 Tests, données, variables
-
-- Pas de suite de tests. Recette faite le 15 octobre dans les deux modes, avec `next build` puis `next start`, et avec `next dev` sur le serveur : les 7 écrans, une fiche document, les deux exports CSV, `GET /api/registry` (23 familles, 69 types), import JSON et import multipart avec fichier (relu par `/api/documents/[id]/file`), webhook Vigie (décision, puis renvoi reconnu comme déjà appliqué), rafales d'imports simultanés. Reste à passer à la main : les 4 rôles, en français et en anglais.
-- Contrôles sur le serveur après la migration : 23 tables dans `codex` (les 22 de Codex et le journal), toutes à `codex_app` ; aucune relation dans `public` ; journal `codex.__drizzle_migrations` à une ligne ; aucune clé étrangère hors de `codex` ; les 3 index partiels créés ; `matrix_lecture` lit les 23 tables ; `droits.verifier()` ne signale rien. `introspecterPostgres` déclare les 22 tables de Codex : sa requête écarte le journal (§ 4.8). Dans PGlite aussi, les 23 tables et le journal sont dans `codex`.
-- `migrate()` de Drizzle, lancé en `codex_app`, échoue sur `permission denied for database epc2i` sans rien créer : le migrateur du § 4.3 est nécessaire.
-- Sur un clone neuf, `npm run typecheck` signale `PageProps`, `LayoutProps` et `RouteContext` introuvables tant que `next-env.d.ts` (non versionné) n'existe pas. Lancer d'abord `npx next typegen`, `next dev` ou `next build`. Le défaut existe déjà sans la bascule.
-- Données : repartir de la démonstration. Reprise d'une base PGlite essayée (`pgDump --data-only`, 795 `INSERT`, séquences à jour) si une instance Coolify contient des saisies (P-03). Copier `/data/files`.
-- Variables : `DATABASE_URL`, `CODEX_DB_POOL`, `CODEX_SEED_DEMO`, `CODEX_DATA_DIR` (fichiers et repli).
+- Essai du 22/10/2026 dans le dépôt Codex (PostgreSQL 18.3, socle rejoué) : `npm run db:migrate` en `codex_app` applique `0000_init` et `0001_partage` (32 tables dont le journal, 7 vues, tout à `codex_app`, rien dans `public`) ; sans `pg_trgm`, refus clair et schéma intact ; `npm run test:pg` : 1 464 tests réussis, 3 sautés. Essai du même jour dans Matrix : `infra/postgres/partage/README.md`, « Essais » (socle avec `extensions`, migrations et démonstration de Codex, partage 10, 40, 90, 95, `verifier-droits.sql` conforme).
+- Données : pas de reprise d'une base PGlite vers le serveur ; le serveur part vide ou de la démonstration (P-03, P-11). Le volume Coolify `/data/pglite` (démonstration de `main` d'avant le 17/10/2026) est refusé : le supprimer (procédure d'exploitation de Codex, § 10). Copier `/data/files`.
+- Variables : `DATABASE_URL` (variable d'exécution seulement), `CODEX_DB_POOL` (`CODEX_DB_POOL_MAX`, ancien nom, encore lu), `CODEX_SEED` (`demo` ou `minimal`) ou `CODEX_SEED_DEMO=1`, `CODEX_MIGRATION_BACKUP`, `CODEX_DATA_DIR` (fichiers et repli), `MATRIX_URL`, `MATRIX_TOKEN`.
 
 ## 7. Vigie
 
@@ -633,8 +574,8 @@ Aucun des cinq dépôts n'a d'intégration continue aujourd'hui (ni `.github`, n
 | Étape du workflow | Keystone | Codex | Vigie | Cursus |
 |---|---|---|---|---|
 | Installation, typecheck, lint | oui | oui | oui | typecheck |
-| Tests sur la base embarquée | `vitest` (PGlite) | aucun : Codex n'a pas de test | aucun : Vigie n'a pas de test | `node --test`, `CURSUS_TEST_ENGINE=sqlite` |
-| Sur un service `postgres:18` (version du socle, P-01) doté du socle | `scripts/db-check-pg.ts` | `scripts/db-check-pg.ts` (nouveau) : `getDb()` avec `DATABASE_URL` du service, migrations, démonstration, lecture des tables | idem, nouveau dans Vigie | `node --test`, `CURSUS_TEST_ENGINE=pg` |
+| Tests sur la base embarquée | `vitest` (PGlite) | `vitest` (PGlite), fait (`.github/workflows/ci.yml` de Codex) | aucun : Vigie n'a pas de test | `node --test`, `CURSUS_TEST_ENGINE=sqlite` |
+| Sur un service `postgres:18` (version du socle, P-01) doté du socle | `scripts/db-check-pg.ts` | fait autrement : `npm run test:pg` sur un service `postgres:18`, chaque fichier de test dans une base disposée comme le socle (§ 6.1) ; le socle lui-même n'y est pas rejoué | idem, nouveau dans Vigie | `node --test`, `CURSUS_TEST_ENGINE=pg` |
 | Contrôle final | `droits.verifier()` sans erreur | idem | idem | idem |
 
 - **Socle dans le service.** Le service PostgreSQL, à la version du socle (`postgres:18` proposé, P-01), démarre vide ; le workflow joue ensuite les trois scripts de `infra/postgres/init/` avec `psql` depuis le runner, comme dans la procédure « Sans Docker » du README du socle. Les mots de passe des rôles sont des valeurs d'essai propres au workflow.

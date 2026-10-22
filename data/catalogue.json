@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-18T10:32:40.821Z",
+ "generatedAt": "2026-10-22T10:26:05.620Z",
  "apps": [
   {
    "id": "keystone",
@@ -36947,6 +36947,3779 @@
     }
    ],
    "source": "dépôt (migrations Drizzle)"
+  },
+  {
+   "id": "arche",
+   "tables": [
+    {
+     "name": "authorizations",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "authority",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "filed_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "due_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "obtained_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "codex_ref",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "dossier réglementaire ; alerte d’échéance",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "budget_lines",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "budget_version_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "lot_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "amount_keur",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "phasing",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "budget_version_id"
+       ],
+       "table": "budget_versions",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "lot_id"
+       ],
+       "table": "capex_lots",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "central ; fourchette = classe × central",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "budget_versions",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "number",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "estimate_class",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "basis",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "validated_by",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "validated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "is_g2_baseline",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "entonnoir de précision",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "business_plans",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "dossier_version_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "horizon_years",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "discount_rate_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "flows",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "npv_keur",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "irr_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "payback_years",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "dossier_version_id"
+       ],
+       "table": "dossier_versions",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "BP ; calculs dans src/domain/bp.ts (N-11)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "capex",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "subsidiary_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "site_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "title",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "description",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "investment_type",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "phase",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "typology",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "typology_source",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "typology_reason",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "lifecycle_model_version",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "sponsor_user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "lead_user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "need_date",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "mes_started_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "opened_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "closed_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "subsidiary_code"
+       ],
+       "table": "subsidiaries",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "site_id"
+       ],
+       "table": "sites",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "sponsor_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "lead_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "code CPX-<FIL>-<AAAA>-<NN> calculé dans la transaction",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "capex_lots",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "number",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "title",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "epc2i",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "position",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "lots (N-12 pour la liste) ; machines = lots alimentés par les projets EPC2i",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "capex_members",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "capex_role",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "équipe nommée ; contrôle du gabarit de staffing",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "changes",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "number",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "title",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "amount_keur",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "delay_days",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "required_decider",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "decided_by",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "decided_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "decision",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "MoC après G2 ; décideur calculé par la matrice",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "circuit_steps",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "gate_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "position",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "parallel_group",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "role",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "due_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "acted_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "outcome",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "comment",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "gate_id"
+       ],
+       "table": "gates",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "circuit instancié depuis le modèle (05)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "consultations",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "dossier_version_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "opened_by",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "opened_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "due_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "dossier_version_id"
+       ],
+       "table": "dossier_versions",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "consultation d’experts",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "copil_sessions",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "held_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "agenda",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "domain": "Gouvernance",
+     "description": "séances du COPIL GPI (ordre du jour = G1 soumis)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "decisions",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "number",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "taken_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "body",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "text",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "review_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "review_id"
+       ],
+       "table": "reviews",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "registre des décisions",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "delegation_rules",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "typology",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "object_kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "max_pct_of_g2",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "max_keur",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "max_delay_days",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "decider_role",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "valid_from",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "domain": "Référentiels",
+     "description": "matrice de délégation (C-4) ; datée",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "dossier_attachments",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "dossier_version_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "section",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "codex_ref",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "title",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "revision",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "dossier_version_id"
+       ],
+       "table": "dossier_versions",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "références Codex, figées avec la version",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "dossier_versions",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "dossier_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "number",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "state",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "content",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "frozen_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "frozen_by",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "content_hash",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "completeness_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "dossier_id"
+       ],
+       "table": "dossiers",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "figé = immuable ; toute modification crée une version",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "dossiers",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "un par type et par CAPEX",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "gate_conditions",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "gate_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "number",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "text",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "owner_user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "due_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "closed_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "gate_id"
+       ],
+       "table": "gates",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "owner_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "réserves d’un « Go sous réserve »",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "gate_criteria_results",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "gate_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "criterion_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "met",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "value",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "forced_reason",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "gate_id"
+       ],
+       "table": "gates",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "instantané des critères au moment de la soumission",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "gates",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "session",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "decision",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "decided_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "due_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "une ligne par passage ; un « ajourné » ouvre une nouvelle session",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "hs_milestones",
+     "pk": [
+      "code"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "code",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "phase",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "content",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "owner",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "blocks_gate",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "domain": "Référentiels",
+     "description": "table des jalons HS (C-3)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "hs_statuses",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "hs_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "evidence_ref",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "source",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "passed_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "open_actions",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "late_actions",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "miroir Vigie ou déclaratif (N-13)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "lifecycle_models",
+     "pk": [
+      "code"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "code",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "version",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "definition",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "active",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "domain": "Référentiels",
+     "description": "cycle paramétré (03) ; une version par révision de la méthode",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "lot_actuals",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "lot_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "month",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "committed_keur",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "spent_keur",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "physical_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entered_by",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "source",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "lot_id"
+       ],
+       "table": "capex_lots",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "engagé, réalisé, % physique (lots hors EPC2i) ; mensuel",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "machine_needs",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "line",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "catalogue_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "catalogue_version",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "free_label",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "quantity",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "options",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "target_capacity",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "capacity_unit",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "need_date",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "submitted_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "ordered_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "lot_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "comment",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "lot_id"
+       ],
+       "table": "capex_lots",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Besoins machines et ramp-up",
+     "description": "publiés dans pub_besoins_machines",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "opinions",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "consultation_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "speciality",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "expert_user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "verdict",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "comment",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "given_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "reminded_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "consultation_id"
+       ],
+       "table": "consultations",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "expert_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "un avis par expert ; les réserves deviennent des conditions",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "pack_items",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "item_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "codex_ref",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "validated_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "part filiale du pack ; part EPC2i lue dans pub_pack_ingenierie",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "pack_templates",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "investment_type",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "family",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "item_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "label",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "weight",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "owner",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "domain": "Référentiels",
+     "description": "liste type du pack ingénierie (C-9)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "phase_transitions",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "from_phase",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "to_phase",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "gate_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "effective_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "forced",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "reason",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "by_user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "by_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "historique (comme stage_transitions de Keystone)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "production_lines",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "nominal_capacity_per_day",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "unit",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "machine_numbers",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Besoins machines et ramp-up",
+     "description": "ligne de production à monter en puissance",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "rampup_days",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "line_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "day",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "output",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "availability_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "performance_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "quality_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "oee_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "scrap_pct",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entered_by",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "source",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "line_id"
+       ],
+       "table": "production_lines",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Besoins machines et ramp-up",
+     "description": "une ligne par jour ; TRS = D × P × Q si non saisi",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "reference_revenues",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "subsidiary_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "fiscal_year",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "revenue_keur",
+       "type": "numeric",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entered_by",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entered_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "source_note",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "subsidiary_code"
+       ],
+       "table": "subsidiaries",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Référentiels",
+     "description": "CA de référence (C-5), saisi par la DAF groupe ; une ligne par exercice",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "review_series",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "cadence",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "next_due_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Gouvernance",
+     "description": "créée d’office selon la typologie",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "reviews",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "held_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "attendees",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "summary",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "report_ref",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Gouvernance",
+     "description": "revue tenue ; rapport Copil",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "rex_entries",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "category",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "title",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "text",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "phase",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "shared_with",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "published_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Besoins machines et ramp-up",
+     "description": "REX capitalisé",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "risks",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "capex_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "number",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "title",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "category",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "probability",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "impact",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "owner_user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "response",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "status",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "due_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "capex_id"
+       ],
+       "table": "capex",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "owner_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "CAPEX",
+     "description": "registre simple",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "role_assignments",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "role",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "scope_kind",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "scope_ref",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "speciality",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "from_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "to_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Utilisateurs et droits",
+     "description": "portées (01 §2)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "signatures",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "circuit_step_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "user_id",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "signed_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "level",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "content_hash",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "auth_time",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "ip_hash",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "provider_ref",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "circuit_step_id"
+       ],
+       "table": "circuit_steps",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      },
+      {
+       "columns": [
+        "user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Cycle, jalons et dossiers vivants",
+     "description": "preuve de signature ; append-only",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "sites",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "subsidiary_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "city",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "country_iso2",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "subsidiary_code"
+       ],
+       "table": "subsidiaries",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Référentiels",
+     "description": "usine ou terrain",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "staffing_templates",
+     "pk": [],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "typology",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "role",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "required",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "domain": "Référentiels",
+     "description": "gabarit de staffing (CDC §3)",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "subsidiaries",
+     "pk": [
+      "code"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "code",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "country_iso2",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "zone_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "currency",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "zone_code"
+       ],
+       "table": "zones",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Référentiels",
+     "description": "filiale",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "users",
+     "pk": [
+      "id"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "id",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "entra_oid",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "email",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "display_name",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "subsidiary_code",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "active",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "last_sign_in_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "subsidiary_code"
+       ],
+       "table": "subsidiaries",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": null,
+       "declared": false
+      }
+     ],
+     "domain": "Utilisateurs et droits",
+     "description": "repris du socle Keystone",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    },
+    {
+     "name": "zones",
+     "pk": [
+      "code"
+     ],
+     "uniques": [],
+     "columns": [
+      {
+       "name": "code",
+       "type": "à préciser",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "à préciser",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamptz",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "domain": "Référentiels",
+     "description": "Directeurs de Zone",
+     "vueLe": "2026-10-22T10:26:05.620Z"
+    }
+   ],
+   "source": "spécification (docs/spec/02-objets.md, livraison 0) : tables prévues"
   }
  ]
 }

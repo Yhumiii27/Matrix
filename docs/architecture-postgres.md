@@ -38,9 +38,10 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 | `codex_app` | connexion | `codex` | `codex` | Idem. |
 | `cursus_app` | connexion | `cursus` | `cursus` | Idem. |
 | `vigie_app` | connexion | `vigie` | `vigie` | Idem. |
+| `arche_app` | connexion | `arche` | `arche` | Idem (ajouté le 22/10/2026 pour Arche, § 8 bis). |
 | `matrix_app` | connexion | `matrix` | `matrix` | Tout sur `matrix` ; membre de `matrix_lecture`. |
-| `matrix_lecture` | groupe | | | `USAGE` sur `keystone`, `codex`, `cursus`, `vigie` et `droits` ; `SELECT` sur leurs tables et vues, sauf les colonnes sensibles ; aucun droit sur les séquences ; lecture de `droits.colonnes_sensibles` et de `droits.verifier()`. |
-| `matrix_admin` | groupe, attribué nominativement | | | Tous les droits sur les tables, séquences et fonctions des cinq schémas ; peut prendre le rôle d'un outil (`SET ROLE`, sans en hériter) ; modifie la liste des colonnes sensibles, sauf celles de la convention. |
+| `matrix_lecture` | groupe | | | `USAGE` sur `keystone`, `codex`, `cursus`, `vigie`, `arche` et `droits` ; `SELECT` sur leurs tables et vues, sauf les colonnes sensibles ; aucun droit sur les séquences ; lecture de `droits.colonnes_sensibles` et de `droits.verifier()`. |
+| `matrix_admin` | groupe, attribué nominativement | | | Tous les droits sur les tables, séquences et fonctions des six schémas ; peut prendre le rôle d'un outil (`SET ROLE`, sans en hériter) ; modifie la liste des colonnes sensibles, sauf celles de la convention. |
 | `epc2i_sauvegarde` | connexion | | | Membre de `pg_read_all_data` : lit tout, colonnes sensibles comprises, pour `pg_dump`. |
 | `postgres` | superutilisateur | `droits` | | Administration du socle seulement, jamais dans un outil. |
 
@@ -538,6 +539,25 @@ Bascule : `CURSUS_DEMO=0`, arrêt de Cursus, sauvegarde du volume `/data`, `--ve
 ### 8.7 Variables
 
 `DATABASE_URL`, `CURSUS_DEMO=0` en production, `CURSUS_SECRET` (obligatoire en production), `CURSUS_PG_POOL` (10 par défaut), `CURSUS_DB` (repli SQLite). Inchangées : `PORT`, `CURSUS_HOST`, `CURSUS_API_PORT`, `CURSUS_INSECURE_COOKIE`, `TZ`.
+
+## 8 bis. Arche
+
+Arche (dépôt `Yhumiii27/Arche`) pilote les CAPEX des filiales selon la méthode DIG-PRODI. Au 22/10/2026, il n'existe
+qu'en cadrage (livraison 0, documents seulement) ; ses demandes au socle sont dans `docs/DEMANDES-MATRIX.md` d'Arche.
+Le socle est prêt avant son code :
+
+- rôle `arche_app` et schéma `arche` (`init/01`, `init/02`), mot de passe `ARCHE_APP_PASSWORD` ; mêmes règles que les
+  autres outils (`init/03`, `droits.verifier()`, cas 160 à 165 de `verifier-droits.sql`) ; `matrix_lecture` lit ses
+  tables, colonnes sensibles exclues ; sauvegarde par schéma comprise ;
+- partage (`partage/90-droits.sql`) : Arche lit `matrix.pub_pays`, `pub_sites`, `pub_organigramme`,
+  `pub_correspondances`, `keystone.pub_projets`, `pub_clients`, `pub_livrables`, `pub_parc_machines`, puis les vues
+  que Keystone publiera pour lui (`pub_catalogue_machines`, `pub_reponses_besoins`, `pub_jalons_projets`,
+  `pub_avancement_projets`, `pub_avenants`, `pub_reserves`, `pub_pack_ingenierie`, R-186 à R-191) ; Keystone et
+  Matrix lisent `arche.pub_capex`, `pub_besoins_machines`, `pub_rampup` ; Matrix lit `arche.pub_journal`, ajouté au
+  journal unifié (`partage/95`). Les vues absentes sont signalées sans erreur jusqu'à leur création ;
+- les vues `pub_` d'Arche sont créées par ses migrations (règle P-02) ; Matrix n'a pas de fichier `partage/` pour
+  Arche tant qu'elles n'existent pas ;
+- doublons avec les autres outils : `docs/doublons-a-trancher.md` (groupes D21 et suivants).
 
 ## 9. Heures validées : D06, option A, réversible
 

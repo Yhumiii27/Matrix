@@ -1,5 +1,5 @@
 {
-  "_lisezmoi": "Connaissance inter-applications saisie à la main d'après le code des quatre dépôts (15 octobre 2026). Le collecteur ne peut pas la déduire des schémas. statut : reel = implémenté des deux côtés ; partiel = un seul côté est implémenté ; simule = remplacé par une écriture locale ; propose = contrat écrit mais rien de construit ; copie = données recopiées par le jeu de démo, sans synchronisation ; prevu = annoncé dans l'interface ou la doc.",
+  "_lisezmoi": "Connaissance inter-applications saisie à la main d'après le code des quatre dépôts (15 octobre 2026), puis les contrats d'Arche (docs/CONTRATS.md, 22 octobre 2026). Le collecteur ne peut pas la déduire des schémas. statut : reel = implémenté des deux côtés ; partiel = un seul côté est implémenté ; simule = remplacé par une écriture locale ; propose = contrat écrit mais rien de construit ; copie = données recopiées par le jeu de démo, sans synchronisation ; prevu = annoncé dans l'interface ou la doc.",
   "flux": [
     {
       "id": "F01", "nom": "Verdict Go / No Go par chantier",
@@ -198,6 +198,69 @@
         ["documents.codex_id / codex_url", "jamais renseignés"]
       ],
       "note": "Keystone tient un index local de 42 documents « Codex ». Aucun échange réel n'a lieu."
+    },
+    {
+      "id": "F16", "nom": "Besoins machines d'un CAPEX",
+      "de": "arche", "vers": "keystone", "mode": "Vue pub_ (lecture)", "statut": "propose",
+      "point": "arche.pub_besoins_machines (serveur commun, lue par keystone_app)", "auth": "Rôle keystone_app, convention de partage (partage/90-droits.sql)",
+      "source": ["machine_needs", "capex"], "cible": [],
+      "champs": [
+        ["machine_needs : référence <code CAPEX>/B01, fiche du catalogue et version, quantité, options, capacité, date de besoin", "besoin à qualifier dans Keystone (R-187)"]
+      ],
+      "note": "Arche, docs/CONTRATS.md § 3. Keystone répond par F17."
+    },
+    {
+      "id": "F17", "nom": "Catalogue machines et réponses aux besoins",
+      "de": "keystone", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "propose",
+      "point": "keystone.pub_catalogue_machines, pub_reponses_besoins (R-186, R-187, à créer dans Keystone)", "auth": "Rôle arche_app, convention de partage",
+      "source": [], "cible": ["machine_needs"],
+      "champs": [
+        ["pub_catalogue_machines : code, version, type, options, capacité, prix indicatif", "choix du besoin"],
+        ["pub_reponses_besoins : qualification, fourchette E50 / E30 / E10, délai, projet créé", "réponse affichée sur le besoin"]
+      ],
+      "note": "Arche, docs/CONTRATS.md § 2.2 ; Arche garde des miroirs keystone_* avec synced_at."
+    },
+    {
+      "id": "F18", "nom": "Projets EPC2i liés à un CAPEX : jalons, avancement, avenants, réserves",
+      "de": "keystone", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "propose",
+      "point": "keystone.pub_projets, pub_livrables, pub_parc_machines (existent) ; pub_jalons_projets, pub_avancement_projets, pub_avenants, pub_reserves, pub_pack_ingenierie (R-189 à R-191, à créer)", "auth": "Rôle arche_app, convention de partage",
+      "source": [], "cible": ["capex_lots", "machine_needs", "production_lines"],
+      "champs": [
+        ["pub_projets.capex_code, besoin_ref (K-05, colonnes à ajouter)", "rattachement du projet au CAPEX"],
+        ["pub_avancement_projets : % physique, SPI, prix de vente, avenants, facturé (ni coût ni marge, AC-2)", "lot machines du CAPEX"]
+      ],
+      "note": "Arche, docs/CONTRATS.md § 2 ; demandes K-01 à K-08 d'Arche à Keystone."
+    },
+    {
+      "id": "F19", "nom": "CAPEX et montée en cadence vus de Keystone",
+      "de": "arche", "vers": "keystone", "mode": "Vue pub_ (lecture)", "statut": "propose",
+      "point": "arche.pub_capex, arche.pub_rampup", "auth": "Rôle keystone_app, convention de partage",
+      "source": ["capex", "gates", "production_lines", "rampup_days"], "cible": [],
+      "champs": [
+        ["pub_capex : code, filiale, phase, typologie, jalons", "fiche projet EPC2i (lien vers le CAPEX)"],
+        ["pub_rampup : TRS et production par ligne", "garantie et SAV des machines"]
+      ],
+      "note": "Arche, docs/CONTRATS.md § 3."
+    },
+    {
+      "id": "F20", "nom": "Jalons HSE d'un CAPEX",
+      "de": "vigie", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "prevu",
+      "point": "vue des études de sécurité de Vigie (HazID, HazOp, AMDEC, PSSR), à définir (AC-3, M-6)", "auth": "Rôle arche_app, convention de partage",
+      "source": [], "cible": ["hs_statuses"],
+      "champs": [
+        ["statut et preuve des jalons HS2 à HS6 et PSSR", "hs_statuses (source vigie ; déclaratif en attendant, N-13)"]
+      ],
+      "note": "Rien n'existe encore dans Vigie."
+    },
+    {
+      "id": "F21", "nom": "Références de documents d'un dossier CAPEX",
+      "de": "codex", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "prevu",
+      "point": "codex.pub_documents, pub_revisions_document", "auth": "Rôle arche_app (droit à poser quand Arche les lira)",
+      "source": ["documents", "revisions"], "cible": ["dossier_attachments", "authorizations", "pack_items"],
+      "champs": [
+        ["identifiant et révision Codex", "codex_ref, revision (Arche ne stocke aucun fichier, N-17)"]
+      ],
+      "note": "Arche, décisions C-12 et N-17. Le droit de lecture n'est pas encore posé (demande à confirmer)."
     }
   ],
   "externes": [

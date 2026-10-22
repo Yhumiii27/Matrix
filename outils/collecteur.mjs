@@ -1,4 +1,4 @@
-// Collecteur Matrix : construit data/catalogue.json à partir des schémas des quatre outils.
+// Collecteur Matrix : construit data/catalogue.json à partir des schémas des cinq outils.
 //
 // Deux sources, par ordre de priorité :
 //   1. Les déclarations envoyées par les outils au démarrage (declarations/<outil>.json, contrat matrix.schema/1,
@@ -6,12 +6,14 @@
 //   2. Le code source des dépôts voisins, en lecture seule :
 //      - Keystone, Codex, Vigie : migrations Drizzle (drizzle/*.sql) + commentaires de src/**/schema*.ts
 //      - Cursus : objet TABLES de server/src/db.ts (SQLite, pas de clé étrangère déclarée)
+//      - Arche : migrations Drizzle dès qu'elles existent ; avant, tables de sa spécification
+//        (docs/spec/02-objets.md, livraison 0), marquées « prévu »
 //
 // À chaque passage, le collecteur compare le résultat à la collecte précédente :
 //   - une table ou une colonne apparue ou disparue est ajoutée à data/historique.json ;
 //   - une nouvelle table est marquée « à documenter » et comparée aux tables des autres outils (doublon possible).
 //
-// Usage : node outils/collecteur.mjs [dossier contenant keystone/ codex/ cursus/ vigie/]
+// Usage : node outils/collecteur.mjs [dossier contenant keystone/ codex/ cursus/ vigie/ arche/]
 // Par défaut, le dossier parent du dépôt Matrix.
 // Variables : MATRIX_DATA_DIR (défaut data/), MATRIX_DECLARATIONS_DIR (défaut declarations/).
 
@@ -20,7 +22,7 @@ import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const ORDER = ['keystone', 'codex', 'cursus', 'vigie'];
+const ORDER = ['keystone', 'codex', 'cursus', 'vigie', 'arche'];
 
 // ── Domaines fonctionnels et descriptions ────────────────────────────────
 
@@ -123,7 +125,7 @@ const SENSITIVE = {
 // « convention ») : elle remplace la liste ci-dessus quand le fichier est là. « * » ferme la table entière.
 const SOCLE_DROITS = join(here, '..', 'infra', 'postgres', 'init', '03-droits.sql');
 if (existsSync(SOCLE_DROITS)) {
-  const ligne = /\(\s*'(keystone|codex|cursus|vigie)',\s*'(\w+)',\s*'([\w*]+)',\s*'(?:[^']|'')*',\s*'convention'\)/g;
+  const ligne = /\(\s*'(keystone|codex|cursus|vigie|arche)',\s*'(\w+)',\s*'([\w*]+)',\s*'(?:[^']|'')*',\s*'convention'\)/g;
   const lues = {};
   for (const [, app, table, col] of readFileSync(SOCLE_DROITS, 'utf8').matchAll(ligne)) (lues[`${app}.${table}`] ??= []).push(col);
   if (Object.keys(lues).length) { for (const k of Object.keys(SENSITIVE)) delete SENSITIVE[k]; Object.assign(SENSITIVE, lues); }
@@ -220,6 +222,45 @@ function parseCursus(file) {
   }));
 }
 
+// ── Arche : tables de la spécification (avant le premier code) ──────────
+
+// Liens logiques des colonnes de la spécification (colonne → table.colonne), non déclarés en base.
+const ARCHE_FK = {
+  capex_id: ['capex', 'id'], site_id: ['sites', 'id'], lot_id: ['capex_lots', 'id'], gate_id: ['gates', 'id'],
+  dossier_id: ['dossiers', 'id'], dossier_version_id: ['dossier_versions', 'id'], budget_version_id: ['budget_versions', 'id'],
+  consultation_id: ['consultations', 'id'], circuit_step_id: ['circuit_steps', 'id'], line_id: ['production_lines', 'id'],
+  review_id: ['reviews', 'id'], user_id: ['users', 'id'], sponsor_user_id: ['users', 'id'], lead_user_id: ['users', 'id'],
+  owner_user_id: ['users', 'id'], expert_user_id: ['users', 'id'], by_user_id: ['users', 'id'],
+  subsidiary_code: ['subsidiaries', 'code'], zone_code: ['zones', 'code'],
+};
+
+// Lignes « | `table` | `col`, `col` (`valeur` / …) … | notes | » sous les titres « ## n. Section ».
+function parseArcheSpec(file) {
+  const tables = [], comments = {};
+  let section = null;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    const h = line.match(/^## \d+\. (.+)$/);
+    if (h) { section = h[1].trim(); continue; }
+    const m = line.match(/^\| `([a-z_]+)` \| (.+?) \| (.*) \|$/);
+    if (!m || !section) continue;
+    const [, name, cols, notes] = m;
+    const names = [...new Set([...cols.replace(/\([^)]*\)/g, '').matchAll(/`([a-z][a-z0-9_]*)`/g)].map(x => x[1]))];
+    if (!names.length) continue;
+    const type = c => /_at$/.test(c) ? 'timestamptz' : /(_on|_date|^day|^month)$/.test(c) ? 'date'
+      : /(_keur|_pct|_eur|_rate_pct|_years)$/.test(c) ? 'numeric' : /^(phasing|flows|content|definition|options)$/.test(c) ? 'jsonb' : 'à préciser';
+    const pk = names.includes('id') ? ['id'] : names.includes('code') ? ['code'] : [];
+    tables.push({
+      name, pk, uniques: [],
+      columns: [...names, 'created_at', 'updated_at'].filter((c, i, a) => a.indexOf(c) === i)
+        .map(c => ({ name: c, type: c.endsWith('_at') && ['created_at', 'updated_at'].includes(c) ? 'timestamptz' : type(c), nullable: !pk.includes(c), pk: pk.includes(c), default: null })),
+      fks: names.filter(c => ARCHE_FK[c] && ARCHE_FK[c][0] !== name)
+        .map(c => ({ columns: [c], table: ARCHE_FK[c][0], refColumns: [ARCHE_FK[c][1]], onDelete: null, declared: false })),
+    });
+    comments[name] = { section, doc: notes.replace(/`/g, '').trim() || null };
+  }
+  return { tables, comments };
+}
+
 // ── Sources ──────────────────────────────────────────────────────────────
 
 function fromRepos(root) {
@@ -236,6 +277,12 @@ function fromRepos(root) {
       const s = join(d, 'src/db/schema.ts');
       out[id] = { tables: parseDrizzle(join(d, 'drizzle')), comments: existsSync(s) ? schemaComments([s]) : {}, source: 'dépôt (migrations Drizzle)' };
     }
+  }
+  const ar = join(root, 'arche');
+  if (existsSync(join(ar, 'drizzle'))) out.arche = { tables: parseDrizzle(join(ar, 'drizzle')), comments: {}, source: 'dépôt (migrations Drizzle)' };
+  else if (existsSync(join(ar, 'docs/spec/02-objets.md'))) {
+    const spec = parseArcheSpec(join(ar, 'docs/spec/02-objets.md'));
+    out.arche = { ...spec, source: 'spécification (docs/spec/02-objets.md, livraison 0) : tables prévues' };
   }
   const cu = join(root, 'cursus', 'server/src/db.ts');
   if (existsSync(cu)) out.cursus = { tables: parseCursus(cu), comments: {}, source: 'dépôt (server/src/db.ts)' };
@@ -265,6 +312,7 @@ function enrich(app, tables, comments, known = new Map()) {
     if (app === 'keystone') { domain = KEYSTONE_MODULES[c.file]; description = c.doc; }
     else if (app === 'codex') { domain = CODEX_SECTIONS[c.section] ?? c.section; description = c.doc ?? DESCRIPTIONS.codex[t.name]; }
     else if (app === 'vigie') { domain = c.section; description = c.doc ?? DESCRIPTIONS.vigie[t.name]; }
+    else if (app === 'arche') { domain = c.section; description = c.doc; }
     else { [domain, description] = CURSUS_META[t.name] ?? []; }
     const fks = [...t.fks];
     if (app === 'cursus') for (const col of t.columns) {

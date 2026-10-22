@@ -1,5 +1,5 @@
 {
-  "_lisezmoi": "Tables en doublon entre Keystone, Codex, Cursus et Vigie, relevées le 15 octobre 2026. Méthode : comparaison automatique des noms et des colonnes de chaque paire de tables entre deux bases (outils/collecteur.mjs), puis relecture du code et des jeux de démo. nature : doublon = même objet, saisi deux fois ; miroir = copie locale d'une table d'un autre outil ; chevauchement = objets voisins qui se recouvrent en partie ; homonyme = même nom, objets différents ; technique = table d'infrastructure propre à chaque outil. Le champ decision est rempli quand l'utilisateur a tranché (statut : definitive ou provisoire, avec sa citation exacte).",
+  "_lisezmoi": "Tables en doublon entre Keystone, Codex, Cursus et Vigie, relevées le 15 octobre 2026 ; Arche ajouté le 22 octobre 2026 d'après sa spécification (groupes D21, D22 et compléments de D01, D02, D14, D16 à D18, D20). Méthode : comparaison automatique des noms et des colonnes de chaque paire de tables entre deux bases (outils/collecteur.mjs), puis relecture du code et des jeux de démo. nature : doublon = même objet, saisi deux fois ; miroir = copie locale d'une table d'un autre outil ; chevauchement = objets voisins qui se recouvrent en partie ; homonyme = même nom, objets différents ; technique = table d'infrastructure propre à chaque outil. Le champ decision est rempli quand l'utilisateur a tranché (statut : definitive ou provisoire, avec sa citation exacte).",
   "groupes": [
     {
       "id": "D01", "objet": "Personnes", "nature": "doublon", "gravite": "critique",
@@ -7,9 +7,10 @@
         { "app": "cursus", "table": "employes", "role": "Fiche salarié RH (contrat, temps de travail, visite médicale)", "contenu": "24 salariés, matricule EMP-xxxx dérivé de l'id entier" },
         { "app": "keystone", "table": "persons", "role": "Personnes des projets, y compris contacts client et rôles contractuels", "contenu": "id uuid, short_name unique ; mêmes noms que Codex" },
         { "app": "codex", "table": "users", "role": "Utilisateurs de la GED et comptes système", "contenu": "25 personnes + comptes codex, keystone, vigie ; id texte" },
-        { "app": "vigie", "table": "people", "role": "Personnel suivi dans la matrice d'habilitations", "contenu": "12 personnes, noms provisoires entre crochets ([T. Nguyen])" }
+        { "app": "vigie", "table": "people", "role": "Personnel suivi dans la matrice d'habilitations", "contenu": "12 personnes, noms provisoires entre crochets ([T. Nguyen])" },
+        { "app": "arche", "table": "users", "role": "Comptes Arche (Entra ID), personnes du groupe et des filiales", "contenu": "prévue (spécification d'Arche, livraison 0)" }
       ],
-      "contenu": "11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre.",
+      "contenu": "11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés EPC2i y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche.",
       "champs": ["employes.nom ↔ persons.full_name ↔ users.name ↔ people.name", "employes.poste ↔ persons.job_title ↔ users.title ↔ people.job", "employes.equipe ↔ persons.department_id ↔ users.department", "— ↔ persons.email ↔ — ↔ —"],
       "options": [
         { "id": "A", "libelle": "Fusionner : Cursus fait foi pour les salariés", "effet": "Une seule fiche par salarié, identifiée par le matricule. Keystone, Codex et Vigie gardent une table locale réduite (matricule + données propres à l'outil). Keystone garde les personnes externes (contacts client)." },
@@ -26,9 +27,10 @@
         { "app": "keystone", "table": "projects", "role": "Projet de référence (code, client, phase, budget)", "contenu": "17 projets, codes HLT-026, NDC-031… et code analytique HAV004" },
         { "app": "codex", "table": "projects", "role": "Copie locale pour rattacher les documents", "contenu": "3 projets, mêmes codes que Keystone (HLT-026, NDC-031, RCF-019)" },
         { "app": "vigie", "table": "keystone_projects", "role": "Copie locale pour les listes de choix", "contenu": "10 projets K-2024-097… : aucun code n'existe dans Keystone" },
-        { "app": "cursus", "table": "projets", "role": "Codes à imputer sur les feuilles de temps", "contenu": "14 codes : projets K-26xx et codes internes INT-PROD, INT-HSE, ECOLE…" }
+        { "app": "cursus", "table": "projets", "role": "Codes à imputer sur les feuilles de temps", "contenu": "14 codes : projets K-26xx et codes internes INT-PROD, INT-HSE, ECOLE…" },
+        { "app": "arche", "table": "keystone_projects", "role": "Miroir des projets EPC2i liés à un CAPEX (lu dans keystone.pub_projets)", "contenu": "prévue (spécification d'Arche, livraison 0)" }
       ],
-      "contenu": "Codex est cohérent avec Keystone. Vigie et Cursus utilisent des codes que Keystone ne connaît pas. Les codes internes de Cursus (INT-…) n'ont pas d'équivalent dans Keystone.",
+      "contenu": "Codex est cohérent avec Keystone. Vigie et Cursus utilisent des codes que Keystone ne connaît pas. Les codes internes de Cursus (INT-…) n'ont pas d'équivalent dans Keystone. Arche : miroir keystone_projects lu dans keystone.pub_projets, conforme à l'option B.",
       "champs": ["projects.code ↔ projects.code ↔ keystone_projects.id ↔ projets.code", "projects.name ↔ projects.name ↔ keystone_projects.title ↔ projets.nom", "clients.name ↔ projects.client ↔ keystone_projects.client ↔ —"],
       "options": [
         { "id": "A", "libelle": "Garder Keystone seul ; les autres deviennent des miroirs synchronisés", "effet": "Mêmes codes partout. Les copies sont mises à jour par l'API Keystone et ne sont plus saisies." },
@@ -240,9 +242,10 @@
       "id": "D14", "objet": "Sites et établissements", "nature": "doublon", "gravite": "majeur",
       "tables": [
         { "app": "codex", "table": "sites", "role": "Sites du groupe", "contenu": "lyon, le_havre, marseille" },
-        { "app": "vigie", "table": "sites", "role": "Sites industriels (classement Seveso)", "contenu": "ville-a, ville-b (noms provisoires)" }
+        { "app": "vigie", "table": "sites", "role": "Sites industriels (classement Seveso)", "contenu": "ville-a, ville-b (noms provisoires)" },
+        { "app": "arche", "table": "sites", "role": "Usines et terrains des filiales (site d'un CAPEX)", "contenu": "prévue (spécification d'Arche, livraison 0)" }
       ],
-      "contenu": "Aucune valeur commune. Vigie attend les vrais noms de site. Les sites de chantier de Keystone (project_sites) sont un autre objet et restent à part.",
+      "contenu": "Aucune valeur commune. Vigie attend les vrais noms de site. Les sites de chantier de Keystone (project_sites) sont un autre objet et restent à part. Arche : sa spécification prévoit sa propre table sites (usines et terrains des filiales). Application de l'option A : ces sites rejoignent la liste unique de Matrix (matrix.pub_sites, avec le code de la filiale) et Arche la lit ; voir D21.",
       "champs": ["sites.key ↔ sites.id", "sites.label ↔ sites.label"],
       "options": [
         { "id": "A", "libelle": "Une seule liste, publiée par Matrix", "effet": "Codex et Vigie lisent la même liste ; Vigie garde ses attributs Seveso." },
@@ -274,9 +277,10 @@
       "tables": [
         { "app": "keystone", "table": "clients", "role": "Clients", "contenu": "clients des projets" },
         { "app": "keystone", "table": "suppliers", "role": "Fournisseurs (code X3, notes de performance)", "contenu": "31 fournisseurs" },
-        { "app": "vigie", "table": "contractors", "role": "Entreprises extérieures des plans de prévention", "contenu": "6 entreprises" }
+        { "app": "vigie", "table": "contractors", "role": "Entreprises extérieures des plans de prévention", "contenu": "6 entreprises" },
+        { "app": "arche", "table": "subsidiaries", "role": "Filiales du groupe (client des projets EPC2i, R-190)", "contenu": "prévue (spécification d'Arche, livraison 0)" }
       ],
-      "contenu": "Une entreprise extérieure de Vigie peut aussi être un fournisseur de Keystone. Codex et Cursus stockent le client en texte libre.",
+      "contenu": "Une entreprise extérieure de Vigie peut aussi être un fournisseur de Keystone. Codex et Cursus stockent le client en texte libre. Arche : la filiale d'un CAPEX est le client du projet EPC2i (keystone.clients) ; voir D21.",
       "champs": ["suppliers.name ↔ contractors.name"],
       "options": [
         { "id": "A", "libelle": "Keystone fait foi ; Vigie relie ses entreprises aux fournisseurs", "effet": "Ajout d'une colonne supplier_id dans contractors ; Vigie garde ses contacts HSE." },
@@ -291,9 +295,10 @@
       "tables": [
         { "app": "cursus", "table": "destinations", "role": "Pays et règles de voyage (visa, vaccins)", "contenu": "8 pays, code ISO à 2 lettres" },
         { "app": "keystone", "table": "countries", "role": "Pays des projets (clé : nom)", "contenu": "pays par zone" },
-        { "app": "keystone", "table": "public_holidays", "role": "Jours fériés par pays", "contenu": "11 jours" }
+        { "app": "keystone", "table": "public_holidays", "role": "Jours fériés par pays", "contenu": "11 jours" },
+        { "app": "arche", "table": "subsidiaries", "role": "Pays de la filiale (country_iso2)", "contenu": "prévue (spécification d'Arche, livraison 0)" }
       ],
-      "contenu": "Keystone identifie un pays par son nom, Cursus par son code ISO.",
+      "contenu": "Keystone identifie un pays par son nom, Cursus par son code ISO. Arche : codes pays ISO des filiales et des sites lus dans matrix.pub_pays (option A), sans table locale.",
       "champs": ["destinations.code ↔ countries.name", "destinations.pays ↔ countries.name"],
       "options": [
         { "id": "A", "libelle": "Liste des pays ISO publiée par Matrix", "effet": "Keystone ajoute le code ISO ; Cursus garde ses règles de voyage." },
@@ -308,9 +313,10 @@
       "tables": [
         { "app": "keystone", "table": "audit_entries", "role": "Journal d'audit", "contenu": "" },
         { "app": "codex", "table": "audit_log", "role": "Journal d'audit", "contenu": "" },
-        { "app": "cursus", "table": "journal", "role": "Journal d'audit et d'intégration", "contenu": "" }
+        { "app": "cursus", "table": "journal", "role": "Journal d'audit et d'intégration", "contenu": "" },
+        { "app": "arche", "table": "audit_entries", "role": "Journal d'Arche (repris du socle Keystone), publié par arche.pub_journal", "contenu": "prévue (spécification d'Arche, livraison 0)" }
       ],
-      "contenu": "Chaque outil trace ses propres actions. Vigie n'a pas de journal.",
+      "contenu": "Chaque outil trace ses propres actions. Vigie n'a pas de journal. Arche : journal propre et arche.pub_journal, déjà ajouté à matrix.journal_unifie (option A).",
       "champs": [],
       "options": [
         { "id": "A", "libelle": "Garder dans chaque outil ; Matrix les consulte ensemble", "effet": "Vue d'audit transverse dans Matrix, en lecture." },
@@ -345,9 +351,13 @@
         { "app": "vigie", "table": "certifications", "role": "Certifications ISO du groupe", "contenu": "à ne pas confondre avec cursus.certifications (formations suivies)" },
         { "app": "keystone", "table": "change_requests", "role": "Avenants et changements de projet", "contenu": "à ne pas confondre avec codex.change_requests (ECR)" },
         { "app": "cursus", "table": "plan_actions", "role": "Lignes du plan de formation", "contenu": "à ne pas confondre avec vigie.actions (plan d'actions QHSE)" },
-        { "app": "cursus", "table": "reports", "role": "Reports de congés payés", "contenu": "à ne pas confondre avec keystone.status_reports" }
+        { "app": "cursus", "table": "reports", "role": "Reports de congés payés", "contenu": "à ne pas confondre avec keystone.status_reports" },
+        { "app": "arche", "table": "risks", "role": "Registre des risques d'un CAPEX", "contenu": "prévue (spécification d'Arche, livraison 0)" },
+        { "app": "arche", "table": "decisions", "role": "Registre des décisions d'un CAPEX", "contenu": "prévue (spécification d'Arche, livraison 0)" },
+        { "app": "arche", "table": "changes", "role": "Changements après G2 (MoC : coût, délai, périmètre)", "contenu": "prévue (spécification d'Arche, livraison 0)" },
+        { "app": "arche", "table": "reviews", "role": "Revues de pilotage d'un CAPEX", "contenu": "prévue (spécification d'Arche, livraison 0)" }
       ],
-      "contenu": "Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration.",
+      "contenu": "Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration. Arche : risks, decisions, changes et reviews portent sur un CAPEX, pas sur un projet EPC2i ni sur un événement QHSE ; homonymes gardés et toujours nommés avec leur outil (option A). changes n'est pas un ECR / ECO (D12) : il ne modifie ni produit ni document.",
       "champs": [],
       "options": [
         { "id": "A", "libelle": "Garder et toujours nommer les tables avec leur outil", "effet": "Matrix affiche outil.table partout. Aucun changement de code." },
@@ -356,6 +366,40 @@
       "recommandation": "A",
       "raison": "Le passage à un schéma par outil suffit à lever l'ambiguïté.",
       "decision": {"option": "A", "statut": "definitive", "le": "2026-10-15", "citation": "D20 Homonymes : même nom, objets différents : option A (Garder et toujours nommer les tables avec leur outil)"}
+    },
+    {
+      "id": "D21", "objet": "Filiales et zones du groupe", "nature": "chevauchement", "gravite": "majeur",
+      "tables": [
+        { "app": "arche", "table": "zones", "role": "Zones (Directeurs de Zone)", "contenu": "prévue (spécification d'Arche)" },
+        { "app": "arche", "table": "subsidiaries", "role": "Filiales : code à 3 lettres, pays, zone, devise", "contenu": "prévue (spécification d'Arche)" },
+        { "app": "arche", "table": "sites", "role": "Usines et terrains des filiales", "contenu": "prévue (spécification d'Arche)" },
+        { "app": "keystone", "table": "clients", "role": "Clients des projets EPC2i, dont les filiales (code3)", "contenu": "Les filiales commandent les machines à EPC2i" }
+      ],
+      "contenu": "Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets EPC2i dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles.",
+      "champs": ["subsidiaries.code ↔ clients.code3", "subsidiaries.name ↔ clients.name", "subsidiaries.zone_code ↔ matrix.organigramme (niveau zone)", "sites.name, city, country_iso2 ↔ matrix.sites"],
+      "options": [
+        { "id": "A", "libelle": "Référentiel du groupe dans Matrix : zones, filiales et leurs sites publiés par Matrix", "effet": "Matrix ajoute les niveaux groupe › zone › filiale à l'organigramme (ou une liste matrix.filiales) et les sites des filiales à matrix.sites ; Arche les lit (vues pub_) au lieu de les créer ; Keystone relie clients.code3 au code de la filiale." },
+        { "id": "B", "libelle": "Arche fait foi pour les filiales et les zones, et les publie", "effet": "Arche garde zones, subsidiaries et sites et publie arche.pub_filiales ; Keystone relie ses clients aux filiales ; Matrix les reprend dans ses référentiels." },
+        { "id": "C", "libelle": "Keystone fait foi (clients, D16)", "effet": "Arche lit keystone.pub_clients et n'ajoute que la zone et la devise ; les sites restent dans Matrix (D14)." }
+      ],
+      "recommandation": "A", "raison": "Même logique que D14, D15 et D17 : un référentiel transverse est publié par Matrix et lu par tous. La filiale sert à Arche (CAPEX), à Keystone (client) et demain à Vigie et Codex (site, département).",
+      "decision": null
+    },
+    {
+      "id": "D22", "objet": "Retours d'expérience (REX)", "nature": "chevauchement", "gravite": "mineur",
+      "tables": [
+        { "app": "keystone", "table": "lessons_learned", "role": "Leçons apprises des projets EPC2i", "contenu": "Keystone détient le REX des projets" },
+        { "app": "keystone", "table": "rex_references", "role": "Références de REX", "contenu": "Liens vers les leçons apprises" },
+        { "app": "arche", "table": "rex_entries", "role": "REX capitalisé d'un CAPEX, partagé avec les fonctions centrales", "contenu": "prévue (spécification d'Arche)" }
+      ],
+      "contenu": "Arche prévoit sa propre bibliothèque REX (ajout hors CDC, à valider côté Arche), alors que Keystone tient déjà les leçons apprises des projets EPC2i. Le REX d'un CAPEX porte souvent sur la machine livrée par EPC2i.",
+      "champs": ["rex_entries.title, text, category ↔ lessons_learned"],
+      "options": [
+        { "id": "A", "libelle": "Deux registres, une vue commune", "effet": "Arche garde le REX du CAPEX (filiale, investissement), Keystone celui des projets ; chacun publie pub_rex et Matrix les réunit, comme le journal unifié." },
+        { "id": "B", "libelle": "Keystone fait foi", "effet": "Arche saisit ses REX dans Keystone par API ou les lit dans keystone.pub_rex ; pas de table rex_entries." }
+      ],
+      "recommandation": "A", "raison": "Les deux REX n'ont ni les mêmes auteurs ni le même objet ; les réunir par une vue évite la double saisie sans faire entrer les filiales dans Keystone.",
+      "decision": null
     }
   ]
 }

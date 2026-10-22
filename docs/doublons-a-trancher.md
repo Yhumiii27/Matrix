@@ -1,6 +1,6 @@
 # Doublons à trancher
 
-Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cursus, Vigie), relevées le 15 octobre 2026.
+Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cursus, Vigie), relevées le 15 octobre 2026 ; Arche, d’après sa spécification, le 22 octobre 2026 (groupes D21 et suivants, et Arche ajouté aux groupes existants).
 
 **Méthode.**
 - Les noms et les colonnes de chaque paire de tables de deux outils différents ont été comparés automatiquement (`outils/collecteur.mjs`, fonction `similarTables`).
@@ -21,8 +21,8 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 | | Objet | Nature | Gravité | Tables | Proposé | Décision |
 |---|---|---|---|---|---|---|
-| D01 | Personnes | Doublon | Critique | Cursus.`employes`, Keystone.`persons`, Codex.`users`, Vigie.`people` | A | ☑ A ☐ B ☐ C (definitive) |
-| D02 | Projets | Miroir | Critique | Keystone.`projects`, Codex.`projects`, Vigie.`keystone_projects`, Cursus.`projets` | B | ☐ A ☑ B ☐ C (definitive) |
+| D01 | Personnes | Doublon | Critique | Cursus.`employes`, Keystone.`persons`, Codex.`users`, Vigie.`people`, Arche.`users` | A | ☑ A ☐ B ☐ C (definitive) |
+| D02 | Projets | Miroir | Critique | Keystone.`projects`, Codex.`projects`, Vigie.`keystone_projects`, Cursus.`projets`, Arche.`keystone_projects` | B | ☐ A ☑ B ☐ C (definitive) |
 | D03 | Chantiers (fiche site d'un projet) | Doublon | Majeur | Keystone.`site_sheets`, Keystone.`site_rotations`, Cursus.`chantiers` | B | ☐ A ☑ B ☐ C (definitive) |
 | D04 | Affectations des personnes aux projets | Miroir | Majeur | Keystone.`allocations`, Keystone.`activity_assignments`, Cursus.`missions`, Vigie.`keystone_assignments` | B | ☐ A ☑ B (definitive) |
 | D05 | Tâches et heures prévues | Miroir | Mineur | Keystone.`tasks`, Cursus.`taches` | A | ☑ A ☐ B (definitive) |
@@ -34,19 +34,21 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | D11 | Registre des types de document et circuits | Doublon | Majeur | Codex.`doc_types`, Codex.`function_holders`, Keystone.`document_types`, Keystone.`document_type_circuit_steps`, Keystone.`document_approver_assignments` | A | ☑ A ☐ B (definitive) |
 | D12 | Demandes et ordres de modification (ECR / ECO) | Chevauchement | Majeur | Codex.`change_requests`, Keystone.`vigie_ecos` | A | ☑ A ☐ B (definitive) |
 | D13 | Non-conformités et éléments HSE de projet | Miroir | Mineur | Vigie.`events`, Keystone.`vigie_ncrs`, Keystone.`vigie_hse_items` | A | ☑ A (definitive) |
-| D14 | Sites et établissements | Doublon | Majeur | Codex.`sites`, Vigie.`sites` | A | ☑ A ☐ B (definitive) |
+| D14 | Sites et établissements | Doublon | Majeur | Codex.`sites`, Vigie.`sites`, Arche.`sites` | A | ☑ A ☐ B (definitive) |
 | D15 | Organisation : départements et équipes | Chevauchement | Majeur | Codex.`departments`, Keystone.`departments`, Cursus.`equipes` | A | ☑ A ☐ B (definitive) |
-| D16 | Clients, fournisseurs et entreprises extérieures | Chevauchement | Mineur | Keystone.`clients`, Keystone.`suppliers`, Vigie.`contractors` | A | ☑ A ☐ B (definitive) |
-| D17 | Pays | Chevauchement | Mineur | Cursus.`destinations`, Keystone.`countries`, Keystone.`public_holidays` | A | ☑ A ☐ B (definitive) |
-| D18 | Journaux d'audit | Technique | Mineur | Keystone.`audit_entries`, Codex.`audit_log`, Cursus.`journal` | A | ☑ A ☐ B (definitive) |
+| D16 | Clients, fournisseurs et entreprises extérieures | Chevauchement | Mineur | Keystone.`clients`, Keystone.`suppliers`, Vigie.`contractors`, Arche.`subsidiaries` | A | ☑ A ☐ B (definitive) |
+| D17 | Pays | Chevauchement | Mineur | Cursus.`destinations`, Keystone.`countries`, Keystone.`public_holidays`, Arche.`subsidiaries` | A | ☑ A ☐ B (definitive) |
+| D18 | Journaux d'audit | Technique | Mineur | Keystone.`audit_entries`, Codex.`audit_log`, Cursus.`journal`, Arche.`audit_entries` | A | ☑ A ☐ B (definitive) |
 | D19 | Paramètres et fichiers joints | Technique | Mineur | Keystone.`app_settings`, Cursus.`settings`, Keystone.`stored_files`, Vigie.`attachments` | A | ☑ A (definitive) |
-| D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports` | A | ☑ A ☐ B (definitive) |
+| D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports`, Arche.`risks`, Arche.`decisions`, Arche.`changes`, Arche.`reviews` | A | ☑ A ☐ B (definitive) |
+| D21 | Filiales et zones du groupe | Chevauchement | Majeur | Arche.`zones`, Arche.`subsidiaries`, Arche.`sites`, Keystone.`clients` | A | ☑ A ☐ B ☐ C (definitive) |
+| D22 | Retours d'expérience (REX) | Chevauchement | Mineur | Keystone.`lessons_learned`, Keystone.`rex_references`, Arche.`rex_entries` | A | ☑ A ☐ B (definitive) |
 
 ## D01 · Personnes
 
 **Doublon · Critique**
 
-**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre.
+**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés EPC2i y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -54,6 +56,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Keystone | `persons` | Personnes des projets, y compris contacts client et rôles contractuels | id uuid, short_name unique ; mêmes noms que Codex |
 | Codex | `users` | Utilisateurs de la GED et comptes système | 25 personnes + comptes codex, keystone, vigie ; id texte |
 | Vigie | `people` | Personnel suivi dans la matrice d'habilitations | 12 personnes, noms provisoires entre crochets ([T. Nguyen]) |
+| Arche | `users` | Comptes Arche (Entra ID), personnes du groupe et des filiales | prévue (spécification d'Arche, livraison 0) |
 
 **Colonnes qui se correspondent**
 
@@ -76,7 +79,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Miroir · Critique**
 
-**Ce que contiennent les tables.** Codex est cohérent avec Keystone. Vigie et Cursus utilisent des codes que Keystone ne connaît pas. Les codes internes de Cursus (INT-…) n'ont pas d'équivalent dans Keystone.
+**Ce que contiennent les tables.** Codex est cohérent avec Keystone. Vigie et Cursus utilisent des codes que Keystone ne connaît pas. Les codes internes de Cursus (INT-…) n'ont pas d'équivalent dans Keystone. Arche : miroir keystone_projects lu dans keystone.pub_projets, conforme à l'option B.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -84,6 +87,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Codex | `projects` | Copie locale pour rattacher les documents | 3 projets, mêmes codes que Keystone (HLT-026, NDC-031, RCF-019) |
 | Vigie | `keystone_projects` | Copie locale pour les listes de choix | 10 projets K-2024-097… : aucun code n'existe dans Keystone |
 | Cursus | `projets` | Codes à imputer sur les feuilles de temps | 14 codes : projets K-26xx et codes internes INT-PROD, INT-HSE, ECOLE… |
+| Arche | `keystone_projects` | Miroir des projets EPC2i liés à un CAPEX (lu dans keystone.pub_projets) | prévue (spécification d'Arche, livraison 0) |
 
 **Colonnes qui se correspondent**
 
@@ -416,12 +420,13 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Doublon · Majeur**
 
-**Ce que contiennent les tables.** Aucune valeur commune. Vigie attend les vrais noms de site. Les sites de chantier de Keystone (project_sites) sont un autre objet et restent à part.
+**Ce que contiennent les tables.** Aucune valeur commune. Vigie attend les vrais noms de site. Les sites de chantier de Keystone (project_sites) sont un autre objet et restent à part. Arche : sa spécification prévoit sa propre table sites (usines et terrains des filiales). Application de l'option A : ces sites rejoignent la liste unique de Matrix (matrix.pub_sites, avec le code de la filiale) et Arche la lit ; voir D21.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Codex | `sites` | Sites du groupe | lyon, le_havre, marseille |
 | Vigie | `sites` | Sites industriels (classement Seveso) | ville-a, ville-b (noms provisoires) |
+| Arche | `sites` | Usines et terrains des filiales (site d'un CAPEX) | prévue (spécification d'Arche, livraison 0) |
 
 **Colonnes qui se correspondent**
 
@@ -466,13 +471,14 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Chevauchement · Mineur**
 
-**Ce que contiennent les tables.** Une entreprise extérieure de Vigie peut aussi être un fournisseur de Keystone. Codex et Cursus stockent le client en texte libre.
+**Ce que contiennent les tables.** Une entreprise extérieure de Vigie peut aussi être un fournisseur de Keystone. Codex et Cursus stockent le client en texte libre. Arche : la filiale d'un CAPEX est le client du projet EPC2i (keystone.clients) ; voir D21.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Keystone | `clients` | Clients | clients des projets |
 | Keystone | `suppliers` | Fournisseurs (code X3, notes de performance) | 31 fournisseurs |
 | Vigie | `contractors` | Entreprises extérieures des plans de prévention | 6 entreprises |
+| Arche | `subsidiaries` | Filiales du groupe (client des projets EPC2i, R-190) | prévue (spécification d'Arche, livraison 0) |
 
 **Colonnes qui se correspondent**
 
@@ -491,13 +497,14 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Chevauchement · Mineur**
 
-**Ce que contiennent les tables.** Keystone identifie un pays par son nom, Cursus par son code ISO.
+**Ce que contiennent les tables.** Keystone identifie un pays par son nom, Cursus par son code ISO. Arche : codes pays ISO des filiales et des sites lus dans matrix.pub_pays (option A), sans table locale.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Cursus | `destinations` | Pays et règles de voyage (visa, vaccins) | 8 pays, code ISO à 2 lettres |
 | Keystone | `countries` | Pays des projets (clé : nom) | pays par zone |
 | Keystone | `public_holidays` | Jours fériés par pays | 11 jours |
+| Arche | `subsidiaries` | Pays de la filiale (country_iso2) | prévue (spécification d'Arche, livraison 0) |
 
 **Colonnes qui se correspondent**
 
@@ -517,13 +524,14 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Technique · Mineur**
 
-**Ce que contiennent les tables.** Chaque outil trace ses propres actions. Vigie n'a pas de journal.
+**Ce que contiennent les tables.** Chaque outil trace ses propres actions. Vigie n'a pas de journal. Arche : journal propre et arche.pub_journal, déjà ajouté à matrix.journal_unifie (option A).
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Keystone | `audit_entries` | Journal d'audit |  |
 | Codex | `audit_log` | Journal d'audit |  |
 | Cursus | `journal` | Journal d'audit et d'intégration |  |
+| Arche | `audit_entries` | Journal d'Arche (repris du socle Keystone), publié par arche.pub_journal | prévue (spécification d'Arche, livraison 0) |
 
 **Options**
 
@@ -563,7 +571,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Homonyme · Mineur**
 
-**Ce que contiennent les tables.** Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration.
+**Ce que contiennent les tables.** Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration. Arche : risks, decisions, changes et reviews portent sur un CAPEX, pas sur un projet EPC2i ni sur un événement QHSE ; homonymes gardés et toujours nommés avec leur outil (option A). changes n'est pas un ECR / ECO (D12) : il ne modifie ni produit ni document.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -573,6 +581,10 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Keystone | `change_requests` | Avenants et changements de projet | à ne pas confondre avec codex.change_requests (ECR) |
 | Cursus | `plan_actions` | Lignes du plan de formation | à ne pas confondre avec vigie.actions (plan d'actions QHSE) |
 | Cursus | `reports` | Reports de congés payés | à ne pas confondre avec keystone.status_reports |
+| Arche | `risks` | Registre des risques d'un CAPEX | prévue (spécification d'Arche, livraison 0) |
+| Arche | `decisions` | Registre des décisions d'un CAPEX | prévue (spécification d'Arche, livraison 0) |
+| Arche | `changes` | Changements après G2 (MoC : coût, délai, périmètre) | prévue (spécification d'Arche, livraison 0) |
+| Arche | `reviews` | Revues de pilotage d'un CAPEX | prévue (spécification d'Arche, livraison 0) |
 
 **Options**
 
@@ -582,3 +594,58 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 **Pourquoi A.** Le passage à un schéma par outil suffit à lever l'ambiguïté.
 
 **Décision definitive du 15/10/2026.** « D20 Homonymes : même nom, objets différents : option A (Garder et toujours nommer les tables avec leur outil) »
+
+## D21 · Filiales et zones du groupe
+
+**Chevauchement · Majeur**
+
+**Ce que contiennent les tables.** Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets EPC2i dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles.
+
+| Outil | Table | Rôle | Contenu |
+|---|---|---|---|
+| Arche | `zones` | Zones (Directeurs de Zone) | prévue (spécification d'Arche) |
+| Arche | `subsidiaries` | Filiales : code à 3 lettres, pays, zone, devise | prévue (spécification d'Arche) |
+| Arche | `sites` | Usines et terrains des filiales | prévue (spécification d'Arche) |
+| Keystone | `clients` | Clients des projets EPC2i, dont les filiales (code3) | Les filiales commandent les machines à EPC2i |
+
+**Colonnes qui se correspondent**
+
+- `subsidiaries.code ↔ clients.code3`
+- `subsidiaries.name ↔ clients.name`
+- `subsidiaries.zone_code ↔ matrix.organigramme (niveau zone)`
+- `sites.name, city, country_iso2 ↔ matrix.sites`
+
+**Options**
+
+- ☑ **A. Référentiel du groupe dans Matrix : zones, filiales et leurs sites publiés par Matrix** *(proposé)* : Matrix ajoute les niveaux groupe › zone › filiale à l'organigramme (ou une liste matrix.filiales) et les sites des filiales à matrix.sites ; Arche les lit (vues pub_) au lieu de les créer ; Keystone relie clients.code3 au code de la filiale.
+- ☐ **B. Arche fait foi pour les filiales et les zones, et les publie** : Arche garde zones, subsidiaries et sites et publie arche.pub_filiales ; Keystone relie ses clients aux filiales ; Matrix les reprend dans ses référentiels.
+- ☐ **C. Keystone fait foi (clients, D16)** : Arche lit keystone.pub_clients et n'ajoute que la zone et la devise ; les sites restent dans Matrix (D14).
+
+**Pourquoi A.** Même logique que D14, D15 et D17 : un référentiel transverse est publié par Matrix et lu par tous. La filiale sert à Arche (CAPEX), à Keystone (client) et demain à Vigie et Codex (site, département).
+
+**Décision definitive du 22/10/2026.** « D21 : option A (Référentiel du groupe dans Matrix : zones, filiales et leurs sites publiés par Matrix) — réponse au choix proposé, « A · Matrix (Recommandé) » »
+
+## D22 · Retours d'expérience (REX)
+
+**Chevauchement · Mineur**
+
+**Ce que contiennent les tables.** Arche prévoit sa propre bibliothèque REX (ajout hors CDC, à valider côté Arche), alors que Keystone tient déjà les leçons apprises des projets EPC2i. Le REX d'un CAPEX porte souvent sur la machine livrée par EPC2i.
+
+| Outil | Table | Rôle | Contenu |
+|---|---|---|---|
+| Keystone | `lessons_learned` | Leçons apprises des projets EPC2i | Keystone détient le REX des projets |
+| Keystone | `rex_references` | Références de REX | Liens vers les leçons apprises |
+| Arche | `rex_entries` | REX capitalisé d'un CAPEX, partagé avec les fonctions centrales | prévue (spécification d'Arche) |
+
+**Colonnes qui se correspondent**
+
+- `rex_entries.title, text, category ↔ lessons_learned`
+
+**Options**
+
+- ☑ **A. Deux registres, une vue commune** *(proposé)* : Arche garde le REX du CAPEX (filiale, investissement), Keystone celui des projets ; chacun publie pub_rex et Matrix les réunit, comme le journal unifié.
+- ☐ **B. Keystone fait foi** : Arche saisit ses REX dans Keystone par API ou les lit dans keystone.pub_rex ; pas de table rex_entries.
+
+**Pourquoi A.** Les deux REX n'ont ni les mêmes auteurs ni le même objet ; les réunir par une vue évite la double saisie sans faire entrer les filiales dans Keystone.
+
+**Décision definitive du 22/10/2026.** « D22 : option A (Deux registres, une vue commune) — réponse au choix proposé, « A · Deux registres (Recommandé) » »

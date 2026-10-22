@@ -10,7 +10,7 @@ name: epc2i-postgres
 
 services:
   postgres:
-    # PostgreSQL 16 et les fichiers du socle (init/, sauvegarde/, partage/,
+    # PostgreSQL 16 (P-01, confirmé le 22/10/2026) et les fichiers du socle (init/, sauvegarde/, partage/,
     # verifier-droits.sql) : voir Dockerfile.
     build: .
     restart: unless-stopped
@@ -25,6 +25,7 @@ services:
       CODEX_APP_PASSWORD: ${CODEX_APP_PASSWORD:?CODEX_APP_PASSWORD manquant}
       CURSUS_APP_PASSWORD: ${CURSUS_APP_PASSWORD:?CURSUS_APP_PASSWORD manquant}
       VIGIE_APP_PASSWORD: ${VIGIE_APP_PASSWORD:?VIGIE_APP_PASSWORD manquant}
+      ARCHE_APP_PASSWORD: ${ARCHE_APP_PASSWORD:?ARCHE_APP_PASSWORD manquant}
       MATRIX_APP_PASSWORD: ${MATRIX_APP_PASSWORD:?MATRIX_APP_PASSWORD manquant}
       EPC2I_SAUVEGARDE_PASSWORD: ${EPC2I_SAUVEGARDE_PASSWORD:?EPC2I_SAUVEGARDE_PASSWORD manquant}
       # Lus par sauvegarde/sauvegarder.sh.
@@ -53,7 +54,8 @@ services:
       - -c
       - log_lock_waits=on
     volumes:
-      # PostgreSQL 16 : données à la racine du volume ($PGDATA = /var/lib/postgresql/data).
+      # Image 16 : données dans /var/lib/postgresql/data ($PGDATA). Ne pas changer ce montage sans changer de version
+      # majeure selon la procédure (le volume en service a été initialisé en 16).
       - epc2i_pgdata:/var/lib/postgresql/data
       - epc2i_sauvegardes:/sauvegardes
     ports:

@@ -3063,6 +3063,467 @@
    "type": "table_ajoutee",
    "table": "access_log",
    "source": "dépôt"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "reference_revenues",
+   "colonne": "entered_by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "reference_revenues",
+   "colonne": "entered_by"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "reference_revenues",
+   "colonne": "created_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "reference_revenues",
+   "colonne": "updated_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "role_assignments",
+   "colonne": "id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "role_assignments",
+   "colonne": "created_by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "subsidiaries",
+   "colonne": "active"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "entra_object_id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "users",
+   "colonne": "job_title"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "users",
+   "colonne": "entra_oid"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "capex",
+   "colonne": "typology_proposed"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "capex_members",
+   "colonne": "id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_ajoutee",
+   "table": "activity_events",
+   "source": "dépôt",
+   "doublonsPossibles": [
+    "keystone.activity_events"
+   ]
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_ajoutee",
+   "table": "app_settings",
+   "source": "dépôt",
+   "doublonsPossibles": [
+    "keystone.app_settings"
+   ]
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_ajoutee",
+   "table": "audit_entries",
+   "source": "dépôt",
+   "doublonsPossibles": [
+    "keystone.audit_entries"
+   ]
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_ajoutee",
+   "table": "job_runs",
+   "source": "dépôt"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "budget_lines",
+   "colonne": "phasing"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "budget_lines",
+   "colonne": "created_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "budget_lines",
+   "colonne": "updated_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "budget_versions",
+   "colonne": "submitted_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "budget_versions",
+   "colonne": "validated_by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "budget_versions",
+   "colonne": "validated_by_user_id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "budget_versions",
+   "colonne": "created_by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "budget_versions",
+   "colonne": "validated_by"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "capex_lots",
+   "colonne": "position"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "decisions",
+   "colonne": "gate_id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "decisions",
+   "colonne": "recorded_by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "decisions",
+   "colonne": "review_id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "gate_conditions",
+   "colonne": "id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "gate_criteria_results",
+   "colonne": "state"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "gate_criteria_results",
+   "colonne": "met"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "gate_criteria_results",
+   "colonne": "created_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "gate_criteria_results",
+   "colonne": "updated_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "gates",
+   "colonne": "decision_reason"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "gates",
+   "colonne": "decided_by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "gates",
+   "colonne": "decided_by_user_id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "lifecycle_models",
+   "colonne": "updated_by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "phase_transitions",
+   "colonne": "id"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "phase_transitions",
+   "colonne": "from_status"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "phase_transitions",
+   "colonne": "to_status"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "phase_transitions",
+   "colonne": "by_name"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_ajoutee",
+   "table": "phase_transitions",
+   "colonne": "occurred_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "phase_transitions",
+   "colonne": "created_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "colonne_supprimee",
+   "table": "phase_transitions",
+   "colonne": "updated_at"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "authorizations"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "business_plans"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "changes"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "circuit_steps"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "consultations"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "copil_sessions"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "delegation_rules"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "dossier_attachments"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "dossier_versions"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "dossiers"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "hs_milestones"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "hs_statuses"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "lot_actuals"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "machine_needs"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "opinions"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "pack_items"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "pack_templates"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "production_lines"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "rampup_days"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "review_series"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "reviews"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "rex_entries"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "signatures"
+  },
+  {
+   "date": "2026-10-22T11:47:09.518Z",
+   "app": "arche",
+   "type": "table_supprimee",
+   "table": "staffing_templates"
   }
  ]
 }

@@ -167,7 +167,14 @@ BEGIN
     (146, 'lire la colonne ajoutée', 'matrix_app', 'SELECT ajoutee FROM vigie.zz_ferme', 'refusé'),
     (147, 'créer une vue sur la table fermée', 'vigie_app', 'CREATE VIEW vigie.zz_vue_ferme AS SELECT id FROM vigie.zz_ferme', 'autorisé'),
     (148, 'lire la vue sur la table fermée', 'matrix_app', 'SELECT id FROM vigie.zz_vue_ferme', 'refusé'),
-    (149, 'administration : lire la table fermée', 'matrix_admin', 'SELECT note FROM vigie.zz_ferme', 'autorisé')
+    (149, 'administration : lire la table fermée', 'matrix_admin', 'SELECT note FROM vigie.zz_ferme', 'autorisé'),
+    -- Arche (22/10/2026) : chez soi seulement, lu par Matrix comme les autres outils.
+    (160, 'Arche : créer une table dans son schéma', 'arche_app', 'CREATE TABLE arche.zz_a (id integer)', 'autorisé'),
+    (161, 'Arche : créer une table dans le schéma d''un autre outil', 'arche_app', 'CREATE TABLE keystone.zz_a (id integer)', 'refusé'),
+    (162, 'Arche : lire une table d''un autre outil', 'arche_app', 'SELECT 1 FROM cursus.zz_ouverte', 'refusé'),
+    (163, 'Arche : créer une table dans public', 'arche_app', 'CREATE TABLE public.zz_a (id integer)', 'refusé'),
+    (164, 'un autre outil lit une table d''Arche', 'keystone_app', 'SELECT 1 FROM arche.zz_a', 'refusé'),
+    (165, 'Matrix lit une table d''Arche', 'matrix_app', 'SELECT id FROM arche.zz_a', 'autorisé')
   ) AS t(n, cas, role, q, attendu) ORDER BY n LOOP
     INSERT INTO resultats VALUES (c.n, c.cas, c.role, c.attendu, pg_temp.essai(c.role, c.q));
   END LOOP;

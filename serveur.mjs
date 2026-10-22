@@ -9,7 +9,7 @@
 //   GET  /api/edition           documentation, décisions, référentiels et journal saisis dans Matrix
 //   PUT  /api/documentation     documenter une table      { app, table, description, domaine, responsable, note }
 //   PUT  /api/decisions         décision sur un doublon   { id, option }  (option null pour la retirer)
-//   PUT  /api/referentiels/:nom remplacer un référentiel  [ … lignes … ]  (sites, organigramme, pays)
+//   PUT  /api/referentiels/:nom remplacer un référentiel  [ … lignes … ]  (sites, organigramme, pays, zones, filiales)
 //   GET  /api/referentiels/:nom un référentiel publié (lu par les outils)
 //
 // Variables d'environnement :
@@ -17,7 +17,7 @@
 //   MATRIX_DATA_DIR    dossier des données vivantes : catalogue, historique, déclarations (défaut ./data ;
 //                      /data dans l'image Docker, à monter sur un volume persistant)
 //   MATRIX_TOKEN       jeton partagé avec les outils ; sans lui, les déclarations sont refusées (503)
-//   MATRIX_SOURCES_DIR dossier contenant les dépôts keystone/, codex/, cursus/, vigie/ (facultatif)
+//   MATRIX_SOURCES_DIR dossier contenant les dépôts keystone/, codex/, cursus/, vigie/, arche/ (facultatif)
 //   MATRIX_MOT_DE_PASSE mot de passe d'accès à Matrix (identifiant libre, authentification HTTP Basic). Sans lui,
 //                      la consultation reste ouverte et, en production, les modifications sont refusées.
 
@@ -37,7 +37,7 @@ const SOURCES = process.env.MATRIX_SOURCES_DIR ?? null;
 const TOKEN = process.env.MATRIX_TOKEN ?? '';
 const MOT_DE_PASSE = process.env.MATRIX_MOT_DE_PASSE ?? '';
 const PRODUCTION = process.env.NODE_ENV === 'production';
-const APPS = ['keystone', 'codex', 'cursus', 'vigie'];
+const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche'];
 const MAX_OCTETS = 10 * 1024 * 1024;
 const EMBARQUE = join(RACINE, 'data');
 
@@ -145,7 +145,7 @@ createServer((req, res) => {
       return res.end('Accès réservé : identifiez-vous avec le mot de passe de Matrix.');
     }
     if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));
-    const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays)$/);
+    const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays|zones|filiales)$/);
     if (req.method === 'GET' && ref) return json(res, 200, chargerEdition(DATA).referentiels[ref[1]].filter(x => x.actif !== false || url.searchParams.get('tous') === '1'));
     if (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions')) {
       if (PRODUCTION && !MOT_DE_PASSE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE sur le serveur pour autoriser les modifications.' });

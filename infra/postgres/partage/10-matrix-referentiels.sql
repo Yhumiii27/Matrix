@@ -1,6 +1,6 @@
 -- Partage des données EPC2I, fichier 10 : référentiels publiés par Matrix (schéma matrix).
 --
--- Décisions : D17 pays ISO, D14 sites, D15 organigramme à niveaux, correspondances d'identifiants pour la
+-- Décisions : D17 pays ISO, D14 sites, D15 organigramme à niveaux, D21 zones et filiales du groupe, correspondances d'identifiants pour la
 -- transition (D01 personnes, D02 projets, D08 titres, D10 documents, D14 sites, D15 unités).
 -- Exécution : en tant que matrix_app, propriétaire du schéma matrix (voir README.md).
 --   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
@@ -122,6 +122,60 @@ INSERT INTO matrix.sites (code, libelle, ville, pays_iso2, ordre) VALUES
   ('le_havre',  'Le Havre — magasin',      'Le Havre',  'FR', 20),
   ('marseille', 'Marseille — magasin',     'Marseille', 'FR', 30)
 ON CONFLICT (code) DO NOTHING;
+
+-- ── 3 bis. D21 Zones et filiales du groupe ───────────────────────────────
+-- Décision du 22/10/2026 (option A) : Matrix fait foi pour les zones, les filiales et leurs sites. Arche les lit au
+-- lieu de créer ses tables zones, subsidiaries et sites ; Keystone relie ses clients au code de la filiale
+-- (clients.code3). Aucun amorçage : la liste réelle est attendue (question C-5 d'Arche) ; les filiales fictives de la
+-- démonstration d'Arche (APM, SAI) restent dans Arche.
+CREATE TABLE IF NOT EXISTS matrix.zones (
+  code         text        NOT NULL,
+  libelle      text        NOT NULL,
+  responsable  text,
+  ordre        integer     NOT NULL DEFAULT 0,
+  actif        boolean     NOT NULL DEFAULT true,
+  cree_le      timestamptz NOT NULL DEFAULT now(),
+  modifie_le   timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT zones_pkey PRIMARY KEY (code),
+  CONSTRAINT zones_code_check CHECK (code ~ '^[A-Z][A-Z0-9_]{1,11}$'),
+  CONSTRAINT zones_libelle_check CHECK (btrim(libelle) <> '')
+);
+COMMENT ON TABLE matrix.zones IS 'D21 : zones du groupe (Directeurs de Zone), publiées par Matrix (vue matrix.pub_zones). Lues par Arche.';
+COMMENT ON COLUMN matrix.zones.responsable IS 'Directeur de Zone (nom ; pas de matricule : il peut ne pas être salarié d''EPC2i).';
+CREATE OR REPLACE TRIGGER zones_modifie_le BEFORE UPDATE ON matrix.zones
+  FOR EACH ROW EXECUTE FUNCTION matrix.maj_modifie_le();
+
+CREATE TABLE IF NOT EXISTS matrix.filiales (
+  code        text        NOT NULL,
+  nom         text        NOT NULL,
+  pays_iso2   char(2)     NOT NULL,
+  zone_code   text,
+  devise      char(3)     NOT NULL DEFAULT 'EUR',
+  ordre       integer     NOT NULL DEFAULT 0,
+  actif       boolean     NOT NULL DEFAULT true,
+  cree_le     timestamptz NOT NULL DEFAULT now(),
+  modifie_le  timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT filiales_pkey PRIMARY KEY (code),
+  CONSTRAINT filiales_pays_iso2_fk FOREIGN KEY (pays_iso2) REFERENCES matrix.pays (iso2) ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT filiales_zone_fk FOREIGN KEY (zone_code) REFERENCES matrix.zones (code) ON UPDATE CASCADE ON DELETE RESTRICT,
+  -- Trois majuscules : partie <FIL> des codes CAPEX d'Arche (CPX-APM-2026-01) et clé de keystone.clients.code3.
+  CONSTRAINT filiales_code_check CHECK (code ~ '^[A-Z]{3}$'),
+  CONSTRAINT filiales_nom_check CHECK (btrim(nom) <> ''),
+  CONSTRAINT filiales_devise_check CHECK (devise ~ '^[A-Z]{3}$')
+);
+COMMENT ON TABLE matrix.filiales IS 'D21 : filiales du groupe, publiées par Matrix (vue matrix.pub_filiales). Lues par Arche (CAPEX) et Keystone (clients.code3).';
+COMMENT ON COLUMN matrix.filiales.code IS 'Code à 3 lettres, stable : codes CAPEX d''Arche, keystone.clients.code3. Ne change jamais.';
+COMMENT ON COLUMN matrix.filiales.devise IS 'Devise ISO 4217 de la filiale (Arche : montants en k€ en v1, devise locale plus tard, N-2).';
+CREATE INDEX IF NOT EXISTS filiales_zone_idx ON matrix.filiales (zone_code);
+CREATE OR REPLACE TRIGGER filiales_modifie_le BEFORE UPDATE ON matrix.filiales
+  FOR EACH ROW EXECUTE FUNCTION matrix.maj_modifie_le();
+
+-- Sites des filiales (usines, terrains) dans la liste unique des sites (D14) : filiale_code vide pour un site d'EPC2i.
+ALTER TABLE matrix.sites ADD COLUMN IF NOT EXISTS filiale_code text;
+ALTER TABLE matrix.sites DROP CONSTRAINT IF EXISTS sites_filiale_fk;
+ALTER TABLE matrix.sites ADD CONSTRAINT sites_filiale_fk FOREIGN KEY (filiale_code) REFERENCES matrix.filiales (code) ON UPDATE CASCADE ON DELETE RESTRICT;
+COMMENT ON COLUMN matrix.sites.filiale_code IS 'D21 : filiale propriétaire du site (usine, terrain d''un CAPEX d''Arche) ; vide pour un site d''EPC2i.';
+CREATE INDEX IF NOT EXISTS sites_filiale_idx ON matrix.sites (filiale_code);
 
 -- ── 4. D15 Organigramme à niveaux ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS matrix.organigramme (
@@ -302,9 +356,21 @@ SELECT s.code,       -- Codex : sites.key (cache) ; Vigie : sites.id ; Cursus : 
        s.ville,      -- Keystone : rattachement des emplacements de stock
        s.pays_iso2,  -- Keystone, Cursus : pays du site
        s.ordre,      -- Codex : sites.sort (cache) ; Vigie : sites.sort (cache)
-       s.actif       -- tous : listes de choix (un site fermé reste lisible pour l'historique)
+       s.actif,      -- tous : listes de choix (un site fermé reste lisible pour l'historique)
+       s.filiale_code -- D21, ajout du 22/10/2026 en fin de vue : Arche (site d'un CAPEX) ; vide pour un site d'EPC2i
 FROM matrix.sites s;
-COMMENT ON VIEW matrix.pub_sites IS 'Contrat D14 v1. Lecteurs : keystone_app, codex_app, cursus_app, vigie_app.';
+COMMENT ON VIEW matrix.pub_sites IS 'Contrat D14 v1 (filiale_code ajoutée le 22/10/2026, D21). Lecteurs : keystone_app, codex_app, cursus_app, vigie_app, arche_app.';
+
+CREATE OR REPLACE VIEW matrix.pub_zones WITH (security_barrier) AS
+SELECT z.code, z.libelle, z.responsable, z.ordre, z.actif
+FROM matrix.zones z;
+COMMENT ON VIEW matrix.pub_zones IS 'Contrat D21 v1 : zones du groupe. Lecteurs : arche_app, keystone_app.';
+
+CREATE OR REPLACE VIEW matrix.pub_filiales WITH (security_barrier) AS
+SELECT f.code,       -- Arche : <FIL> des codes CAPEX ; Keystone : clients.code3
+       f.nom, f.pays_iso2, f.zone_code, f.devise, f.ordre, f.actif
+FROM matrix.filiales f;
+COMMENT ON VIEW matrix.pub_filiales IS 'Contrat D21 v1 : filiales du groupe. Lecteurs : arche_app, keystone_app.';
 
 CREATE OR REPLACE VIEW matrix.pub_organigramme WITH (security_barrier) AS
 WITH RECURSIVE arbre AS (

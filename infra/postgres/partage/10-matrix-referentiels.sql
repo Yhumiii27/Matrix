@@ -15,6 +15,8 @@
 --     Matrix contrôle (lot 5 de docs/proposition.md, contrôle d'orphelins).
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 -- ── 1. Mise à jour de modifie_le ─────────────────────────────────────────
 CREATE OR REPLACE FUNCTION matrix.maj_modifie_le() RETURNS trigger

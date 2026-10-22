@@ -25,6 +25,8 @@
 -- Valeurs calculées, jamais stockées (convention de Vigie, CLAUDE.md) : pending_dispositions et locked.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 -- ═══ Tables ═══
 

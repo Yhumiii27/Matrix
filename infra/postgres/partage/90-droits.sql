@@ -27,6 +27,8 @@
 -- vues qui ne lisent aucune colonne sensible.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 \connect epc2i
 
 BEGIN;

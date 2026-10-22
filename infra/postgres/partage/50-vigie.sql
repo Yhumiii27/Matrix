@@ -26,6 +26,8 @@
 -- non plus.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 -- ═══ Prérequis : migrations 0008 et 0009 de Vigie ═══
 -- Ce fichier ne crée rien d'autre que les vues. Une colonne absente signale une migration de Vigie non passée.

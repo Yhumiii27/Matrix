@@ -21,6 +21,8 @@
 -- ces vues : une migration qui touche une colonne listée ici doit recréer la vue (CREATE OR REPLACE VIEW).
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 -- ═══ Prérequis : migrations 0034 et 0035 de Keystone ═══
 -- Ce fichier ne crée rien d'autre que les vues. Une colonne absente signale une migration de Keystone non passée.

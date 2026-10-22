@@ -21,6 +21,8 @@
 --   epc2i_sauvegarde                                connexion des sauvegardes, membre de pg_read_all_data
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 DO $$
 BEGIN

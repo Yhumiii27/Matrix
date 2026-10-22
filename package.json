@@ -2,7 +2,7 @@
   "name": "matrix",
   "version": "0.1.0",
   "private": true,
-  "description": "Matrix : référentiel des bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie)",
+  "description": "Matrix : référentiel des bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie, Arche, Crucible)",
   "engines": { "node": ">=22" },
   "scripts": {
     "start": "node serveur.mjs",

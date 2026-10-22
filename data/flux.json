@@ -313,6 +313,17 @@
         ["identifiant et révision Codex", "références d'un moyen ou d'un essai (Crucible ne stocke aucun fichier)"]
       ],
       "note": "Crucible, M-4 (livraison L3)."
+    },
+    {
+      "id": "F27", "nom": "Contrôles périodiques et interventions qui suspendent les essais",
+      "de": "vigie", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "prevu",
+      "point": "vigie.pub_controles, pub_suspensions_essais (demandes V-1 et V-2 de Crucible, à créer dans Vigie)", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
+      "source": ["controls", "control_records", "site_activities"], "cible": ["unavailabilities"],
+      "champs": [
+        ["controls.next_on, reserves, equipement_code (colonne nouvelle)", "unavailabilities (origine Vigie : contrôle échu, R-6)"],
+        ["activités de coactivité : zone, du, au", "unavailabilities (intervention extérieure, R-7)"]
+      ],
+      "note": "Crucible, docs/DEMANDES-VIGIE.md ; D23, option A (22/10/2026) : Vigie fait foi."
     }
   ],
   "externes": [

@@ -584,8 +584,12 @@ Même démarche qu'Arche (M-07) :
   signalées sans erreur jusqu'à leur création ;
 - référentiel des sites (M-6) : le laboratoire 67 et le PDE n'y sont pas encore, leur localisation n'étant pas connue
   (question P-1 de Crucible) ; l'entité EPC France attend la liste réelle des filiales (D21, C-5 d'Arche) ;
-- doublons possibles à examiner (pas encore dans `data/doublons.json`) : `crucible.sites` et `entities` (D14, D21),
-  `projects` (D02), `users` (D01).
+- doublons (`data/doublons.json`, `docs/doublons-a-trancher.md`, 22/10/2026) : application des décisions déjà prises
+  (D01 et D07 à D09 : Cursus fait foi pour les opérateurs, leurs habilitations et leurs absences ; D02 : lien vers
+  Keystone, les projets R&D absents de Keystone restant dans Crucible (S-1 de Crucible) ; D14 et D21 : sites et entités
+  lus dans Matrix, `matrix.pub_filiales` accordée à `crucible_app`) et groupe nouveau D23, tranché (M-12, option A) :
+  Vigie fait foi pour les contrôles périodiques et publie `vigie.pub_controles` et `pub_suspensions_essais` (V-1, V-2
+  de Crucible), accordées à `crucible_app` ; Crucible n'y saisit que la maintenance, les pannes et les travaux.
 
 ## 9. Heures validées : D06, option A, réversible
 

@@ -15,6 +15,8 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | M-08 / D21 | 22/10/2026 | Filiales et zones du groupe : qui fait foi ? | Réponse au choix proposé : « A · Matrix (Recommandé) ». | Matrix publie les zones, les filiales et leurs sites (`matrix.pub_zones`, `pub_filiales`, `pub_sites` avec la filiale) ; Arche les lit au lieu de créer ses tables `zones`, `subsidiaries`, `sites` ; Keystone relie ses clients au code de la filiale. |
 | M-09 / D22 | 22/10/2026 | Retours d'expérience : un registre ou deux ? | Réponse au choix proposé : « A · Deux registres (Recommandé) ». | Arche garde le REX des CAPEX, Keystone celui des projets ; chacun publie une vue `pub_rex`, que Matrix réunit (comme le journal unifié). |
 | M-10 | 22/10/2026 | Ajouter Crucible (moyens d'essais R&D partagés) au socle, comme Arche. | Autorisation de modifier Matrix donnée par le responsable produit dans la session de Crucible (demandes M-1 à M-6 de Crucible). | Schéma `crucible` et rôle `crucible_app` dans le socle ; `partage/80-crucible.sql` (`pub_journal`) ; lecteurs dans `partage/90-droits.sql` ; Crucible dans le journal unifié, le catalogue, le graphe et les flux F22 à F26. Sites du laboratoire 67 et du PDE en attente de leur localisation. |
+| M-11 | 22/10/2026 | Prendre en compte Crucible comme Arche : bases liées et doublons. | « prends en compte Crucible comme Arche, bases liées et doublons » | Doublons de Crucible relevés : compléments de D01, D02, D07 à D09, D14, D18 à D21 (application des décisions déjà prises), groupe nouveau D23 ; `matrix.pub_filiales` accordée à Crucible (D21) ; flux F27. |
+| M-12 / D23 | 22/10/2026 | Contrôles périodiques des moyens d'essai : qui fait foi ? | Réponse au choix proposé : « A · Vigie (Recommandé) ». | Vigie fait foi et publie `vigie.pub_controles` (code d'équipement commun, V-1 de Crucible) et `pub_suspensions_essais` (V-2), accordées à `crucible_app` ; Crucible en déduit l'indisponibilité d'un moyen et ne saisit que la maintenance, les pannes et les travaux. |
 
 ## Doublons : qui fait foi (décisions M-02)
 
@@ -42,6 +44,7 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | D20 Homonymes | — | Tables toujours nommées avec leur outil. |
 | D21 Filiales et zones du groupe | Matrix | Arche les lit ; Keystone relie ses clients à la filiale. |
 | D22 Retours d'expérience | Arche (CAPEX) et Keystone (projets) | Une vue `pub_rex` chacun, réunies par Matrix. |
+| D23 Contrôles périodiques des moyens d'essai | Vigie | Crucible lit `vigie.pub_controles` et ne saisit que la maintenance, les pannes et les travaux. |
 
 ## Questions ouvertes
 

@@ -182,7 +182,7 @@ BEGIN
       ('matrix.pub_organigramme',            ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app']),
       ('matrix.pub_correspondances',         ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
       ('matrix.pub_zones',                   ARRAY['keystone_app', 'arche_app']),
-      ('matrix.pub_filiales',                ARRAY['keystone_app', 'arche_app']),
+      ('matrix.pub_filiales',                ARRAY['keystone_app', 'arche_app', 'crucible_app']),
       -- Cursus : personnes (D01), titres (D08, D09), paramètres (D19), journal (D18).
       ('cursus.pub_salaries',                ARRAY['keystone_app', 'codex_app', 'vigie_app', 'crucible_app', 'matrix_app']),
       ('cursus.pub_titres',                  ARRAY['keystone_app', 'vigie_app', 'crucible_app', 'matrix_app']),
@@ -244,7 +244,11 @@ BEGIN
       -- Vues demandées pour Crucible, absentes tant que l'outil ne les publie pas (WARNING) : jalons de Keystone (K-2 de
       -- Crucible), absences de Cursus sans motif (CU-1 de Crucible).
       ('keystone.pub_jalons',                ARRAY['crucible_app', 'matrix_app']),
-      ('cursus.pub_absences',                ARRAY['crucible_app', 'matrix_app'])
+      ('cursus.pub_absences',                ARRAY['crucible_app', 'matrix_app']),
+      -- D23 (22/10/2026, option A) : Vigie fait foi pour les contrôles périodiques ; Crucible lit les contrôles et les
+      -- interventions qui suspendent les essais (V-1, V-2 de Crucible), absentes tant que Vigie ne les publie pas (WARNING).
+      ('vigie.pub_controles',                ARRAY['crucible_app', 'matrix_app']),
+      ('vigie.pub_suspensions_essais',       ARRAY['crucible_app', 'matrix_app'])
     ) AS t(vue, lecteurs)
   LOOP
     v_oid := to_regclass(r.vue);

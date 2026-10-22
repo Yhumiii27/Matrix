@@ -131,3 +131,35 @@ Format d'une entrée :
   - Documentation : « 10 colonnes de santé » devient 16 (`docs/architecture-postgres.md`, `docs/convergence-des-donnees.md`, README de `infra/postgres`).
   - Point lié, hors de cette demande (à arbitrer, avis du DPO) : la ligne entière d'une maladie professionnelle (victime, date, description) reste lisible tant que la protection est par colonne.
 - Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-10 · Partager `arche.pub_besoins_machines` dans `70-arche.sql`
+- Statut : OUVERTE
+- Demande : ajouter à `partage/70-arche.sql` la copie qualifiée de la vue `arche.pub_besoins_machines`, créée par la migration `drizzle/0009_share_needs.sql` d'Arche (livraison 4, fusionnée le 22 oct. 2026).
+- Justification : les droits de lecture sont déjà posés dans `90-droits.sql` (lecteurs `keystone_app`, `matrix_app`) mais la vue n'est pas dans le fichier de partage que Matrix rejoue : elle n'existe sur le serveur que tant qu'Arche l'a créée.
+- Détails techniques : prérequis supplémentaire `to_regclass('arche.machine_needs')`. Définition (contrat v1, brouillons non publiés) :
+  ```sql
+  CREATE OR REPLACE VIEW "arche"."pub_besoins_machines" WITH (security_barrier) AS
+  SELECT c.code || '/B' || lpad(n.number::text, 2, '0') AS besoin_ref, c.code AS capex_code,
+         'B' || lpad(n.number::text, 2, '0') AS ligne, n.catalogue_code, n.catalogue_version, n.free_label AS libelle_libre,
+         n.quantity AS quantite, n.options, n.target_capacity AS capacite_visee, n.capacity_unit AS unite_capacite,
+         n.need_date AS date_besoin, si.name AS site, n.status AS statut, n.comment AS commentaire,
+         n.submitted_at AS soumis_le, n.ordered_on AS commande_le, n.updated_at AS maj_le
+  FROM "arche"."machine_needs" n JOIN "arche"."capex" c ON c.id = n.capex_id LEFT JOIN "arche"."sites" si ON si.id = c.site_id
+  WHERE n.status <> 'draft';
+  COMMENT ON VIEW "arche"."pub_besoins_machines" IS 'Contrat v1 : besoins machines soumis à EPC2i (hors brouillons). Lecteurs : keystone_app, matrix_app.';
+  ```
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-11 · Coordonnées des sites dans `pub_sites`
+- Statut : OUVERTE
+- Demande : ajouter à `matrix.sites` deux colonnes `latitude` et `longitude` (numeric, degrés décimaux WGS 84, facultatives) et les publier **en fin de vue** `matrix.pub_sites` (après `filiale_code`).
+- Justification : Arche ajoute une carte interactive des CAPEX (reprise de la carte des projets de Keystone). Depuis D21, les sites d'Arche sont un miroir de `matrix.pub_sites` : sans coordonnées publiées par Matrix, aucun CAPEX ne peut être placé sur la carte en production (en attendant, Arche garde des coordonnées de démonstration dans sa propre table).
+- Détails techniques : `latitude numeric(9,6)` entre −90 et 90, `longitude numeric(9,6)` entre −180 et 180 (contrôles `CHECK`), nulles tant qu'elles ne sont pas saisies. Exemples : usine de Kénitra 34.261 / −6.580 ; site de Thiès 14.791 / −16.926. Arche lit `code`, `libelle`, `ville`, `pays_iso2`, `filiale_code`, `latitude`, `longitude`. Contrat D14 inchangé pour les lecteurs actuels (colonnes en fin de vue).
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-22] Arche → Matrix — M-12 · Cadre géographique des zones dans `pub_zones`
+- Statut : OUVERTE
+- Demande : ajouter à `matrix.zones` le cadre de chaque zone, `ouest`, `nord`, `est`, `sud` (numeric, degrés), publié **en fin de vue** `matrix.pub_zones`.
+- Justification : le bouton « Zone » de la carte d'Arche cadre la vue sur la zone sélectionnée, comme `ZONE_BOUNDS` dans Keystone. Sans ce cadre, Arche le calcule à partir des sites de la zone (moins net, aucun blocage).
+- Détails techniques : quatre colonnes `numeric(6,2)` facultatives, `ouest < est`, `sud < nord`. Exemples : AFN −18 / 38 / 12 / 18 ; AFO −20 / 26 / 16 / 2 ; EUR −12 / 62 / 34 / 34.
+- Validé par Guillaume le : 2026-10-22

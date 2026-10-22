@@ -17,7 +17,7 @@ La convention :
 | Ordre | Fichier | Rôle d'exécution | Contenu |
 |---|---|---|---|
 | 0 | `../init/01` à `03`, puis migrations des outils (Keystone `npm run db:migrate` ; Codex et Vigie à leur démarrage), Cursus à son démarrage (`server/migrations-pg/` du dépôt Cursus) | `postgres`, puis le rôle de chaque outil | Socle, tables des outils, colonnes prérequises et vues `pub_` de Keystone, Codex et Vigie |
-| 1 | `10-matrix-referentiels.sql` | `matrix_app` | `matrix.pays`, `sites`, `organigramme`, `correspondances`, amorçage, vues `matrix.pub_*` |
+| 1 | `10-matrix-referentiels.sql` | `matrix_app` | `matrix.pays`, `sites`, `organigramme`, `zones`, `filiales` (D21), `correspondances`, amorçage, vues `matrix.pub_*` |
 | 2 | `20-cursus.sql` | `cursus_app` | Copie qualifiée des vues `cursus.pub_*` de la migration `0002_partage` de Cursus (D01, D08, D09, D18, D19) |
 | 2 | `30-keystone.sql` | `keystone_app` | Contrôle des prérequis (migrations `0034`, `0035`), copie des 12 vues `keystone.pub_*` de `0035_share` (D02 à D05, D12, D13, D16, D18) |
 | 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 7 vues `codex.pub_*` (D10, D11, D18) |

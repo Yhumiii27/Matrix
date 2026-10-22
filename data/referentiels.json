@@ -1,5 +1,5 @@
 {
- "_lisezmoi": "Référentiels publiés par Matrix (décisions D14 sites, D15 organigramme, D17 pays). Valeurs de départ reprises de infra/postgres/partage/10-matrix-referentiels.sql ; en production, les modifications faites dans Matrix sont enregistrées dans /data/edition.json.",
+ "_lisezmoi": "Référentiels publiés par Matrix (décisions D14 sites, D15 organigramme, D17 pays, D21 zones et filiales du groupe ; listes des zones et des filiales vides jusqu'à la liste réelle, question C-5 d'Arche). Valeurs de départ reprises de infra/postgres/partage/10-matrix-referentiels.sql ; en production, les modifications faites dans Matrix sont enregistrées dans /data/edition.json.",
  "sites": [
   {
    "code": "lyon",
@@ -369,5 +369,7 @@
    "nom_en": "Saudi Arabia",
    "actif": true
   }
- ]
+ ],
+ "zones": [],
+ "filiales": []
 }

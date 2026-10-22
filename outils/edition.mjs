@@ -1,5 +1,5 @@
 // Ce que le service informatique saisit dans Matrix : documentation des tables, décisions sur les doublons,
-// référentiels publiés (sites, organigramme, pays) et journal des modifications.
+// référentiels publiés (sites, organigramme, pays, zones et filiales du groupe) et journal des modifications.
 //
 // Tout est enregistré dans un seul fichier, <MATRIX_DATA_DIR>/edition.json, écrit de façon atomique (fichier
 // temporaire puis renommage). Les référentiels partent de data/referentiels.json tant que rien n'a été saisi.
@@ -25,6 +25,8 @@ export function chargerEdition(dataDir) {
       sites: e.referentiels?.sites ?? depart.sites,
       organigramme: e.referentiels?.organigramme ?? depart.organigramme,
       pays: e.referentiels?.pays ?? depart.pays,
+      zones: e.referentiels?.zones ?? depart.zones ?? [],
+      filiales: e.referentiels?.filiales ?? depart.filiales ?? [],
     },
     journal: e.journal ?? [],
   };
@@ -105,8 +107,8 @@ function validerPays(lignes) {
   });
 }
 
-function validerSites(lignes, pays) {
-  const iso = new Set(pays.map(p => p.iso2)), vus = new Set();
+function validerSites(lignes, pays, filiales = []) {
+  const iso = new Set(pays.map(p => p.iso2)), fil = new Set(filiales.map(f => f.code)), vus = new Set();
   return lignes.map((s, i) => {
     const code = String(s.code ?? '').trim();
     if (!/^[a-z][a-z0-9_]{1,31}$/.test(code) || code === 'all') throw new Error(`Site ligne ${i + 1} : code invalide (« ${code} »). Minuscules, chiffres et _, une lettre en premier, 2 à 32 caractères ; « all » est réservé.`);
@@ -116,7 +118,10 @@ function validerSites(lignes, pays) {
     if (!libelle) throw new Error(`Site ${code} : le libellé est obligatoire`);
     const pays_iso2 = String(s.pays_iso2 ?? 'FR').trim().toUpperCase();
     if (!iso.has(pays_iso2)) throw new Error(`Site ${code} : pays ${pays_iso2} absent de la liste des pays`);
-    return { code, libelle, ville: texte(s.ville, 80, `Site ${code}, ville`), pays_iso2, ordre: entier(s.ordre, `Site ${code}, ordre`), actif: bool(s.actif ?? true) };
+    // D21 : site d'une filiale du groupe (usine, terrain) ; vide pour un site d'EPC2i.
+    const filiale_code = texte(s.filiale_code, 3, `Site ${code}, filiale`)?.toUpperCase() || null;
+    if (filiale_code && !fil.has(filiale_code)) throw new Error(`Site ${code} : filiale ${filiale_code} absente de la liste des filiales`);
+    return { code, libelle, ville: texte(s.ville, 80, `Site ${code}, ville`), pays_iso2, ordre: entier(s.ordre, `Site ${code}, ordre`), actif: bool(s.actif ?? true), filiale_code };
   });
 }
 
@@ -152,6 +157,39 @@ function validerOrganigramme(lignes, sites) {
   return out;
 }
 
+// D21 : zones du groupe (Directeurs de Zone) et filiales, lues par Arche (CAPEX) et Keystone (clients).
+function validerZones(lignes) {
+  const vus = new Set();
+  return lignes.map((z, i) => {
+    const code = String(z.code ?? '').trim().toUpperCase();
+    if (!/^[A-Z][A-Z0-9_]{1,11}$/.test(code)) throw new Error(`Zone ligne ${i + 1} : code invalide (« ${code} »). Majuscules, chiffres et _, une lettre en premier, 2 à 12 caractères.`);
+    if (vus.has(code)) throw new Error(`Zone ${code} en double`);
+    vus.add(code);
+    const libelle = texte(z.libelle, 120, `Zone ${code}, libellé`);
+    if (!libelle) throw new Error(`Zone ${code} : le libellé est obligatoire`);
+    return { code, libelle, responsable: texte(z.responsable, 120, `Zone ${code}, responsable`), ordre: entier(z.ordre, `Zone ${code}, ordre`), actif: bool(z.actif ?? true) };
+  });
+}
+
+function validerFiliales(lignes, pays, zones) {
+  const iso = new Set(pays.map(p => p.iso2)), zs = new Set(zones.map(z => z.code)), vus = new Set();
+  return lignes.map((f, i) => {
+    const code = String(f.code ?? '').trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(code)) throw new Error(`Filiale ligne ${i + 1} : code invalide (« ${code} »). Trois majuscules : il entre dans les codes CAPEX d'Arche (CPX-${code || 'APM'}-2026-01) et sert de clé à keystone.clients.code3.`);
+    if (vus.has(code)) throw new Error(`Filiale ${code} en double`);
+    vus.add(code);
+    const nom = texte(f.nom, 120, `Filiale ${code}, nom`);
+    if (!nom) throw new Error(`Filiale ${code} : le nom est obligatoire`);
+    const pays_iso2 = String(f.pays_iso2 ?? '').trim().toUpperCase();
+    if (!iso.has(pays_iso2)) throw new Error(`Filiale ${code} : pays ${pays_iso2 || '(vide)'} absent de la liste des pays`);
+    const zone_code = String(f.zone_code ?? '').trim().toUpperCase() || null;
+    if (zone_code && !zs.has(zone_code)) throw new Error(`Filiale ${code} : zone ${zone_code} absente de la liste des zones`);
+    const devise = String(f.devise ?? 'EUR').trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(devise)) throw new Error(`Filiale ${code} : devise ISO 4217 à 3 lettres (EUR, MAD…)`);
+    return { code, nom, pays_iso2, zone_code, devise, ordre: entier(f.ordre, `Filiale ${code}, ordre`), actif: bool(f.actif ?? true) };
+  });
+}
+
 export function enregistrerReferentiel(dataDir, liste, lignes, qui) {
   if (!Array.isArray(lignes)) throw new Error('la liste doit être un tableau');
   if (lignes.length > 5000) throw new Error('5 000 lignes au plus');
@@ -162,8 +200,20 @@ export function enregistrerReferentiel(dataDir, liste, lignes, qui) {
     const iso = new Set(r.pays.map(p => p.iso2));
     const orphelin = r.sites.find(s => !iso.has(s.pays_iso2));
     if (orphelin) throw new Error(`Le pays ${orphelin.pays_iso2} est utilisé par le site ${orphelin.code} : modifiez d'abord le site`);
+    const filiale = r.filiales.find(f => !iso.has(f.pays_iso2));
+    if (filiale) throw new Error(`Le pays ${filiale.pays_iso2} est utilisé par la filiale ${filiale.code} : modifiez d'abord la filiale`);
+  } else if (liste === 'zones') {
+    r.zones = validerZones(lignes);
+    const codes = new Set(r.zones.map(z => z.code));
+    const orpheline = r.filiales.find(f => f.zone_code && !codes.has(f.zone_code));
+    if (orpheline) throw new Error(`La zone ${orpheline.zone_code} est utilisée par la filiale ${orpheline.code} : modifiez d'abord la filiale`);
+  } else if (liste === 'filiales') {
+    r.filiales = validerFiliales(lignes, r.pays, r.zones);
+    const codes = new Set(r.filiales.map(f => f.code));
+    const orphelin = r.sites.find(s => s.filiale_code && !codes.has(s.filiale_code));
+    if (orphelin) throw new Error(`La filiale ${orphelin.filiale_code} est utilisée par le site ${orphelin.code} : modifiez d'abord le site`);
   } else if (liste === 'sites') {
-    r.sites = validerSites(lignes, r.pays);
+    r.sites = validerSites(lignes, r.pays, r.filiales);
     const codes = new Set(r.sites.map(s => s.code));
     const orphelin = r.organigramme.find(u => u.site_code && !codes.has(u.site_code));
     if (orphelin) throw new Error(`Le site ${orphelin.site_code} est utilisé par ${orphelin.code} dans l'organigramme : modifiez d'abord l'organigramme`);
@@ -171,14 +221,14 @@ export function enregistrerReferentiel(dataDir, liste, lignes, qui) {
     r.organigramme = validerOrganigramme(lignes, r.sites);
   } else throw new Error(`référentiel inconnu : ${liste}`);
   const avant = ed.referentiels[liste], apres = r[liste];
-  const cle = { pays: 'iso2', sites: 'code', organigramme: 'code' }[liste];
+  const cle = { pays: 'iso2', sites: 'code', organigramme: 'code', zones: 'code', filiales: 'code' }[liste];
   const A = new Map(avant.map(x => [x[cle], JSON.stringify(x)])), B = new Map(apres.map(x => [x[cle], JSON.stringify(x)]));
   const ajoutes = [...B.keys()].filter(k => !A.has(k)), retires = [...A.keys()].filter(k => !B.has(k));
   const modifies = [...B.keys()].filter(k => A.has(k) && A.get(k) !== B.get(k));
   if (!ajoutes.length && !retires.length && !modifies.length) return apres;
   ed.referentiels = r;
   const detail = [ajoutes.length && `ajout : ${ajoutes.join(', ')}`, modifies.length && `modification : ${modifies.join(', ')}`, retires.length && `retrait : ${retires.join(', ')}`].filter(Boolean).join(' · ');
-  tracer(ed, qui, 'Référentiel modifié', { pays: 'Pays', sites: 'Sites', organigramme: 'Organigramme' }[liste], detail);
+  tracer(ed, qui, 'Référentiel modifié', { pays: 'Pays', sites: 'Sites', organigramme: 'Organigramme', zones: 'Zones', filiales: 'Filiales' }[liste], detail);
   enregistrer(dataDir, ed);
   return apres;
 }

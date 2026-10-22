@@ -327,7 +327,7 @@ const DATA = JSON.parse(document.getElementById('matrix-data').textContent);
 const CAT = DATA.catalogue, FLUX = DATA.flux, USAGES = DATA.usages, DOUBLONS = DATA.doublons.groupes, HIST = DATA.historique.evenements;
 // SERVEUR : page servie par Matrix (modifications enregistrées sur le serveur) ; sinon maquette en lecture seule.
 const SERVEUR = !!DATA.serveur;
-const EDITION = DATA.edition || { documentation: {}, decisions: {}, referentiels: { sites: [], organigramme: [], pays: [] }, journal: [] };
+const EDITION = DATA.edition || { documentation: {}, decisions: {}, referentiels: { sites: [], organigramme: [], pays: [], zones: [], filiales: [] }, journal: [] };
 async function envoyer(chemin, corps) {
   const r = await fetch(chemin, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps) });
   const j = await r.json().catch(() => ({ erreur: 'réponse illisible du serveur' }));
@@ -1219,15 +1219,19 @@ const Dups = (() => {
 RENDER.doublons = () => Dups.render();
 
 // ── Qualité ─────────────────────────────────────────────────────────────
-// ── Référentiels publiés par Matrix (D14 sites, D15 organigramme, D17 pays) ─────
+// ── Référentiels publiés par Matrix (D14 sites, D15 organigramme, D17 pays, D21 zones et filiales) ─────
 RENDER.referentiels = () => {
   const root = $('s-referentiels');
   const NIVEAUX = [['departement', 'Département'], ['service', 'Service'], ['equipe', 'Équipe']];
   const DEF = {
-    sites: { titre: 'Sites', decision: 'D14', cle: 'code', vue: 'matrix.pub_sites', nouveau: () => ({ code: '', libelle: '', ville: '', pays_iso2: 'FR', ordre: 0, actif: true }),
-      cols: [['code', 'Code', 'texte', 'lyon'], ['libelle', 'Libellé', 'texte'], ['ville', 'Ville', 'texte'], ['pays_iso2', 'Pays', 'pays'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
+    sites: { titre: 'Sites', decision: 'D14', cle: 'code', vue: 'matrix.pub_sites', nouveau: () => ({ code: '', libelle: '', ville: '', pays_iso2: 'FR', ordre: 0, actif: true, filiale_code: '' }),
+      cols: [['code', 'Code', 'texte', 'lyon'], ['libelle', 'Libellé', 'texte'], ['ville', 'Ville', 'texte'], ['pays_iso2', 'Pays', 'pays'], ['filiale_code', 'Filiale', 'filiale'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
     organigramme: { titre: 'Organigramme', decision: 'D15', cle: 'code', vue: 'matrix.pub_organigramme', nouveau: () => ({ code: '', niveau: 'service', parent_code: '', libelle_fr: '', libelle_en: '', responsable_matricule: '', site_code: '', ordre: 0, actif: true }),
       cols: [['code', 'Code', 'texte', 'PRJ-CPL'], ['niveau', 'Niveau', 'niveau'], ['parent_code', 'Rattaché à', 'parent'], ['libelle_fr', 'Libellé', 'texte'], ['libelle_en', 'Libellé anglais', 'texte'], ['responsable_matricule', 'Responsable', 'texte', 'Matricule'], ['site_code', 'Site', 'site'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
+    zones: { titre: 'Zones', decision: 'D21', cle: 'code', vue: 'matrix.pub_zones', nouveau: () => ({ code: '', libelle: '', responsable: '', ordre: 0, actif: true }),
+      cols: [['code', 'Code', 'texte', 'AFN'], ['libelle', 'Libellé', 'texte', 'Afrique du Nord'], ['responsable', 'Directeur de Zone', 'texte'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
+    filiales: { titre: 'Filiales', decision: 'D21', cle: 'code', vue: 'matrix.pub_filiales', nouveau: () => ({ code: '', nom: '', pays_iso2: 'FR', zone_code: '', devise: 'EUR', ordre: 0, actif: true }),
+      cols: [['code', 'Code', 'texte', 'APM'], ['nom', 'Nom', 'texte'], ['pays_iso2', 'Pays', 'pays'], ['zone_code', 'Zone', 'zone'], ['devise', 'Devise', 'texte', 'EUR'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
     pays: { titre: 'Pays', decision: 'D17', cle: 'iso2', vue: 'matrix.pub_pays', nouveau: () => ({ iso2: '', iso3: '', nom_fr: '', nom_en: '', actif: true }),
       cols: [['iso2', 'ISO 2', 'texte', 'FR'], ['iso3', 'ISO 3', 'texte', 'FRA'], ['nom_fr', 'Nom', 'texte'], ['nom_en', 'Nom anglais', 'texte'], ['actif', 'Actif', 'case']] },
   };
@@ -1241,6 +1245,8 @@ RENDER.referentiels = () => {
     if (type === 'niveau') return sel(NIVEAUX);
     if (type === 'pays') return sel(EDITION.referentiels.pays.map(p => [p.iso2, `${p.iso2} · ${p.nom_fr}`]));
     if (type === 'site') return sel([['', '—'], ...EDITION.referentiels.sites.map(x => [x.code, x.libelle])]);
+    if (type === 'zone') return sel([['', '—'], ...EDITION.referentiels.zones.map(x => [x.code, `${x.code} · ${x.libelle}`])]);
+    if (type === 'filiale') return sel([['', '— (EPC2i)'], ...EDITION.referentiels.filiales.map(x => [x.code, `${x.code} · ${x.nom}`])]);
     if (type === 'parent') return sel([['', '—'], ...brouillon.filter((u, j) => j !== i && u.code && u.niveau !== 'equipe').map(u => [u.code, `${u.code} · ${u.libelle_fr}`])]);
     return `<input class="input ${k === 'code' || k === 'iso2' || k === 'iso3' ? 'mono' : ''}" id="${id}" data-i="${i}" data-k="${k}" ${type === 'nombre' ? 'type="number" step="1" style="width:80px"' : ''} placeholder="${esc(ph || '')}" value="${esc(v)}">`;
   };

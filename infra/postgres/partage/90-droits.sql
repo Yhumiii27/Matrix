@@ -174,11 +174,13 @@ DECLARE
 BEGIN
   FOR r IN
     SELECT * FROM (VALUES
-      -- Matrix : référentiels (D14, D15, D17) et correspondances.
+      -- Matrix : référentiels (D14, D15, D17, D21) et correspondances.
       ('matrix.pub_pays',                    ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
       ('matrix.pub_sites',                   ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
       ('matrix.pub_organigramme',            ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
       ('matrix.pub_correspondances',         ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app']),
+      ('matrix.pub_zones',                   ARRAY['keystone_app', 'arche_app']),
+      ('matrix.pub_filiales',                ARRAY['keystone_app', 'arche_app']),
       -- Cursus : personnes (D01), titres (D08, D09), paramètres (D19), journal (D18).
       ('cursus.pub_salaries',                ARRAY['keystone_app', 'codex_app', 'vigie_app', 'matrix_app']),
       ('cursus.pub_titres',                  ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
@@ -228,7 +230,10 @@ BEGIN
       ('arche.pub_capex',                    ARRAY['keystone_app', 'matrix_app']),
       ('arche.pub_besoins_machines',         ARRAY['keystone_app', 'matrix_app']),
       ('arche.pub_rampup',                   ARRAY['keystone_app', 'matrix_app']),
-      ('arche.pub_journal',                  ARRAY['matrix_app'])
+      ('arche.pub_journal',                  ARRAY['matrix_app']),
+      -- D22 (22/10/2026) : REX des CAPEX (Arche) et des projets (Keystone), réunis par Matrix ; vues à créer par les outils.
+      ('arche.pub_rex',                      ARRAY['matrix_app']),
+      ('keystone.pub_rex',                   ARRAY['matrix_app'])
     ) AS t(vue, lecteurs)
   LOOP
     v_oid := to_regclass(r.vue);

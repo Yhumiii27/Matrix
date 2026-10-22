@@ -557,7 +557,13 @@ Le socle est prêt avant son code :
   journal unifié (`partage/95`). Les vues absentes sont signalées sans erreur jusqu'à leur création ;
 - les vues `pub_` d'Arche sont créées par ses migrations (règle P-02) ; Matrix n'a pas de fichier `partage/` pour
   Arche tant qu'elles n'existent pas ;
-- doublons avec les autres outils : `docs/doublons-a-trancher.md` (groupes D21 et suivants).
+- doublons avec les autres outils (`docs/doublons-a-trancher.md`), tranchés le 22/10/2026 :
+  - D21, option A : Matrix fait foi pour les zones et les filiales du groupe (`matrix.zones`, `matrix.filiales`,
+    vues `pub_zones` et `pub_filiales` lues par Arche et Keystone ; écran « Référentiels » de Matrix) et pour leurs
+    sites (`matrix.sites.filiale_code`, ajoutée en fin de `pub_sites`). Arche ne crée ni `zones`, ni `subsidiaries`,
+    ni `sites` ; Keystone relie `clients.code3` au code de la filiale. Listes vides jusqu'à la liste réelle (C-5) ;
+  - D22, option A : Arche (CAPEX) et Keystone (projets) gardent chacun leur REX et publient `pub_rex`, accordée à
+    `matrix_app` ; Matrix les réunira comme le journal unifié une fois le contrat commun fixé.
 
 ## 9. Heures validées : D06, option A, réversible
 

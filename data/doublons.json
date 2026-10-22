@@ -383,7 +383,7 @@
         { "id": "C", "libelle": "Keystone fait foi (clients, D16)", "effet": "Arche lit keystone.pub_clients et n'ajoute que la zone et la devise ; les sites restent dans Matrix (D14)." }
       ],
       "recommandation": "A", "raison": "Même logique que D14, D15 et D17 : un référentiel transverse est publié par Matrix et lu par tous. La filiale sert à Arche (CAPEX), à Keystone (client) et demain à Vigie et Codex (site, département).",
-      "decision": null
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-22", "citation": "D21 : option A (Référentiel du groupe dans Matrix : zones, filiales et leurs sites publiés par Matrix) — réponse au choix proposé, « A · Matrix (Recommandé) »"}
     },
     {
       "id": "D22", "objet": "Retours d'expérience (REX)", "nature": "chevauchement", "gravite": "mineur",
@@ -399,7 +399,7 @@
         { "id": "B", "libelle": "Keystone fait foi", "effet": "Arche saisit ses REX dans Keystone par API ou les lit dans keystone.pub_rex ; pas de table rex_entries." }
       ],
       "recommandation": "A", "raison": "Les deux REX n'ont ni les mêmes auteurs ni le même objet ; les réunir par une vue évite la double saisie sans faire entrer les filiales dans Keystone.",
-      "decision": null
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-22", "citation": "D22 : option A (Deux registres, une vue commune) — réponse au choix proposé, « A · Deux registres (Recommandé) »"}
     }
   ]
 }

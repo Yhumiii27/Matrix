@@ -41,8 +41,8 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | D18 | Journaux d'audit | Technique | Mineur | Keystone.`audit_entries`, Codex.`audit_log`, Cursus.`journal`, Arche.`audit_entries` | A | ☑ A ☐ B (definitive) |
 | D19 | Paramètres et fichiers joints | Technique | Mineur | Keystone.`app_settings`, Cursus.`settings`, Keystone.`stored_files`, Vigie.`attachments` | A | ☑ A (definitive) |
 | D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports`, Arche.`risks`, Arche.`decisions`, Arche.`changes`, Arche.`reviews` | A | ☑ A ☐ B (definitive) |
-| D21 | Filiales et zones du groupe | Chevauchement | Majeur | Arche.`zones`, Arche.`subsidiaries`, Arche.`sites`, Keystone.`clients` | A | ☐ A ☐ B ☐ C |
-| D22 | Retours d'expérience (REX) | Chevauchement | Mineur | Keystone.`lessons_learned`, Keystone.`rex_references`, Arche.`rex_entries` | A | ☐ A ☐ B |
+| D21 | Filiales et zones du groupe | Chevauchement | Majeur | Arche.`zones`, Arche.`subsidiaries`, Arche.`sites`, Keystone.`clients` | A | ☑ A ☐ B ☐ C (definitive) |
+| D22 | Retours d'expérience (REX) | Chevauchement | Mineur | Keystone.`lessons_learned`, Keystone.`rex_references`, Arche.`rex_entries` | A | ☑ A ☐ B (definitive) |
 
 ## D01 · Personnes
 
@@ -617,11 +617,13 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Référentiel du groupe dans Matrix : zones, filiales et leurs sites publiés par Matrix** *(proposé)* : Matrix ajoute les niveaux groupe › zone › filiale à l'organigramme (ou une liste matrix.filiales) et les sites des filiales à matrix.sites ; Arche les lit (vues pub_) au lieu de les créer ; Keystone relie clients.code3 au code de la filiale.
+- ☑ **A. Référentiel du groupe dans Matrix : zones, filiales et leurs sites publiés par Matrix** *(proposé)* : Matrix ajoute les niveaux groupe › zone › filiale à l'organigramme (ou une liste matrix.filiales) et les sites des filiales à matrix.sites ; Arche les lit (vues pub_) au lieu de les créer ; Keystone relie clients.code3 au code de la filiale.
 - ☐ **B. Arche fait foi pour les filiales et les zones, et les publie** : Arche garde zones, subsidiaries et sites et publie arche.pub_filiales ; Keystone relie ses clients aux filiales ; Matrix les reprend dans ses référentiels.
 - ☐ **C. Keystone fait foi (clients, D16)** : Arche lit keystone.pub_clients et n'ajoute que la zone et la devise ; les sites restent dans Matrix (D14).
 
 **Pourquoi A.** Même logique que D14, D15 et D17 : un référentiel transverse est publié par Matrix et lu par tous. La filiale sert à Arche (CAPEX), à Keystone (client) et demain à Vigie et Codex (site, département).
+
+**Décision definitive du 22/10/2026.** « D21 : option A (Référentiel du groupe dans Matrix : zones, filiales et leurs sites publiés par Matrix) — réponse au choix proposé, « A · Matrix (Recommandé) » »
 
 ## D22 · Retours d'expérience (REX)
 
@@ -641,7 +643,9 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Deux registres, une vue commune** *(proposé)* : Arche garde le REX du CAPEX (filiale, investissement), Keystone celui des projets ; chacun publie pub_rex et Matrix les réunit, comme le journal unifié.
+- ☑ **A. Deux registres, une vue commune** *(proposé)* : Arche garde le REX du CAPEX (filiale, investissement), Keystone celui des projets ; chacun publie pub_rex et Matrix les réunit, comme le journal unifié.
 - ☐ **B. Keystone fait foi** : Arche saisit ses REX dans Keystone par API ou les lit dans keystone.pub_rex ; pas de table rex_entries.
 
 **Pourquoi A.** Les deux REX n'ont ni les mêmes auteurs ni le même objet ; les réunir par une vue évite la double saisie sans faire entrer les filiales dans Keystone.
+
+**Décision definitive du 22/10/2026.** « D22 : option A (Deux registres, une vue commune) — réponse au choix proposé, « A · Deux registres (Recommandé) » »

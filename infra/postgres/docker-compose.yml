@@ -10,7 +10,7 @@ name: epc2i-postgres
 
 services:
   postgres:
-    # PostgreSQL 18 (proposition, question P-01) et les fichiers du socle (init/, sauvegarde/, partage/,
+    # PostgreSQL 16 (P-01, confirmé le 22/10/2026) et les fichiers du socle (init/, sauvegarde/, partage/,
     # verifier-droits.sql) : voir Dockerfile.
     build: .
     restart: unless-stopped
@@ -54,9 +54,9 @@ services:
       - -c
       - log_lock_waits=on
     volumes:
-      # Image 18 et suivantes : un seul montage sur /var/lib/postgresql, données dans 18/docker ($PGDATA). Monté sur
-      # /var/lib/postgresql/data comme en 16, le conteneur refuse de démarrer (« unused mount/volume »).
-      - epc2i_pgdata:/var/lib/postgresql
+      # Image 16 : données dans /var/lib/postgresql/data ($PGDATA). Ne pas changer ce montage sans changer de version
+      # majeure selon la procédure (le volume en service a été initialisé en 16).
+      - epc2i_pgdata:/var/lib/postgresql/data
       - epc2i_sauvegardes:/sauvegardes
     ports:
       # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils

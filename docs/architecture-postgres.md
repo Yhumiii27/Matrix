@@ -11,7 +11,7 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 
 ## 1. Principe retenu
 
-- **Un serveur, une base, un schéma par outil.** Le serveur PostgreSQL 16 porte la base `epc2i`. Chaque outil a son schéma et un rôle de connexion qui en est le seul propriétaire. Un outil n'écrit jamais dans le schéma d'un autre : les écritures restent des API (flux de `data/flux.json`). Pour lire, il suit la convention de partage (`infra/postgres/partage/README.md`, `docs/convergence-des-donnees.md`, § 1.3) : l'outil qui fait foi publie des vues `pub_*` dans son schéma, et le lecteur reçoit `USAGE` sur ce schéma et `SELECT` sur ces seules vues. Lire une vue publiée n'est pas un accès au schéma : « un schéma par outil » reste vrai.
+- **Un serveur, une base, un schéma par outil.** Le serveur PostgreSQL (16 au 15/10/2026 ; 18 proposé le 22/10/2026, à confirmer : P-01) porte la base `epc2i`. Chaque outil a son schéma et un rôle de connexion qui en est le seul propriétaire. Un outil n'écrit jamais dans le schéma d'un autre : les écritures restent des API (flux de `data/flux.json`). Pour lire, il suit la convention de partage (`infra/postgres/partage/README.md`, `docs/convergence-des-donnees.md`, § 1.3) : l'outil qui fait foi publie des vues `pub_*` dans son schéma, et le lecteur reçoit `USAGE` sur ce schéma et `SELECT` sur ces seules vues. Lire une vue publiée n'est pas un accès au schéma : « un schéma par outil » reste vrai.
 - **Matrix lit tout, sauf les colonnes sensibles.** Il se connecte en `matrix_app`, membre du groupe `matrix_lecture`. L'écriture dans les schémas des outils passe par un administrateur nominatif, membre de `matrix_admin`, dont chaque requête est journalisée.
 - **Chaque outil garde sa base embarquée en repli.** Sans `DATABASE_URL`, Keystone, Codex et Vigie ouvrent PGlite, et Cursus ouvre SQLite, comme aujourd'hui : développement, tests, application Mac (`desktop/`). Avec `DATABASE_URL`, l'outil se connecte au serveur commun, dans son schéma. En PGlite, Keystone et Vigie gardent le schéma `public` (décision P-02 du 18/10/2026, § 4.2) ; Codex utilise son schéma `codex` dans les deux modes.
 - **Chaque outil applique ses migrations au démarrage**, avec le journal dans son propre schéma (`<schéma>.__drizzle_migrations`, ou `cursus.schema_migrations`). Aucun rôle d'outil n'a le droit `CREATE` sur la base : il ne peut pas créer de schéma. D'où un petit migrateur commun (§ 4.3), parce que `migrate()` de Drizzle commence toujours par `CREATE SCHEMA IF NOT EXISTS`, que PostgreSQL refuse dans ce cas (vérifié sur les trois outils Drizzle).
@@ -272,7 +272,7 @@ Le verrou ne protège que ce qui se passe dans la transaction. Un numéro calcul
 | `numeric` | chaîne | chaîne | Aucun. |
 | `int8` (`count(*)` sans conversion) | nombre | chaîne | Aucune requête brute concernée : toutes castent en `::int` (Keystone, Codex, Vigie vérifiés). |
 | `db.execute().rows` | oui | oui | Type commun du § 4.1. |
-| Version du moteur | PostgreSQL 18.3 | PostgreSQL 16 | Le SQL des trois outils n'utilise rien de propre à 17 ou 18 ; à surveiller (P-01). |
+| Version du moteur | PostgreSQL 18.3 | PostgreSQL 18 proposé (16 jusqu'ici) | Codex utilise la collation `pg_unicode_fast`, propre à la 18, et refuse un serveur plus ancien ; Keystone et Vigie n'utilisaient rien de propre à 17 ou 18 au 18/10/2026. À trancher : P-01. |
 
 ### 4.8 Déclaration à Matrix
 
@@ -634,13 +634,13 @@ Aucun des cinq dépôts n'a d'intégration continue aujourd'hui (ni `.github`, n
 |---|---|---|---|---|
 | Installation, typecheck, lint | oui | oui | oui | typecheck |
 | Tests sur la base embarquée | `vitest` (PGlite) | aucun : Codex n'a pas de test | aucun : Vigie n'a pas de test | `node --test`, `CURSUS_TEST_ENGINE=sqlite` |
-| Sur un service `postgres:16` doté du socle | `scripts/db-check-pg.ts` | `scripts/db-check-pg.ts` (nouveau) : `getDb()` avec `DATABASE_URL` du service, migrations, démonstration, lecture des tables | idem, nouveau dans Vigie | `node --test`, `CURSUS_TEST_ENGINE=pg` |
+| Sur un service `postgres:18` (version du socle, P-01) doté du socle | `scripts/db-check-pg.ts` | `scripts/db-check-pg.ts` (nouveau) : `getDb()` avec `DATABASE_URL` du service, migrations, démonstration, lecture des tables | idem, nouveau dans Vigie | `node --test`, `CURSUS_TEST_ENGINE=pg` |
 | Contrôle final | `droits.verifier()` sans erreur | idem | idem | idem |
 
-- **Socle dans le service.** Le service `postgres:16` démarre vide ; le workflow joue ensuite les trois scripts de `infra/postgres/init/` avec `psql` depuis le runner, comme dans la procédure « Sans Docker » du README du socle. Les mots de passe des rôles sont des valeurs d'essai propres au workflow.
+- **Socle dans le service.** Le service PostgreSQL, à la version du socle (`postgres:18` proposé, P-01), démarre vide ; le workflow joue ensuite les trois scripts de `infra/postgres/init/` avec `psql` depuis le runner, comme dans la procédure « Sans Docker » du README du socle. Les mots de passe des rôles sont des valeurs d'essai propres au workflow.
 - **Dépendance entre dépôts.** Les scripts viennent du dépôt Matrix, privé. Chaque workflow le récupère par `actions/checkout`, à un commit fixé (variable `MATRIX_REF` du workflow), avec un jeton en lecture seule sur Matrix (secret `MATRIX_READ_TOKEN`, une clé de déploiement par outil). Un changement du socle se propage en montant `MATRIX_REF` dans chaque outil : chacun valide ainsi le socle qu'il utilise.
 - **Fichiers.** Dans chaque outil : `.github/workflows/postgres.yml` ; dans Codex et Vigie : `scripts/db-check-pg.ts`. Dans Matrix : la clé de déploiement de chaque outil, et une ligne du README du socle qui rappelle de monter `MATRIX_REF` après un changement de `init/`.
-- **Sans intégration continue.** Si ce lot n'est pas retenu, les mêmes commandes se lancent à la main avant chaque fusion, sur un PostgreSQL 16 local doté du socle (README du socle, « Sur un poste local »), et leur résultat est joint à la demande de fusion.
+- **Sans intégration continue.** Si ce lot n'est pas retenu, les mêmes commandes se lancent à la main avant chaque fusion, sur un PostgreSQL local de la version du socle, doté du socle (README du socle, « Sur un poste local »), et leur résultat est joint à la demande de fusion.
 
 ## 11. Ce que Matrix lit, et avec quel rôle
 
@@ -675,7 +675,7 @@ Changements dans Matrix :
 | Restauration d'un schéma, partage en place | `DROP SCHEMA … CASCADE` emporte `matrix.journal_unifie` ; `--no-privileges` retire les droits des lecteurs : leurs écrans tombent en erreur. | `droits.partage_lecteurs` et `droits.verifier()` signalent les droits perdus ; procédure du README du socle (rejeu du fichier de l'outil, de 90 et de 95). |
 | Colonne sensible nouvelle ou renommée hors liste | Lisible par Matrix dès sa création (nouvelle) ; table fermée (renommée). | Mettre la liste à jour avant la migration ; signalement des nouvelles colonnes par Matrix. |
 | Défaut du déclencheur d'événement | Toute migration échoue. | Contrôle complet `verifier-droits.sql` (144 cas une fois Vigie migré) ; désactivation d'urgence documentée ; `droits.verifier()`. |
-| Version : serveur 16, PGlite 18.3 | Une fonction de PostgreSQL 17 ou 18 passerait en développement et échouerait sur le serveur ; les exports de PGlite contiennent `SET transaction_timeout`. | Intégration continue sur PostgreSQL 16 (§ 10.1, ou contrôle manuel avant fusion) ; retrait de la ligne ; question P-01. |
+| Version : serveur et PGlite 18.3 différents | Une fonction d'une version plus récente que le serveur passerait en développement et échouerait sur le serveur (c'est le cas de Codex sur un serveur 16 : `pg_unicode_fast`) ; les exports de PGlite contiennent `SET transaction_timeout`. | Serveur en 18 (proposition du 22/10/2026, P-01) ; intégration continue sur la version du serveur (§ 10.1, ou contrôle manuel avant fusion) ; retrait de la ligne ; question P-01. |
 | Une seule sauvegarde par nuit | Jusqu'à une journée de saisies perdue ; l'objectif de Keystone est 15 minutes (I-1b). | Archivage continu des journaux de transactions (P-08). |
 | Fichiers déposés hors de la base | Restauration incomplète. | Sauvegarder `/data/files` et `/data/uploads` avec la base. |
 | Démonstration chargée sur le serveur de production | Données fictives mêlées aux réelles ; reprise de Cursus bloquée. | Variables de démonstration explicites ; `CURSUS_DEMO=0`. |
@@ -703,7 +703,7 @@ Changements dans Matrix :
 
 | N° | Question |
 |---|---|
-| P-01 | Version du serveur : PostgreSQL 16 est imposé, PGlite 0.5.8 embarque PostgreSQL 18.3. Garder 16, avec l'intégration continue sur 16 comme garde-fou, ou passer le serveur en 17 ou 18 pour avoir le même moteur partout ? |
+| P-01 | Version du serveur : PostgreSQL 16 est imposé, PGlite 0.5.8 embarque PostgreSQL 18.3. Garder 16, avec l'intégration continue sur 16 comme garde-fou, ou passer le serveur en 17 ou 18 pour avoir le même moteur partout ? Proposition du 22/10/2026, à confirmer : 18 (`postgres:18-bookworm` dans le socle, volume monté sur `/var/lib/postgresql`), parce que Codex (lot 11) l'exige (collation `pg_unicode_fast`) ; le socle y a été rejoué sans changement. Concerne aussi Keystone, Vigie et Cursus (et la tâche PostgreSQL 16 de l'intégration continue de Keystone, § 5.1). Garder 16 obligerait à laisser Codex sur PGlite. |
 | P-02 | Tranchée le 18/10/2026 (`docs/decisions.md`) : ne rien réécrire ; le migrateur remplace `"public".` par le schéma sur le serveur (Keystone et Vigie). |
 | P-03 | Tranchée le 18/10/2026 pour Vigie et Keystone (`docs/decisions.md`) : on repart de zéro. Cursus reste repris depuis SQLite. |
 | P-04 | Confirmez-vous l'exclusion de `cursus.journal.payload`, `cursus.journal.message` et `cursus.demandes_collab.label` ? Faut-il aussi exclure `employes.reprise_date` et les entretiens de type `reprise`, qui révèlent une absence longue (avis RH ou DPO) ? |

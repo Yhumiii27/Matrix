@@ -4,8 +4,8 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 
 | Fichier | Rôle |
 |---|---|
-| `docker-compose.yml` | PostgreSQL 16, volumes de données et de sauvegardes persistants. Utilisable dans Coolify et en local. |
-| `Dockerfile` | Image officielle PostgreSQL 16 avec les fichiers du socle copiés dedans (`init/`, `sauvegarde/`, `partage/`, `verifier-droits.sql`). |
+| `docker-compose.yml` | PostgreSQL 18 (proposition, question P-01), volumes de données et de sauvegardes persistants. Utilisable dans Coolify et en local. |
+| `Dockerfile` | Image officielle PostgreSQL 18 avec les fichiers du socle copiés dedans (`init/`, `sauvegarde/`, `partage/`, `verifier-droits.sql`). |
 | `.env.example` | Les variables à fournir (mots de passe). |
 | `init/01-base-et-roles.sql` | Base `epc2i` et rôles. |
 | `init/02-schemas.sql` | Schémas `keystone`, `codex`, `cursus`, `vigie`, `matrix`, propriétaires et paramètres de session ; schéma `extensions` et `pg_trgm` (pour Codex). |
@@ -63,7 +63,7 @@ psql "postgres://postgres@127.0.0.1:5432/postgres" -f verifier-droits.sql
 
 Le port publié se change avec `EPC2I_PG_PORT` si 5432 est pris. `docker compose down -v` supprime la base et les sauvegardes locales.
 
-Sans Docker, sur un PostgreSQL 16 déjà installé : exportez les variables de `.env.example`, puis lancez les trois scripts dans l'ordre avec psql 15 ou plus, en superutilisateur :
+Sans Docker, sur un PostgreSQL 18 déjà installé (avec les modules contrib, pour `pg_trgm`) : exportez les variables de `.env.example`, puis lancez les trois scripts dans l'ordre avec psql 15 ou plus, en superutilisateur :
 
 ```bash
 set -a; . ./.env; set +a
@@ -232,4 +232,6 @@ La liste protège des colonnes nommées. Une copie de leurs valeurs dans une aut
 
 ## Version de PostgreSQL
 
-L'image est `postgres:16-bookworm`, qui suit les versions mineures de la 16 à chaque redéploiement. Pour figer la version, remplacer par une étiquette précise (`postgres:16.x-bookworm`). Un changement de version majeure (17, 18) demande une sauvegarde complète et une restauration, ou `pg_upgrade` sur le volume ; il ne se fait pas en changeant seulement l'étiquette (question P-01).
+L'image est `postgres:18-bookworm`, qui suit les versions mineures de la 18 à chaque redéploiement. C'est une proposition du 22/10/2026, à confirmer (question P-01 du plan) : le socle était en 16 depuis le 15/10/2026, et Codex exige PostgreSQL 18 (sa fonction `codex_fold` utilise la collation `pg_unicode_fast`, propre à la 18 ; il refuse de démarrer sur un serveur plus ancien). Le choix vaut aussi pour Keystone, Vigie et Cursus, et pour l'intégration continue des outils. Le socle (`init/`, `partage/`, `verifier-droits.sql`) a été rejoué sans changement sur PostgreSQL 18.3 le 22/10/2026.
+
+Pour figer la version, remplacer par une étiquette précise (`postgres:18.x-bookworm`). Depuis la 18, l'image range les données dans `/var/lib/postgresql/18/docker` (`$PGDATA`) et le volume se monte sur `/var/lib/postgresql` (`docker-compose.yml`) : un volume monté sur `/var/lib/postgresql/data`, comme en 16, fait refuser le démarrage. Un volume déjà initialisé en 16 ne s'ouvre pas en 18 : sauvegarde complète et restauration, ou `pg_upgrade` ; un changement de version majeure ne se fait jamais en changeant seulement l'étiquette. Sur un serveur neuf, rien de tel : le volume est vide.

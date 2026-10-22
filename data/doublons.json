@@ -428,7 +428,7 @@
         { "id": "C", "libelle": "Chacun garde les siens, sans lien", "effet": "Les contrôles sont saisis deux fois ; Matrix signale les écarts de date." }
       ],
       "recommandation": "A", "raison": "Le contrôle réglementaire relève de la QHSE (Vigie, qui gère déjà échéances, réserves et alertes) ; Crucible n'a besoin que de savoir si le moyen est utilisable. C'est la demande V-1 de Crucible.",
-      "decision": null
+      "decision": {"option": "A", "statut": "definitive", "le": "2026-10-22", "citation": "D23 : option A (Vigie fait foi ; Crucible lit les contrôles) — réponse au choix proposé, « A · Vigie (Recommandé) »"}
     }
   ]
 }

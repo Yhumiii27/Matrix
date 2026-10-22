@@ -294,7 +294,7 @@
         ["controls.next_on, reserves, equipement_code (colonne nouvelle)", "unavailabilities (origine Vigie : contrôle échu, R-6)"],
         ["activités de coactivité : zone, du, au", "unavailabilities (intervention extérieure, R-7)"]
       ],
-      "note": "Crucible, docs/DEMANDES-VIGIE.md ; groupe D23, à trancher."
+      "note": "Crucible, docs/DEMANDES-VIGIE.md ; D23, option A (22/10/2026) : Vigie fait foi."
     },
     {
       "id": "F25", "nom": "Moyens d'essai et réservations confirmées vus de Keystone",

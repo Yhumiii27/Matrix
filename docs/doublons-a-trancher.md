@@ -43,7 +43,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | D20 | Homonymes : même nom, objets différents | Homonyme | Mineur | Keystone.`risks`, Vigie.`risks`, Vigie.`certifications`, Keystone.`change_requests`, Cursus.`plan_actions`, Cursus.`reports`, Arche.`risks`, Arche.`decisions`, Arche.`changes`, Arche.`reviews`, Crucible.`resources`, Crucible.`incidents` | A | ☑ A ☐ B (definitive) |
 | D21 | Filiales et zones du groupe | Chevauchement | Majeur | Arche.`zones`, Arche.`subsidiaries`, Arche.`sites`, Keystone.`clients`, Crucible.`entities` | A | ☑ A ☐ B ☐ C (definitive) |
 | D22 | Retours d'expérience (REX) | Chevauchement | Mineur | Keystone.`lessons_learned`, Keystone.`rex_references`, Arche.`rex_entries` | A | ☑ A ☐ B (definitive) |
-| D23 | Contrôles périodiques et indisponibilités des moyens d'essai | Chevauchement | Majeur | Vigie.`controls`, Vigie.`control_records`, Crucible.`unavailabilities` | A | ☐ A ☐ B ☐ C |
+| D23 | Contrôles périodiques et indisponibilités des moyens d'essai | Chevauchement | Majeur | Vigie.`controls`, Vigie.`control_records`, Crucible.`unavailabilities` | A | ☑ A ☐ B ☐ C (definitive) |
 
 ## D01 · Personnes
 
@@ -689,8 +689,10 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Options**
 
-- ☐ **A. Vigie fait foi pour les contrôles réglementaires ; Crucible les lit** *(proposé)* : Vigie publie vigie.pub_controles avec un code d'équipement commun aux moyens de Crucible (V-1) ; Crucible en déduit l'indisponibilité (contrôle échu, réserves) et ne saisit que la maintenance, les pannes et les travaux.
+- ☑ **A. Vigie fait foi pour les contrôles réglementaires ; Crucible les lit** *(proposé)* : Vigie publie vigie.pub_controles avec un code d'équipement commun aux moyens de Crucible (V-1) ; Crucible en déduit l'indisponibilité (contrôle échu, réserves) et ne saisit que la maintenance, les pannes et les travaux.
 - ☐ **B. Crucible fait foi pour les contrôles de ses moyens d'essai** : Les contrôles des bancs, cellules et zones d'essai sont saisis dans Crucible et publiés (crucible.pub_controles) ; Vigie ne garde que les autres équipements.
 - ☐ **C. Chacun garde les siens, sans lien** : Les contrôles sont saisis deux fois ; Matrix signale les écarts de date.
 
 **Pourquoi A.** Le contrôle réglementaire relève de la QHSE (Vigie, qui gère déjà échéances, réserves et alertes) ; Crucible n'a besoin que de savoir si le moyen est utilisable. C'est la demande V-1 de Crucible.
+
+**Décision definitive du 22/10/2026.** « D23 : option A (Vigie fait foi ; Crucible lit les contrôles) — réponse au choix proposé, « A · Vigie (Recommandé) » »

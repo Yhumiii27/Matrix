@@ -587,7 +587,8 @@ socle sont dans `docs/DEMANDES-MATRIX.md` de Crucible (M-1 à M-6) :
 - doublons (`docs/doublons-a-trancher.md`) : application des décisions déjà prises (D01 et D07 à D09 : Cursus fait foi
   pour les opérateurs, leurs habilitations et leurs absences ; D02 : lien vers Keystone ; D14 et D21 : sites et entités
   lus dans Matrix, le laboratoire 67, le PDE et EPC France à saisir dans les référentiels, demande M-6) et un groupe
-  nouveau, D23 (contrôles périodiques des moyens d'essai, Vigie ou Crucible), à trancher (M-11).
+  nouveau, D23 (contrôles périodiques des moyens d'essai), tranché le 22/10/2026 : option A, Vigie fait foi et publie
+  `vigie.pub_controles`, lue par Crucible (M-11).
 
 ## 9. Heures validées : D06, option A, réversible
 

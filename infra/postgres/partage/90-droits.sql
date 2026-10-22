@@ -201,11 +201,11 @@ BEGIN
       ('keystone.pub_activites',             ARRAY['vigie_app', 'matrix_app']),
       ('keystone.pub_livrables',             ARRAY['vigie_app', 'arche_app', 'matrix_app']),
       ('keystone.pub_journal',               ARRAY['matrix_app']),
-      -- Codex : documents (D10), registre (D11), journal (D18).
-      ('codex.pub_documents',                ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
-      ('codex.pub_revisions_document',       ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
-      ('codex.pub_validations',              ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
-      ('codex.pub_types_document',           ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
+      -- Codex : documents (D10, lus aussi par Arche : dossiers et pack), registre (D11), journal (D18).
+      ('codex.pub_documents',                ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
+      ('codex.pub_revisions_document',       ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
+      ('codex.pub_validations',              ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
+      ('codex.pub_types_document',           ARRAY['keystone_app', 'vigie_app', 'arche_app', 'matrix_app']),
       ('codex.pub_circuits_type',            ARRAY['keystone_app', 'matrix_app']),
       ('codex.pub_titulaires_fonction',      ARRAY['keystone_app', 'matrix_app']),
       ('codex.pub_journal',                  ARRAY['matrix_app']),

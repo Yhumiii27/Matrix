@@ -23,6 +23,7 @@ La convention :
 | 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 7 vues `codex.pub_*` (D10, D11, D18) |
 | 2 | `50-vigie.sql` | `vigie_app` | Contrôle des prérequis (migrations `0008`, `0009`), copie des 3 vues `vigie.pub_*` de `0009_partage` (D13, D18) |
 | — | `60-vigie-ecr-eco.sql` | `vigie_app` | **À ne pas jouer tant que le module ECR / ECO n'existe pas dans Vigie** (aucune de ses tables dans Vigie au 18/10/2026). Spécification des tables ECR / ECO (D12) et de leurs vues `pub_`, à reporter dans les migrations de Vigie. |
+| 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche, copie de `arche.pub_journal` (D18) et `arche.pub_capex` |
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues, `GRANT` des lecteurs, contrôle final par `droits.verifier()` |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
 

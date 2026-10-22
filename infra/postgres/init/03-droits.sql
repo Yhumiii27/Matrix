@@ -815,6 +815,10 @@ INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif
   ('cursus', 'employes', 'examen_aptitude', 'Santé : date de l''examen d''aptitude', 'convention'),
   ('cursus', 'employes', 'autorisation_travail', 'Identité : autorisation de travail (titre de séjour)', 'convention'),
   ('cursus', 'vaccinations', '*', 'Santé : vaccinations (table entière)', 'convention'),
+  -- Arche (demande M-3, 22/10/2026) : identifiant de connexion et preuve de signature. L'adresse électronique
+  -- professionnelle n'est pas retenue (aucun autre outil ne la protège, et arche.pub_capex la publie à Keystone).
+  ('arche', 'users', 'entra_object_id', 'Identité : identifiant Entra ID du compte', 'convention'),
+  ('arche', 'signatures', 'ip_hash', 'Sécurité : empreinte de l''adresse IP d''une signature', 'convention'),
   ('cursus', 'visas', '*', 'Déplacement personnel : visas (table entière)', 'convention'),
   ('vigie', 'events', 'injury', 'Santé : nature de la lésion (accident du travail)', 'convention'),
   ('vigie', 'events', 'lost_days', 'Santé : jours d''arrêt de travail', 'convention'),

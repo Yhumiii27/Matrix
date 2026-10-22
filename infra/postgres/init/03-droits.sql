@@ -667,25 +667,27 @@ BEGIN
 
   -- Accès des rôles aux schémas : chaque outil chez soi, plus la convention de partage. Un outil peut avoir USAGE
   -- sur le schéma d'un autre (keystone, codex, cursus, vigie, matrix) s'il y lit au moins une vue pub_ ; ses autres
-  -- droits dans ce schéma sont contrôlés plus haut (droits croisés). CREATE croisé : toujours une erreur.
+  -- droits dans ce schéma sont contrôlés plus haut (droits croisés). CREATE croisé : toujours une erreur. Le schéma
+  -- extensions (init/02 : pg_trgm) n'est ouvert qu'à codex_app, et à epc2i_sauvegarde par pg_read_all_data ; CREATE
+  -- n'y est accordé à aucun de ces rôles.
   RETURN QUERY
   SELECT 'erreur', format('%s, schéma %s', r.nom, n.nspname),
          CASE WHEN p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix')
               THEN 'droit USAGE inattendu : aucune vue pub_ de ce schéma n''est accordée au rôle'
               ELSE format('droit %s inattendu', p.priv) END
   FROM (VALUES ('keystone_app', ARRAY['keystone'], ARRAY['keystone'], true),
-               ('codex_app', ARRAY['codex'], ARRAY['codex'], true),
+               ('codex_app', ARRAY['codex', 'extensions'], ARRAY['codex'], true),
                ('cursus_app', ARRAY['cursus'], ARRAY['cursus'], true),
                ('vigie_app', ARRAY['vigie'], ARRAY['vigie'], true),
                ('matrix_app', ARRAY['matrix', 'keystone', 'codex', 'cursus', 'vigie', 'droits'], ARRAY['matrix'], false),
                ('matrix_lecture', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'droits'], ARRAY[]::text[], false),
                ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits'], ARRAY[]::text[], false),
-               ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits', 'public'], ARRAY[]::text[], false)
+               ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false)
        ) AS r(nom, usage_ok, create_ok, lecteur)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_namespace n
   CROSS JOIN (VALUES ('USAGE'), ('CREATE')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits', 'public')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix', 'droits', 'public', 'extensions')
     AND NOT (n.nspname::text = ANY (CASE WHEN p.priv = 'USAGE' THEN r.usage_ok ELSE r.create_ok END))
     AND has_schema_privilege(x.oid, n.oid, p.priv)
     AND NOT (p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'matrix')

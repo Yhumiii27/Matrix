@@ -3,9 +3,10 @@
 -- Lancement, en superutilisateur, après les scripts d'initialisation :
 --   psql -h <hôte> -U postgres -d postgres -v ON_ERROR_STOP=1 -f verifier-droits.sql
 -- Le script crée des tables d'essai (préfixe zz_) dans les schémas des outils, joue chaque rôle (SET ROLE) et
--- compare le résultat obtenu au résultat attendu. Les cas 100 à 136 éprouvent la convention de partage
--- (infra/postgres/partage/README.md) : un outil lit les vues pub_ d'un autre, et droits.verifier() signale tout
--- autre droit croisé ainsi que toute vue pub_ qui lit une colonne sensible. Les cas 140 à 152 éprouvent les tables
+-- compare le résultat obtenu au résultat attendu. Les cas 71 à 73 éprouvent le schéma extensions (pg_trgm, réservé
+-- à Codex). Les cas 100 à 138 éprouvent la convention de partage (infra/postgres/partage/README.md) : un outil lit
+-- les vues pub_ d'un autre, et droits.verifier() signale tout autre droit croisé ainsi que toute vue pub_ qui lit une
+-- colonne sensible, et tout droit inattendu sur le schéma extensions (137, 138). Les cas 140 à 152 éprouvent les tables
 -- fermées en entier (colonne « * » de droits.colonnes_sensibles) et un droit posé hors du déclencheur. Les cas 200 et
 -- suivants portent sur les vraies tables de Vigie, quand elles existent : chaque colonne de santé et chaque table
 -- fermée de droits.colonnes_sensibles est refusée à Matrix, puis, rendue lisible dans une sous-transaction annulée,
@@ -140,6 +141,10 @@ BEGIN
     (68, 'mettre la liste à jour', 'postgres', 'UPDATE droits.colonnes_sensibles SET table_nom = ''zz_essai_bis'' WHERE table_nom = ''zz_essai''', 'autorisé'),
     (69, 'lire la table renommée (liste à jour)', 'matrix_app', 'SELECT id FROM vigie.zz_essai_bis', 'autorisé'),
     (70, 'lire la colonne sensible (liste à jour)', 'matrix_app', 'SELECT cache FROM vigie.zz_essai_bis', 'refusé'),
+    -- Extensions : pg_trgm, installée par le superutilisateur dans le schéma extensions (init/02), sert à Codex seul.
+    (71, 'utiliser pg_trgm (schéma extensions)', 'codex_app', 'SELECT extensions.similarity(''codex'', ''codes'')', 'autorisé'),
+    (72, 'utiliser pg_trgm depuis un autre outil', 'keystone_app', 'SELECT extensions.similarity(''codex'', ''codes'')', 'refusé'),
+    (73, 'créer un objet dans le schéma extensions', 'codex_app', 'CREATE TABLE extensions.zz_x (id integer)', 'refusé'),
     -- Convention de partage : un outil lit les vues pub_ d'un autre, et rien d'autre.
     (100, 'créer une table à colonne sensible', 'vigie_app', 'CREATE TABLE vigie.zz_pub (id integer PRIMARY KEY, libelle text, secret text)', 'autorisé'),
     (101, 'publier une vue pub_ sans colonne sensible', 'vigie_app', 'CREATE VIEW vigie.pub_zz_ok WITH (security_barrier) AS SELECT id, libelle FROM vigie.zz_pub', 'autorisé'),
@@ -192,6 +197,8 @@ FROM (VALUES
   (134, 'vue pub_ accordée à un deuxième lecteur', 'vigie_app', 'GRANT USAGE ON SCHEMA vigie TO codex_app; GRANT SELECT ON vigie.pub_zz_ok TO codex_app', '%', 'non signalé'),
   (135, 'lecteur attendu qui perd son SELECT (restauration)', 'vigie_app', 'REVOKE SELECT ON vigie.pub_zz_ok FROM keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé'),
   (136, 'lecteur attendu qui perd son USAGE (restauration)', 'vigie_app', 'REVOKE USAGE ON SCHEMA vigie FROM keystone_app', 'keystone_app, vigie.pub_zz_ok', 'signalé'),
+  (137, 'USAGE sur le schéma extensions accordé à un autre outil', 'postgres', 'GRANT USAGE ON SCHEMA extensions TO keystone_app', 'keystone_app, schéma extensions', 'signalé'),
+  (138, 'CREATE sur le schéma extensions accordé à codex_app', 'postgres', 'GRANT CREATE ON SCHEMA extensions TO codex_app', 'codex_app, schéma extensions', 'signalé'),
   (150, 'vue pub_ qui lit une table fermée en entier', 'vigie_app', 'CREATE VIEW vigie.pub_zz_ferme AS SELECT id FROM vigie.zz_ferme', 'vigie.pub_zz_ferme', 'signalé'),
   -- Droit posé hors du déclencheur droits_ddl (drapeau de droits.appliquer_droits() levé à la main) : seul
   -- droits.verifier() le voit.

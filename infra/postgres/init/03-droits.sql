@@ -781,6 +781,24 @@ INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif
   ('cursus', 'visas', 'obtenu', 'Déplacement personnel : date d''obtention du visa', 'convention'),
   ('cursus', 'visas', 'expire', 'Déplacement personnel : fin de validité du visa', 'convention'),
   ('cursus', 'entretiens', 'cr', 'Vie professionnelle : compte rendu d''entretien', 'convention'),
+  -- Ajouts du 22/10/2026 (8.b de Cursus) : contact d'urgence et pièces justificatives (arrêts, déclarations…).
+  ('cursus', 'employes', 'urgence_nom', 'Vie privée : personne à prévenir en cas d''urgence', 'convention'),
+  ('cursus', 'employes', 'urgence_tel', 'Vie privée : téléphone de la personne à prévenir', 'convention'),
+  ('cursus', 'pieces', 'jeton', 'Sécurité : jeton de téléchargement d''une pièce justificative', 'convention'),
+  ('cursus', 'pieces', 'nom', 'Santé ou vie privée : nom du fichier d''une pièce justificative', 'convention'),
+  ('cursus', 'pieces', 'fichier', 'Santé ou vie privée : emplacement du fichier d''une pièce justificative', 'convention'),
+  -- Suivi médical et identité (colonnes de Cursus relevées au 22/10/2026), même convention : aucune donnée de santé
+  -- ni pièce d'identité lue par Matrix. Vaccinations et visas : tables fermées en entier.
+  ('cursus', 'employes', 'naissance_le', 'Identité : date de naissance', 'convention'),
+  ('cursus', 'employes', 'reprise_date', 'Santé ou vie privée : date de reprise après une absence longue', 'convention'),
+  ('cursus', 'employes', 'avis', 'Santé : avis d''aptitude de la médecine du travail', 'convention'),
+  ('cursus', 'employes', 'restrictions', 'Santé : restrictions d''aptitude', 'convention'),
+  ('cursus', 'employes', 'suivi', 'Santé : type de suivi médical (VIP, VIP adapté, SIR)', 'convention'),
+  ('cursus', 'employes', 'prochaine_visite', 'Santé : date de la prochaine visite médicale', 'convention'),
+  ('cursus', 'employes', 'examen_aptitude', 'Santé : date de l''examen d''aptitude', 'convention'),
+  ('cursus', 'employes', 'autorisation_travail', 'Identité : autorisation de travail (titre de séjour)', 'convention'),
+  ('cursus', 'vaccinations', '*', 'Santé : vaccinations (table entière)', 'convention'),
+  ('cursus', 'visas', '*', 'Déplacement personnel : visas (table entière)', 'convention'),
   ('vigie', 'events', 'injury', 'Santé : nature de la lésion (accident du travail)', 'convention'),
   ('vigie', 'events', 'lost_days', 'Santé : jours d''arrêt de travail', 'convention'),
   -- Données de santé d'un accident du travail (Vigie : HEALTH_LABELS de src/components/events/shared.ts, réservées à

@@ -13,7 +13,6 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 | `verifier-droits.sql` | Contrôle des droits en conditions réelles : 109 cas sur un socle neuf, convention de partage et tables fermées comprises, plus 2 cas par colonne ou table de santé de Vigie une fois Vigie migré (139 au total au 18/10/2026) ; rien n'est conservé. |
 | `partage/` | Vues `pub_*` publiées par chaque outil, référentiels de Matrix, droits des lecteurs (`partage/README.md`). |
 | `sauvegarde/sauvegarder.sh` | Sauvegarde `pg_dump` par schéma, avec rétention. |
-| `cursus/schema.sql` | Schéma PostgreSQL cible de Cursus (28 tables, 37 clés étrangères), à exécuter par `cursus_app`. |
 | `correctifs/` | Correctifs essayés le 15/10/2026 dans des copies des outils (`correctifs/README.md`). Ceux de Keystone et de Vigie sont obsolètes (remplacés par les branches des outils, décision P-02), celui de Codex est fusionné ; reste le prototype de Cursus. |
 
 ## Ce que créent les scripts

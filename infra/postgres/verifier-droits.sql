@@ -174,7 +174,14 @@ BEGIN
     (162, 'Arche : lire une table d''un autre outil', 'arche_app', 'SELECT 1 FROM cursus.zz_ouverte', 'refusé'),
     (163, 'Arche : créer une table dans public', 'arche_app', 'CREATE TABLE public.zz_a (id integer)', 'refusé'),
     (164, 'un autre outil lit une table d''Arche', 'keystone_app', 'SELECT 1 FROM arche.zz_a', 'refusé'),
-    (165, 'Matrix lit une table d''Arche', 'matrix_app', 'SELECT id FROM arche.zz_a', 'autorisé')
+    (165, 'Matrix lit une table d''Arche', 'matrix_app', 'SELECT id FROM arche.zz_a', 'autorisé'),
+    -- Crucible (22/10/2026) : de même.
+    (170, 'Crucible : créer une table dans son schéma', 'crucible_app', 'CREATE TABLE crucible.zz_c (id integer)', 'autorisé'),
+    (171, 'Crucible : créer une table dans le schéma d''un autre outil', 'crucible_app', 'CREATE TABLE arche.zz_c (id integer)', 'refusé'),
+    (172, 'Crucible : lire une table d''un autre outil', 'crucible_app', 'SELECT id FROM arche.zz_a', 'refusé'),
+    (173, 'Crucible : créer une table dans public', 'crucible_app', 'CREATE TABLE public.zz_c (id integer)', 'refusé'),
+    (174, 'un autre outil lit une table de Crucible', 'arche_app', 'SELECT 1 FROM crucible.zz_c', 'refusé'),
+    (175, 'Matrix lit une table de Crucible', 'matrix_app', 'SELECT id FROM crucible.zz_c', 'autorisé')
   ) AS t(n, cas, role, q, attendu) ORDER BY n LOOP
     INSERT INTO resultats VALUES (c.n, c.cas, c.role, c.attendu, pg_temp.essai(c.role, c.q));
   END LOOP;

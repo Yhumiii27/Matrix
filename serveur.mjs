@@ -17,7 +17,7 @@
 //   MATRIX_DATA_DIR    dossier des données vivantes : catalogue, historique, déclarations (défaut ./data ;
 //                      /data dans l'image Docker, à monter sur un volume persistant)
 //   MATRIX_TOKEN       jeton partagé avec les outils ; sans lui, les déclarations sont refusées (503)
-//   MATRIX_SOURCES_DIR dossier contenant les dépôts keystone/, codex/, cursus/, vigie/, arche/ (facultatif)
+//   MATRIX_SOURCES_DIR dossier contenant les dépôts keystone/, codex/, cursus/, vigie/, arche/, crucible/ (facultatif)
 //   MATRIX_MOT_DE_PASSE mot de passe d'accès à Matrix (identifiant libre, authentification HTTP Basic). Sans lui,
 //                      la consultation reste ouverte et, en production, les modifications sont refusées.
 
@@ -37,7 +37,7 @@ const SOURCES = process.env.MATRIX_SOURCES_DIR ?? null;
 const TOKEN = process.env.MATRIX_TOKEN ?? '';
 const MOT_DE_PASSE = process.env.MATRIX_MOT_DE_PASSE ?? '';
 const PRODUCTION = process.env.NODE_ENV === 'production';
-const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche'];
+const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 const MAX_OCTETS = 10 * 1024 * 1024;
 const EMBARQUE = join(RACINE, 'data');
 

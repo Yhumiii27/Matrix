@@ -39,9 +39,10 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 | `cursus_app` | connexion | `cursus` | `cursus` | Idem. |
 | `vigie_app` | connexion | `vigie` | `vigie` | Idem. |
 | `arche_app` | connexion | `arche` | `arche` | Idem (ajouté le 22/10/2026 pour Arche, § 8 bis). |
+| `crucible_app` | connexion | `crucible` | `crucible` | Idem (ajouté le 22/10/2026 pour Crucible, § 8 ter). |
 | `matrix_app` | connexion | `matrix` | `matrix` | Tout sur `matrix` ; membre de `matrix_lecture`. |
-| `matrix_lecture` | groupe | | | `USAGE` sur `keystone`, `codex`, `cursus`, `vigie`, `arche` et `droits` ; `SELECT` sur leurs tables et vues, sauf les colonnes sensibles ; aucun droit sur les séquences ; lecture de `droits.colonnes_sensibles` et de `droits.verifier()`. |
-| `matrix_admin` | groupe, attribué nominativement | | | Tous les droits sur les tables, séquences et fonctions des six schémas ; peut prendre le rôle d'un outil (`SET ROLE`, sans en hériter) ; modifie la liste des colonnes sensibles, sauf celles de la convention. |
+| `matrix_lecture` | groupe | | | `USAGE` sur `keystone`, `codex`, `cursus`, `vigie`, `arche`, `crucible` et `droits` ; `SELECT` sur leurs tables et vues, sauf les colonnes sensibles ; aucun droit sur les séquences ; lecture de `droits.colonnes_sensibles` et de `droits.verifier()`. |
+| `matrix_admin` | groupe, attribué nominativement | | | Tous les droits sur les tables, séquences et fonctions des sept schémas ; peut prendre le rôle d'un outil (`SET ROLE`, sans en hériter) ; modifie la liste des colonnes sensibles, sauf celles de la convention. |
 | `epc2i_sauvegarde` | connexion | | | Membre de `pg_read_all_data` : lit tout, colonnes sensibles comprises, pour `pg_dump`. |
 | `postgres` | superutilisateur | `droits` | | Administration du socle seulement, jamais dans un outil. |
 
@@ -564,6 +565,27 @@ Le socle est prêt avant son code :
     ni `sites` ; Keystone relie `clients.code3` au code de la filiale. Listes vides jusqu'à la liste réelle (C-5) ;
   - D22, option A : Arche (CAPEX) et Keystone (projets) gardent chacun leur REX et publient `pub_rex`, accordée à
     `matrix_app` ; Matrix les réunira comme le journal unifié une fois le contrat commun fixé.
+
+## 8 ter. Crucible
+
+Crucible (dépôt `Yhumiii27/Crucible`) planifie et arbitre les moyens d'essais R&D partagés (laboratoire 67, partagé avec
+EPC France ; PDE, laboratoire PDE, atelier mécanique). Au 22/10/2026, sa livraison 1 (plateforme) est faite, en
+PostgreSQL seulement, migrations `0000` à `0002` ; ses demandes au socle sont M-1 à M-6 de son `docs/DEMANDES-MATRIX.md`.
+Même démarche qu'Arche (M-07) :
+
+- rôle `crucible_app` et schéma `crucible` (`init/01`, `init/02`), mot de passe `CRUCIBLE_APP_PASSWORD` ; mêmes règles
+  que les autres outils (`init/03`, `droits.verifier()`, cas 170 à 175 de `verifier-droits.sql`) ; colonnes sensibles
+  `crucible.users.entra_object_id` et `crucible.users.email` (M-3, fermées à `matrix_lecture`) ; sauvegarde par schéma ;
+- partage : `partage/80-crucible.sql` recopie `crucible.pub_journal` (migration `0002_share_journal`, contrat D18), réunie
+  par `partage/95` ; `partage/90-droits.sql` : Crucible lit `keystone.pub_projets`, `cursus.pub_salaries`, `pub_titres`,
+  `pub_titres_detenus`, `codex.pub_documents`, `pub_revisions_document`, `matrix.pub_sites`, `pub_organigramme`, puis
+  `keystone.pub_jalons` (K-2 de Crucible) et `cursus.pub_absences` (CU-1) quand ces outils les publieront ; Keystone,
+  Vigie et Matrix lisent `crucible.pub_moyens` et `pub_reservations` (livraison L3 de Crucible). Les vues absentes sont
+  signalées sans erreur jusqu'à leur création ;
+- référentiel des sites (M-6) : le laboratoire 67 et le PDE n'y sont pas encore, leur localisation n'étant pas connue
+  (question P-1 de Crucible) ; l'entité EPC France attend la liste réelle des filiales (D21, C-5 d'Arche) ;
+- doublons possibles à examiner (pas encore dans `data/doublons.json`) : `crucible.sites` et `entities` (D14, D21),
+  `projects` (D02), `users` (D01).
 
 ## 9. Heures validées : D06, option A, réversible
 

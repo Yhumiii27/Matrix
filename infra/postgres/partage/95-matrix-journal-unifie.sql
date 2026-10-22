@@ -2,7 +2,8 @@
 --
 -- Chaque outil garde son journal et publie une vue pub_journal aux colonnes communes : Keystone (migration
 -- 0035_share, audit_entries et activity_events), Codex (migration 0001_partage, audit_log), Vigie (migration
--- 0009_partage, change_log), Cursus (20-cursus.sql, journal). Matrix les réunit ici, en lecture seule, pour l'écran
+-- 0009_partage, change_log), Cursus (20-cursus.sql, journal), Arche (0002_share_journal),
+-- Crucible (0002_share_journal). Matrix les réunit ici, en lecture seule, pour l'écran
 -- « Journal » de l'administration (docs/proposition.md).
 -- Contrat commun des quatre pub_journal, dans cet ordre : ref_source text, nature text, quand timestamptz, qui text,
 -- qui_ref text, qui_role text, action text, objet text, detail text, projet text, qui_matricule text (vérifié le
@@ -28,7 +29,7 @@ DECLARE
                     'action:text,objet:text,detail:text,projet:text,qui_matricule:text';
   v_colonnes text;
 BEGIN
-  FOREACH v_outil IN ARRAY ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche'] LOOP
+  FOREACH v_outil IN ARRAY ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'] LOOP
     IF to_regclass(format('%I.pub_journal', v_outil)) IS NULL
        OR NOT has_table_privilege(format('%I.pub_journal', v_outil), 'SELECT') THEN
       v_absents := v_absents || v_outil;
@@ -57,7 +58,7 @@ BEGIN
   END IF;
   -- Un outil ajouté ou retiré change le nombre de branches, pas les colonnes : CREATE OR REPLACE suffit.
   EXECUTE 'CREATE OR REPLACE VIEW matrix.journal_unifie AS ' || array_to_string(v_branches, ' UNION ALL ');
-  RAISE NOTICE 'matrix.journal_unifie : %.', array_to_string(ARRAY(SELECT x FROM unnest(ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche']) AS x
+  RAISE NOTICE 'matrix.journal_unifie : %.', array_to_string(ARRAY(SELECT x FROM unnest(ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible']) AS x
                                                                   WHERE NOT x = ANY (v_absents)), ', ');
 END $journal$;
 

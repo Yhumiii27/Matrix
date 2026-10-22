@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-22T11:47:09.518Z",
+ "generatedAt": "2026-10-22T15:20:33.000Z",
  "apps": [
   {
    "id": "keystone",
@@ -39112,6 +39112,876 @@
      "domain": "Référentiels",
      "description": "Directeurs de Zone",
      "vueLe": "2026-10-22T10:26:05.620Z"
+    }
+   ],
+   "source": "dépôt (migrations Drizzle)"
+  },
+  {
+   "id": "crucible",
+   "tables": [
+    {
+     "name": "activity_events",
+     "columns": [
+      {
+       "name": "id",
+       "type": "uuid",
+       "nullable": false,
+       "pk": true,
+       "default": "gen_random_uuid()"
+      },
+      {
+       "name": "occurred_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "actor_user_id",
+       "type": "uuid",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "actor_name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "text",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "project_code",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "actor_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      },
+      {
+       "columns": [
+        "project_code"
+       ],
+       "table": "projects",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      }
+     ],
+     "uniques": [],
+     "pk": [
+      "id"
+     ],
+     "domain": "Plateforme",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "app_settings",
+     "columns": [
+      {
+       "name": "key",
+       "type": "text",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "value",
+       "type": "jsonb",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      },
+      {
+       "name": "updated_by_name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "uniques": [],
+     "pk": [
+      "key"
+     ],
+     "domain": "Plateforme",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "audit_entries",
+     "columns": [
+      {
+       "name": "id",
+       "type": "uuid",
+       "nullable": false,
+       "pk": true,
+       "default": "gen_random_uuid()"
+      },
+      {
+       "name": "occurred_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "actor_user_id",
+       "type": "uuid",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "actor_name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "actor_role",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "object_ref",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "change",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "area",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entity_type",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entity_id",
+       "type": "uuid",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "project_code",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "before",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "after",
+       "type": "jsonb",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "reason",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "actor_user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      },
+      {
+       "columns": [
+        "project_code"
+       ],
+       "table": "projects",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      }
+     ],
+     "uniques": [],
+     "pk": [
+      "id"
+     ],
+     "domain": "Plateforme",
+     "description": "Append-only (database trigger): never updated nor deleted, in code or tests.",
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "entities",
+     "columns": [
+      {
+       "name": "code",
+       "type": "text",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "kind",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "active",
+       "type": "boolean",
+       "nullable": false,
+       "pk": false,
+       "default": "true"
+      },
+      {
+       "name": "created_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      }
+     ],
+     "fks": [],
+     "uniques": [],
+     "pk": [
+      "code"
+     ],
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "facilities",
+     "columns": [
+      {
+       "name": "code",
+       "type": "text",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "site_code",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "operator_entity_code",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "description",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "active",
+       "type": "boolean",
+       "nullable": false,
+       "pk": false,
+       "default": "true"
+      },
+      {
+       "name": "created_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "site_code"
+       ],
+       "table": "sites",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      },
+      {
+       "columns": [
+        "operator_entity_code"
+       ],
+       "table": "entities",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      }
+     ],
+     "uniques": [],
+     "pk": [
+      "code"
+     ],
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "facility_partners",
+     "columns": [
+      {
+       "name": "facility_code",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entity_code",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "facility_code"
+       ],
+       "table": "facilities",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "cascade",
+       "declared": true
+      },
+      {
+       "columns": [
+        "entity_code"
+       ],
+       "table": "entities",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      }
+     ],
+     "uniques": [],
+     "pk": [
+      "facility_code",
+      "entity_code"
+     ],
+     "domain": "Organisation et droits",
+     "description": "Partner entities a facility is shared with (laboratoire 67 → EPC France).",
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "job_runs",
+     "columns": [
+      {
+       "name": "name",
+       "type": "text",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "lease_until",
+       "type": "timestamp with time zone",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "last_started_at",
+       "type": "timestamp with time zone",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "last_finished_at",
+       "type": "timestamp with time zone",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "last_status",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "last_error",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      }
+     ],
+     "fks": [],
+     "uniques": [],
+     "pk": [
+      "name"
+     ],
+     "domain": "Plateforme",
+     "description": "Scheduled jobs (src/server/jobs): last run and a lease, so that several runners never run the same job at once.",
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "projects",
+     "columns": [
+      {
+       "name": "code",
+       "type": "text",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entity_code",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "priority_class",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": "'P2'"
+      },
+      {
+       "name": "confidential",
+       "type": "boolean",
+       "nullable": false,
+       "pk": false,
+       "default": "false"
+      },
+      {
+       "name": "keystone_code",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "codex_program_code",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "active",
+       "type": "boolean",
+       "nullable": false,
+       "pk": false,
+       "default": "true"
+      },
+      {
+       "name": "created_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "entity_code"
+       ],
+       "table": "entities",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      }
+     ],
+     "uniques": [],
+     "pk": [
+      "code"
+     ],
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "role_assignments",
+     "columns": [
+      {
+       "name": "id",
+       "type": "uuid",
+       "nullable": false,
+       "pk": true,
+       "default": "gen_random_uuid()"
+      },
+      {
+       "name": "user_id",
+       "type": "uuid",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "role",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "scope_kind",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "scope_ref",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "from_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "to_on",
+       "type": "date",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_by_name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "user_id"
+       ],
+       "table": "users",
+       "refColumns": [
+        "id"
+       ],
+       "onDelete": "cascade",
+       "declared": true
+      }
+     ],
+     "uniques": [],
+     "pk": [
+      "id"
+     ],
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "sites",
+     "columns": [
+      {
+       "name": "code",
+       "type": "text",
+       "nullable": false,
+       "pk": true,
+       "default": null
+      },
+      {
+       "name": "name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "city",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "country_iso2",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": "'FR'"
+      },
+      {
+       "name": "created_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      }
+     ],
+     "fks": [],
+     "uniques": [],
+     "pk": [
+      "code"
+     ],
+     "domain": "Organisation et droits",
+     "description": null,
+     "vueLe": "2026-10-22T15:20:33.000Z"
+    },
+    {
+     "name": "users",
+     "columns": [
+      {
+       "name": "id",
+       "type": "uuid",
+       "nullable": false,
+       "pk": true,
+       "default": "gen_random_uuid()"
+      },
+      {
+       "name": "entra_object_id",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "email",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "display_name",
+       "type": "text",
+       "nullable": false,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "job_title",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "entity_code",
+       "type": "text",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "active",
+       "type": "boolean",
+       "nullable": false,
+       "pk": false,
+       "default": "true"
+      },
+      {
+       "name": "last_sign_in_at",
+       "type": "timestamp with time zone",
+       "nullable": true,
+       "pk": false,
+       "default": null
+      },
+      {
+       "name": "created_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      },
+      {
+       "name": "updated_at",
+       "type": "timestamp with time zone",
+       "nullable": false,
+       "pk": false,
+       "default": "now()"
+      }
+     ],
+     "fks": [
+      {
+       "columns": [
+        "entity_code"
+       ],
+       "table": "entities",
+       "refColumns": [
+        "code"
+       ],
+       "onDelete": "no action",
+       "declared": true
+      }
+     ],
+     "uniques": [
+      [
+       "entra_object_id"
+      ],
+      [
+       "email"
+      ]
+     ],
+     "pk": [
+      "id"
+     ],
+     "domain": "Organisation et droits",
+     "description": null,
+     "sensitive": [
+      "entra_object_id",
+      "email"
+     ],
+     "vueLe": "2026-10-22T15:20:33.000Z"
     }
    ],
    "source": "dépôt (migrations Drizzle)"

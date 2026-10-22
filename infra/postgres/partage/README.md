@@ -26,7 +26,7 @@ La convention :
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues, `GRANT` des lecteurs, contrôle final par `droits.verifier()` |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
 
-Les fichiers de l'étape 2 sont indépendants entre eux : chaque vue ne lit que des tables de son propre schéma. Les vues de 30, 40 et 50 sont identiques à celles des migrations des outils (définition, options et commentaire, vérifié le 18/10/2026) : les rejouer ne change rien. Toute évolution d'une vue se fait d'abord dans une migration de l'outil, puis est recopiée ici.
+Les fichiers de l'étape 2 sont indépendants entre eux : chaque vue ne lit que des tables de son propre schéma. Les vues de 30, 40 et 50 sont identiques à celles des migrations des outils (définition, options et commentaire, vérifié le 18/10/2026 ; pour 40, de nouveau le 22/10/2026 contre `0001_partage` de Codex, après la correction de `pub_journal.quand`, instant UTC publié tel quel) : les rejouer ne change rien. Toute évolution d'une vue se fait d'abord dans une migration de l'outil, puis est recopiée ici.
 
 Commandes :
 
@@ -67,12 +67,20 @@ Tous les fichiers sont rejouables.
 | Vues `*_v1` de `cursus` lues par `matrix_lecture` ou `matrix_app` | Accepté (vues de contrôle de Matrix). |
 | Lecteur inscrit dans `droits.partage_lecteurs` sans `USAGE` sur le schéma ou sans `SELECT` sur la vue | Erreur (droit perdu, par exemple à la restauration d'un schéma). |
 | Vue inscrite dans `droits.partage_lecteurs` absente, ou `matrix.journal_unifie` absente alors que le partage est en place | Attention. |
+| `USAGE` sur le schéma `extensions` (`pg_trgm`, `../init/02-schemas.sql`) | Accepté pour `codex_app` seul (et `epc2i_sauvegarde`, par `pg_read_all_data`) ; pour tout autre rôle, erreur ; `CREATE` : erreur. Les fonctions de `pg_trgm` y restent hors de la convention de partage : installées dans `codex`, elles seraient un droit `EXECUTE` croisé pour chaque lecteur des vues `codex.pub_*`. |
 
-`90-droits.sql` appelle `droits.verifier()` à la fin de sa transaction. Une erreur annule tous ses `GRANT`. Le cas 99 de `../verifier-droits.sql` (« droits.verifier() sans erreur ») passe sur un serveur où le partage est en place, et les cas 100 à 136 éprouvent chaque ligne du tableau ci-dessus.
+`90-droits.sql` appelle `droits.verifier()` à la fin de sa transaction. Une erreur annule tous ses `GRANT`. Le cas 99 de `../verifier-droits.sql` (« droits.verifier() sans erreur ») passe sur un serveur où le partage est en place, et les cas 100 à 138 (et 71 à 73 pour `extensions`) éprouvent chaque ligne du tableau ci-dessus.
 
 Le contrôle de 90 (étape 1) garde sa propre liste, un peu plus large que `droits.colonnes_sensibles` : elle contient aussi `cursus.employes.reprise_date`, que la convention de partage exclut des vues `pub_`. Pour `matrix_lecture`, le classement de cette colonne reste la question P-04 de `docs/architecture-postgres.md`.
 
 ## Essais
+
+Essai du 22/10/2026 (lot 11 de Codex), sur un PostgreSQL 18.3 neuf, en connexions réelles par mot de passe :
+
+- socle `init/01` à `03` (schéma `extensions` et `pg_trgm` compris) ; `../verifier-droits.sql` : 114 cas conformes ;
+- Codex (lot 11) en `codex_app` : `npm run db:migrate` applique `0000_init` et `0001_partage` (index `document_terms_term` en `extensions.gin_trgm_ops`), puis démonstration (`CODEX_SEED=demo` : 63 documents, 168 lignes de journal) ;
+- fichiers 10, 40 (deux fois), 90, 95 : les 7 vues `codex.pub_*` identiques avant et après 40 (définition, options, commentaire, colonnes et types) ; 90 : 11 vues contrôlées et accordées, `droits.verifier()` sans erreur ; `matrix.journal_unifie` réunit le journal de Codex (`quand` en `timestamptz`). L'ancien 40 (`AT TIME ZONE 'Europe/Paris'`) échoue sur cette base : « cannot change data type of view column "quand" » ;
+- rejeu de `init/01` à `03` après le partage : sans erreur, `droits.verifier()` sans erreur ni attention ; `../verifier-droits.sql` : 114 cas conformes ; `keystone_app` refusé sur le schéma `extensions`, `codex_app` y appelle `similarity()`.
 
 Essai du 18/10/2026, après la bascule de Keystone et de Vigie, sur un PostgreSQL 16.15 neuf (port 5443), en connexions réelles par mot de passe :
 

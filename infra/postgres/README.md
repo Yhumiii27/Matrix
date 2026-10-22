@@ -4,13 +4,13 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 
 | Fichier | Rôle |
 |---|---|
-| `docker-compose.yml` | PostgreSQL 16, volumes de données et de sauvegardes persistants. Utilisable dans Coolify et en local. |
-| `Dockerfile` | Image officielle PostgreSQL 16 avec les fichiers du socle copiés dedans (`init/`, `sauvegarde/`, `partage/`, `verifier-droits.sql`). |
+| `docker-compose.yml` | PostgreSQL 18 (proposition, question P-01), volumes de données et de sauvegardes persistants. Utilisable dans Coolify et en local. |
+| `Dockerfile` | Image officielle PostgreSQL 18 avec les fichiers du socle copiés dedans (`init/`, `sauvegarde/`, `partage/`, `verifier-droits.sql`). |
 | `.env.example` | Les variables à fournir (mots de passe). |
 | `init/01-base-et-roles.sql` | Base `epc2i` et rôles. |
-| `init/02-schemas.sql` | Schémas `keystone`, `codex`, `cursus`, `vigie`, `matrix`, propriétaires et paramètres de session. |
+| `init/02-schemas.sql` | Schémas `keystone`, `codex`, `cursus`, `vigie`, `matrix`, propriétaires et paramètres de session ; schéma `extensions` et `pg_trgm` (pour Codex). |
 | `init/03-droits.sql` | Droits de Matrix, schéma `droits`, protection des colonnes sensibles (déclencheur d'événement). |
-| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 109 cas sur un socle neuf, convention de partage et tables fermées comprises, plus 2 cas par colonne ou table de santé de Vigie une fois Vigie migré (139 au total au 18/10/2026) ; rien n'est conservé. |
+| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 114 cas sur un socle neuf, convention de partage, tables fermées et schéma `extensions` compris, plus 2 cas par colonne ou table de santé de Vigie une fois Vigie migré (144 au total au 22/10/2026) ; rien n'est conservé. |
 | `partage/` | Vues `pub_*` publiées par chaque outil, référentiels de Matrix, droits des lecteurs (`partage/README.md`). |
 | `sauvegarde/sauvegarder.sh` | Sauvegarde `pg_dump` par schéma, avec rétention. |
 | `correctifs/` | Correctifs essayés le 15/10/2026 dans des copies des outils (`correctifs/README.md`). Ceux de Keystone et de Vigie sont obsolètes (remplacés par les branches des outils, décision P-02), celui de Codex est fusionné ; reste le prototype de Cursus. |
@@ -20,7 +20,7 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 | Objet | Détail |
 |---|---|
 | Base | `epc2i`, UTF-8, tri `C`, classes de caractères `C.UTF-8`, fuseau des sessions `UTC`, format de date `ISO, MDY`. Ce sont les réglages de PGlite : les outils trient et lisent les dates comme aujourd'hui. |
-| Schémas | `keystone`, `codex`, `cursus`, `vigie`, `matrix` (un propriétaire chacun) ; `droits` (propriétaire : le superutilisateur) ; `public` fermé à tous. |
+| Schémas | `keystone`, `codex`, `cursus`, `vigie`, `matrix` (un propriétaire chacun) ; `droits` (propriétaire : le superutilisateur) ; `extensions` (propriétaire : le superutilisateur ; extension `pg_trgm`, index de recherche de Codex ; `USAGE` à `codex_app` seul, fermé aux autres outils) ; `public` fermé à tous. |
 | Rôles de connexion | `keystone_app`, `codex_app`, `cursus_app`, `vigie_app` : propriétaire de son seul schéma, `search_path` = son schéma, aucun droit `CREATE` sur la base. Dans le schéma d'un autre outil, seulement `USAGE` et `SELECT` sur ses vues `pub_`, posés par `partage/90-droits.sql` (convention de partage). `matrix_app` : propriétaire de `matrix`, membre de `matrix_lecture`. `epc2i_sauvegarde` : membre de `pg_read_all_data`. |
 | Rôles de groupe | `matrix_lecture` : `SELECT` sur les quatre schémas des outils, sauf les colonnes sensibles. `matrix_admin` : tous les droits sur les cinq schémas, attribué nominativement, requêtes journalisées. |
 | Fonctions | `droits.appliquer_droits()`, `droits.verifier()`, `droits.declarer_admin(nom)`. |
@@ -41,7 +41,7 @@ Pourquoi un déclencheur d'événement : `ALTER DEFAULT PRIVILEGES` accorde `SEL
    ```bash
    psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /opt/epc2i/verifier-droits.sql
    ```
-   Résultat attendu sur un socle neuf : « Tous les cas sont conformes : 109 cas (dont 0 sur les tables de Vigie). » Une fois Vigie migré, 30 cas de plus (139).
+   Résultat attendu sur un socle neuf : « Tous les cas sont conformes : 114 cas (dont 0 sur les tables de Vigie). » Une fois Vigie migré, 30 cas de plus (144).
 6. **Programmer la sauvegarde.** Tâche planifiée Coolify sur le conteneur `postgres`, commande `sh /opt/epc2i/sauvegarde/sauvegarder.sh`, par exemple chaque nuit à 2 h 15 (`15 2 * * *`). Copiez ensuite le volume des sauvegardes (`/sauvegardes` dans le conteneur ; son nom se termine par `epc2i_sauvegardes`) hors du serveur (voir « Sauvegarde et restauration »).
 7. **Déclarer les administrateurs nominatifs** (voir plus bas).
 8. **Raccorder les outils** un par un, dans l'ordre du plan (§ 10), avec leur `DATABASE_URL`.
@@ -62,7 +62,7 @@ psql "postgres://postgres@127.0.0.1:5432/postgres" -f verifier-droits.sql
 
 Le port publié se change avec `EPC2I_PG_PORT` si 5432 est pris. `docker compose down -v` supprime la base et les sauvegardes locales.
 
-Sans Docker, sur un PostgreSQL 16 déjà installé : exportez les variables de `.env.example`, puis lancez les trois scripts dans l'ordre avec psql 15 ou plus, en superutilisateur :
+Sans Docker, sur un PostgreSQL 18 déjà installé (avec les modules contrib, pour `pg_trgm`) : exportez les variables de `.env.example`, puis lancez les trois scripts dans l'ordre avec psql 15 ou plus, en superutilisateur :
 
 ```bash
 set -a; . ./.env; set +a
@@ -148,7 +148,7 @@ Les dossiers de plus de `EPC2I_SAUVEGARDE_JOURS` jours (14 par défaut) sont sup
 
 1. Arrêter l'outil.
 2. En superutilisateur : `DROP SCHEMA cursus CASCADE;`. Le `CASCADE` supprime aussi les objets d'autres schémas qui dépendent de celui-ci : aujourd'hui `matrix.journal_unifie` (« drop cascades to view matrix.journal_unifie »). Notez la liste affichée.
-3. Rejouer `init/02-schemas.sql` puis `init/03-droits.sql` : le schéma vide est recréé avec son propriétaire et ses privilèges par défaut.
+3. Rejouer `init/02-schemas.sql` puis `init/03-droits.sql` : le schéma vide est recréé avec son propriétaire et ses privilèges par défaut. Pour `codex` : l'extension `pg_trgm` est dans le schéma `extensions`, donc hors de `codex.dump` (l'index `document_terms_term` y renvoie par `extensions.gin_trgm_ops`) ; le `DROP SCHEMA codex CASCADE` n'y touche pas, et `init/02-schemas.sql` la réinstalle si elle manque (serveur reconstruit) : elle doit être en place avant le `pg_restore`.
 4. Restaurer en tant que propriétaire :
    ```bash
    pg_restore -h <hôte> -U cursus_app -d epc2i --schema=cursus --no-owner --no-privileges \
@@ -185,8 +185,8 @@ Trois niveaux de contrôle :
    ```sql
    SELECT gravite, objet, constat FROM droits.verifier() ORDER BY gravite, objet;
    ```
-   Aucune ligne `erreur` n'est attendue, que le partage (`partage/`) soit en place ou non. La fonction accepte la convention de partage et elle seule : un outil peut avoir `USAGE` sur le schéma d'un autre et `SELECT` sur ses vues `pub_` ; tout autre droit croisé (table, colonne, séquence, fonction, vue non publiée, écriture, `CREATE`, `USAGE` sans vue `pub_` accordée) est une erreur, de même qu'une vue `pub_` qui lit une colonne de `droits.colonnes_sensibles` ou une relation d'un autre schéma, et un lecteur inscrit dans `droits.partage_lecteurs` qui a perdu son `USAGE` ou son `SELECT` (après une restauration). Les vues de contrôle `cursus.*_v1` sont réservées à `matrix_lecture` et `matrix_app`. Détail : `partage/README.md`, « Contrôle par le socle ». Une ligne `attention` signale une table fermée à Matrix (colonne de la liste pas encore créée, renommée ou supprimée, table renommée), une table que Matrix ne lit pas, une fonction `SECURITY DEFINER` d'un outil que Matrix peut appeler, un administrateur non journalisé, un paramètre manquant, une vue de `droits.partage_lecteurs` absente ou `matrix.journal_unifie` absente alors que le partage est en place. Une ligne `info` signale une table de la liste pas encore créée (normal avant la migration de l'outil), une table fermée en entier par une entrée `*` (`vigie.benign_accidents`, `access_log`, `attachments`) ou une vue fermée parce qu'elle lit une colonne sensible. Une colonne ou une table de la liste redevenue lisible par `matrix_lecture` (droit posé hors du déclencheur, par exemple) est une `erreur`.
-2. **Essai complet**, après une mise en service ou un rejeu : `verifier-droits.sql` (voir plus haut). Il joue chaque rôle sur des tables d'essai et annule tout à la fin. Les cas 100 à 136 éprouvent la convention de partage : un outil lit une vue `pub_` d'un autre et rien d'autre, et chaque écart (vue `pub_` qui lit une colonne sensible, droit sur une table, écriture, `CREATE`, lecteur attendu qui perd son droit…) est joué seul, signalé par `droits.verifier()`, puis annulé. Les cas 140 à 152 éprouvent une table fermée en entier (`*`) et un droit posé hors du déclencheur. Les cas 200 et suivants, présents dès que Vigie est migré, reprennent chaque entrée de Vigie de la liste (colonnes de santé, copies du journal, tables fermées) : refusée à Matrix, puis signalée par `droits.verifier()` quand elle redevient lisible.
+   Aucune ligne `erreur` n'est attendue, que le partage (`partage/`) soit en place ou non. La fonction accepte la convention de partage et elle seule : un outil peut avoir `USAGE` sur le schéma d'un autre et `SELECT` sur ses vues `pub_` ; tout autre droit croisé (table, colonne, séquence, fonction, vue non publiée, écriture, `CREATE`, `USAGE` sans vue `pub_` accordée) est une erreur, comme tout droit sur le schéma `extensions` autre que l'`USAGE` de `codex_app` (et celui d'`epc2i_sauvegarde`, par `pg_read_all_data`), de même qu'une vue `pub_` qui lit une colonne de `droits.colonnes_sensibles` ou une relation d'un autre schéma, et un lecteur inscrit dans `droits.partage_lecteurs` qui a perdu son `USAGE` ou son `SELECT` (après une restauration). Les vues de contrôle `cursus.*_v1` sont réservées à `matrix_lecture` et `matrix_app`. Détail : `partage/README.md`, « Contrôle par le socle ». Une ligne `attention` signale une table fermée à Matrix (colonne de la liste pas encore créée, renommée ou supprimée, table renommée), une table que Matrix ne lit pas, une fonction `SECURITY DEFINER` d'un outil que Matrix peut appeler, un administrateur non journalisé, un paramètre manquant, une vue de `droits.partage_lecteurs` absente ou `matrix.journal_unifie` absente alors que le partage est en place. Une ligne `info` signale une table de la liste pas encore créée (normal avant la migration de l'outil), une table fermée en entier par une entrée `*` (`vigie.benign_accidents`, `access_log`, `attachments`) ou une vue fermée parce qu'elle lit une colonne sensible. Une colonne ou une table de la liste redevenue lisible par `matrix_lecture` (droit posé hors du déclencheur, par exemple) est une `erreur`.
+2. **Essai complet**, après une mise en service ou un rejeu : `verifier-droits.sql` (voir plus haut). Il joue chaque rôle sur des tables d'essai et annule tout à la fin. Les cas 71 à 73 éprouvent le schéma `extensions` (`pg_trgm` utilisable par `codex_app` seul, aucune création possible). Les cas 100 à 138 éprouvent la convention de partage : un outil lit une vue `pub_` d'un autre et rien d'autre, et chaque écart (vue `pub_` qui lit une colonne sensible, droit sur une table, écriture, `CREATE`, lecteur attendu qui perd son droit…) est joué seul, signalé par `droits.verifier()`, puis annulé. Les cas 140 à 152 éprouvent une table fermée en entier (`*`) et un droit posé hors du déclencheur. Les cas 200 et suivants, présents dès que Vigie est migré, reprennent chaque entrée de Vigie de la liste (colonnes de santé, copies du journal, tables fermées) : refusée à Matrix, puis signalée par `droits.verifier()` quand elle redevient lisible.
 3. **À la main**, par exemple :
    ```sql
    \dp cursus.employes                          -- droits de table et de colonnes
@@ -222,6 +222,7 @@ La liste protège des colonnes nommées. Une copie de leurs valeurs dans une aut
 | Les scripts de `init/` ne se relancent pas après une modification. | Normal : l'image ne les exécute que sur un volume vide. Les rejouer à la main (« Rejouer le socle »). |
 | Un outil s'arrête au démarrage sur `permission denied for database epc2i`. | Il appelle `migrate()` de Drizzle, qui lance `CREATE SCHEMA IF NOT EXISTS`. Utiliser le migrateur du plan (§ 4.3). |
 | Un outil s'arrête sur `permission denied for schema public`. | Ses migrations contiennent `REFERENCES "public"."…"` et sont appliquées sans réécriture : Keystone et Vigie doivent passer par leur migrateur du serveur, qui remplace `"public".` par leur schéma (décision P-02, plan § 4.2) ; Codex, par sa migration régénérée avec `pgSchema`. |
+| Codex refuse de migrer : « the pg_trgm extension is missing … » ou « … installed in the schema …, which Codex's role may not use ». | Socle antérieur au 22/10/2026, ou extension installée ailleurs. Rejouer `init/02-schemas.sql` (redéployer d'abord) : il crée le schéma `extensions`, y installe `pg_trgm` et donne `USAGE` à `codex_app`. Une extension `pg_trgm` déjà installée dans un autre schéma n'est pas déplacée : `ALTER EXTENSION pg_trgm SET SCHEMA extensions;` en superutilisateur. |
 | Un fichier de partage (`30`, `50`) s'arrête sur « Colonnes absentes du schéma … ». | La migration de l'outil qui crée ses prérequis et ses vues n'est pas passée : `npm run db:migrate` pour Keystone, démarrage de Vigie, puis rejouer le fichier. |
 | `WARNING: droits : … est fermée à matrix_lecture`. | Une colonne de la liste est absente : pas encore créée (inscription faite avant la migration), renommée ou supprimée ; ou la table a été renommée. Passer la migration attendue, ou mettre `droits.colonnes_sensibles` à jour. |
 | Une commande de structure échoue dans `droits._sur_ddl`. | Défaut du socle. En urgence, en superutilisateur : `ALTER EVENT TRIGGER droits_ddl DISABLE;`, faire l'opération, puis `ALTER EVENT TRIGGER droits_ddl ENABLE;` et `SELECT droits.appliquer_droits();`. Signaler le cas. |
@@ -230,4 +231,6 @@ La liste protège des colonnes nommées. Une copie de leurs valeurs dans une aut
 
 ## Version de PostgreSQL
 
-L'image est `postgres:16-bookworm`, qui suit les versions mineures de la 16 à chaque redéploiement. Pour figer la version, remplacer par une étiquette précise (`postgres:16.x-bookworm`). Un changement de version majeure (17, 18) demande une sauvegarde complète et une restauration, ou `pg_upgrade` sur le volume ; il ne se fait pas en changeant seulement l'étiquette (question P-01).
+L'image est `postgres:18-bookworm`, qui suit les versions mineures de la 18 à chaque redéploiement. C'est une proposition du 22/10/2026, à confirmer (question P-01 du plan) : le socle était en 16 depuis le 15/10/2026, et Codex exige PostgreSQL 18 (sa fonction `codex_fold` utilise la collation `pg_unicode_fast`, propre à la 18 ; il refuse de démarrer sur un serveur plus ancien). Le choix vaut aussi pour Keystone, Vigie et Cursus, et pour l'intégration continue des outils. Le socle (`init/`, `partage/`, `verifier-droits.sql`) a été rejoué sans changement sur PostgreSQL 18.3 le 22/10/2026.
+
+Pour figer la version, remplacer par une étiquette précise (`postgres:18.x-bookworm`). Depuis la 18, l'image range les données dans `/var/lib/postgresql/18/docker` (`$PGDATA`) et le volume se monte sur `/var/lib/postgresql` (`docker-compose.yml`) : un volume monté sur `/var/lib/postgresql/data`, comme en 16, fait refuser le démarrage. Un volume déjà initialisé en 16 ne s'ouvre pas en 18 : sauvegarde complète et restauration, ou `pg_upgrade` ; un changement de version majeure ne se fait jamais en changeant seulement l'étiquette. Sur un serveur neuf, rien de tel : le volume est vide.

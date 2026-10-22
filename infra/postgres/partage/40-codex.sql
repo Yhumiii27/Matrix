@@ -11,6 +11,8 @@
 -- excluent les documents « tres_confidentiel » ; les lecteurs appliquent conf eux-mêmes.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 -- ═══ Prérequis : colonnes à ajouter (à reporter dans les migrations de l'outil) ═══
 -- Destination : src/db/schema.ts puis une migration drizzle/00xx. ADD COLUMN IF NOT EXISTS : sans effet si la

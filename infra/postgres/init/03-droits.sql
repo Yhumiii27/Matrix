@@ -41,6 +41,8 @@
 -- lui-même membre de matrix_lecture).
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 \connect epc2i
 
 BEGIN;

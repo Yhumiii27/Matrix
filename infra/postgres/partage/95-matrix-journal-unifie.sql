@@ -15,6 +15,8 @@
 -- auteurs) : écran réservé à l'administrateur des données ; durée de conservation à fixer.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 DO $journal$
 DECLARE

@@ -11,6 +11,8 @@
 -- Rejouable. Droits des lecteurs : 90-droits.sql.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 -- ═══ Prérequis : migrations d'Arche passées ═══
 DO $prerequis$

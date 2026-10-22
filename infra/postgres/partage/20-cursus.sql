@@ -21,6 +21,8 @@
 -- Le contrôle de 90-droits.sql échoue si l'une d'elles apparaît dans information_schema.view_column_usage.
 
 \set ON_ERROR_STOP on
+-- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
+\pset pager off
 
 -- ═══ Prérequis : migration 0002_partage de Cursus passée ═══
 DO $prerequis$

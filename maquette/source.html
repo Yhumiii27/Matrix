@@ -1,5 +1,5 @@
 <title>Matrix</title>
-<meta name="description" content="Matrix : bibliothèque et graphe des bases de données de Keystone, Codex, Cursus, Vigie et Arche">
+<meta name="description" content="Matrix : bibliothèque et graphe des bases de données de Keystone, Codex, Cursus, Vigie, Arche et Crucible">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -18,7 +18,7 @@
   --color-accent-100: #f5f4ff; --color-accent-300: #d2cefd; --color-accent-400: #b5abfc;
   --color-accent-700: #5d5294; --color-accent-800: #423a6a; --color-accent-900: #2b2741;
   /* Couleurs des applications : peu saturées, pour le graphe et les pastilles. */
-  --app-keystone: #7fa6d6; --app-codex: #a99de6; --app-cursus: #d6a77f; --app-vigie: #79c2a2; --app-arche: #d68fa8; --app-externe: #75798c;
+  --app-keystone: #7fa6d6; --app-codex: #a99de6; --app-cursus: #d6a77f; --app-vigie: #79c2a2; --app-arche: #d68fa8; --app-crucible: #c4b46e; --app-externe: #75798c;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px;
@@ -375,6 +375,7 @@ const APPS = {
   cursus: { nom: 'Cursus', role: 'RH : formations, temps, déplacements', moteur: 'SQLite (node:sqlite)', orm: 'aucun', port: 3210, init: 'Cu', donnees: 'CURSUS_DB (data/cursus.db)' },
   vigie: { nom: 'Vigie', role: 'QHSE : événements, risques, prévention', moteur: 'PostgreSQL embarqué (PGlite)', orm: 'Drizzle', port: 3200, init: 'V', donnees: 'VIGIE_DATA_DIR' },
   arche: { nom: 'Arche', role: 'CAPEX des filiales (méthode DIG-PRODI) — en cadrage, tables prévues', moteur: 'PostgreSQL (prévu ; PGlite en développement)', orm: 'Drizzle (prévu)', port: 3400, init: 'A', donnees: 'schéma arche (prévu)' },
+  crucible: { nom: 'Crucible', role: 'Moyens d’essais R&D partagés : réservations et arbitrages', moteur: 'PostgreSQL (serveur commun EPC2I)', orm: 'Drizzle', port: 3500, init: 'Cr', donnees: 'schéma crucible' },
 };
 const APP_IDS = Object.keys(APPS);
 const css = getComputedStyle(document.documentElement);
@@ -1023,7 +1024,8 @@ const Graph = (() => {
       const G = 380;
       const colW = Math.max(blocks.keystone.w, blocks.cursus.w), rowH = Math.max(blocks.keystone.h, blocks.codex.h);
       const colW2 = Math.max(blocks.codex.w, blocks.vigie.w);
-      const origin = { keystone: [0, 0], codex: [colW + G, 0], cursus: [0, rowH + G], vigie: [colW + G, rowH + G], arche: [colW + G + colW2 + G, (rowH + G) / 2] };
+      const origin = { keystone: [0, 0], codex: [colW + G, 0], cursus: [0, rowH + G], vigie: [colW + G, rowH + G], arche: [colW + G + colW2 + G, (rowH + G) / 2],
+        crucible: [colW + G + colW2 + G, (rowH + G) / 2 + blocks.arche.h + G] };
       const center = {};
       for (const a of APP_IDS) { place(blocks[a], ...origin[a]); center[a] = { x: origin[a][0] + blocks[a].w / 2, y: origin[a][1] + blocks[a].h / 2 }; }
       const pairs = {};

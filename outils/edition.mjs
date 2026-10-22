@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { RACINE } from './page.mjs';
 
-const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche'];
+const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 const JOURNAL_MAX = 2000;
 const lire = f => JSON.parse(readFileSync(f, 'utf8'));
 

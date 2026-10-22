@@ -207,16 +207,18 @@ COMMENT ON VIEW codex.pub_titulaires_fonction IS 'Contrat D11 v1 : titulaires de
 
 -- D18 · Journal ──────────────────────────────────────────────────────────
 -- Colonnes communes aux quatre pub_journal (même ordre, mêmes types), réunies par matrix.journal_unifie.
--- audit_log.at est l'heure de Paris sans fuseau (lib/format.ts:37-39) : converti en timestamptz.
+-- audit_log.at est un instant UTC (timestamptz, journal en ajout seul de Codex ; heure de Paris à l'affichage seulement,
+-- lib/format.ts parisStamp) : publié tel quel, sans AT TIME ZONE (qui donnerait un timestamp sans fuseau, contraire au
+-- contrat commun des pub_journal).
 CREATE OR REPLACE VIEW codex.pub_journal WITH (security_barrier) AS
 SELECT 'audit_log:' || a.id::text        AS ref_source,  -- Matrix : ligne d'origine
        'audit'::text                     AS nature,      -- Matrix : filtre
-       a.at AT TIME ZONE 'Europe/Paris'  AS quand,       -- Matrix : tri, période
+       a.at                              AS quand,       -- Matrix : tri, période
        u.name                            AS qui,         -- Matrix : nom affiché
        a.user_id                         AS qui_ref,     -- Matrix : identifiant local (slug Codex)
        u.role                            AS qui_role,    -- Matrix : rôle Codex
-       a.action,                                         -- Matrix : code d'action (16 codes)
-       a.doc_id                          AS objet,       -- Matrix : document (réécrit lors d'un reclassement, actions.ts:302)
+       a.action,                                         -- Matrix : code d'action (liste ouverte, plus de 16 codes)
+       a.doc_id                          AS objet,       -- Matrix : document sous son identifiant d'alors (jamais réécrit ; nul pour une entrée sans document : target_kind, target_id)
        a.detail,                                         -- Matrix : détail
        d.project_code                    AS projet,      -- Matrix : filtre par projet
        u.matricule                       AS qui_matricule  -- Matrix : rapprochement des auteurs entre outils (D01)

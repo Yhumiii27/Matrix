@@ -26,7 +26,7 @@ La convention :
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues, `GRANT` des lecteurs, contrôle final par `droits.verifier()` |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
 
-Les fichiers de l'étape 2 sont indépendants entre eux : chaque vue ne lit que des tables de son propre schéma. Les vues de 30, 40 et 50 sont identiques à celles des migrations des outils (définition, options et commentaire, vérifié le 18/10/2026) : les rejouer ne change rien. Toute évolution d'une vue se fait d'abord dans une migration de l'outil, puis est recopiée ici.
+Les fichiers de l'étape 2 sont indépendants entre eux : chaque vue ne lit que des tables de son propre schéma. Les vues de 30, 40 et 50 sont identiques à celles des migrations des outils (définition, options et commentaire, vérifié le 18/10/2026 ; pour 40, de nouveau le 22/10/2026 contre `0001_partage` de Codex, après la correction de `pub_journal.quand`, instant UTC publié tel quel) : les rejouer ne change rien. Toute évolution d'une vue se fait d'abord dans une migration de l'outil, puis est recopiée ici.
 
 Commandes :
 

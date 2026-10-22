@@ -640,7 +640,7 @@ Le rafraîchissement tourne au démarrage, chaque nuit et à la demande (écran 
 
 **Charge.** Keystone 0,25 j et Codex 0,25 j (index ; vues déjà écrites), Cursus 1 j, Vigie 3 j, Matrix 2,5 j.
 
-**Risques.** `cursus.journal.message` contient des noms : écran réservé à l'administrateur des données, durée de conservation à fixer. L'heure de Paris sans fuseau de Codex est ambiguë une heure par an. `action` n'a pas le même sens dans tous les outils. `temps.setCell` n'est jamais journalisé.
+**Risques.** `cursus.journal.message` contient des noms : écran réservé à l'administrateur des données, durée de conservation à fixer. Codex publie depuis son lot 11 (22/10/2026) un instant UTC (`audit_log.at` en `timestamptz`, `pub_journal.quand` tel quel) : l'ambiguïté d'une heure par an de l'ancienne heure de Paris sans fuseau disparaît. `action` n'a pas le même sens dans tous les outils. `temps.setCell` n'est jamais journalisé.
 
 ### D19 · Paramètres et fichiers joints (option A)
 

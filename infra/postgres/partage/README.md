@@ -23,10 +23,11 @@ La convention :
 | 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 7 vues `codex.pub_*` (D10, D11, D18) |
 | 2 | `50-vigie.sql` | `vigie_app` | Contrôle des prérequis (migrations `0008`, `0009`, `0014`), copie des 3 vues `vigie.pub_*` de `0009_partage` (D13, D18) et de `vigie.pub_controles` de `0014_controls_share` (D23, lue par Crucible) |
 | — | `60-vigie-ecr-eco.sql` | `vigie_app` | **À ne pas jouer tant que le module ECR / ECO n'existe pas dans Vigie** (aucune de ses tables dans Vigie au 18/10/2026). Spécification des tables ECR / ECO (D12) et de leurs vues `pub_`, à reporter dans les migrations de Vigie. |
-| 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche (`0000` à `0009`), copie de `arche.pub_journal` (D18), `arche.pub_capex` et `arche.pub_besoins_machines` (M-10 d'Arche) |
+| 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche (`0000` à `0016`), copie de `arche.pub_journal` (D18), `arche.pub_capex`, `arche.pub_besoins_machines` (M-10 d'Arche), `arche.pub_rampup`, `arche.pub_rex` (v1, plus lue) et `arche.pub_rex_v2` (M-13 d'Arche, contrat commun du REX) |
 | 2 | `80-crucible.sql` | `crucible_app` | Contrôle des migrations de Crucible (`0000` à `0009`), copie de `crucible.pub_journal` (D18), `pub_moyens` et `pub_reservations` (M-7 de Crucible, lues par Keystone, Vigie et Matrix) et `pub_occupation_hebdo` (M-8, lue par Matrix) |
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues, `GRANT` des lecteurs, contrôle final par `droits.verifier()` |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
+| 4 | `96-matrix-rex-unifie.sql` | `matrix_app` | `matrix.rex_unifie` (D22) : union de `keystone.pub_rex` et `arche.pub_rex_v2` au contrat commun du REX ; une vue absente est laissée de côté (WARNING), une vue hors contrat fait échouer le fichier |
 
 Les fichiers de l'étape 2 sont indépendants entre eux : chaque vue ne lit que des tables de son propre schéma. Les vues de 30, 40 et 50 sont identiques à celles des migrations des outils (définition, options et commentaire, vérifié le 18/10/2026 ; pour 40, de nouveau le 22/10/2026 contre `0001_partage` de Codex, après la correction de `pub_journal.quand`, instant UTC publié tel quel) : les rejouer ne change rien. Toute évolution d'une vue se fait d'abord dans une migration de l'outil, puis est recopiée ici.
 
@@ -38,6 +39,7 @@ psql "postgres://cursus_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f part
 # … 30 (keystone_app), 40 (codex_app), 50 (vigie_app), 70 (arche_app), 80 (crucible_app), sur le même modèle ; pas 60 (module ECR / ECO absent de Vigie)
 psql -h hôte -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql   # sans -1 : le fichier ouvre sa transaction
 psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/95-matrix-journal-unifie.sql
+psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/96-matrix-rex-unifie.sql
 ```
 
 Tous les fichiers sont rejouables.

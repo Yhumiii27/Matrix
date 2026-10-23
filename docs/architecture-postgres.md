@@ -629,8 +629,11 @@ Règles :
 - contrat v1 : aucune colonne n'est retirée ni renommée ; un changement de ce type passe par `pub_rex_v2` dans les deux
   outils.
 
-À faire côté Matrix, une fois les deux vues publiées : une vue `matrix.rex_unifie` (fichier de partage sur le modèle de
-`95-matrix-journal-unifie.sql`, qui laisse de côté avec un WARNING la vue d'un outil absente ou non conforme au contrat).
+Réunion côté Matrix : `matrix.rex_unifie`, créée par `partage/96-matrix-rex-unifie.sql` (23/10/2026, demande M-13
+d'Arche), sur le modèle de `95-matrix-journal-unifie.sql` : elle lit les 15 colonnes communes de `keystone.pub_rex` et
+`arche.pub_rex_v2` (la vue au contrat commun d'Arche ; `arche.pub_rex`, v1, n'est plus lue). Une vue absente ou non
+accordée est laissée de côté avec un WARNING (Keystone tant qu'il ne publie pas `pub_rex`), une vue dont les 15
+premières colonnes s'écartent du contrat fait échouer le fichier. À rejouer après chaque publication et `90-droits.sql`.
 
 ## 9. Heures validées : D06, option A, réversible
 

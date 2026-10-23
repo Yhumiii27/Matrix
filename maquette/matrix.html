@@ -1226,12 +1226,12 @@ RENDER.referentiels = () => {
   const root = $('s-referentiels');
   const NIVEAUX = [['departement', 'Département'], ['service', 'Service'], ['equipe', 'Équipe']];
   const DEF = {
-    sites: { titre: 'Sites', decision: 'D14', cle: 'code', vue: 'matrix.pub_sites', nouveau: () => ({ code: '', libelle: '', ville: '', pays_iso2: 'FR', ordre: 0, actif: true, filiale_code: '' }),
-      cols: [['code', 'Code', 'texte', 'lyon'], ['libelle', 'Libellé', 'texte'], ['ville', 'Ville', 'texte'], ['pays_iso2', 'Pays', 'pays'], ['filiale_code', 'Filiale', 'filiale'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
+    sites: { titre: 'Sites', decision: 'D14', cle: 'code', vue: 'matrix.pub_sites', nouveau: () => ({ code: '', libelle: '', ville: '', pays_iso2: 'FR', ordre: 0, actif: true, filiale_code: '', latitude: '', longitude: '' }),
+      cols: [['code', 'Code', 'texte', 'lyon'], ['libelle', 'Libellé', 'texte'], ['ville', 'Ville', 'texte'], ['pays_iso2', 'Pays', 'pays'], ['filiale_code', 'Filiale', 'filiale'], ['latitude', 'Latitude', 'degres', '45.764'], ['longitude', 'Longitude', 'degres', '4.836'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
     organigramme: { titre: 'Organigramme', decision: 'D15', cle: 'code', vue: 'matrix.pub_organigramme', nouveau: () => ({ code: '', niveau: 'service', parent_code: '', libelle_fr: '', libelle_en: '', responsable_matricule: '', site_code: '', ordre: 0, actif: true }),
       cols: [['code', 'Code', 'texte', 'PRJ-CPL'], ['niveau', 'Niveau', 'niveau'], ['parent_code', 'Rattaché à', 'parent'], ['libelle_fr', 'Libellé', 'texte'], ['libelle_en', 'Libellé anglais', 'texte'], ['responsable_matricule', 'Responsable', 'texte', 'Matricule'], ['site_code', 'Site', 'site'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
-    zones: { titre: 'Zones', decision: 'D21', cle: 'code', vue: 'matrix.pub_zones', nouveau: () => ({ code: '', libelle: '', responsable: '', ordre: 0, actif: true }),
-      cols: [['code', 'Code', 'texte', 'AFN'], ['libelle', 'Libellé', 'texte', 'Afrique du Nord'], ['responsable', 'Directeur de Zone', 'texte'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
+    zones: { titre: 'Zones', decision: 'D21', cle: 'code', vue: 'matrix.pub_zones', nouveau: () => ({ code: '', libelle: '', responsable: '', ordre: 0, actif: true, ouest: '', nord: '', est: '', sud: '' }),
+      cols: [['code', 'Code', 'texte', 'AFN'], ['libelle', 'Libellé', 'texte', 'Afrique du Nord'], ['responsable', 'Directeur de Zone', 'texte'], ['ouest', 'Ouest', 'degres', '-18'], ['nord', 'Nord', 'degres', '38'], ['est', 'Est', 'degres', '12'], ['sud', 'Sud', 'degres', '18'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
     filiales: { titre: 'Filiales', decision: 'D21', cle: 'code', vue: 'matrix.pub_filiales', nouveau: () => ({ code: '', nom: '', pays_iso2: 'FR', zone_code: '', devise: 'EUR', ordre: 0, actif: true }),
       cols: [['code', 'Code', 'texte', 'APM'], ['nom', 'Nom', 'texte'], ['pays_iso2', 'Pays', 'pays'], ['zone_code', 'Zone', 'zone'], ['devise', 'Devise', 'texte', 'EUR'], ['ordre', 'Ordre', 'nombre'], ['actif', 'Actif', 'case']] },
     pays: { titre: 'Pays', decision: 'D17', cle: 'iso2', vue: 'matrix.pub_pays', nouveau: () => ({ iso2: '', iso3: '', nom_fr: '', nom_en: '', actif: true }),
@@ -1250,7 +1250,7 @@ RENDER.referentiels = () => {
     if (type === 'zone') return sel([['', '—'], ...EDITION.referentiels.zones.map(x => [x.code, `${x.code} · ${x.libelle}`])]);
     if (type === 'filiale') return sel([['', '— (EPC2i)'], ...EDITION.referentiels.filiales.map(x => [x.code, `${x.code} · ${x.nom}`])]);
     if (type === 'parent') return sel([['', '—'], ...brouillon.filter((u, j) => j !== i && u.code && u.niveau !== 'equipe').map(u => [u.code, `${u.code} · ${u.libelle_fr}`])]);
-    return `<input class="input ${k === 'code' || k === 'iso2' || k === 'iso3' ? 'mono' : ''}" id="${id}" data-i="${i}" data-k="${k}" ${type === 'nombre' ? 'type="number" step="1" style="width:80px"' : ''} placeholder="${esc(ph || '')}" value="${esc(v)}">`;
+    return `<input class="input ${k === 'code' || k === 'iso2' || k === 'iso3' ? 'mono' : ''}" id="${id}" data-i="${i}" data-k="${k}" ${type === 'nombre' ? 'type="number" step="1" style="width:80px"' : type === 'degres' ? 'type="number" step="any" style="width:96px"' : ''} placeholder="${esc(ph || '')}" value="${esc(v)}">`;
   };
   const draw = () => {
     const d = DEF[liste];
@@ -1268,7 +1268,7 @@ RENDER.referentiels = () => {
   root.addEventListener('input', e => {
     const f = e.target.closest('[data-k]'); if (!f) return;
     const row = brouillon[+f.dataset.i], k = f.dataset.k;
-    row[k] = f.type === 'checkbox' ? f.checked : f.type === 'number' ? Number(f.value) : f.value;
+    row[k] = f.type === 'checkbox' ? f.checked : f.type === 'number' ? (f.value === '' ? '' : Number(f.value)) : f.value;
     if (f.tagName === 'SELECT' || f.type === 'checkbox') draw();
     else { const b = $('ref-enregistrer'), a = $('ref-annuler'); if (b) b.disabled = a.disabled = false; }
   });

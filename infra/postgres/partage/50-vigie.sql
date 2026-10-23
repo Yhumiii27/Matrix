@@ -22,14 +22,14 @@
 --
 -- Données de santé : aucune vue ne lit une colonne de droits.colonnes_sensibles (events.injury, lost_days et les
 -- autres colonnes de HEALTH_LABELS de Vigie, change_log.details et reason) ni les tables fermées en entier
--- (benign_accidents, access_log, attachments). Un accident du travail (type AT) n'entre dans aucune vue, son journal
--- non plus.
+-- (benign_accidents, access_log, attachments). Un accident du travail (type AT) ou une maladie professionnelle (MP)
+-- n'entre dans aucune vue, son journal non plus (migrations 0010 et 0013 de Vigie).
 
 \set ON_ERROR_STOP on
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
 \pset pager off
 
--- ═══ Prérequis : migrations 0008 et 0009 de Vigie ═══
+-- ═══ Prérequis : migrations 0008, 0009 et 0014 de Vigie (0010 et 0013 : mêmes vues, filtres de santé repris ici) ═══
 -- Ce fichier ne crée rien d'autre que les vues. Une colonne absente signale une migration de Vigie non passée.
 DO $$
 DECLARE
@@ -40,11 +40,12 @@ BEGIN
                ('events', 'part_ref'), ('events', 'keystone_deliverable_number'), ('events', 'supplier_id'),
                ('events', 'supplier_name'), ('events', 'root_cause'), ('events', 'nc_cost_keur'), ('events', 'iso_clause'),
                ('prevention_plans', 'keystone_project_code'), ('permits', 'keystone_project_code'),
-               ('people', 'matricule'), ('people', 'last_role'), ('change_log', 'summary')) AS x(t, c)
+               ('people', 'matricule'), ('people', 'last_role'), ('change_log', 'summary'),
+               ('controls', 'equipment_code')) AS x(t, c)
   WHERE NOT EXISTS (SELECT FROM information_schema.columns ic
                     WHERE ic.table_schema = 'vigie' AND ic.table_name = x.t AND ic.column_name = x.c);
   IF v_manque IS NOT NULL THEN
-    RAISE EXCEPTION 'Colonnes absentes du schéma vigie (%) : démarrez Vigie sur le serveur pour qu''il passe ses migrations (0008_partage_prerequis, 0009_partage), puis rejouez ce fichier.', v_manque;
+    RAISE EXCEPTION 'Colonnes absentes du schéma vigie (%) : démarrez Vigie sur le serveur pour qu''il passe ses migrations (0008_partage_prerequis, 0009_partage, 0014_controls_share), puis rejouez ce fichier.', v_manque;
   END IF;
 END $$;
 
@@ -109,12 +110,14 @@ COMMENT ON VIEW vigie.pub_non_conformites IS 'Contrat D13 v1 : NC de projet (typ
 
 -- D13 · Registre HSE de projet (miroir Keystone vigie_hse_items) : plans de prévention et permis non annulés portant
 -- un code projet Keystone, puis le nombre de presqu'accidents du projet. Pas de ligne « induction » : Vigie n'a pas
--- d'accueils sécurité de chantier (table inductions de 50-vigie.sql non créée, D13 à arbitrer).
+-- d'accueils sécurité de chantier (table inductions de 50-vigie.sql non créée, D13 à arbitrer). Depuis la migration 0013
+-- de Vigie (É13), un projet qui n'a qu'un accident du travail ou une maladie professionnelle n'apparaît pas.
 CREATE OR REPLACE VIEW vigie.pub_hse_projet WITH (security_barrier) AS
 WITH projets AS (
   SELECT keystone_project_code AS project_code FROM vigie.prevention_plans WHERE keystone_project_code IS NOT NULL AND status <> 'annule'
   UNION SELECT keystone_project_code FROM vigie.permits WHERE keystone_project_code IS NOT NULL AND status <> 'annule'
   UNION SELECT keystone_project_code FROM vigie.events WHERE keystone_project_code IS NOT NULL AND dismissed_at IS NULL
+        AND type NOT IN ('AT', 'MP')
 ), lignes AS (
   SELECT pp.keystone_project_code AS project_code, pp.id AS vigie_ref, 'prevention_plan'::text AS kind,
          'Plan de prévention · ' || pp.title AS title,
@@ -148,12 +151,13 @@ SELECT project_code,
        date_on,
        (row_number() OVER (PARTITION BY project_code ORDER BY groupe, tri NULLS LAST, vigie_ref) - 1)::integer AS position
 FROM lignes;
-COMMENT ON VIEW vigie.pub_hse_projet IS 'Contrat D13 v1 : registre HSE par projet Keystone (plans de prévention, permis, nombre de presqu''accidents). Lecteurs : keystone_app, matrix_app.';
+COMMENT ON VIEW vigie.pub_hse_projet IS 'Contrat D13 v1 : registre HSE par projet Keystone (plans de prévention, permis, nombre de presqu''accidents). Un accident du travail ou une maladie professionnelle ne fait pas apparaître un projet (0013). Lecteurs : keystone_app, matrix_app.';
 
 -- D18 · Journal (colonnes communes aux quatre pub_journal, réunies par matrix.journal_unifie) : journal des
 -- modifications de Vigie (change_log, écrit par logChange), sans le motif ni le détail des champs (details), qui
 -- peuvent porter des données de santé. Écartés : les entrées d'un accident du travail et du registre des accidents
--- bénins (benign_accident). Auteur absent (signalement anonyme, tâche du serveur) : « Anonyme ». qui_role : dernier
+-- bénins (benign_accident), et, depuis la migration 0010 de Vigie (EVT-09), celles d'une maladie professionnelle (MP).
+-- Auteur absent (signalement anonyme, tâche du serveur) : « Anonyme ». qui_role : dernier
 -- rôle connu de l'auteur (people.last_role), Vigie ne journalisant pas le rôle de l'écriture.
 CREATE OR REPLACE VIEW vigie.pub_journal WITH (security_barrier) AS
 SELECT 'change_log:' || l.id::text           AS ref_source,
@@ -172,5 +176,31 @@ LEFT JOIN vigie.people p ON p.id = l.by_id
 LEFT JOIN vigie.events ev ON l.entity_type = 'event' AND ev.id = l.entity_id
 LEFT JOIN vigie.prevention_plans pp ON l.entity_type = 'prevention_plan' AND pp.id = l.entity_id
 LEFT JOIN vigie.permits pe ON l.entity_type = 'permit' AND pe.id = l.entity_id
-WHERE l.entity_type <> 'benign_accident' AND ev.type IS DISTINCT FROM 'AT';
-COMMENT ON VIEW vigie.pub_journal IS 'Contrat D18 v1 : journal des modifications de Vigie (change_log) aux colonnes communes, sans motif ni détail des champs, hors accidents du travail et registre des accidents bénins. Lecteur : matrix_app (matrix.journal_unifie).';
+WHERE l.entity_type <> 'benign_accident' AND (ev.type IS NULL OR ev.type NOT IN ('AT', 'MP'));
+COMMENT ON VIEW vigie.pub_journal IS 'Contrat D18 v1 : journal des modifications de Vigie (change_log) aux colonnes communes, sans motif ni détail des champs, hors accidents du travail, maladies professionnelles et registre des accidents bénins. Lecteur : matrix_app (matrix.journal_unifie).';
+
+-- D23 · Contrôles périodiques (copie de drizzle/0014_controls_share.sql de Vigie ; demande de Vigie du 22/10/2026,
+-- REQUESTS.md de Matrix). Contrat Crucible v1 : tous les contrôles, en vigueur et archivés, avec le code commun de
+-- l'équipement ; maj_le calculée (journal et enregistrements). Ni personne ni donnée de santé.
+-- Lecteurs : crucible_app, matrix_app (90-droits.sql).
+CREATE OR REPLACE VIEW vigie.pub_controles WITH (security_barrier) AS
+SELECT c.id::text            AS vigie_ref,
+       c.site_id             AS site_code,
+       c.equipment           AS equipement,
+       c.equipment_code      AS equipement_code,
+       c.control_type        AS type_controle,
+       c.organization        AS organisme,
+       c.period_months       AS periodicite_mois,
+       c.last_on             AS dernier_le,
+       c.next_on             AS prochain_le,
+       c.reserves            AS reserves,
+       c.archived_at IS NOT NULL AS archive,
+       greatest(c.archived_at, jl.last_at, rec.last_at) AS maj_le
+FROM vigie.controls c
+LEFT JOIN LATERAL (
+  SELECT max(l.at) AS last_at FROM vigie.change_log l WHERE l.entity_type = 'control' AND l.entity_id = c.id::text
+) jl ON true
+LEFT JOIN LATERAL (
+  SELECT max(greatest(r.created_at, r.cancelled_at)) AS last_at FROM vigie.control_records r WHERE r.control_id = c.id
+) rec ON true;
+COMMENT ON VIEW vigie.pub_controles IS 'Contrat Crucible v1 : contrôles périodiques (en vigueur et archivés) avec le code commun de l''équipement (equipement_code, null s''il n''est pas renseigné) ; maj_le = dernière écriture connue (journal et enregistrements), null sans trace. Ni personne ni donnée de santé. Colonnes ajoutées en fin seulement. Lecteur : crucible_app (droit accordé par Matrix, 90-droits.sql).';

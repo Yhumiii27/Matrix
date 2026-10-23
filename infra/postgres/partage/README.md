@@ -17,14 +17,14 @@ La convention :
 | Ordre | Fichier | Rôle d'exécution | Contenu |
 |---|---|---|---|
 | 0 | `../init/01` à `03`, puis migrations des outils (Keystone `npm run db:migrate` ; Codex et Vigie à leur démarrage), Cursus à son démarrage (`server/migrations-pg/` du dépôt Cursus) | `postgres`, puis le rôle de chaque outil | Socle, tables des outils, colonnes prérequises et vues `pub_` de Keystone, Codex et Vigie |
-| 1 | `10-matrix-referentiels.sql` | `matrix_app` | `matrix.pays`, `sites`, `organigramme`, `zones`, `filiales` (D21), `correspondances`, amorçage, vues `matrix.pub_*` |
+| 1 | `10-matrix-referentiels.sql` | `matrix_app` | `matrix.pays`, `sites` (avec coordonnées, M-11 d'Arche), `organigramme`, `zones` (avec cadre géographique, M-12 d'Arche), `filiales` (D21), `correspondances`, amorçage, vues `matrix.pub_*` |
 | 2 | `20-cursus.sql` | `cursus_app` | Copie qualifiée des vues `cursus.pub_*` de la migration `0002_partage` de Cursus (D01, D08, D09, D18, D19) |
 | 2 | `30-keystone.sql` | `keystone_app` | Contrôle des prérequis (migrations `0034`, `0035`), copie des 12 vues `keystone.pub_*` de `0035_share` (D02 à D05, D12, D13, D16, D18) |
 | 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 7 vues `codex.pub_*` (D10, D11, D18) |
-| 2 | `50-vigie.sql` | `vigie_app` | Contrôle des prérequis (migrations `0008`, `0009`), copie des 3 vues `vigie.pub_*` de `0009_partage` (D13, D18) |
+| 2 | `50-vigie.sql` | `vigie_app` | Contrôle des prérequis (migrations `0008`, `0009`, `0014`), copie des 3 vues `vigie.pub_*` de `0009_partage` (D13, D18) et de `vigie.pub_controles` de `0014_controls_share` (D23, lue par Crucible) |
 | — | `60-vigie-ecr-eco.sql` | `vigie_app` | **À ne pas jouer tant que le module ECR / ECO n'existe pas dans Vigie** (aucune de ses tables dans Vigie au 18/10/2026). Spécification des tables ECR / ECO (D12) et de leurs vues `pub_`, à reporter dans les migrations de Vigie. |
-| 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche, copie de `arche.pub_journal` (D18) et `arche.pub_capex` |
-| 2 | `80-crucible.sql` | `crucible_app` | Contrôle des migrations de Crucible (`0000` à `0002`), copie de `crucible.pub_journal` (D18). `pub_moyens` et `pub_reservations` (lues par Keystone et Vigie, accordées d'avance par 90) viendront avec la livraison L3 de Crucible. |
+| 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche (`0000` à `0009`), copie de `arche.pub_journal` (D18), `arche.pub_capex` et `arche.pub_besoins_machines` (M-10 d'Arche) |
+| 2 | `80-crucible.sql` | `crucible_app` | Contrôle des migrations de Crucible (`0000` à `0009`), copie de `crucible.pub_journal` (D18), `pub_moyens` et `pub_reservations` (M-7 de Crucible, lues par Keystone, Vigie et Matrix) et `pub_occupation_hebdo` (M-8, lue par Matrix) |
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues, `GRANT` des lecteurs, contrôle final par `droits.verifier()` |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
 

@@ -92,6 +92,13 @@ export function decider(dataDir, { id, option }, qui) {
 
 const bool = v => v === true || v === 'true';
 const entier = (v, champ) => { const n = Number(v ?? 0); if (!Number.isInteger(n)) throw new Error(`${champ} doit être un nombre entier`); return n; };
+// Degrés décimaux (coordonnées d'un site, cadre d'une zone : demandes M-11 et M-12 d'Arche) ; vide = null.
+const degres = (v, min, max, champ) => {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || n > max) throw new Error(`${champ} : nombre entre ${min} et ${max} attendu (degrés décimaux)`);
+  return Math.round(n * 1e6) / 1e6;
+};
 
 function validerPays(lignes) {
   const vus = new Set();
@@ -121,7 +128,10 @@ function validerSites(lignes, pays, filiales = []) {
     // D21 : site d'une filiale du groupe (usine, terrain) ; vide pour un site d'EPC2i.
     const filiale_code = texte(s.filiale_code, 3, `Site ${code}, filiale`)?.toUpperCase() || null;
     if (filiale_code && !fil.has(filiale_code)) throw new Error(`Site ${code} : filiale ${filiale_code} absente de la liste des filiales`);
-    return { code, libelle, ville: texte(s.ville, 80, `Site ${code}, ville`), pays_iso2, ordre: entier(s.ordre, `Site ${code}, ordre`), actif: bool(s.actif ?? true), filiale_code };
+    // M-11 d'Arche : coordonnées WGS 84 (carte des CAPEX), saisies ensemble ou pas du tout.
+    const latitude = degres(s.latitude, -90, 90, `Site ${code}, latitude`), longitude = degres(s.longitude, -180, 180, `Site ${code}, longitude`);
+    if ((latitude == null) !== (longitude == null)) throw new Error(`Site ${code} : la latitude et la longitude se saisissent ensemble`);
+    return { code, libelle, ville: texte(s.ville, 80, `Site ${code}, ville`), pays_iso2, ordre: entier(s.ordre, `Site ${code}, ordre`), actif: bool(s.actif ?? true), filiale_code, latitude, longitude };
   });
 }
 
@@ -167,7 +177,13 @@ function validerZones(lignes) {
     vus.add(code);
     const libelle = texte(z.libelle, 120, `Zone ${code}, libellé`);
     if (!libelle) throw new Error(`Zone ${code} : le libellé est obligatoire`);
-    return { code, libelle, responsable: texte(z.responsable, 120, `Zone ${code}, responsable`), ordre: entier(z.ordre, `Zone ${code}, ordre`), actif: bool(z.actif ?? true) };
+    // M-12 d'Arche : cadre de la zone sur la carte, les quatre bornes ou aucune.
+    const ouest = degres(z.ouest, -180, 180, `Zone ${code}, ouest`), est = degres(z.est, -180, 180, `Zone ${code}, est`);
+    const sud = degres(z.sud, -90, 90, `Zone ${code}, sud`), nord = degres(z.nord, -90, 90, `Zone ${code}, nord`);
+    const bornes = [ouest, nord, est, sud].filter(b => b != null).length;
+    if (bornes !== 0 && bornes !== 4) throw new Error(`Zone ${code} : le cadre se saisit en entier (ouest, nord, est, sud) ou pas du tout`);
+    if (bornes === 4 && !(ouest < est && sud < nord)) throw new Error(`Zone ${code} : le cadre doit vérifier ouest < est et sud < nord`);
+    return { code, libelle, responsable: texte(z.responsable, 120, `Zone ${code}, responsable`), ordre: entier(z.ordre, `Zone ${code}, ordre`), actif: bool(z.actif ?? true), ouest, nord, est, sud };
   });
 }
 

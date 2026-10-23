@@ -10,7 +10,7 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 | `init/01-base-et-roles.sql` | Base `epc2i` et rôles. |
 | `init/02-schemas.sql` | Schémas `keystone`, `codex`, `cursus`, `vigie`, `arche`, `crucible`, `matrix`, propriétaires et paramètres de session ; schéma `extensions` et `pg_trgm` (pour Codex). |
 | `init/03-droits.sql` | Droits de Matrix, schéma `droits`, protection des colonnes sensibles (déclencheur d'événement). |
-| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 126 cas sur un socle neuf (dont 6 pour Arche, cas 160 à 165, et 6 pour Crucible, cas 170 à 175), convention de partage, tables fermées et schéma `extensions` compris, plus 2 cas par colonne ou table de santé de Vigie une fois Vigie migré (150 au total au 22/10/2026) ; rien n'est conservé. |
+| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 126 cas sur un socle neuf (dont 6 pour Arche, cas 160 à 165, et 6 pour Crucible, cas 170 à 175), convention de partage, tables fermées et schéma `extensions` compris, plus 2 cas par colonne ou table de santé de Vigie une fois Vigie migré (168 au total au 23/10/2026, maladies professionnelles comprises) ; rien n'est conservé. |
 | `partage/` | Vues `pub_*` publiées par chaque outil, référentiels de Matrix, droits des lecteurs (`partage/README.md`). |
 | `sauvegarde/sauvegarder.sh` | Sauvegarde `pg_dump` par schéma, avec rétention. |
 | `correctifs/` | Correctifs essayés le 15/10/2026 dans des copies des outils (`correctifs/README.md`). Ceux de Keystone et de Vigie sont obsolètes (remplacés par les branches des outils, décision P-02), celui de Codex est fusionné ; reste le prototype de Cursus. |

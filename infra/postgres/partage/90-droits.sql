@@ -65,6 +65,8 @@ DECLARE
     'vigie.events.injury', 'vigie.events.lost_days', 'vigie.events.cpam_declared_on',
     'vigie.events.lesion_nature', 'vigie.events.lesion_site', 'vigie.events.care_given', 'vigie.events.reserves_on',
     'vigie.events.cpam_waived_at', 'vigie.events.cpam_waived_by_id', 'vigie.events.cpam_waiver_reason',
+    'vigie.events.mp_table', 'vigie.events.mp_disease', 'vigie.events.mp_certificate_on', 'vigie.events.mp_informed_on',
+    'vigie.events.mp_questionnaire_received_on', 'vigie.events.mp_questionnaire_returned_on',
     'vigie.change_log.details', 'vigie.change_log.reason',
     'vigie.benign_accidents.*', 'vigie.access_log.*', 'vigie.attachments.*',
     'cursus.journal.payload', 'cursus.journal.message', 'cursus.demandes_collab.label'];
@@ -241,6 +243,7 @@ BEGIN
       ('crucible.pub_journal',               ARRAY['matrix_app']),
       ('crucible.pub_moyens',                ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
       ('crucible.pub_reservations',          ARRAY['keystone_app', 'vigie_app', 'matrix_app']),
+      ('crucible.pub_occupation_hebdo',      ARRAY['matrix_app']),
       -- Vues demandées pour Crucible, absentes tant que l'outil ne les publie pas (WARNING) : jalons de Keystone (K-2 de
       -- Crucible), absences de Cursus sans motif (CU-1 de Crucible).
       ('keystone.pub_jalons',                ARRAY['crucible_app', 'matrix_app']),

@@ -564,7 +564,7 @@ Le socle est prêt avant son code :
     sites (`matrix.sites.filiale_code`, ajoutée en fin de `pub_sites`). Arche ne crée ni `zones`, ni `subsidiaries`,
     ni `sites` ; Keystone relie `clients.code3` au code de la filiale. Listes vides jusqu'à la liste réelle (C-5) ;
   - D22, option A : Arche (CAPEX) et Keystone (projets) gardent chacun leur REX et publient `pub_rex`, accordée à
-    `matrix_app` ; Matrix les réunira comme le journal unifié une fois le contrat commun fixé.
+    `matrix_app` ; Matrix les réunira comme le journal unifié, au contrat commun du § 8 quater.
 
 ## 8 ter. Crucible
 
@@ -590,6 +590,46 @@ Même démarche qu'Arche (M-07) :
   lus dans Matrix, `matrix.pub_filiales` accordée à `crucible_app`) et groupe nouveau D23, tranché (M-12, option A) :
   Vigie fait foi pour les contrôles périodiques et publie `vigie.pub_controles` et `pub_suspensions_essais` (V-1, V-2
   de Crucible), accordées à `crucible_app` ; Crucible n'y saisit que la maintenance, les pannes et les travaux.
+
+## 8 quater. Contrat commun du REX (D22)
+
+Décision D22 (22/10/2026, option A « Deux registres, une vue commune ») : Keystone garde les leçons apprises des projets,
+Arche le REX des CAPEX ; chacun publie une vue `pub_rex` et Matrix les réunit par `UNION ALL`, comme le journal unifié
+(`partage/95`). Le contrat ci-dessous, validé le 23/10/2026, a été demandé aux deux outils dans leur `REQUESTS.md`
+(Keystone : « Publier les leçons apprises des projets (vue pub_rex, D22) » ; Arche : « Aligner arche.pub_rex sur le
+contrat commun du REX (D22) »). Lecteur : `matrix_app`, droit déjà posé par `partage/90-droits.sql`.
+
+| # | Colonne | Type | Keystone (`lessons_learned`) | Arche (`rex_entries`) |
+|---|---|---|---|---|
+| 1 | `ref_source` | text | `'lessons_learned:' \|\| id` | `'rex_entries:' \|\| id` |
+| 2 | `outil` | text | `'keystone'` | `'arche'` |
+| 3 | `projet_code` | text | `projects.code` | projet EPC2i lié, sinon null |
+| 4 | `capex_code` | text | null (le CAPEX du projet quand Keystone le connaîtra, R-190) | code du CAPEX |
+| 5 | `numero` | text | `number` | null si Arche n'en tient pas |
+| 6 | `categorie` | text | `theme` | catégorie |
+| 7 | `titre` | text | au choix de Keystone (par exemple `number \|\| ' · ' \|\| theme`) | titre |
+| 8 | `constat` | text | `what_happened` | texte du REX |
+| 9 | `impact` | text | `impact` | null si Arche n'en tient pas |
+| 10 | `recommandation` | text | `recommendation` | recommandation si Arche la distingue, sinon null |
+| 11 | `portee` | text | `applies_to` | null si Arche n'en tient pas |
+| 12 | `statut` | text | `status` | `'publie'` |
+| 13 | `auteur` | text | `raised_by_name` | auteur |
+| 14 | `cree_le` | timestamptz | `created_at` | `published_at` |
+| 15 | `maj_le` | timestamptz | `updated_at` | `updated_at` |
+
+Règles :
+
+- les deux vues portent ces 15 colonnes, dans cet ordre et avec ces types : c'est ce qu'exige le `UNION ALL` ;
+- une colonne propre à un outil ne vient qu'en fin de vue, après `maj_le` (Arche : `phase`) ; la vue commune de Matrix
+  ne lit que les 15 colonnes communes ;
+- vue `WITH (security_barrier)`, aucune colonne sensible ; données personnelles : le nom de l'auteur seulement, comme
+  `pub_journal` ;
+- Arche ne publie que les entrées publiées (`published_at` renseignée) ;
+- contrat v1 : aucune colonne n'est retirée ni renommée ; un changement de ce type passe par `pub_rex_v2` dans les deux
+  outils.
+
+À faire côté Matrix, une fois les deux vues publiées : une vue `matrix.rex_unifie` (fichier de partage sur le modèle de
+`95-matrix-journal-unifie.sql`, qui laisse de côté avec un WARNING la vue d'un outil absente ou non conforme au contrat).
 
 ## 9. Heures validées : D06, option A, réversible
 

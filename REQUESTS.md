@@ -171,6 +171,31 @@ Format d'une entrée :
 - Détails techniques : vue `vigie.pub_controles` (`WITH (security_barrier)`, contrat Crucible v1, colonnes ajoutées en fin seulement) : `vigie_ref` (text), `site_code` (text, `site_id` de Vigie, écart É8 de format avec `matrix.sites.code` connu), `equipement` (text), `equipement_code` (text, `controls.equipment_code`), `type_controle` (text), `organisme` (text), `periodicite_mois` (integer), `dernier_le` (date), `prochain_le` (date), `reserves` (text), `archive` (boolean), `maj_le` (timestamptz). Ni personne ni donnée de santé ; `controls.equipment_code` n'est pas une colonne sensible (rien à ajouter à `droits.colonnes_sensibles`). Lecteurs : `crucible_app` (et `matrix_app` si Matrix publie ses vues `pub_` à son journal ou catalogue, à son choix).
 - Validé par Guillaume le : 2026-10-22
 
+## [2026-10-22] Crucible → Matrix — M-7 · Copie de pub_moyens et pub_reservations dans partage/80-crucible.sql
+- Statut : OUVERTE
+- Demande : recopier à l'identique dans `infra/postgres/partage/80-crucible.sql` les deux vues créées par la migration `drizzle/0005_share_resources.sql` de Crucible (livraison 3, fusionnée dans Yhumiii27/Crucible#5) : `crucible.pub_moyens` et `crucible.pub_reservations`, avec leurs commentaires ; compléter le prérequis du fichier (`to_regclass('crucible.bookings')`, migrations 0000 à 0005). Aucun nouveau droit : `90-droits.sql` accorde déjà ces deux vues à `keystone_app`, `vigie_app` et `matrix_app`.
+- Justification : règle P-02 de Matrix (le fichier de partage recrée à l'identique les vues `pub_` de chaque outil). Sans la copie, les vues existent quand même sur le serveur (la migration de Crucible les crée), mais `80-crucible.sql` ne les connaît pas : un rejeu ou un contrôle du partage les ignore.
+- Détails techniques : `pub_moyens` (`code`, `nom`, `nature`, `installation_code`, `installation`, `site_code`, `entite_exploitante`, `capacite`, `granularite`, `etat`, `maj_le`) ; `pub_reservations` (`ref`, `moyen_code`, `installation_code`, `site_code`, `entite_code`, `projet_code`, `projet_keystone`, `objet`, `confidentiel`, `statut`, `debut`, `fin`, `debut_reel`, `fin_reel`, `maj_le`) — réservations confirmées, en cours ou terminées ; projet, projet Keystone et objet nuls pour un projet confidentiel (décision S-7 de Crucible). Les deux vues `WITH (security_barrier)`, propriétaire `crucible_app`, aucune colonne sensible, aucune dépendance hors du schéma `crucible`. Source exacte : `drizzle/0005_share_resources.sql` du dépôt Crucible.
+- Validé par Guillaume le : 2026-10-22
+
+## [2026-10-23] Crucible → Matrix — M-8 · Copie de pub_occupation_hebdo dans partage/80-crucible.sql
+- Statut : OUVERTE
+- Demande : recopier à l'identique dans `infra/postgres/partage/80-crucible.sql` la vue `crucible.pub_occupation_hebdo` créée par la migration `drizzle/0009_share_weekly.sql` de Crucible (livraison 5, fusionnée dans Yhumiii27/Crucible#8), avec son commentaire ; compléter le prérequis du fichier (`to_regclass('crucible.weekly_snapshots')`, migrations 0000 à 0009) ; accorder `SELECT` sur la vue à `matrix_app` dans `partage/90-droits.sql`.
+- Justification : règle P-02 de Matrix (le fichier de partage recrée à l'identique les vues `pub_` de chaque outil) ; Matrix lit l'historique hebdomadaire d'occupation des moyens d'essais (dont le PDE, ≈ 3 M€ occupé à ≈ 30 %), décision X-4 de Crucible. Sans la copie et le droit, la vue existe sur le serveur (la migration de Crucible la crée) mais Matrix ne peut pas la lire et un rejeu du partage l'ignore.
+- Détails techniques : une ligne par semaine terminée et par moyen, calculée une seule fois puis jamais recalculée. Taux en % des heures ouvertes nettes (décision P-5), nul sans heures ouvertes. Aucune colonne sensible, aucune dépendance hors du schéma `crucible`. Définition (contrat v1) :
+  ```sql
+  CREATE OR REPLACE VIEW "crucible"."pub_occupation_hebdo" WITH (security_barrier) AS
+  SELECT s.monday AS semaine, r.code AS moyen_code, r.facility_code AS installation_code,
+         s.net_open_hours AS heures_ouvertes_nettes, s.booked_hours AS heures_reservees, s.realised_hours AS heures_realisees,
+         s.realised_with_prep_hours AS heures_realisees_preparation, s.blocked_hours AS heures_bloquees,
+         s.no_shows AS reservations_non_tenues,
+         CASE WHEN s.net_open_hours > 0 THEN round((100 * s.realised_with_prep_hours / s.net_open_hours)::numeric, 1) END AS taux_realise_pct,
+         s.computed_at AS maj_le
+  FROM "crucible"."weekly_snapshots" s JOIN "crucible"."resources" r ON r.id = s.resource_id;
+  COMMENT ON VIEW "crucible"."pub_occupation_hebdo" IS 'Contrat v1 : occupation hebdomadaire par moyen (instantanés X-4). Lecteurs : matrix_app.';
+  ```
+- Validé par Guillaume le : 2026-10-23
+
 ## [2026-10-23] Arche → Matrix — M-13 · Partager `arche.pub_rampup` et `arche.pub_rex_v2`, réunir le REX (D22)
 - Statut : OUVERTE
 - Demande : (1) déclarer dans `infra/postgres/partage/70-arche.sql` les vues publiées par Arche en livraison 6 (annoncées « à venir » en ligne 7) : `arche.pub_rampup` (lecteurs `keystone_app`, `matrix_app`) et `arche.pub_rex_v2` (lecteur `matrix_app`) ; (2) accorder `arche.pub_rampup` (`keystone_app`, `matrix_app`) et `arche.pub_rex_v2` (`matrix_app`) dans `90-droits.sql` ; (3) réunir `arche.pub_rex_v2` et `keystone.pub_rex` dans la vue commune de Matrix (`UNION ALL`, sur le modèle du journal unifié D18).

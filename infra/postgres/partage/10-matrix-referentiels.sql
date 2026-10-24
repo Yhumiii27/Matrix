@@ -179,6 +179,27 @@ ALTER TABLE matrix.sites ADD CONSTRAINT sites_filiale_fk FOREIGN KEY (filiale_co
 COMMENT ON COLUMN matrix.sites.filiale_code IS 'D21 : filiale propriétaire du site (usine, terrain d''un CAPEX d''Arche) ; vide pour un site d''EPC2i.';
 CREATE INDEX IF NOT EXISTS sites_filiale_idx ON matrix.sites (filiale_code);
 
+-- Coordonnées des sites et cadre des zones (demandes M-11 et M-12 d'Arche, 23/10/2026) : carte des CAPEX d'Arche.
+-- Facultatifs, en degrés décimaux WGS 84 ; publiés en fin de pub_sites et pub_zones.
+ALTER TABLE matrix.sites ADD COLUMN IF NOT EXISTS latitude numeric(9,6);
+ALTER TABLE matrix.sites ADD COLUMN IF NOT EXISTS longitude numeric(9,6);
+ALTER TABLE matrix.sites DROP CONSTRAINT IF EXISTS sites_coordonnees_check;
+ALTER TABLE matrix.sites ADD CONSTRAINT sites_coordonnees_check CHECK (
+  (latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)
+  AND (latitude IS NULL) = (longitude IS NULL));
+COMMENT ON COLUMN matrix.sites.latitude IS 'Latitude du site, degrés décimaux WGS 84 (carte des CAPEX d''Arche) ; vide tant qu''elle n''est pas saisie.';
+COMMENT ON COLUMN matrix.sites.longitude IS 'Longitude du site, degrés décimaux WGS 84 ; saisie avec la latitude.';
+ALTER TABLE matrix.zones ADD COLUMN IF NOT EXISTS ouest numeric(6,2);
+ALTER TABLE matrix.zones ADD COLUMN IF NOT EXISTS nord numeric(6,2);
+ALTER TABLE matrix.zones ADD COLUMN IF NOT EXISTS est numeric(6,2);
+ALTER TABLE matrix.zones ADD COLUMN IF NOT EXISTS sud numeric(6,2);
+ALTER TABLE matrix.zones DROP CONSTRAINT IF EXISTS zones_cadre_check;
+ALTER TABLE matrix.zones ADD CONSTRAINT zones_cadre_check CHECK (
+  (ouest IS NULL AND nord IS NULL AND est IS NULL AND sud IS NULL)
+  OR (ouest BETWEEN -180 AND 180 AND est BETWEEN -180 AND 180 AND sud BETWEEN -90 AND 90 AND nord BETWEEN -90 AND 90
+      AND ouest < est AND sud < nord));
+COMMENT ON COLUMN matrix.zones.ouest IS 'Cadre géographique de la zone (carte d''Arche, bouton « Zone ») : longitude ouest, en degrés ; les quatre bornes ensemble ou aucune.';
+
 -- ── 4. D15 Organigramme à niveaux ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS matrix.organigramme (
   code                   text        NOT NULL,
@@ -359,14 +380,17 @@ SELECT s.code,       -- Codex : sites.key (cache) ; Vigie : sites.id ; Cursus : 
        s.pays_iso2,  -- Keystone, Cursus : pays du site
        s.ordre,      -- Codex : sites.sort (cache) ; Vigie : sites.sort (cache)
        s.actif,      -- tous : listes de choix (un site fermé reste lisible pour l'historique)
-       s.filiale_code -- D21, ajout du 22/10/2026 en fin de vue : Arche (site d'un CAPEX) ; vide pour un site d'EPC2i
+       s.filiale_code, -- D21, ajout du 22/10/2026 en fin de vue : Arche (site d'un CAPEX) ; vide pour un site d'EPC2i
+       s.latitude,   -- M-11 d'Arche, ajout du 23/10/2026 en fin de vue : carte des CAPEX
+       s.longitude
 FROM matrix.sites s;
-COMMENT ON VIEW matrix.pub_sites IS 'Contrat D14 v1 (filiale_code ajoutée le 22/10/2026, D21). Lecteurs : keystone_app, codex_app, cursus_app, vigie_app, arche_app.';
+COMMENT ON VIEW matrix.pub_sites IS 'Contrat D14 v1 (filiale_code ajoutée le 22/10/2026, D21 ; latitude et longitude le 23/10/2026, M-11 d''Arche). Lecteurs : keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app.';
 
 CREATE OR REPLACE VIEW matrix.pub_zones WITH (security_barrier) AS
-SELECT z.code, z.libelle, z.responsable, z.ordre, z.actif
+SELECT z.code, z.libelle, z.responsable, z.ordre, z.actif,
+       z.ouest, z.nord, z.est, z.sud -- M-12 d'Arche, ajout du 23/10/2026 en fin de vue : cadre de la zone sur la carte
 FROM matrix.zones z;
-COMMENT ON VIEW matrix.pub_zones IS 'Contrat D21 v1 : zones du groupe. Lecteurs : arche_app, keystone_app.';
+COMMENT ON VIEW matrix.pub_zones IS 'Contrat D21 v1 : zones du groupe (cadre ouest, nord, est, sud ajouté le 23/10/2026, M-12 d''Arche). Lecteurs : arche_app, keystone_app.';
 
 CREATE OR REPLACE VIEW matrix.pub_filiales WITH (security_barrier) AS
 SELECT f.code,       -- Arche : <FIL> des codes CAPEX ; Keystone : clients.code3

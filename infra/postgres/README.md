@@ -10,7 +10,7 @@ Ce dossier contient le socle du serveur PostgreSQL commun aux quatre outils de l
 | `init/01-base-et-roles.sql` | Base `epc2i` et rôles. |
 | `init/02-schemas.sql` | Schémas `keystone`, `codex`, `cursus`, `vigie`, `arche`, `crucible`, `matrix`, propriétaires et paramètres de session ; schéma `extensions` et `pg_trgm` (pour Codex). |
 | `init/03-droits.sql` | Droits de Matrix, schéma `droits`, protection des colonnes sensibles (déclencheur d'événement). |
-| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 126 cas sur un socle neuf (dont 6 pour Arche, cas 160 à 165, et 6 pour Crucible, cas 170 à 175), convention de partage, tables fermées et schéma `extensions` compris, plus 2 cas par colonne ou table de santé de Vigie une fois Vigie migré (150 au total au 22/10/2026) ; rien n'est conservé. |
+| `verifier-droits.sql` | Contrôle des droits en conditions réelles : 126 cas sur un socle neuf (dont 6 pour Arche, cas 160 à 165, et 6 pour Crucible, cas 170 à 175), convention de partage, tables fermées et schéma `extensions` compris, plus 2 cas par colonne ou table de santé de Vigie une fois Vigie migré (168 au total au 23/10/2026, maladies professionnelles comprises) ; rien n'est conservé. |
 | `partage/` | Vues `pub_*` publiées par chaque outil, référentiels de Matrix, droits des lecteurs (`partage/README.md`). |
 | `sauvegarde/sauvegarder.sh` | Sauvegarde `pg_dump` par schéma, avec rétention. |
 | `correctifs/` | Correctifs essayés le 15/10/2026 dans des copies des outils (`correctifs/README.md`). Ceux de Keystone et de Vigie sont obsolètes (remplacés par les branches des outils, décision P-02), celui de Codex est fusionné ; reste le prototype de Cursus. |
@@ -45,7 +45,7 @@ Pourquoi un déclencheur d'événement : `ALTER DEFAULT PRIVILEGES` accorde `SEL
 6. **Programmer la sauvegarde.** Tâche planifiée Coolify sur le conteneur `postgres`, commande `sh /opt/epc2i/sauvegarde/sauvegarder.sh`, par exemple chaque nuit à 2 h 15 (`15 2 * * *`). Copiez ensuite le volume des sauvegardes (`/sauvegardes` dans le conteneur ; son nom se termine par `epc2i_sauvegardes`) hors du serveur (voir « Sauvegarde et restauration »).
 7. **Déclarer les administrateurs nominatifs** (voir plus bas).
 8. **Raccorder les outils** un par un, dans l'ordre du plan (§ 10), avec leur `DATABASE_URL`.
-9. **Poser le partage** après la bascule de chaque outil, dans cet ordre : migration de l'outil (elle crée ses colonnes prérequises et ses vues `pub_`), référentiels de Matrix (`partage/10-matrix-referentiels.sql`, une fois), fichier de l'outil (`20` à `50` ; `60` attend le module ECR / ECO de Vigie), puis `partage/90-droits.sql` et `partage/95-matrix-journal-unifie.sql`. Ordre, rôles et commandes : `partage/README.md`. `droits.verifier()` doit rester sans erreur après chaque passage.
+9. **Poser le partage** après la bascule de chaque outil, dans cet ordre : migration de l'outil (elle crée ses colonnes prérequises et ses vues `pub_`), référentiels de Matrix (`partage/10-matrix-referentiels.sql`, une fois), fichier de l'outil (`20` à `50` ; `60` attend le module ECR / ECO de Vigie), puis `partage/90-droits.sql`, `partage/95-matrix-journal-unifie.sql` et `partage/96-matrix-rex-unifie.sql`. Ordre, rôles et commandes : `partage/README.md`. `droits.verifier()` doit rester sans erreur après chaque passage.
 
 ## Sur un poste local
 

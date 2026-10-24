@@ -3,8 +3,11 @@
 -- Copie qualifiée des vues pub_ créées par les migrations d'Arche (dépôt Yhumiii27/Arche, règle P-02 : c'est Arche qui
 -- crée ses vues, à sa migration ; ce fichier les recrée à l'identique) :
 --   - arche.pub_journal : drizzle/0002_share_journal.sql (contrat D18, réunie par 95-matrix-journal-unifie.sql) ;
---   - arche.pub_capex   : drizzle/0005_share_capex.sql (CAPEX ouverts, hors brouillons).
--- À venir avec les livraisons d'Arche : pub_besoins_machines, pub_rampup, pub_rex (D22). Demande M-4 d'Arche
+--   - arche.pub_capex   : drizzle/0005_share_capex.sql (CAPEX ouverts, hors brouillons) ;
+--   - arche.pub_besoins_machines : drizzle/0009_share_needs.sql (besoins soumis, hors brouillons ; demande M-10 d'Arche) ;
+--   - arche.pub_rampup, arche.pub_rex (v1, plus lue) : drizzle/0014_share_rampup_rex.sql ;
+--   - arche.pub_rex_v2 : drizzle/0016_share_rex_v2.sql (contrat commun du REX, D22, réunie par 96-matrix-rex-unifie.sql) ;
+--     demande M-13 d'Arche. Demande M-4 d'Arche
 -- (docs/DEMANDES-MATRIX.md). Une vue pub_ est un contrat : on n'en retire ni ne renomme de colonne (sinon _v2).
 -- Exécution : en tant que arche_app, après les migrations d'Arche :
 --   psql "postgres://arche_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/70-arche.sql
@@ -18,8 +21,10 @@
 DO $prerequis$
 BEGIN
   IF to_regclass('arche.audit_entries') IS NULL OR to_regclass('arche.activity_events') IS NULL
-     OR to_regclass('arche.capex') IS NULL OR to_regclass('arche.gates') IS NULL THEN
-    RAISE EXCEPTION 'Arche n''a pas encore appliqué ses migrations sur ce serveur (0000 à 0005) : démarrez Arche avec DATABASE_URL (rôle arche_app), puis rejouez ce fichier.';
+     OR to_regclass('arche.capex') IS NULL OR to_regclass('arche.gates') IS NULL
+     OR to_regclass('arche.machine_needs') IS NULL OR to_regclass('arche.production_lines') IS NULL
+     OR to_regclass('arche.rex_entries') IS NULL THEN
+    RAISE EXCEPTION 'Arche n''a pas encore appliqué ses migrations sur ce serveur (0000 à 0016) : démarrez Arche avec DATABASE_URL (rôle arche_app), puis rejouez ce fichier.';
   END IF;
 END $prerequis$;
 
@@ -79,4 +84,90 @@ LEFT JOIN "arche"."users" ld ON ld.id = c.lead_user_id
 WHERE c.status <> 'draft';
 COMMENT ON VIEW "arche"."pub_capex" IS 'Contrat v1 : CAPEX ouverts d''Arche (hors brouillons). Lecteurs : keystone_app, matrix_app.';
 
-\echo 'Partage d''Arche : pub_journal et pub_capex en place.'
+-- ═══ Besoins machines (copie de drizzle/0009_share_needs.sql) ═══
+CREATE OR REPLACE VIEW "arche"."pub_besoins_machines" WITH (security_barrier) AS
+SELECT c.code || '/B' || lpad(n.number::text, 2, '0') AS besoin_ref,
+       c.code                          AS capex_code,
+       'B' || lpad(n.number::text, 2, '0') AS ligne,
+       n.catalogue_code                AS catalogue_code,
+       n.catalogue_version             AS catalogue_version,
+       n.free_label                    AS libelle_libre,
+       n.quantity                      AS quantite,
+       n.options                       AS options,
+       n.target_capacity               AS capacite_visee,
+       n.capacity_unit                 AS unite_capacite,
+       n.need_date                     AS date_besoin,
+       si.name                         AS site,
+       n.status                        AS statut,
+       n.comment                       AS commentaire,
+       n.submitted_at                  AS soumis_le,
+       n.ordered_on                    AS commande_le,
+       n.updated_at                    AS maj_le
+FROM "arche"."machine_needs" n
+JOIN "arche"."capex" c ON c.id = n.capex_id
+LEFT JOIN "arche"."sites" si ON si.id = c.site_id
+WHERE n.status <> 'draft';
+COMMENT ON VIEW "arche"."pub_besoins_machines" IS 'Contrat v1 : besoins machines soumis à EPC2i (hors brouillons). Lecteurs : keystone_app, matrix_app.';
+
+-- ═══ Montée en puissance et REX (copie de drizzle/0014_share_rampup_rex.sql et 0016_share_rex_v2.sql) ═══
+-- pub_rampup : une ligne par machine du parc d'une ligne de production d'un CAPEX en MES (chiffres de la ligne).
+CREATE OR REPLACE VIEW "arche"."pub_rampup" WITH (security_barrier) AS
+SELECT m.numero                        AS machine_numero,
+       c.code                          AS capex_code,
+       l.name                          AS ligne_production,
+       c.mes_started_on                AS debut_mes_le,
+       l.nominal_per_day               AS capacite_nominale,
+       l.unit                          AS unite_capacite,
+       l.avg_capacity_pct              AS capacite_atteinte_pct,
+       l.avg_oee_pct                   AS trs_reception_pct,
+       l.avg_scrap_pct                 AS rebuts_reception_pct,
+       l.reached_on                    AS trente_jours_le,
+       l.rampup_status                 AS statut,
+       greatest(l.updated_at, coalesce(l.computed_at, l.updated_at)) AS maj_le
+FROM "arche"."production_lines" l
+JOIN "arche"."capex" c ON c.id = l.capex_id
+CROSS JOIN LATERAL jsonb_array_elements_text(l.machine_numbers) AS m(numero)
+WHERE c.mes_started_on IS NOT NULL;
+COMMENT ON VIEW "arche"."pub_rampup" IS 'Contrat v1 : montée en puissance par machine du parc (lignes de production d''un CAPEX en MES). Lecteurs : keystone_app, matrix_app.';
+
+-- pub_rex (v1, proposition d'Arche à 9 colonnes) : gardée telle quelle, une vue pub_ ne change jamais en place ; Matrix
+-- lit pub_rex_v2.
+CREATE OR REPLACE VIEW "arche"."pub_rex" WITH (security_barrier) AS
+SELECT r.id::text                      AS ref_source,
+       c.code                          AS capex_code,
+       NULL::text                      AS projet_code,
+       r.category                      AS categorie,
+       r.title                         AS titre,
+       r.text                          AS texte,
+       r.phase                         AS phase,
+       r.published_at                  AS publie_le,
+       r.author_name                   AS auteur
+FROM "arche"."rex_entries" r
+JOIN "arche"."capex" c ON c.id = r.capex_id
+WHERE r.published_at IS NOT NULL;
+COMMENT ON VIEW "arche"."pub_rex" IS 'Contrat v1 (remplacé par pub_rex_v2, contrat commun de Matrix) : retours d''expérience publiés des CAPEX. Lecteur : matrix_app.';
+
+-- pub_rex_v2 : contrat commun du REX (docs/architecture-postgres.md de Matrix, § 8 quater), phase en fin de vue.
+CREATE OR REPLACE VIEW "arche"."pub_rex_v2" WITH (security_barrier) AS
+SELECT 'rex_entries:' || r.id::text                      AS ref_source,
+       'arche'::text                                     AS outil,
+       NULL::text                                        AS projet_code,
+       c.code                                            AS capex_code,
+       'REX-' || lpad(r.number::text, 2, '0')            AS numero,
+       r.category                                        AS categorie,
+       r.title                                           AS titre,
+       r.text                                            AS constat,
+       NULL::text                                        AS impact,
+       r.recommendation                                  AS recommandation,
+       NULL::text                                        AS portee,
+       'publie'::text                                    AS statut,
+       r.author_name                                     AS auteur,
+       r.published_at                                    AS cree_le,
+       r.updated_at                                      AS maj_le,
+       r.phase                                           AS phase
+FROM "arche"."rex_entries" r
+JOIN "arche"."capex" c ON c.id = r.capex_id
+WHERE r.published_at IS NOT NULL;
+COMMENT ON VIEW "arche"."pub_rex_v2" IS 'Contrat commun du REX de Matrix (D22) : retours d''expérience publiés des CAPEX, mêmes colonnes que keystone.pub_rex, phase en fin de vue. Lecteur : matrix_app.';
+
+\echo 'Partage d''Arche : pub_journal, pub_capex, pub_besoins_machines, pub_rampup, pub_rex et pub_rex_v2 en place.'

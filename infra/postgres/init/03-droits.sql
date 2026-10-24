@@ -843,6 +843,14 @@ INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif
   ('vigie', 'events', 'cpam_waived_at', 'Santé : déclaration CPAM non faite par l''entreprise (date)', 'convention'),
   ('vigie', 'events', 'cpam_waived_by_id', 'Santé : déclaration CPAM non faite par l''entreprise (auteur)', 'convention'),
   ('vigie', 'events', 'cpam_waiver_reason', 'Santé : motif de l''absence de déclaration CPAM', 'convention'),
+  -- Maladies professionnelles (type d'événement MP, migration 0010 de Vigie ; demande de Vigie du 22/10/2026,
+  -- REQUESTS.md de Matrix) : même convention, aucune donnée de santé lue par Matrix.
+  ('vigie', 'events', 'mp_table', 'Santé : tableau de maladie professionnelle', 'convention'),
+  ('vigie', 'events', 'mp_disease', 'Santé : maladie professionnelle déclarée', 'convention'),
+  ('vigie', 'events', 'mp_certificate_on', 'Santé : date du certificat médical initial (maladie professionnelle)', 'convention'),
+  ('vigie', 'events', 'mp_informed_on', 'Santé : date d''information par la CPAM (maladie professionnelle)', 'convention'),
+  ('vigie', 'events', 'mp_questionnaire_received_on', 'Santé : questionnaire employeur reçu le (maladie professionnelle)', 'convention'),
+  ('vigie', 'events', 'mp_questionnaire_returned_on', 'Santé : questionnaire employeur retourné le (maladie professionnelle)', 'convention'),
   -- Copies de ces données dans le journal des modifications (logChange : champs de HEALTH_LABELS avec leurs valeurs,
   -- noms des pièces médicales, inscriptions au registre des accidents bénins ; motif d'absence de déclaration CPAM).
   -- Matrix garde le reste du journal (entité, action, résumé, auteur, date), que publie aussi vigie.pub_journal.

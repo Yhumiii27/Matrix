@@ -43,7 +43,7 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | D19 Paramètres, fichiers joints | Chaque outil | Aucun changement. |
 | D20 Homonymes | — | Tables toujours nommées avec leur outil. |
 | D21 Filiales et zones du groupe | Matrix | Arche les lit ; Keystone relie ses clients à la filiale. |
-| D22 Retours d'expérience | Arche (CAPEX) et Keystone (projets) | Une vue `pub_rex` chacun, réunies par Matrix. |
+| D22 Retours d'expérience | Arche (CAPEX) et Keystone (projets) | Une vue `pub_rex` chacun, au contrat commun validé le 23/10/2026 (`docs/architecture-postgres.md`, § 8 quater), réunies par Matrix. |
 | D23 Contrôles périodiques des moyens d'essai | Vigie | Crucible lit `vigie.pub_controles` et ne saisit que la maintenance, les pannes et les travaux. |
 
 ## Questions ouvertes

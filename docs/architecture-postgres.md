@@ -60,6 +60,7 @@ Un septième schéma, `extensions` (propriétaire : le superutilisateur, `init/0
 | `cursus.entretiens` : `cr` | Convention |
 | `vigie.events` : `injury`, `lost_days` | Convention |
 | `vigie.events` : `cpam_declared_on`, `lesion_nature`, `lesion_site`, `care_given`, `reserves_on`, `cpam_waived_at`, `cpam_waived_by_id`, `cpam_waiver_reason` | Convention, ajout du 18/10/2026 : données de santé d'un accident du travail (`HEALTH_LABELS` de Vigie, `src/components/events/shared.ts`) |
+| `vigie.events` : `mp_table`, `mp_disease`, `mp_certificate_on`, `mp_informed_on`, `mp_questionnaire_received_on`, `mp_questionnaire_returned_on` | Convention, ajout du 23/10/2026 : maladies professionnelles (type `MP`, migration `0010` de Vigie ; demande de Vigie dans `REQUESTS.md`). La ligne entière d'une maladie professionnelle (victime, date, description) reste lisible tant que la protection est par colonne : point à arbitrer avec le DPO. |
 | `vigie.change_log` : `details`, `reason` | Convention, ajout du 18/10/2026 : copies des champs de santé et du motif d'absence de déclaration CPAM dans le journal des modifications |
 | `vigie.benign_accidents`, `vigie.access_log`, `vigie.attachments` : table entière (colonne `*`) | Convention, ajout du 18/10/2026 : registre des accidents bénins, journal des consultations, pièces médicales (`attachments.health` ne se filtre pas par colonne) |
 | `cursus.journal` : `payload`, `message` ; `cursus.demandes_collab` : `label` | Proposition, à confirmer (P-04) |
@@ -564,7 +565,7 @@ Le socle est prêt avant son code :
     sites (`matrix.sites.filiale_code`, ajoutée en fin de `pub_sites`). Arche ne crée ni `zones`, ni `subsidiaries`,
     ni `sites` ; Keystone relie `clients.code3` au code de la filiale. Listes vides jusqu'à la liste réelle (C-5) ;
   - D22, option A : Arche (CAPEX) et Keystone (projets) gardent chacun leur REX et publient `pub_rex`, accordée à
-    `matrix_app` ; Matrix les réunira comme le journal unifié une fois le contrat commun fixé.
+    `matrix_app` ; Matrix les réunira comme le journal unifié, au contrat commun du § 8 quater.
 
 ## 8 ter. Crucible
 
@@ -591,6 +592,49 @@ Même démarche qu'Arche (M-07) :
   Vigie fait foi pour les contrôles périodiques et publie `vigie.pub_controles` et `pub_suspensions_essais` (V-1, V-2
   de Crucible), accordées à `crucible_app` ; Crucible n'y saisit que la maintenance, les pannes et les travaux.
 
+## 8 quater. Contrat commun du REX (D22)
+
+Décision D22 (22/10/2026, option A « Deux registres, une vue commune ») : Keystone garde les leçons apprises des projets,
+Arche le REX des CAPEX ; chacun publie une vue `pub_rex` et Matrix les réunit par `UNION ALL`, comme le journal unifié
+(`partage/95`). Le contrat ci-dessous, validé le 23/10/2026, a été demandé aux deux outils dans leur `REQUESTS.md`
+(Keystone : « Publier les leçons apprises des projets (vue pub_rex, D22) » ; Arche : « Aligner arche.pub_rex sur le
+contrat commun du REX (D22) »). Lecteur : `matrix_app`, droit déjà posé par `partage/90-droits.sql`.
+
+| # | Colonne | Type | Keystone (`lessons_learned`) | Arche (`rex_entries`) |
+|---|---|---|---|---|
+| 1 | `ref_source` | text | `'lessons_learned:' \|\| id` | `'rex_entries:' \|\| id` |
+| 2 | `outil` | text | `'keystone'` | `'arche'` |
+| 3 | `projet_code` | text | `projects.code` | projet EPC2i lié, sinon null |
+| 4 | `capex_code` | text | null (le CAPEX du projet quand Keystone le connaîtra, R-190) | code du CAPEX |
+| 5 | `numero` | text | `number` | null si Arche n'en tient pas |
+| 6 | `categorie` | text | `theme` | catégorie |
+| 7 | `titre` | text | au choix de Keystone (par exemple `number \|\| ' · ' \|\| theme`) | titre |
+| 8 | `constat` | text | `what_happened` | texte du REX |
+| 9 | `impact` | text | `impact` | null si Arche n'en tient pas |
+| 10 | `recommandation` | text | `recommendation` | recommandation si Arche la distingue, sinon null |
+| 11 | `portee` | text | `applies_to` | null si Arche n'en tient pas |
+| 12 | `statut` | text | `status` | `'publie'` |
+| 13 | `auteur` | text | `raised_by_name` | auteur |
+| 14 | `cree_le` | timestamptz | `created_at` | `published_at` |
+| 15 | `maj_le` | timestamptz | `updated_at` | `updated_at` |
+
+Règles :
+
+- les deux vues portent ces 15 colonnes, dans cet ordre et avec ces types : c'est ce qu'exige le `UNION ALL` ;
+- une colonne propre à un outil ne vient qu'en fin de vue, après `maj_le` (Arche : `phase`) ; la vue commune de Matrix
+  ne lit que les 15 colonnes communes ;
+- vue `WITH (security_barrier)`, aucune colonne sensible ; données personnelles : le nom de l'auteur seulement, comme
+  `pub_journal` ;
+- Arche ne publie que les entrées publiées (`published_at` renseignée) ;
+- contrat v1 : aucune colonne n'est retirée ni renommée ; un changement de ce type passe par `pub_rex_v2` dans les deux
+  outils.
+
+Réunion côté Matrix : `matrix.rex_unifie`, créée par `partage/96-matrix-rex-unifie.sql` (23/10/2026, demande M-13
+d'Arche), sur le modèle de `95-matrix-journal-unifie.sql` : elle lit les 15 colonnes communes de `keystone.pub_rex` et
+`arche.pub_rex_v2` (la vue au contrat commun d'Arche ; `arche.pub_rex`, v1, n'est plus lue). Une vue absente ou non
+accordée est laissée de côté avec un WARNING (Keystone tant qu'il ne publie pas `pub_rex`), une vue dont les 15
+premières colonnes s'écartent du contrat fait échouer le fichier. À rejouer après chaque publication et `90-droits.sql`.
+
 ## 9. Heures validées : D06, option A, réversible
 
 Le circuit, les contrats (`data/contrats/heures-validees.schema.json`, `absences-validees.schema.json`) et les changements fonctionnels de chaque outil sont dans `docs/remplacement-lucca.md`. Ce qui concerne la base de données :
@@ -611,7 +655,7 @@ Le circuit, les contrats (`data/contrats/heures-validees.schema.json`, `absences
 |---|---|---|---|
 | 0 | Socle dans Coolify : ressource, variables, réseau, `verifier-droits.sql`, sauvegarde planifiée, restauration d'essai d'un schéma. Intégration continue des quatre outils prête (§ 10.1). Collecteur de Matrix qui lit les noms qualifiés `"schéma"."table"` : sans lui, `parseDrizzle` (`outils/collecteur.mjs`) ne lit plus aucune table dès la fusion de la migration de base régénérée de Codex. Fait le 15/10/2026. | Tous les cas de `verifier-droits.sql` conformes (114 avant les migrations de Vigie, 144 après : cas 200 et suivants) ; une restauration réussie, partage compris (`infra/postgres/README.md`) ; collecteur qui lit les migrations régénérées (essai : 203, 22 et 36 tables, et 28 pour `cursus/schema.sql`). | Supprimer la ressource. |
 | 1 | **Codex** : le plus petit (un fichier de schéma), migration unique autorisée par son dépôt, aucune colonne sensible. | Recette des deux modes ; rafale d'imports sans erreur ; déclaration à Matrix reçue ; intégration continue verte. | Redéployer le commit précédent de Codex : l'ancien code rouvre l'ancienne base PGlite du volume (`/data/pglite`), que le garde-fou n'a pas modifiée. Retirer seulement `DATABASE_URL` ne suffit pas : le nouveau code refuse cette base (« Base PGlite antérieure au schéma… ») ; il faudrait alors vider ou déplacer `/data/pglite` et repartir de la démonstration. Dans les deux cas, les saisies faites sur le serveur sont perdues, sauf export. |
-| 2 | **Vigie** : valide la protection des colonnes sensibles sur `events`. | `droits.verifier()` sans erreur ; Matrix lit `events` sans ses 10 colonnes de santé, ni `change_log.details` et `reason`, ni `benign_accidents`, `access_log` et `attachments` (§ 2.3) ; intégration continue verte. | Idem, avec `/data/db` (`VIGIE_DATA_DIR`). |
+| 2 | **Vigie** : valide la protection des colonnes sensibles sur `events`. | `droits.verifier()` sans erreur ; Matrix lit `events` sans ses 16 colonnes de santé (accidents du travail et maladies professionnelles), ni `change_log.details` et `reason`, ni `benign_accidents`, `access_log` et `attachments` (§ 2.3) ; intégration continue verte. | Idem, avec `/data/db` (`VIGIE_DATA_DIR`). |
 | 3 | **Keystone** : sans migration réécrite (P-02, 18/10/2026). | `db-check` sur le serveur ; test de concurrence, `createProject` compris ; intégration continue verte, sans échec nouveau par rapport à `main` (§ 5.3). | Idem, avec `/data/pg`. |
 | 4 | **Cursus** : sous-étape 8.c (§ 8), le plus gros changement et les seules données RH réelles ; reprise depuis SQLite. | Recette RH, manager, collaborateur ; comparaison des instantanés ; première sauvegarde du schéma relue. | Retirer `DATABASE_URL` : Cursus rouvre son fichier SQLite d'origine, que la reprise n'a pas modifié (elle travaille sur une copie, § 8.6). Les saisies faites depuis la bascule sont perdues, sauf script inverse. |
 

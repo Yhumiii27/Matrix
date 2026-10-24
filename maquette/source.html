@@ -312,6 +312,8 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
       <section class="screen" id="s-doublons" data-title="Doublons à trancher" hidden></section>
       <section class="screen pad" id="s-referentiels" data-title="Référentiels publiés" hidden></section>
       <section class="screen pad" id="s-qualite" data-title="Qualité des schémas" hidden></section>
+      <section class="screen pad" id="s-sante" data-title="Santé des tables et des liens" hidden></section>
+      <section class="screen pad" id="s-liens" data-title="Liens entre outils" hidden></section>
       <section class="screen pad" id="s-administration" data-title="Administration" hidden></section>
     </main>
   </div>
@@ -469,9 +471,11 @@ const NAV = [
   ['doublons', 'Doublons', 'ref'],
   ['referentiels', 'Référentiels', 'list'],
   ['qualite', 'Qualité des schémas', 'pulse'],
+  ['sante', 'Santé des données', 'pulse'],
+  ['liens', 'Liens entre outils', 'ref'],
   ['administration', 'Administration', 'shield'],
 ];
-$('nav').innerHTML = NAV.map(([id, label, ic]) => `<a class="nav-item" href="#${id}" data-screen="${id}">${icon(ic)}<span class="label">${label}</span>${id === 'doublons' ? '<span class="tag tag-accent" id="nav-doublons"></span>' : ''}</a>`).join('');
+$('nav').innerHTML = NAV.map(([id, label, ic]) => `<a class="nav-item" href="#${id}" data-screen="${id}">${icon(ic)}<span class="label">${label}</span>${id === 'doublons' ? '<span class="tag tag-accent" id="nav-doublons"></span>' : id === 'liens' ? '<span class="tag tag-accent" id="nav-liens" hidden></span>' : ''}</a>`).join('');
 function navBadge() { const el = $('nav-doublons'); if (el) { const n = DOUBLONS.length - Decisions.count(); el.textContent = n; el.hidden = !n; el.title = n + ' groupe(s) à trancher'; } }
 navBadge();
 $('linked').innerHTML = APP_IDS.map(a => `<div class="linked">${appMark(a)}<span>${APPS[a].nom}</span><span class="sub text-muted" style="margin-left:auto">:${APPS[a].port}</span></div>`).join('');
@@ -631,7 +635,7 @@ RENDER.accueil = () => {
       <div class="actions"><button class="btn btn-primary" data-go="bibliotheque">${icon('db', 14)} Ouvrir la bibliothèque</button><button class="btn btn-secondary" data-go="graphe">${icon('graph', 14)} Graphe des liens</button></div>
     </div>
     <div class="kpis">
-      <button class="card kpi" data-go="bibliotheque"><span class="card-kicker">Tables</span><span class="kpi-value">${fmt(STATS.tables)}</span><span class="card-meta">${fmt(STATS.cols)} colonnes dans 4 bases</span></button>
+      <button class="card kpi" data-go="bibliotheque"><span class="card-kicker">Tables</span><span class="kpi-value">${fmt(STATS.tables)}</span><span class="card-meta">${fmt(STATS.cols)} colonnes dans ${APP_IDS.length} bases</span></button>
       <button class="card kpi" data-go="graphe"><span class="card-kicker">Liens entre tables</span><span class="kpi-value">${fmt(STATS.fks)}</span><span class="card-meta">dont ${STATS.logical} non déclarés en base</span></button>
       <button class="card kpi" data-go="flux"><span class="card-kicker">Flux entre logiciels</span><span class="kpi-value">${STATS.flux}</span><span class="card-meta">${STATS.reels} réels · ${STATS.flux - STATS.reels} à construire ou à fiabiliser</span></button>
       <button class="card kpi" data-go="doublons"><span class="card-kicker">Doublons à trancher</span><span class="kpi-value">${DOUBLONS.length}</span><span class="card-meta">${DOUBLONS.reduce((n, g) => n + g.tables.filter(o => o.table !== '—').length, 0)} tables concernées · ${crit} critiques</span></button>
@@ -1303,6 +1307,135 @@ RENDER.qualite = () => {
   </div>`;
 };
 
+// ── Santé des tables et des liens (sonde du serveur commun) ─────────────
+let SANTE = DATA.sante || null;
+async function poster(chemin, corps) {
+  const r = await fetch(chemin, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps ?? {}) });
+  const j = await r.json().catch(() => ({ erreur: 'réponse illisible du serveur' }));
+  if (!r.ok) throw new Error(j.erreur || `erreur ${r.status}`);
+  return j;
+}
+const ETAT = { erreur: ['Erreur', 'tag-accent'], attention: ['Attention', 'tag-outline'], ok: ['OK', 'tag-neutral'], info: ['Info', 'tag-neutral'] };
+const etatTag = g => `<span class="tag ${(ETAT[g] || ETAT.info)[1]}">${(ETAT[g] || ETAT.info)[0]}</span>`;
+const octets = n => n == null ? '—' : n < 1024 * 1024 ? `${Math.round(n / 1024)} Ko` : n < 1024 ** 3 ? `${(n / 1024 / 1024).toFixed(1)} Mo` : `${(n / 1024 ** 3).toFixed(2)} Go`;
+const quand = d => d ? new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+const LIENS_A_TRAITER = ['a_retirer', 'hors_registre', 'a_appliquer', 'vue_absente', 'en_attente'];
+const SANS_SONDE = `<div class="card" style="max-width:720px"><div class="card-kicker">Sonde du serveur commun</div>
+  <p class="prose">Matrix n’a pas encore lu le serveur PostgreSQL commun. Définissez <span class="mono">MATRIX_DATABASE_URL</span> sur le serveur Matrix (rôle <span class="mono">matrix_app</span>) : Matrix lira lui-même les tables, les liens, les vues <span class="mono">pub_</span> et les droits de chaque outil, les reportera dans la bibliothèque et les graphes, et calculera cet état de santé à chaque lecture (toutes les heures par défaut, <span class="mono">MATRIX_SYNCHRO_MINUTES</span>).</p></div>`;
+function navLiens() { const el = $('nav-liens'); if (!el) return; const n = (SANTE?.liens || []).filter(l => LIENS_A_TRAITER.includes(l.etat)).length; el.textContent = n; el.hidden = !n; el.title = n + ' lien(s) à traiter'; }
+async function relire(bouton) {
+  bouton.disabled = true; bouton.textContent = 'Lecture du serveur…';
+  try { const j = await poster('/api/synchro'); SANTE = j.sante; toast('Serveur commun relu'); rendered.sante = rendered.liens = false; show(current); navLiens(); }
+  catch (e) { toast(e.message); bouton.disabled = false; bouton.textContent = 'Relire le serveur'; }
+}
+
+RENDER.sante = () => {
+  const root = $('s-sante');
+  if (!SANTE) { root.innerHTML = `<div class="wrap">${SANS_SONDE}</div>`; return; }
+  const st = { vue: 'tables', filtre: 'surveiller', app: 'toutes' };
+  const S = SANTE, R = S.regles;
+  const draw = () => {
+    const apps = Object.keys(S.parOutil);
+    let body = '';
+    if (st.vue === 'tables') {
+      const lignes = S.tables.filter(t => (st.app === 'toutes' || t.app === st.app) && (st.filtre === 'toutes' || t.etat !== 'ok'))
+        .sort((a, b) => ({ erreur: 0, attention: 1, ok: 2 }[a.etat] - { erreur: 0, attention: 1, ok: 2 }[b.etat]) || a.app.localeCompare(b.app) || a.table.localeCompare(b.table));
+      body = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">${seg('sfiltre', [['surveiller', 'À surveiller', S.tables.filter(t => t.etat !== 'ok').length], ['toutes', 'Toutes', S.tables.length]], st.filtre)}
+        ${seg('sapp', [['toutes', 'Tous les outils'], ...apps.map(a => [a, APPS[a]?.nom || a])], st.app)}</div>
+        ${lignes.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Table</th><th>État</th><th>Constats</th><th class="num">Lignes</th><th class="num">Taille</th><th>Analysée le</th></tr></thead><tbody>
+        ${lignes.slice(0, 500).map(t => `<tr><td class="nowrap">${appMark(t.app, 16)} <button class="link-btn mono" data-open="${esc(key(t.app, t.table))}">${esc(t.table)}</button></td><td>${etatTag(t.etat)}</td>
+          <td>${t.constats.filter(c => st.filtre === 'toutes' || c.gravite !== 'info').map(c => `<div class="sub"><span class="${c.gravite === 'info' ? 'text-muted' : ''}" title="${esc(R[c.regle].aide)}">${esc(R[c.regle].libelle)}</span>${c.detail ? ` <span class="text-muted mono">· ${esc(c.detail)}</span>` : ''}</div>`).join('') || '<span class="text-muted">—</span>'}</td>
+          <td class="num">${t.stats?.lignes == null ? '—' : fmt(t.stats.lignes)}</td><td class="num">${octets(t.stats?.taille)}</td><td class="tabnum text-muted nowrap">${quand(t.stats?.analyseLe)}</td></tr>`).join('')}</tbody></table></div>`
+        : `<p class="text-muted">Aucune table à surveiller.</p>`}
+        <div class="block-title" style="margin-top:22px">Règles</div>
+        <div class="table-wrap"><table class="table"><tbody>${Object.entries(R).map(([k, r]) => `<tr><td class="nowrap">${etatTag(r.gravite)}</td><td>${esc(r.libelle)}</td><td class="text-muted">${esc(r.aide)}</td></tr>`).join('')}</tbody></table></div>`;
+    } else if (st.vue === 'references') {
+      body = `<p class="sub text-muted" style="margin-bottom:10px">Chaque valeur d’une référence entre outils doit exister dans la vue <span class="mono">pub_</span> de l’outil qui fait foi (liste : <span class="mono">data/references.json</span>).</p>
+        <div class="table-wrap"><table class="table"><thead><tr><th>Réf.</th><th>Référence</th><th>De → vers</th><th>État</th><th class="num">Valeurs</th><th class="num">Orphelines</th><th>Exemples</th></tr></thead><tbody>
+        ${S.references.map(r => `<tr><td class="mono">${esc(r.id)}</td><td>${esc(r.libelle)} <span class="text-muted sub">· ${esc(r.decision)}</span></td><td class="mono sub">${esc(r.de)} → ${esc(r.vers)}</td>
+          <td>${r.etat === 'non_controlable' ? `<span class="text-muted" title="${esc(r.detail)}">Non contrôlable</span>` : etatTag(r.gravite)}</td><td class="num">${r.valeurs ?? '—'}</td><td class="num">${r.orphelines ?? '—'}</td><td class="mono sub">${esc((r.exemples || []).join(', '))}${r.etat === 'non_controlable' ? `<span class="text-muted">${esc(r.detail)}</span>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
+    } else {
+      body = S.socle.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Gravité</th><th>Objet</th><th>Constat</th></tr></thead><tbody>${S.socle.map(v => `<tr><td>${etatTag(v.gravite)}</td><td class="mono">${esc(v.objet)}</td><td>${esc(v.constat)}</td></tr>`).join('')}</tbody></table></div>`
+        : `<p class="text-muted">Contrôle des droits du socle (<span class="mono">droits.verifier()</span>) : aucune erreur ni attention.</p>`;
+    }
+    root.innerHTML = `<div class="wrap">
+      <div class="top"><div><p class="text-muted">État global ${etatTag(S.etat)} · serveur commun lu le ${quand(S.luLe)}</p></div>
+        ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary" id="sante-relire">${icon('pulse', 14)} Relire le serveur</button><button class="btn btn-secondary" data-go="liens">${icon('ref', 14)} Liens entre outils</button></div>` : ''}</div>
+      <div class="kpis">${apps.map(a => { const p = S.parOutil[a]; return `<button class="card kpi" data-sapp="${a}"><span class="card-kicker">${appMark(a, 14)} ${APPS[a]?.nom || a}</span><span class="kpi-value">${p.tables}</span><span class="card-meta">${etatTag(p.etat)} ${p.erreur ? p.erreur + ' en erreur · ' : ''}${p.attention} à surveiller · ${fmt(p.lignes)} lignes · ${octets(p.taille)}</span></button>`; }).join('')}</div>
+      <div style="margin-bottom:14px">${seg('svue', [['tables', 'Tables', S.tables.length], ['references', 'Références entre outils', S.references.length], ['socle', 'Contrôle des droits', S.socle.length]], st.vue)}</div>
+      ${body}</div>`;
+  };
+  root.addEventListener('click', e => {
+    const b = e.target.closest('[data-sapp]'); if (b) { st.vue = 'tables'; st.app = b.dataset.sapp; draw(); }
+    if (e.target.closest('#sante-relire')) relire(e.target.closest('#sante-relire'));
+  });
+  onSeg(root, 'svue', v => { st.vue = v; draw(); });
+  onSeg(root, 'sfiltre', v => { st.filtre = v; draw(); });
+  onSeg(root, 'sapp', v => { st.app = v; draw(); });
+  draw();
+};
+
+RENDER.liens = () => {
+  const root = $('s-liens');
+  if (!SANTE) { root.innerHTML = `<div class="wrap">${SANS_SONDE}</div>`; return; }
+  const st = { filtre: 'traiter', lecteur: 'tous' };
+  const E = SANTE.etatsLien;
+  const outilDe = v => v.split('.')[0], appDe = l => l.replace(/_app$/, '');
+  const decision = async (vue, lecteur, statut) => {
+    let motif = null;
+    if (statut === 'refuse') { motif = prompt(`Motif du refus : ${lecteur} ne lira pas ${vue}`); if (!motif) return; }
+    else if (statut === 'autorise') motif = prompt(`Autoriser ${lecteur} à lire ${vue}. Motif (facultatif) :`) ?? null;
+    try { const j = await poster('/api/liens', { vue, lecteur, statut, motif }); SANTE.liens = j.liens; toast(statut === 'autorise' ? 'Lien autorisé : appliqué au prochain passage de 90-droits.sql' : statut === 'refuse' ? 'Lien refusé : droit retiré au prochain passage de 90-droits.sql' : 'Demande enregistrée'); draw(); navLiens(); }
+    catch (e) { toast(e.message); }
+  };
+  const draw = () => {
+    const L = SANTE.liens;
+    const lignes = L.filter(l => (st.filtre === 'tous' || (st.filtre === 'traiter' ? LIENS_A_TRAITER.includes(l.etat) : l.etat === st.filtre)) && (st.lecteur === 'tous' || l.lecteur === st.lecteur));
+    const producteurs = [...new Set(L.map(l => outilDe(l.vue)))].sort(), lecteurs = [...new Set(L.map(l => l.lecteur))].sort();
+    const nb = (p, l) => L.filter(x => outilDe(x.vue) === p && x.lecteur === l && x.statut === 'autorise').length;
+    const vuesExistantes = (SANTE.vues || []).map(v => v.vue).sort();
+    root.innerHTML = `<div class="wrap">
+      <div class="top"><div><p class="text-muted prose">Un lien autorise un outil à lire la vue <span class="mono">pub_</span> d’un autre. Matrix tient le registre (<span class="mono">matrix.liens</span>) ; <span class="mono">partage/90-droits.sql</span> l’applique : droit posé pour un lien autorisé, retiré sinon.</p></div>
+        ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary" id="liens-relire">${icon('pulse', 14)} Relire le serveur</button></div>` : ''}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        ${seg('lfiltre', [['traiter', 'À traiter', L.filter(l => LIENS_A_TRAITER.includes(l.etat)).length], ['applique', 'Appliqués', L.filter(l => l.etat === 'applique').length], ['refuse', 'Refusés', L.filter(l => l.etat === 'refuse').length], ['outil_absent', 'Outil absent', L.filter(l => l.etat === 'outil_absent').length], ['tous', 'Tous', L.length]], st.filtre)}
+        ${seg('llecteur', [['tous', 'Tous les lecteurs'], ...lecteurs.map(l => [l, APPS[appDe(l)]?.nom || 'Matrix'])], st.lecteur)}</div>
+      ${lignes.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Vue publiée</th><th>Lecteur</th><th>Registre</th><th>État</th><th>Décision</th>${SERVEUR ? '<th></th>' : ''}</tr></thead><tbody>
+        ${lignes.map(l => `<tr><td class="nowrap">${APPS[outilDe(l.vue)] ? appMark(outilDe(l.vue), 16) : icon('matrix', 16)} <span class="mono">${esc(l.vue)}</span></td>
+          <td class="nowrap">${APPS[appDe(l.lecteur)] ? appMark(appDe(l.lecteur), 16) + ' ' + APPS[appDe(l.lecteur)].nom : 'Matrix'}</td>
+          <td>${l.statut ? esc({ autorise: 'Autorisé', refuse: 'Refusé', demande: 'Demandé' }[l.statut]) : '<span class="text-muted">absent</span>'}${l.origine === 'convention' ? ' <span class="text-muted sub">· convention</span>' : ''}</td>
+          <td>${etatTag(l.gravite)} <span class="sub">${esc(E[l.etat]?.libelle || l.etat)}</span></td>
+          <td class="sub text-muted">${l.decide_par ? `${esc(l.decide_par)} · ${quand(l.decide_le)}` : l.demande_par ? `demandé par ${esc(l.demande_par)} · ${quand(l.demande_le)}` : '—'}${l.motif ? `<div>${esc(l.motif)}</div>` : ''}</td>
+          ${SERVEUR ? `<td class="nowrap">${l.statut !== 'autorise' ? `<button class="btn btn-secondary btn-sm" data-decide="autorise" data-vue="${esc(l.vue)}" data-lecteur="${esc(l.lecteur)}">Autoriser</button>` : ''} ${l.statut !== 'refuse' ? `<button class="btn btn-ghost btn-sm" data-decide="refuse" data-vue="${esc(l.vue)}" data-lecteur="${esc(l.lecteur)}">Refuser</button>` : ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
+        : `<p class="text-muted">Aucun lien dans cette sélection.</p>`}
+      ${SERVEUR ? `<div class="block-title" style="margin-top:22px">Nouvelle demande de lien</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select class="input" id="ld-vue">${vuesExistantes.map(v => `<option>${esc(v)}</option>`).join('')}</select>
+          <select class="input" id="ld-lecteur">${['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app'].map(l => `<option value="${l}">${APPS[appDe(l)]?.nom || 'Matrix'}</option>`).join('')}</select>
+          <input class="input" id="ld-motif" placeholder="Besoin de l’outil lecteur" style="flex:1;min-width:220px">
+          <button class="btn btn-primary btn-sm" id="ld-envoyer">Enregistrer la demande</button></div>` : ''}
+      <div class="block-title" style="margin-top:22px">Liens autorisés, par outil <span>publie → lit</span></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Outil qui publie</th>${lecteurs.map(l => `<th class="num">${APPS[appDe(l)]?.nom || 'Matrix'}</th>`).join('')}</tr></thead><tbody>
+        ${producteurs.map(p => `<tr><td class="nowrap">${APPS[p] ? appMark(p, 16) + ' ' + APPS[p].nom : 'Matrix'}</td>${lecteurs.map(l => `<td class="num">${nb(p, l) || '<span class="text-muted">·</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="block-title" style="margin-top:22px">Journal des décisions <span>${(SANTE.journalLiens || []).length}</span></div>
+      ${(SANTE.journalLiens || []).length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Qui</th><th>Lien</th><th>Changement</th><th>Motif</th></tr></thead><tbody>${SANTE.journalLiens.slice(0, 100).map(j => `<tr><td class="tabnum text-muted nowrap">${quand(j.le)}</td><td>${esc(j.par)}</td><td class="mono sub">${esc(j.lecteur)} → ${esc(j.vue)}</td><td>${esc(j.avant || 'nouveau')} → ${esc(j.apres)}</td><td class="text-muted">${esc(j.motif || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-muted">Aucune décision.</p>'}
+    </div>`;
+  };
+  root.addEventListener('click', e => {
+    const b = e.target.closest('[data-decide]'); if (b) return decision(b.dataset.vue, b.dataset.lecteur, b.dataset.decide);
+    if (e.target.closest('#liens-relire')) return relire(e.target.closest('#liens-relire'));
+    if (e.target.closest('#ld-envoyer')) {
+      const vue = $('ld-vue').value, lecteur = $('ld-lecteur').value, motif = $('ld-motif').value.trim();
+      if (!motif) return toast('Indiquez le besoin de l’outil lecteur');
+      poster('/api/liens', { vue, lecteur, statut: 'demande', motif }).then(j => { SANTE.liens = j.liens; st.filtre = 'traiter'; toast('Demande enregistrée'); draw(); navLiens(); }, err => toast(err.message));
+    }
+  });
+  onSeg(root, 'lfiltre', v => { st.filtre = v; draw(); });
+  onSeg(root, 'llecteur', v => { st.lecteur = v; draw(); });
+  draw();
+};
+navLiens();
+
 // ── Administration ──────────────────────────────────────────────────────
 RENDER.administration = () => {
   const root = $('s-administration'); let tab = 'connexions';
@@ -1321,10 +1454,10 @@ RENDER.administration = () => {
         ${CAT.apps.map(a => `<tr><td class="nowrap">${appMark(a.id)} ${APPS[a.id].nom}</td><td>${esc(a.source.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/, d => new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })))}</td><td class="num">${a.tables.length}</td><td class="num">${a.tables.filter(t => t.nouvelle).length}</td></tr>`).join('')}</tbody></table></div>
         <div class="block-title" style="margin-top:22px">Déclaration des nouvelles tables</div>
         <ol class="prose" style="margin:4px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px">
-          <li>Au démarrage, après ses migrations, chaque outil lit le schéma réel de sa base et l’envoie à Matrix (<span class="mono">POST /api/declarations</span>, jeton partagé).</li>
+          <li>Matrix lit lui-même le serveur PostgreSQL commun (sonde, rôle <span class="mono">matrix_app</span>, variable <span class="mono">MATRIX_DATABASE_URL</span>) : tables, colonnes, clés, liens, commentaires, vues <span class="mono">pub_</span> et droits de chaque outil, au démarrage puis toutes les heures, ou à la demande (écran « Santé des données »). Un outil peut aussi envoyer son schéma (<span class="mono">POST /api/declarations</span>, jeton partagé).</li>
           <li>Matrix compare la déclaration à la collecte précédente. Une table inconnue est ajoutée à la bibliothèque, marquée « à documenter ».</li>
           <li>La nouvelle table est comparée à celles des autres outils. Si elle ressemble à une table existante, elle est signalée comme doublon possible.</li>
-          <li>Tant qu’un outil n’envoie pas de déclaration, Matrix lit son schéma dans le code source (migrations).</li>
+          <li>Pour un outil absent du serveur commun, Matrix lit son schéma dans le code source (migrations).</li>
         </ol>
         <div class="block-title" style="margin-top:22px">Déclarations reçues <span>${(DATA.declarations || []).length}</span></div>
         ${(DATA.declarations || []).length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Outil</th><th>Reçue le</th><th>Version</th><th class="num">Tables</th></tr></thead><tbody>${DATA.declarations.map(d => `<tr><td class="nowrap">${appMark(d.app)} ${APPS[d.app].nom}</td><td class="tabnum">${new Date(d.declareLe).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td class="mono text-muted">${esc(d.version || '—')}</td><td class="num">${d.tables}</td></tr>`).join('')}</tbody></table></div>`

@@ -1,8 +1,9 @@
 // Collecteur Matrix : construit data/catalogue.json à partir des schémas des six outils.
 //
 // Deux sources, par ordre de priorité :
-//   1. Les déclarations envoyées par les outils au démarrage (declarations/<outil>.json, contrat matrix.schema/1,
-//      voir integration/declarer-schema.mjs). C'est le schéma réel de la base en service.
+//   1. Les déclarations (declarations/<outil>.json, contrat matrix.schema/1) : écrites par la sonde de Matrix, qui lit
+//      elle-même le serveur commun (outils/sonde.mjs, origine « serveur »), ou envoyées par un outil au démarrage
+//      (integration/declarer-schema.mjs). C'est le schéma réel de la base en service.
 //   2. Le code source des dépôts voisins, en lecture seule :
 //      - Keystone, Codex, Vigie : migrations Drizzle (drizzle/*.sql) + commentaires de src/**/schema*.ts
 //      - Cursus : objet TABLES de server/src/db.ts (SQLite, pas de clé étrangère déclarée)
@@ -305,7 +306,7 @@ function fromDeclarations(dir) {
   for (const f of readdirSync(dir).filter(f => f.endsWith('.json'))) {
     const doc = JSON.parse(readFileSync(join(dir, f), 'utf8'));
     if (doc.schema !== 'matrix.schema/1' || !ORDER.includes(doc.app)) { console.warn(`déclaration ignorée : ${f}`); continue; }
-    out[doc.app] = { tables: doc.tables, declareLe: doc.declareLe, empreinte: doc.empreinte, version: doc.version };
+    out[doc.app] = { tables: doc.tables, declareLe: doc.declareLe, empreinte: doc.empreinte, version: doc.version, origine: doc.origine ?? 'outil' };
   }
   return out;
 }
@@ -331,7 +332,8 @@ function enrich(app, tables, comments, known = new Map()) {
       if (ref && !(ref[0] === t.name && ref[1] === col.name) && !fks.some(f => f.columns.includes(col.name)))
         fks.push({ columns: [col.name], table: ref[0], refColumns: [ref[1]], onDelete: null, declared: false });
     }
-    const out = { ...t, fks, domain: domain ?? k.domain ?? 'Nouvelles tables', description: description ?? k.description ?? null };
+    // Description : celle du code ou de la connaissance de Matrix, sinon le commentaire lu en base (sonde du serveur commun).
+    const out = { ...t, fks, domain: domain ?? k.domain ?? 'Nouvelles tables', description: description ?? k.description ?? t.description ?? null };
     delete out.vueLe; delete out.nouvelle; delete out.doublonsPossibles;
     const sens = SENSITIVE[`${app}.${t.name}`];
     if (sens) out.sensitive = sens.includes('*') ? out.columns.map(c => c.name) : sens;
@@ -400,13 +402,13 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
         for (const c of before) if (!after.has(c)) events.push({ date, app: id, type: 'colonne_supprimee', table: t.name, colonne: c });
       } else {
         t.vueLe = date;
-        if (prev) { t.nouvelle = { le: date, source: decl ? 'déclaration' : 'dépôt' }; events.push({ date, app: id, type: 'table_ajoutee', table: t.name, source: t.nouvelle.source }); }
+        if (prev) { t.nouvelle = { le: date, source: decl ? (decl.origine === 'serveur' ? 'serveur commun' : 'déclaration') : 'dépôt' }; events.push({ date, app: id, type: 'table_ajoutee', table: t.name, source: t.nouvelle.source }); }
       }
     }
     if (prev) for (const name of prev.keys()) if (!tables.some(t => t.name === name)) events.push({ date, app: id, type: 'table_supprimee', table: name });
     apps.push({
       id, tables: tables.sort((a, b) => a.name.localeCompare(b.name)),
-      source: decl ? `déclaration du ${decl.declareLe}` : repo ? repo.source : fb.source ?? 'catalogue embarqué',
+      source: decl ? (decl.origine === 'serveur' ? `serveur commun lu le ${decl.declareLe}` : `déclaration du ${decl.declareLe}`) : repo ? repo.source : fb.source ?? 'catalogue embarqué',
       ...(decl ? { empreinte: decl.empreinte, version: decl.version } : {}),
     });
   }

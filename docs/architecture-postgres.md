@@ -635,6 +635,48 @@ d'Arche), sur le modèle de `95-matrix-journal-unifie.sql` : elle lit les 15 col
 accordée est laissée de côté avec un WARNING (Keystone tant qu'il ne publie pas `pub_rex`), une vue dont les 15
 premières colonnes s'écartent du contrat fait échouer le fichier. À rejouer après chaque publication et `90-droits.sql`.
 
+## 8 quinquies. Matrix administre les tables et les liens (« dataverse »)
+
+Demande du 24/10/2026 : « créer un module intelligent capable de questionner les autres outils afin qu'ils déclarent
+leurs tables de données et les liens […] Fait aussi un état de santé des tables et des liens […] Matrix doit devenir un
+outil de type dataverse, il administre toutes les tables et autorise ou non les liens. » Choix retenus (M-13) : lecture
+du serveur commun ; registre des liens appliqué par le socle.
+
+**Sonde** (`outils/sonde.mjs`, variable `MATRIX_DATABASE_URL`, rôle `matrix_app`). Au démarrage du serveur Matrix, puis
+toutes les `MATRIX_SYNCHRO_MINUTES` (60 par défaut) ou sur demande (`POST /api/synchro`, bouton « Relire le serveur ») :
+
+- lecture du catalogue système de chaque schéma d'outil : tables, colonnes (y compris celles fermées à Matrix, dont seule
+  l'existence est connue : `pg_attribute`, pas `information_schema`), clés primaires, unicités, clés étrangères (validée,
+  couverte par un index, vers un autre schéma), commentaires, statistiques (lignes, lignes mortes, taille, dernière
+  analyse), vues `pub_` et leurs lecteurs, `droits.colonnes_sensibles`, `droits.verifier()` ;
+- une déclaration `matrix.schema/1` par outil (origine « serveur ») remplace la précédente quand l'empreinte de la
+  structure change : le collecteur met à jour la bibliothèque, l'historique (tables et colonnes ajoutées ou supprimées),
+  les doublons possibles et les graphes. Aucun changement n'est demandé aux outils ; leur déclaration au démarrage reste
+  acceptée ;
+- contrôle des références entre outils de `data/references.json` (valeurs orphelines : par exemple un code projet de
+  Vigie absent de `keystone.pub_projets`).
+
+**État de santé** (`outils/sante.mjs`, `data/sante.json`, `GET /api/etat`, écran « Santé des données ») : un constat par
+règle (table sans clé, clé unique seule, clé étrangère non validée, vers un autre schéma, sans index — attention à partir
+de 10 000 lignes —, lignes mortes, jamais analysée, non documentée, colonnes fermées), l'état de chaque lien du registre,
+les références orphelines et les écarts de `droits.verifier()`. Gravités : erreur, attention, info ; l'état d'une table
+ou d'un outil est celui de son constat le plus grave.
+
+**Registre des liens** (`partage/12-matrix-liens.sql`, écran « Liens entre outils », `GET`/`POST /api/liens`) : un lien
+est le droit d'un outil de lire la vue `pub_` d'un autre ; statut `autorise`, `refuse` ou `demande` ; un refus est motivé ;
+chaque décision est journalisée (`matrix.liens_journal`, en ajout seul) ; un lien ne se supprime pas. `90-droits.sql`
+amorce le registre avec la convention écrite dans le fichier (origine « convention »), puis l'applique : `GRANT` des liens
+autorisés, `REVOKE` de tout `SELECT` d'un outil sur une vue `pub_` qui n'est pas un lien autorisé, et de l'`USAGE` sur un
+schéma où l'outil ne lit plus rien. Matrix n'a aucun droit d'administration : une décision prend effet au passage suivant
+de `90-droits.sql`. L'écran signale l'écart entre la décision et le droit réellement posé (« à appliquer », « à
+retirer », « hors registre »).
+
+Vérifié le 24/10/2026 sur PostgreSQL 16 avec les migrations réelles de Vigie, Arche et Crucible : lecture des trois
+schémas en 0,6 s, 153 liens de la convention inscrits, refus dans l'écran puis droit retiré par `90-droits.sql`, demande
+sans droit tant qu'elle n'est pas autorisée, droit posé hors registre retiré, suppression d'un lien refusée,
+`droits.verifier()` sans erreur ; règles éprouvées sur des tables d'essai (sans clé, clé étrangère non validée, lignes
+mortes).
+
 ## 9. Heures validées : D06, option A, réversible
 
 Le circuit, les contrats (`data/contrats/heures-validees.schema.json`, `absences-validees.schema.json`) et les changements fonctionnels de chaque outil sont dans `docs/remplacement-lucca.md`. Ce qui concerne la base de données :

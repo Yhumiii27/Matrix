@@ -668,7 +668,8 @@ chaque décision est journalisée (`matrix.liens_journal`, en ajout seul) ; un l
 amorce le registre avec la convention écrite dans le fichier (origine « convention »), puis l'applique : `GRANT` des liens
 autorisés, `REVOKE` de tout `SELECT` d'un outil sur une vue `pub_` qui n'est pas un lien autorisé, et de l'`USAGE` sur un
 schéma où l'outil ne lit plus rien. Matrix n'a aucun droit d'administration : une décision prend effet au passage suivant
-de `90-droits.sql`. L'écran signale l'écart entre la décision et le droit réellement posé (« à appliquer », « à
+de `90-droits.sql`, rejoué toutes les 15 minutes par la tâche planifiée `partage/appliquer-liens.sh` quand le registre et
+les droits posés divergent (ou après un redéploiement). L'écran signale l'écart entre la décision et le droit réellement posé (« à appliquer », « à
 retirer », « hors registre »).
 
 Vérifié le 24/10/2026 sur PostgreSQL 16 avec les migrations réelles de Vigie, Arche et Crucible : lecture des trois

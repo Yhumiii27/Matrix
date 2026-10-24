@@ -43,9 +43,10 @@ Pourquoi un déclencheur d'événement : `ALTER DEFAULT PRIVILEGES` accorde `SEL
    ```
    Résultat attendu sur un socle neuf : « Tous les cas sont conformes : 120 cas (dont 0 sur les tables de Vigie). » Une fois Vigie migré, 30 cas de plus (144).
 6. **Programmer la sauvegarde.** Tâche planifiée Coolify sur le conteneur `postgres`, commande `sh /opt/epc2i/sauvegarde/sauvegarder.sh`, par exemple chaque nuit à 2 h 15 (`15 2 * * *`). Copiez ensuite le volume des sauvegardes (`/sauvegardes` dans le conteneur ; son nom se termine par `epc2i_sauvegardes`) hors du serveur (voir « Sauvegarde et restauration »).
-7. **Déclarer les administrateurs nominatifs** (voir plus bas).
-8. **Raccorder les outils** un par un, dans l'ordre du plan (§ 10), avec leur `DATABASE_URL`.
-9. **Poser le partage** après la bascule de chaque outil, dans cet ordre : migration de l'outil (elle crée ses colonnes prérequises et ses vues `pub_`), référentiels et registre des liens de Matrix (`partage/10-matrix-referentiels.sql` et `partage/12-matrix-liens.sql`, une fois), fichier de l'outil (`20` à `50` ; `60` attend le module ECR / ECO de Vigie), puis `partage/90-droits.sql`, `partage/95-matrix-journal-unifie.sql` et `partage/96-matrix-rex-unifie.sql`. Ordre, rôles et commandes : `partage/README.md`. `droits.verifier()` doit rester sans erreur après chaque passage.
+7. **Programmer l'application du registre des liens.** Tâche planifiée Coolify sur le conteneur `postgres`, commande `sh /opt/epc2i/partage/appliquer-liens.sh`, toutes les 15 minutes (`*/15 * * * *`). Le script rejoue `partage/90-droits.sql` seulement quand c'est utile : premier passage du conteneur ou fichier changé par un redéploiement, lien autorisé dans Matrix sans son droit, droit posé sans lien autorisé. Sinon il écrit une ligne (« registre et droits concordent ») et s'arrête. Une erreur de 90 fait échouer la tâche, sans rien changer aux droits (détail : `partage/README.md`).
+8. **Déclarer les administrateurs nominatifs** (voir plus bas).
+9. **Raccorder les outils** un par un, dans l'ordre du plan (§ 10), avec leur `DATABASE_URL`.
+10. **Poser le partage** après la bascule de chaque outil, dans cet ordre : migration de l'outil (elle crée ses colonnes prérequises et ses vues `pub_`), référentiels et registre des liens de Matrix (`partage/10-matrix-referentiels.sql` et `partage/12-matrix-liens.sql`, une fois), fichier de l'outil (`20` à `50` ; `60` attend le module ECR / ECO de Vigie), puis `partage/90-droits.sql`, `partage/95-matrix-journal-unifie.sql` et `partage/96-matrix-rex-unifie.sql`. Ordre, rôles et commandes : `partage/README.md`. `droits.verifier()` doit rester sans erreur après chaque passage.
 
 ## Sur un poste local
 

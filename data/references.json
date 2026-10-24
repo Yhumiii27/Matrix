@@ -1,0 +1,16 @@
+{
+  "_lisezmoi": "Références entre outils contrôlées par la sonde de Matrix (état de santé des liens) : chaque valeur non vide de la colonne « de » doit exister dans la colonne « vers », lue dans la vue pub_ de l'outil qui fait foi. Une valeur absente est une référence orpheline. Liste tenue à la main d'après les décisions (D01 personnes, D02 projets, D14 sites, D21 filiales) ; une référence dont une des deux colonnes n'existe pas encore sur le serveur est signalée « non contrôlable », sans erreur.",
+  "references": [
+    { "id": "R01", "decision": "D02", "de": "vigie.events.keystone_project_code", "vers": "keystone.pub_projets.code", "libelle": "Projet Keystone d'un événement de Vigie" },
+    { "id": "R02", "decision": "D02", "de": "vigie.prevention_plans.keystone_project_code", "vers": "keystone.pub_projets.code", "libelle": "Projet Keystone d'un plan de prévention" },
+    { "id": "R03", "decision": "D02", "de": "vigie.permits.keystone_project_code", "vers": "keystone.pub_projets.code", "libelle": "Projet Keystone d'un permis de travail" },
+    { "id": "R04", "decision": "D02", "de": "codex.documents.project_code", "vers": "keystone.pub_projets.code", "libelle": "Projet Keystone d'un document de Codex" },
+    { "id": "R05", "decision": "D02", "de": "crucible.projects.keystone_code", "vers": "keystone.pub_projets.code", "libelle": "Projet Keystone d'un projet R&D de Crucible" },
+    { "id": "R06", "decision": "D01", "de": "keystone.persons.matricule", "vers": "cursus.pub_salaries.matricule", "libelle": "Matricule Cursus d'une personne de Keystone" },
+    { "id": "R07", "decision": "D01", "de": "codex.users.matricule", "vers": "cursus.pub_salaries.matricule", "libelle": "Matricule Cursus d'un utilisateur de Codex" },
+    { "id": "R08", "decision": "D01", "de": "vigie.people.matricule", "vers": "cursus.pub_salaries.matricule", "libelle": "Matricule Cursus d'une personne de Vigie" },
+    { "id": "R09", "decision": "D14", "de": "cursus.employes.site_code", "vers": "matrix.pub_sites.code", "libelle": "Site Matrix d'un salarié de Cursus" },
+    { "id": "R10", "decision": "D14", "de": "crucible.facilities.site_code", "vers": "matrix.pub_sites.code", "libelle": "Site Matrix d'une installation d'essai de Crucible" },
+    { "id": "R11", "decision": "D21", "de": "arche.pub_capex.filiale_code", "vers": "matrix.pub_filiales.code", "libelle": "Filiale Matrix d'un CAPEX d'Arche" }
+  ]
+}

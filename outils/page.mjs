@@ -34,6 +34,8 @@ export function donnees({ dataDir = join(RACINE, 'data'), serveur = false } = {}
     usages: lire(join(connaissance, 'usages.json')),
     doublons: lire(join(connaissance, 'doublons.json')),
     historique: existsSync(historique) ? lire(historique) : { evenements: [] },
+    // État de santé des tables et des liens : écrit par la sonde du serveur commun (serveur.mjs, MATRIX_DATABASE_URL).
+    sante: existsSync(join(dataDir, 'sante.json')) ? lire(join(dataDir, 'sante.json')) : null,
   };
 }
 

@@ -27,6 +27,7 @@ La convention :
 | 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche (`0000` à `0016`), copie de `arche.pub_journal` (D18), `arche.pub_capex`, `arche.pub_besoins_machines` (M-10 d'Arche), `arche.pub_rampup`, `arche.pub_rex` (v1, plus lue) et `arche.pub_rex_v2` (M-13 d'Arche, contrat commun du REX) |
 | 2 | `80-crucible.sql` | `crucible_app` | Contrôle des migrations de Crucible (`0000` à `0009`), copie de `crucible.pub_journal` (D18), `pub_moyens` et `pub_reservations` (M-7 de Crucible, lues par Keystone, Vigie et Matrix) et `pub_occupation_hebdo` (M-8, lue par Matrix) |
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues ; amorçage du registre `matrix.liens` avec la convention ; `GRANT` des liens autorisés, `REVOKE` des droits non autorisés (refusés, demandés ou hors registre) ; contrôle final par `droits.verifier()` |
+| — | `appliquer-liens.sh` | `postgres` (tâche planifiée) | Rejoue `90-droits.sql` quand le registre de Matrix et les droits posés divergent (« Application automatique du registre des liens » ci-dessous) |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
 | 4 | `96-matrix-rex-unifie.sql` | `matrix_app` | `matrix.rex_unifie` (D22) : union de `keystone.pub_rex` et `arche.pub_rex_v2` au contrat commun du REX ; une vue absente est laissée de côté (WARNING), une vue hors contrat fait échouer le fichier |
 
@@ -45,6 +46,32 @@ psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f part
 ```
 
 Tous les fichiers sont rejouables.
+
+## Application automatique du registre des liens
+
+Une décision prise dans l'écran « Liens entre outils » de Matrix est écrite dans `matrix.liens`. Elle ne pose ni ne retire aucun droit : c'est `90-droits.sql` qui l'applique. `appliquer-liens.sh` le rejoue automatiquement, par une tâche planifiée Coolify sur le conteneur `postgres` :
+
+| Réglage | Valeur |
+|---|---|
+| Commande | `sh /opt/epc2i/partage/appliquer-liens.sh` |
+| Fréquence | toutes les 15 minutes (`*/15 * * * *`) : une décision prend effet en 15 minutes au plus |
+| Rôle | `postgres` par le socket local du conteneur (défaut) ; `PGUSER` pour un administrateur membre de `matrix_admin` |
+
+Le script rejoue `90-droits.sql` seulement dans ces cas, et écrit la raison :
+
+- premier passage dans le conteneur, ou `90-droits.sql` changé depuis le dernier passage réussi. L'empreinte du fichier est gardée dans `/tmp/epc2i-liens.etat` (`EPC2I_LIENS_ETAT`), effacé à chaque redéploiement : un redéploiement provoque donc toujours un passage ;
+- « n lien(s) à appliquer » : un lien autorisé dont la vue existe n'a pas son `SELECT`. C'est le cas d'une autorisation récente, ou d'une vue publiée depuis le dernier passage ;
+- « n lien(s) à retirer » : un rôle d'outil lit une vue `pub_` d'un autre schéma sans lien autorisé (refusé, demandé ou hors registre) ;
+- « registre absent » : `12-matrix-liens.sql` n'a pas encore été joué ;
+- `EPC2I_LIENS_FORCER=1`.
+
+Dans tous les autres cas, il écrit « registre et droits concordent, rien à appliquer » et n'ouvre aucune transaction.
+
+Après un passage, il n'affiche que les messages utiles de 90 : liens retirés, vues absentes, contrôles. Une erreur (vue non conforme, `droits.verifier()` en erreur) annule toute la transaction de 90 : la tâche échoue avec un code non nul et la sortie complète, les droits restent ceux d'avant. La tâche suivante réessaie.
+
+Deux passages ne se chevauchent pas : le verrou `/tmp/epc2i-liens.etat.verrou` est repris s'il a plus de 30 minutes.
+
+Lancement à la main : `docker compose exec postgres sh /opt/epc2i/partage/appliquer-liens.sh`.
 
 ## Dépendances
 

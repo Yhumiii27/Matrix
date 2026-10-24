@@ -1385,7 +1385,7 @@ RENDER.liens = () => {
     let motif = null;
     if (statut === 'refuse') { motif = prompt(`Motif du refus : ${lecteur} ne lira pas ${vue}`); if (!motif) return; }
     else if (statut === 'autorise') motif = prompt(`Autoriser ${lecteur} à lire ${vue}. Motif (facultatif) :`) ?? null;
-    try { const j = await poster('/api/liens', { vue, lecteur, statut, motif }); SANTE.liens = j.liens; toast(statut === 'autorise' ? 'Lien autorisé : appliqué au prochain passage de 90-droits.sql' : statut === 'refuse' ? 'Lien refusé : droit retiré au prochain passage de 90-droits.sql' : 'Demande enregistrée'); draw(); navLiens(); }
+    try { const j = await poster('/api/liens', { vue, lecteur, statut, motif }); SANTE.liens = j.liens; toast(statut === 'autorise' ? 'Lien autorisé : droit posé au prochain passage de 90-droits.sql (15 minutes au plus)' : statut === 'refuse' ? 'Lien refusé : droit retiré au prochain passage de 90-droits.sql (15 minutes au plus)' : 'Demande enregistrée'); draw(); navLiens(); }
     catch (e) { toast(e.message); }
   };
   const draw = () => {
@@ -1395,7 +1395,7 @@ RENDER.liens = () => {
     const nb = (p, l) => L.filter(x => outilDe(x.vue) === p && x.lecteur === l && x.statut === 'autorise').length;
     const vuesExistantes = (SANTE.vues || []).map(v => v.vue).sort();
     root.innerHTML = `<div class="wrap">
-      <div class="top"><div><p class="text-muted prose">Un lien autorise un outil à lire la vue <span class="mono">pub_</span> d’un autre. Matrix tient le registre (<span class="mono">matrix.liens</span>) ; <span class="mono">partage/90-droits.sql</span> l’applique : droit posé pour un lien autorisé, retiré sinon.</p></div>
+      <div class="top"><div><p class="text-muted prose">Un lien autorise un outil à lire la vue <span class="mono">pub_</span> d’un autre. Matrix tient le registre (<span class="mono">matrix.liens</span>) ; <span class="mono">partage/90-droits.sql</span> l’applique : droit posé pour un lien autorisé, retiré sinon. La tâche planifiée <span class="mono">appliquer-liens.sh</span> le rejoue dans les 15 minutes qui suivent une décision.</p></div>
         ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary" id="liens-relire">${icon('pulse', 14)} Relire le serveur</button></div>` : ''}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         ${seg('lfiltre', [['traiter', 'À traiter', L.filter(l => LIENS_A_TRAITER.includes(l.etat)).length], ['applique', 'Appliqués', L.filter(l => l.etat === 'applique').length], ['refuse', 'Refusés', L.filter(l => l.etat === 'refuse').length], ['outil_absent', 'Outil absent', L.filter(l => l.etat === 'outil_absent').length], ['tous', 'Tous', L.length]], st.filtre)}

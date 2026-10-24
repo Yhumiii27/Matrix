@@ -237,6 +237,8 @@ BEGIN
       ('arche.pub_journal',                  ARRAY['matrix_app']),
       -- D22 (22/10/2026) : REX des CAPEX (Arche) et des projets (Keystone), réunis par Matrix ; vues à créer par les outils.
       ('arche.pub_rex',                      ARRAY['matrix_app']),
+      -- M-13 d'Arche (23/10/2026) : REX au contrat commun (§ 8 quater de docs/architecture-postgres.md), réuni par 96.
+      ('arche.pub_rex_v2',                   ARRAY['matrix_app']),
       ('keystone.pub_rex',                   ARRAY['matrix_app']),
       -- Crucible (demande M-4, 22/10/2026) : journal (D18) ; moyens et réservations confirmées (livraison L3 de Crucible,
       -- absentes jusque-là : WARNING), lus par Keystone (planning des projets) et Vigie (coactivité, plans de prévention).

@@ -45,7 +45,7 @@ Pourquoi un déclencheur d'événement : `ALTER DEFAULT PRIVILEGES` accorde `SEL
 6. **Programmer la sauvegarde.** Tâche planifiée Coolify sur le conteneur `postgres`, commande `sh /opt/epc2i/sauvegarde/sauvegarder.sh`, par exemple chaque nuit à 2 h 15 (`15 2 * * *`). Copiez ensuite le volume des sauvegardes (`/sauvegardes` dans le conteneur ; son nom se termine par `epc2i_sauvegardes`) hors du serveur (voir « Sauvegarde et restauration »).
 7. **Déclarer les administrateurs nominatifs** (voir plus bas).
 8. **Raccorder les outils** un par un, dans l'ordre du plan (§ 10), avec leur `DATABASE_URL`.
-9. **Poser le partage** après la bascule de chaque outil, dans cet ordre : migration de l'outil (elle crée ses colonnes prérequises et ses vues `pub_`), référentiels de Matrix (`partage/10-matrix-referentiels.sql`, une fois), fichier de l'outil (`20` à `50` ; `60` attend le module ECR / ECO de Vigie), puis `partage/90-droits.sql` et `partage/95-matrix-journal-unifie.sql`. Ordre, rôles et commandes : `partage/README.md`. `droits.verifier()` doit rester sans erreur après chaque passage.
+9. **Poser le partage** après la bascule de chaque outil, dans cet ordre : migration de l'outil (elle crée ses colonnes prérequises et ses vues `pub_`), référentiels de Matrix (`partage/10-matrix-referentiels.sql`, une fois), fichier de l'outil (`20` à `50` ; `60` attend le module ECR / ECO de Vigie), puis `partage/90-droits.sql`, `partage/95-matrix-journal-unifie.sql` et `partage/96-matrix-rex-unifie.sql`. Ordre, rôles et commandes : `partage/README.md`. `droits.verifier()` doit rester sans erreur après chaque passage.
 
 ## Sur un poste local
 

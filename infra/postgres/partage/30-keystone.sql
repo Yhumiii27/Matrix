@@ -1,13 +1,17 @@
 -- Partage des données EPC2I, fichier 30 : vues publiées par Keystone (schéma keystone).
 --
--- Décisions : D02 projets, D03 chantiers, D04 affectations, D05 tâches, D16 clients et fournisseurs,
--- D12 et D13 (référentiels lus par Vigie : articles, nomenclatures, parc, activités, livrables), D18 journal.
--- Source : les 18 vues sont créées par les migrations de Keystone (dépôt Keystone, décision P-02 du 18/10/2026) :
+-- Décisions : D02 projets, D03 chantiers, D04 affectations, D05 tâches, D16 clients et fournisseurs (D21 : code de la
+-- filiale d'un client interne), D12 et D13 (référentiels lus par Vigie : articles, nomenclatures, parc, activités,
+-- livrables), D18 journal, D22 REX ; demandes d'Arche (K-01 à K-10) et de Crucible.
+-- Source : les 20 vues sont créées par les migrations de Keystone (dépôt Keystone, décision P-02 du 18/10/2026) :
 -- drizzle/0035_share.sql (12 vues), 0038_share_followup.sql (pub_jalons, pub_jalons_projets, pub_avancement_projets,
 -- pub_avenants, pub_reserves ; colonnes ajoutées en fin de pub_projets et pub_livrables), 0040_share_installed_base.sql
--- (colonnes ajoutées en fin de pub_parc_machines) et 0046_catalogue_share.sql (pub_catalogue_machines). Leurs colonnes
--- et tables prérequises viennent de 0034_share_prerequisites.sql (persons.matricule : 0024), 0037_share_followup_columns
--- et 0045_machine_catalogue ; le déclencheur machine_catalogue_entries_frozen, de 0046. Ce
+-- (colonnes ajoutées en fin de pub_parc_machines), 0046_catalogue_share.sql (pub_catalogue_machines),
+-- 0050_capex_needs_share.sql (pub_reponses_besoins), 0052_internal_client_share.sql (colonnes ajoutées en fin de
+-- pub_projets) et 0054_matrix_rex_clients_share.sql (pub_rex ; colonne ajoutée en fin de pub_clients). Leurs colonnes,
+-- tables et index prérequis viennent de 0034_share_prerequisites.sql (persons.matricule : 0024),
+-- 0037_share_followup_columns, 0045_machine_catalogue, 0049_capex_needs, 0051_internal_clients et
+-- 0053_matrix_subsidiaries ; le déclencheur machine_catalogue_entries_frozen, de 0046. Ce
 -- fichier en est la copie, qualifiée keystone. et commentée colonne par colonne : le rejouer sur un serveur où Keystone
 -- a passé ses migrations (npm run db:migrate) ne change rien (CREATE OR REPLACE VIEW, même définition). Il ne crée ni
 -- colonne ni contrainte : migration de Keystone d'abord, puis ce fichier, puis 90-droits.sql. Toute évolution d'une
@@ -28,7 +32,7 @@
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
 \pset pager off
 
--- ═══ Prérequis : migrations 0034 à 0046 de Keystone ═══
+-- ═══ Prérequis : migrations 0034 à 0054 de Keystone ═══
 -- Ce fichier ne crée rien d'autre que les vues. Une colonne, une table ou un déclencheur absent signale une migration
 -- de Keystone non passée.
 DO $$
@@ -43,11 +47,17 @@ BEGIN
                ('projects', 'capex_code'), ('projects', 'besoin_ref'), ('milestones', 'updated_at'),
                ('share_project_progress', 'progress_pct'),
                -- 0045_machine_catalogue (pub_catalogue_machines)
-               ('machine_catalogue_entries', 'code'), ('project_equipments', 'catalogue_code')) AS x(t, c)
+               ('machine_catalogue_entries', 'code'), ('project_equipments', 'catalogue_code'),
+               -- 0049_capex_needs (pub_reponses_besoins)
+               ('need_answers', 'updated_at'),
+               -- 0051_internal_clients (pub_projets, pub_clients)
+               ('clients', 'is_internal'), ('clients', 'subsidiary_code'),
+               -- pub_rex (table des leçons apprises, antérieure au partage)
+               ('lessons_learned', 'updated_at')) AS x(t, c)
   WHERE NOT EXISTS (SELECT FROM information_schema.columns ic
                     WHERE ic.table_schema = 'keystone' AND ic.table_name = x.t AND ic.column_name = x.c);
   IF v_manque IS NOT NULL THEN
-    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites à 0046_catalogue_share), puis rejouez ce fichier.', v_manque;
+    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites à 0054_matrix_rex_clients_share), puis rejouez ce fichier.', v_manque;
   END IF;
   -- 0046_catalogue_share : une version publiée du catalogue est figée par ce déclencheur (R-186), condition du contrat
   -- de pub_catalogue_machines.
@@ -55,6 +65,14 @@ BEGIN
                  WHERE n.nspname = 'keystone' AND c.relname = 'machine_catalogue_entries'
                    AND t.tgname = 'machine_catalogue_entries_frozen' AND NOT t.tgisinternal) THEN
     RAISE EXCEPTION 'Déclencheur keystone.machine_catalogue_entries_frozen absent : lancez npm run db:migrate de Keystone (migration 0046_catalogue_share), puis rejouez ce fichier.';
+  END IF;
+  -- Index des colonnes maj_le (K-11) : need_answers_updated_at_idx (0049, pub_reponses_besoins) et
+  -- lessons_learned_updated_at_idx (0053, pub_rex) ; les lecteurs filtrent sur maj_le.
+  SELECT string_agg(x.i, ', ') INTO v_manque
+  FROM (VALUES ('need_answers_updated_at_idx'), ('lessons_learned_updated_at_idx')) AS x(i)
+  WHERE to_regclass('keystone.' || x.i) IS NULL;
+  IF v_manque IS NOT NULL THEN
+    RAISE EXCEPTION 'Index absents du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0049_capex_needs et 0053_matrix_subsidiaries), puis rejouez ce fichier.', v_manque;
   END IF;
 END $$;
 
@@ -100,13 +118,15 @@ SELECT p.code,                                   -- tous : clé (codex.projects.
          WHERE po.project_id = p.id AND po.status NOT IN ('draft', 'cancelled')) AS fournisseurs,  -- Codex : projects.tiers (page.tsx:263)
        p.updated_at         AS maj_le,           -- Codex : projects.synced_at (page.tsx:255) ; tous : rafraîchissement
        p.capex_code,                             -- Arche (K-05, R-190) : CAPEX du projet (CPX-XXX-AAAA-nn)
-       p.besoin_ref                              -- Arche (K-05, R-190) : besoin machine du CAPEX (CPX-…/Bnn)
+       p.besoin_ref,                             -- Arche (K-05, R-190) : besoin machine du CAPEX (CPX-…/Bnn)
+       coalesce(c.is_internal, false) AS client_interne,  -- Arche (K-05, R-190) : client = filiale du groupe ; jamais nul
+       c.subsidiary_code    AS filiale_code      -- Arche, Matrix (D21) : matrix.pub_filiales.code de ce client interne
 FROM keystone.projects p
 LEFT JOIN keystone.clients c           ON c.id = p.client_id
 LEFT JOIN keystone.persons pm          ON pm.id = p.pm_person_id
 LEFT JOIN keystone.lifecycle_stages ls ON ls.code = p.stage
 LEFT JOIN keystone.project_sites ps    ON ps.project_id = p.id;
-COMMENT ON VIEW keystone.pub_projets IS 'Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app.';
+COMMENT ON VIEW keystone.pub_projets IS 'Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) + client_interne, filiale_code (R-190, client interne = filiale du groupe) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app.';
 
 -- D03 · Fiches chantier ──────────────────────────────────────────────────
 CREATE OR REPLACE VIEW keystone.pub_chantiers WITH (security_barrier) AS
@@ -215,9 +235,10 @@ COMMENT ON VIEW keystone.pub_fournisseurs IS 'Contrat D16 v1 : fournisseurs Keys
 CREATE OR REPLACE VIEW keystone.pub_clients WITH (security_barrier) AS
 SELECT c.id,     -- Vigie, Codex, Cursus : clé (pub_projets.client_id)
        c.name,   -- tous : libellé du client
-       c.code3   -- Vigie : rapprochement des plans de prévention importés ; Codex : affichage
+       c.code3,  -- Vigie : rapprochement des plans de prévention importés ; Codex : affichage
+       c.subsidiary_code AS filiale_code  -- Matrix (D21) : matrix.pub_filiales.code d'un client interne, nul sinon
 FROM keystone.clients c;
-COMMENT ON VIEW keystone.pub_clients IS 'Contrat D16 v1 : clients Keystone. Lecteurs : codex_app, cursus_app, vigie_app, matrix_app.';
+COMMENT ON VIEW keystone.pub_clients IS 'Contrat D16 v1 + filiale_code (D21, en fin de vue : code de la filiale de Matrix pour un client interne, vide pour un client extérieur) : clients Keystone. Lecteurs : codex_app, cursus_app, vigie_app, matrix_app.';
 
 -- D12 et D13 · Référentiels lus par Vigie ────────────────────────────────
 CREATE OR REPLACE VIEW keystone.pub_articles WITH (security_barrier) AS
@@ -468,6 +489,60 @@ FROM keystone.machine_catalogue_entries e
 JOIN keystone.machine_types mt ON mt.code = e.machine_type_code
 WHERE e.status IN ('published', 'retired');
 COMMENT ON VIEW keystone.pub_catalogue_machines IS 'Contrat K-01 v1 (R-186) : catalogue machines publié aux filiales, une ligne par fiche et version (publiées et retirées ; jamais les brouillons) ; une version publiée est figée, la publication d''une nouvelle version retire la précédente. Lecteurs : arche_app.';
+
+-- R-187 · Réponses aux besoins machines des filiales (Arche K-02, K-03, K-10) ──
+-- Une ligne par réponse ; la plus récente (repondu_le, puis numero) fait foi. Fourchette calculée d'après la classe à
+-- l'écriture et gardée (E50 ±50 %, E30 ±30 %, E10 −5 / +10 %) : une réponse publiée ne bouge plus. projet_code : projet
+-- EPC2i créé (ou complété) à la commande, nul avant. maj_le = need_answers.updated_at (index K-11).
+CREATE OR REPLACE VIEW keystone.pub_reponses_besoins WITH (security_barrier) AS
+SELECT a.need_ref                   AS besoin_ref,
+       a.capex_code,
+       a.number                     AS numero,
+       a.nature,
+       a.qualification,
+       a.reason                     AS motif,
+       a.estimate_class             AS classe_estimation,
+       a.central_keur               AS montant_central_keur,
+       a.low_keur                   AS montant_bas_keur,
+       a.high_keur                  AS montant_haut_keur,
+       a.lead_time_weeks            AS delai_semaines,
+       a.valid_until                AS valide_jusqu_au,
+       a.document_ref,
+       p.code                       AS projet_code,
+       a.status                     AS statut,
+       a.answered_at                AS repondu_le,
+       a.updated_at                 AS maj_le
+FROM keystone.need_answers a
+LEFT JOIN keystone.projects p ON p.id = a.project_id;
+COMMENT ON VIEW keystone.pub_reponses_besoins IS 'Contrat K-02 v1 (R-187) : réponses d''EPC2i aux besoins machines des filiales, une ligne par réponse, la plus récente (repondu_le, puis numero) fait foi ; classe d''estimation et fourchette (K-03, offre ferme = E10) ; projet EPC2i créé à la commande (K-10). Lecteurs : arche_app.';
+
+-- D22 · Leçons apprises des projets ──────────────────────────────────────
+-- Contrat commun du REX de Matrix (15 colonnes, mêmes que arche.pub_rex_v2), réunies par matrix.rex_unifie (96). Seules
+-- les leçons validées ou appliquées sont publiées. titre = numéro et début du constat (80 caractères au plus, espaces
+-- réduits) ; categorie = code du thème ; statut = code du statut. Donnée personnelle : le nom de l'auteur seulement.
+CREATE OR REPLACE VIEW keystone.pub_rex WITH (security_barrier) AS
+SELECT 'lessons_learned:' || l.id::text AS ref_source,
+       'keystone'::text                 AS outil,
+       p.code                           AS projet_code,
+       p.capex_code,
+       l.number                         AS numero,
+       l.theme                          AS categorie,
+       l.number || ' · ' || CASE
+         WHEN char_length(regexp_replace(btrim(l.what_happened), '\s+', ' ', 'g')) <= 80 THEN regexp_replace(btrim(l.what_happened), '\s+', ' ', 'g')
+         ELSE left(regexp_replace(btrim(l.what_happened), '\s+', ' ', 'g'), 79) || '…'
+       END                              AS titre,
+       l.what_happened                  AS constat,
+       l.impact,
+       l.recommendation                 AS recommandation,
+       l.applies_to                     AS portee,
+       l.status                         AS statut,
+       l.raised_by_name                 AS auteur,
+       l.created_at                     AS cree_le,
+       l.updated_at                     AS maj_le
+FROM keystone.lessons_learned l
+JOIN keystone.projects p ON p.id = l.project_id
+WHERE l.status IN ('validated', 'applied');
+COMMENT ON VIEW keystone.pub_rex IS 'Contrat commun du REX de Matrix (D22) : leçons apprises des projets EPC2i, validées ou appliquées (une leçon proposée n''est pas publiée), mêmes colonnes que arche.pub_rex_v2. Lecteurs : matrix_app.';
 
 -- D18 · Journal ──────────────────────────────────────────────────────────
 -- Colonnes communes aux quatre pub_journal (même ordre, mêmes types), réunies par matrix.journal_unifie.

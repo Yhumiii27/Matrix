@@ -2,8 +2,12 @@
 --
 -- Décisions : D02 projets, D03 chantiers, D04 affectations, D05 tâches, D16 clients et fournisseurs,
 -- D12 et D13 (référentiels lus par Vigie : articles, nomenclatures, parc, activités, livrables), D18 journal.
--- Source : les 12 vues sont créées par la migration de Keystone drizzle/0035_share.sql (dépôt Keystone, décision P-02
--- du 18/10/2026), leurs colonnes prérequises par drizzle/0034_share_prerequisites.sql (persons.matricule : 0024). Ce
+-- Source : les 18 vues sont créées par les migrations de Keystone (dépôt Keystone, décision P-02 du 18/10/2026) :
+-- drizzle/0035_share.sql (12 vues), 0038_share_followup.sql (pub_jalons, pub_jalons_projets, pub_avancement_projets,
+-- pub_avenants, pub_reserves ; colonnes ajoutées en fin de pub_projets et pub_livrables), 0040_share_installed_base.sql
+-- (colonnes ajoutées en fin de pub_parc_machines) et 0046_catalogue_share.sql (pub_catalogue_machines). Leurs colonnes
+-- et tables prérequises viennent de 0034_share_prerequisites.sql (persons.matricule : 0024), 0037_share_followup_columns
+-- et 0045_machine_catalogue ; le déclencheur machine_catalogue_entries_frozen, de 0046. Ce
 -- fichier en est la copie, qualifiée keystone. et commentée colonne par colonne : le rejouer sur un serveur où Keystone
 -- a passé ses migrations (npm run db:migrate) ne change rien (CREATE OR REPLACE VIEW, même définition). Il ne crée ni
 -- colonne ni contrainte : migration de Keystone d'abord, puis ce fichier, puis 90-droits.sql. Toute évolution d'une
@@ -24,8 +28,9 @@
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
 \pset pager off
 
--- ═══ Prérequis : migrations 0034 et 0035 de Keystone ═══
--- Ce fichier ne crée rien d'autre que les vues. Une colonne absente signale une migration de Keystone non passée.
+-- ═══ Prérequis : migrations 0034 à 0046 de Keystone ═══
+-- Ce fichier ne crée rien d'autre que les vues. Une colonne, une table ou un déclencheur absent signale une migration
+-- de Keystone non passée.
 DO $$
 DECLARE
   v_manque text;
@@ -33,11 +38,23 @@ BEGIN
   SELECT string_agg(x.t || '.' || x.c, ', ') INTO v_manque
   FROM (VALUES ('persons', 'matricule'), ('countries', 'iso2'), ('projects', 'kind'), ('departments', 'org_code'),
                ('vigie_ecos', 'released_at'), ('vigie_ncrs', 'closed_on'), ('vigie_ncrs', 'supplier_id'),
-               ('vigie_ncrs', 'owner_matricule')) AS x(t, c)
+               ('vigie_ncrs', 'owner_matricule'),
+               -- 0037_share_followup_columns (pub_projets, pub_jalons, pub_avancement_projets)
+               ('projects', 'capex_code'), ('projects', 'besoin_ref'), ('milestones', 'updated_at'),
+               ('share_project_progress', 'progress_pct'),
+               -- 0045_machine_catalogue (pub_catalogue_machines)
+               ('machine_catalogue_entries', 'code'), ('project_equipments', 'catalogue_code')) AS x(t, c)
   WHERE NOT EXISTS (SELECT FROM information_schema.columns ic
                     WHERE ic.table_schema = 'keystone' AND ic.table_name = x.t AND ic.column_name = x.c);
   IF v_manque IS NOT NULL THEN
-    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites et 0035_share), puis rejouez ce fichier.', v_manque;
+    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites à 0046_catalogue_share), puis rejouez ce fichier.', v_manque;
+  END IF;
+  -- 0046_catalogue_share : une version publiée du catalogue est figée par ce déclencheur (R-186), condition du contrat
+  -- de pub_catalogue_machines.
+  IF NOT EXISTS (SELECT FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+                 WHERE n.nspname = 'keystone' AND c.relname = 'machine_catalogue_entries'
+                   AND t.tgname = 'machine_catalogue_entries_frozen' AND NOT t.tgisinternal) THEN
+    RAISE EXCEPTION 'Déclencheur keystone.machine_catalogue_entries_frozen absent : lancez npm run db:migrate de Keystone (migration 0046_catalogue_share), puis rejouez ce fichier.';
   END IF;
 END $$;
 
@@ -81,13 +98,15 @@ SELECT p.code,                                   -- tous : clé (codex.projects.
           FROM keystone.purchase_orders po
           JOIN keystone.suppliers su ON su.id = po.supplier_id
          WHERE po.project_id = p.id AND po.status NOT IN ('draft', 'cancelled')) AS fournisseurs,  -- Codex : projects.tiers (page.tsx:263)
-       p.updated_at         AS maj_le            -- Codex : projects.synced_at (page.tsx:255) ; tous : rafraîchissement
+       p.updated_at         AS maj_le,           -- Codex : projects.synced_at (page.tsx:255) ; tous : rafraîchissement
+       p.capex_code,                             -- Arche (K-05, R-190) : CAPEX du projet (CPX-XXX-AAAA-nn)
+       p.besoin_ref                              -- Arche (K-05, R-190) : besoin machine du CAPEX (CPX-…/Bnn)
 FROM keystone.projects p
 LEFT JOIN keystone.clients c           ON c.id = p.client_id
 LEFT JOIN keystone.persons pm          ON pm.id = p.pm_person_id
 LEFT JOIN keystone.lifecycle_stages ls ON ls.code = p.stage
 LEFT JOIN keystone.project_sites ps    ON ps.project_id = p.id;
-COMMENT ON VIEW keystone.pub_projets IS 'Contrat D02 v1 : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app.';
+COMMENT ON VIEW keystone.pub_projets IS 'Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app.';
 
 -- D03 · Fiches chantier ──────────────────────────────────────────────────
 CREATE OR REPLACE VIEW keystone.pub_chantiers WITH (security_barrier) AS
@@ -230,11 +249,14 @@ SELECT m.number,                                  -- Vigie : eco_effectivity.tar
        coalesce(p.code, m.project_code) AS project_code,  -- Vigie : projet d'origine
        m.warranty_status,                         -- Vigie : disposition (rétrofit sous garantie)
        r.part_ref,                                -- Vigie : article monté
-       r.revision         AS fitted_revision      -- Vigie : eco_effectivity.fitted_revision
+       r.revision         AS fitted_revision,     -- Vigie : eco_effectivity.fitted_revision
+       m.machine_type_code  AS type_machine_code, -- Arche (K-07, R-193) : type de la machine, identique sur ses lignes
+       m.delivered_on       AS livree_le,         -- Arche (K-07) : date de livraison
+       m.updated_at         AS maj_le             -- Arche (K-07) : rafraîchissement
 FROM keystone.machines m
 LEFT JOIN keystone.projects p ON p.id = m.project_id
 LEFT JOIN keystone.machine_part_revisions r ON r.machine_id = m.id;
-COMMENT ON VIEW keystone.pub_parc_machines IS 'Contrat D12 v1 : parc installé, une ligne par machine et article monté. Lecteurs : vigie_app, matrix_app.';
+COMMENT ON VIEW keystone.pub_parc_machines IS 'Contrat D12 v1 + type_machine_code, livree_le, maj_le (R-193, en fin de vue) : parc installé, une ligne par machine et article monté ; les colonnes ajoutées sont celles de la machine. Lecteurs : vigie_app, matrix_app, arche_app.';
 
 CREATE OR REPLACE VIEW keystone.pub_activites WITH (security_barrier) AS
 SELECT p.code   AS project_code,  -- Vigie : filtre de la liste de choix
@@ -248,10 +270,204 @@ CREATE OR REPLACE VIEW keystone.pub_livrables WITH (security_barrier) AS
 SELECT p.code   AS project_code,  -- Vigie : filtre de la liste de choix
        d.number,                  -- Vigie : events.keystone_deliverable_number (fiche NC)
        d.title,                   -- Vigie : libellé
-       d.status                   -- Vigie : affichage
+       d.status,                  -- Vigie : affichage
+       d.deliverable_type AS type,     -- Arche (K-06, R-189) : client_acceptance = PV de réception
+       d.accepted_on      AS accepte_le,  -- Arche (K-06) : date d'acceptation
+       d.updated_at       AS maj_le       -- Arche (K-06) : rafraîchissement
 FROM keystone.deliverables d
 JOIN keystone.projects p ON p.id = d.project_id;
-COMMENT ON VIEW keystone.pub_livrables IS 'Contrat D13 v1 : livrables contractuels, pour la fiche NC. Lecteurs : vigie_app, matrix_app.';
+COMMENT ON VIEW keystone.pub_livrables IS 'Contrat D13 v1 + type, accepte_le, maj_le (R-189, en fin de vue) : livrables contractuels, pour la fiche NC et les PV de réception (type client_acceptance). Lecteurs : vigie_app, matrix_app, arche_app.';
+
+-- R-195 · Jalons du planning (Crucible) ──────────────────────────────────
+-- Mois comptés depuis le début du projet ; fin de l'activité liée quand elle est datée.
+CREATE OR REPLACE VIEW keystone.pub_jalons WITH (security_barrier) AS
+SELECT p.code               AS projet_code,
+       m.id                 AS jalon_id,
+       m.name               AS nom,
+       m.position,
+       m.baseline_month     AS mois_reference,
+       m.forecast_month     AS mois_prevu,
+       m.status             AS statut,
+       a.code               AS activite_code,
+       a.finish_date        AS date_fin_activite,
+       greatest(m.updated_at, a.updated_at, a.scheduled_at) AS maj_le
+FROM keystone.milestones m
+JOIN keystone.projects p        ON p.id = m.project_id
+LEFT JOIN keystone.activities a ON a.id = m.activity_id;
+COMMENT ON VIEW keystone.pub_jalons IS 'Contrat R-195 v1 : jalons du planning des projets (mois depuis le début du projet), avec la fin de l''activité liée quand elle est datée. Lecteurs : crucible_app, matrix_app.';
+
+-- R-189 · Suivi des projets d'un CAPEX (Arche K-04) ──────────────────────
+-- Côté vente seulement (question P-05, AC-2 d'Arche) : aucun coût interne, taux, coût réel, budget, CPI, EAC ni marge.
+-- Montants en k€, convertis de la devise du contrat au taux budgétaire du projet (comme toute consolidation de Keystone,
+-- src/domain/currency.ts eurRate : 1 pour l'euro, le taux budgétaire pour la devise du projet, 1 sinon).
+-- pub_jalons_projets : une ligne par projet et jalon CAPEX. Un jalon est atteint à la première entrée, toujours valable
+-- (ni annulée ni refusée), dans une phase de rang donné ou suivante ; sa date prévue vient du module qui le planifie quand
+-- Keystone en a un, sinon c'est la date réelle. Pas encore de date de référence (BL1) : reference_le est nul.
+CREATE OR REPLACE VIEW keystone.pub_jalons_projets WITH (security_barrier) AS
+WITH standing AS (
+  SELECT t.project_id, s.seq, t.effective_on, t.created_at
+  FROM keystone.stage_transitions t
+  JOIN keystone.lifecycle_stages s ON s.code = t.to_stage
+  WHERE t.mode <> 'revert'
+    AND t.validation_status IS DISTINCT FROM 'rejected'
+    AND s.seq IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM keystone.stage_transitions r WHERE r.reverts_transition_id = t.id)
+)
+SELECT p.code              AS projet_code,
+       j.jalon_code,
+       coalesce(j.prevu, j.reel) AS prevu_le,
+       NULL::date          AS reference_le,
+       j.reel              AS reel_le,
+       greatest(p.updated_at, e.changed, j.changed) AS maj_le
+FROM keystone.projects p
+LEFT JOIN keystone.contracts c    ON c.project_id = p.id
+LEFT JOIN keystone.site_sheets ss ON ss.project_id = p.id
+CROSS JOIN LATERAL (
+  SELECT min(st.effective_on) FILTER (WHERE st.seq >= 4)  AS etudes,
+         min(st.effective_on) FILTER (WHERE st.seq >= 5)  AS approvisionnements,
+         min(st.effective_on) FILTER (WHERE st.seq >= 8)  AS expedition,
+         min(st.effective_on) FILTER (WHERE st.seq >= 9)  AS chantier,
+         min(st.effective_on) FILTER (WHERE st.seq >= 12) AS clos,
+         max(st.created_at) AS changed
+  FROM standing st WHERE st.project_id = p.id
+) e
+CROSS JOIN LATERAL (
+  SELECT max(i.planned_on) AS planned, max(i.updated_at) AS changed
+  FROM keystone.itp_plans ip JOIN keystone.itp_inspections i ON i.plan_id = ip.id
+  WHERE ip.project_id = p.id AND i.stage = 'fat'
+) fat
+CROSS JOIN LATERAL (
+  SELECT max(cs.date_on) AS planned,
+         CASE WHEN count(*) > 0 AND bool_and(cs.status = 'done') THEN max(cs.date_on) END AS done
+  FROM keystone.commissioning_systems sy JOIN keystone.commissioning_steps cs ON cs.system_id = sy.id
+  WHERE sy.project_id = p.id AND cs.step = 'sat'
+) sat
+CROSS JOIN LATERAL (
+  SELECT max(sp.planned_on) AS planned, max(sp.created_at) AS changed FROM keystone.sat_plans sp WHERE sp.project_id = p.id
+) satp
+CROSS JOIN LATERAL (
+  SELECT max(d.due_on) AS due,
+         CASE WHEN count(*) > 0 AND bool_and(d.status = 'accepted') THEN max(d.accepted_on) END AS accepted,
+         max(d.updated_at) AS changed
+  FROM keystone.deliverables d WHERE d.project_id = p.id AND d.deliverable_type = 'client_acceptance'
+) pv
+CROSS JOIN LATERAL (
+  SELECT max(coalesce(mc.extended_until, mc.warranty_end_on)) AS ends, max(mc.updated_at) AS changed
+  FROM keystone.machines mc WHERE mc.project_id = p.id
+) w
+CROSS JOIN LATERAL (VALUES
+  ('commande',     NULL::date,                         coalesce(c.signed_on, e.etudes), c.updated_at),
+  ('fin_etudes',   NULL::date,                         e.approvisionnements,            NULL::timestamptz),
+  ('fat',          fat.planned,                        e.expedition,                    fat.changed),
+  ('expedition',   NULL::date,                         e.expedition,                    NULL::timestamptz),
+  ('arrivee_site', ss.start_on,                        e.chantier,                      ss.updated_at),
+  ('sat',          coalesce(sat.planned, satp.planned), sat.done,                       satp.changed),
+  ('pv_reception', pv.due,                             pv.accepted,                     pv.changed),
+  ('fin_garantie', w.ends,                             e.clos,                          w.changed)
+) AS j(jalon_code, prevu, reel, changed);
+COMMENT ON VIEW keystone.pub_jalons_projets IS 'Contrat R-189 v1 : une ligne par projet et jalon CAPEX (commande, fin_etudes, fat, expedition, arrivee_site, sat, pv_reception, fin_garantie) ; reel_le null tant que le jalon n''est pas atteint. Lecteurs : arche_app, matrix_app.';
+
+-- Avancement physique et SPI : calculés par Keystone (valeur acquise à la date de situation) et tenus dans
+-- share_project_progress par la tâche planifiée share-progress (nuls avant son premier passage) ; le reste est lu en direct.
+CREATE OR REPLACE VIEW keystone.pub_avancement_projets WITH (security_barrier) AS
+SELECT p.code              AS projet_code,
+       sp.situation_on     AS date_situation,
+       sp.progress_pct     AS avancement_physique_pct,
+       sp.spi,
+       coalesce((SELECT max(coalesce(a.finish_date, a.early_finish_date)) FROM keystone.activities a WHERE a.project_id = p.id),
+                p.planned_finish_date) AS fin_prevue_le,
+       CASE WHEN c.id IS NOT NULL THEN round(c.base_amount_keur * fx.rate, 3) ELSE bp.contract_value_keur END AS montant_contrat_keur,
+       CASE WHEN c.id IS NOT NULL THEN round(coalesce(av.signed, 0) * fx.rate, 3) END AS montant_avenants_keur,
+       CASE WHEN c.id IS NOT NULL OR bp.project_id IS NOT NULL THEN round(coalesce(inv.amount, 0) + coalesce(lg.amount, 0), 3) END AS facture_keur,
+       greatest(p.updated_at, sp.updated_at, c.updated_at, bp.updated_at, av.changed, inv.changed, lg.changed) AS maj_le
+FROM keystone.projects p
+LEFT JOIN keystone.share_project_progress sp ON sp.project_id = p.id
+LEFT JOIN keystone.contracts c               ON c.project_id = p.id
+LEFT JOIN keystone.billing_plans bp          ON bp.project_id = p.id
+CROSS JOIN LATERAL (
+  SELECT CASE WHEN coalesce(c.currency, 'EUR') = 'EUR' THEN 1::numeric
+              WHEN c.currency = p.currency AND p.budget_rate > 0 THEN p.budget_rate
+              ELSE 1::numeric END AS rate
+) fx
+CROSS JOIN LATERAL (
+  SELECT sum(am.amount_keur) FILTER (WHERE am.status = 'signed') AS signed, max(am.updated_at) AS changed
+  FROM keystone.contract_amendments am WHERE am.contract_id = c.id
+) av
+CROSS JOIN LATERAL (
+  SELECT sum(ci.amount_keur * CASE WHEN coalesce(ci.currency, 'EUR') = 'EUR' THEN 1::numeric
+                                   WHEN ci.currency = p.currency AND p.budget_rate > 0 THEN p.budget_rate
+                                   ELSE 1::numeric END) AS amount,
+         max(ci.created_at) AS changed
+  FROM keystone.customer_invoices ci JOIN keystone.payment_milestones pm ON pm.id = ci.payment_milestone_id
+  WHERE pm.project_id = p.id
+) inv
+CROSS JOIN LATERAL (
+  SELECT sum(pm.amount_keur) FILTER (WHERE pm.status <> 'planned') AS amount, max(pm.updated_at) AS changed
+  FROM keystone.payment_milestones pm WHERE pm.project_id = p.id AND pm.contract_id IS NULL
+) lg;
+COMMENT ON VIEW keystone.pub_avancement_projets IS 'Contrat R-189 v1 : situation courante de chaque projet, côté vente seulement (aucun coût interne, taux, coût réel, CPI, EAC ni marge — P-05 / AC-2) ; montants en k€. Avancement et SPI : table share_project_progress, rafraîchie par la tâche share-progress. Lecteurs : arche_app, matrix_app.';
+
+-- Avenants envoyés au client (les brouillons restent internes) : proposé jusqu'à signature, refusé quand la demande de
+-- modification qui le porte a été rejetée. Numéro = rang dans le contrat (AV-01…) ; délai = jours de la demande.
+CREATE OR REPLACE VIEW keystone.pub_avenants WITH (security_barrier) AS
+SELECT p.code              AS projet_code,
+       'AV-' || lpad((a.position + 1)::text, 2, '0') AS numero,
+       a.subject           AS objet,
+       round(a.amount_keur * CASE WHEN coalesce(c.currency, 'EUR') = 'EUR' THEN 1::numeric
+                                  WHEN c.currency = p.currency AND p.budget_rate > 0 THEN p.budget_rate
+                                  ELSE 1::numeric END, 3) AS montant_keur,
+       cr.schedule_days    AS delai_jours,
+       CASE WHEN a.status = 'signed' THEN 'signe'
+            WHEN cr.status = 'rejected' THEN 'refuse'
+            ELSE 'propose' END AS statut,
+       a.signed_on         AS signe_le,
+       greatest(a.updated_at, cr.updated_at) AS maj_le
+FROM keystone.contract_amendments a
+JOIN keystone.contracts c             ON c.id = a.contract_id
+JOIN keystone.projects p              ON p.id = c.project_id
+LEFT JOIN keystone.change_requests cr ON cr.id = a.change_request_id
+WHERE a.status <> 'draft';
+COMMENT ON VIEW keystone.pub_avenants IS 'Contrat R-189 v1 : avenants au contrat envoyés au client (brouillons exclus), montant en k€. Lecteurs : arche_app, matrix_app.';
+
+-- Réserves : une liste par projet (R-117). Le numéro de NC, le nom du responsable et la description restent dans
+-- Keystone. ouverte_le = jour (heure de Paris) de la saisie : Keystone ne garde pas d'autre date d'ouverture.
+CREATE OR REPLACE VIEW keystone.pub_reserves WITH (security_barrier) AS
+SELECT p.code              AS projet_code,
+       pi.number           AS numero,
+       pi.category         AS categorie,
+       pi.register         AS origine,
+       pi.status           AS statut,
+       pi.owner_party      AS responsable,
+       (pi.created_at AT TIME ZONE 'Europe/Paris')::date AS ouverte_le,
+       pi.closed_on        AS levee_le,
+       pi.updated_at       AS maj_le
+FROM keystone.punch_items pi
+JOIN keystone.projects p ON p.id = pi.project_id;
+COMMENT ON VIEW keystone.pub_reserves IS 'Contrat R-189 v1 : réserves (liste unique du projet) — catégorie A/B/C, origine itp/site, statut open/in_progress/closed, responsable client/keystone. Lecteurs : arche_app, matrix_app.';
+
+-- R-186 · Catalogue machines publié aux filiales (Arche K-01) ─────────────
+-- Une ligne par fiche et version publiée ou retirée, jamais les brouillons. Une version publiée est figée par le
+-- déclencheur machine_catalogue_entries_frozen (contrôlé en tête de fichier). type_code = code du type de machine
+-- (comme pub_parc_machines.type_machine_code) ; maj_le = machine_catalogue_entries.updated_at (index K-11).
+CREATE OR REPLACE VIEW keystone.pub_catalogue_machines WITH (security_barrier) AS
+SELECT e.code,
+       e.version,
+       e.machine_type_code                  AS type_code,
+       coalesce(mt.name, mt.label)          AS type_libelle,
+       e.variant                            AS variante,
+       e.label                              AS libelle,
+       e.description,
+       e.options,
+       e.nominal_capacity                   AS capacite_nominale,
+       e.capacity_unit                      AS unite_capacite,
+       e.indicative_price_keur              AS prix_indicatif_keur,
+       e.lead_time_weeks                    AS delai_type_semaines,
+       CASE e.status WHEN 'published' THEN 'publie' ELSE 'retire' END AS statut,
+       e.updated_at                         AS maj_le
+FROM keystone.machine_catalogue_entries e
+JOIN keystone.machine_types mt ON mt.code = e.machine_type_code
+WHERE e.status IN ('published', 'retired');
+COMMENT ON VIEW keystone.pub_catalogue_machines IS 'Contrat K-01 v1 (R-186) : catalogue machines publié aux filiales, une ligne par fiche et version (publiées et retirées ; jamais les brouillons) ; une version publiée est figée, la publication d''une nouvelle version retire la précédente. Lecteurs : arche_app.';
 
 -- D18 · Journal ──────────────────────────────────────────────────────────
 -- Colonnes communes aux quatre pub_journal (même ordre, mêmes types), réunies par matrix.journal_unifie.

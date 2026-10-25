@@ -20,8 +20,8 @@ La convention :
 | 1 | `10-matrix-referentiels.sql` | `matrix_app` | `matrix.pays`, `sites` (avec coordonnées, M-11 d'Arche), `organigramme`, `zones` (avec cadre géographique, M-12 d'Arche), `filiales` (D21), `correspondances`, amorçage, vues `matrix.pub_*` |
 | 1 | `12-matrix-liens.sql` | `matrix_app` | Registre des liens entre outils administré par Matrix : `matrix.liens` (vue, lecteur, statut autorise / refuse / demande), journal `matrix.liens_journal` en ajout seul |
 | 2 | `20-cursus.sql` | `cursus_app` | Copie qualifiée des vues `cursus.pub_*` de la migration `0002_partage` de Cursus (D01, D08, D09, D18, D19) |
-| 2 | `30-keystone.sql` | `keystone_app` | Contrôle des prérequis (migrations `0034`, `0035`), copie des 12 vues `keystone.pub_*` de `0035_share` (D02 à D05, D12, D13, D16, D18) |
-| 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 7 vues `codex.pub_*` (D10, D11, D18) |
+| 2 | `30-keystone.sql` | `keystone_app` | Contrôle des prérequis (migrations `0034` à `0046`, déclencheur `machine_catalogue_entries_frozen` compris), copie des 18 vues `keystone.pub_*` : 12 de `0035_share` (D02 à D05, D12, D13, D16, D18), `pub_jalons` (Crucible), `pub_jalons_projets`, `pub_avancement_projets`, `pub_avenants`, `pub_reserves` (Arche K-04) et les colonnes ajoutées en fin de `pub_projets` et `pub_livrables` (`0038_share_followup`), en fin de `pub_parc_machines` (`0040_share_installed_base`, Arche K-07), `pub_catalogue_machines` (`0046_catalogue_share`, Arche K-01) |
+| 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 8 vues `codex.pub_*` : 7 de `0001_partage` (D10, D11, D18) et `pub_programmes_recherche` de `0002_pub_programmes_recherche` (CX-2 de Crucible) |
 | 2 | `50-vigie.sql` | `vigie_app` | Contrôle des prérequis (migrations `0008`, `0009`, `0014`), copie des 3 vues `vigie.pub_*` de `0009_partage` (D13, D18) et de `vigie.pub_controles` de `0014_controls_share` (D23, lue par Crucible) |
 | — | `60-vigie-ecr-eco.sql` | `vigie_app` | **À ne pas jouer tant que le module ECR / ECO n'existe pas dans Vigie** (aucune de ses tables dans Vigie au 18/10/2026). Spécification des tables ECR / ECO (D12) et de leurs vues `pub_`, à reporter dans les migrations de Vigie. |
 | 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche (`0000` à `0016`), copie de `arche.pub_journal` (D18), `arche.pub_capex`, `arche.pub_besoins_machines` (M-10 d'Arche), `arche.pub_rampup`, `arche.pub_rex` (v1, plus lue) et `arche.pub_rex_v2` (M-13 d'Arche, contrat commun du REX) |
@@ -107,6 +107,14 @@ Lancement à la main : `docker compose exec postgres sh /opt/epc2i/partage/appli
 Le contrôle de 90 (étape 1) garde sa propre liste, un peu plus large que `droits.colonnes_sensibles` : elle contient aussi `cursus.employes.reprise_date`, que la convention de partage exclut des vues `pub_`. Pour `matrix_lecture`, le classement de cette colonne reste la question P-04 de `docs/architecture-postgres.md`.
 
 ## Essais
+
+Essai du 25/10/2026 (vues de Keystone `0037` à `0046` et de Codex `0002`), sur un PostgreSQL 16 neuf :
+
+- socle `init/01` à `03`, puis migrations réelles en rôle d'outil : Keystone `0000` à `0049` (schéma `keystone`, `"public".` remplacé comme le fait son migrateur du serveur), Codex `0000` à `0002` ;
+- `30-keystone.sql` et `40-codex.sql` : les 26 vues `keystone.pub_*` (18) et `codex.pub_*` (8) identiques avant et après (définition, options, commentaire) ; `30` rejoué après 90 : sans effet ;
+- prérequis : sans `milestones.updated_at` ou sans le déclencheur `machine_catalogue_entries_frozen`, 30 s'arrête avec le message qui nomme la migration de Keystone à passer ;
+- 10, 12, puis 90 deux fois : 32 vues contrôlées et accordées, aucun lien retiré au second passage, `droits.verifier()` sans erreur ; `crucible_app` lit `codex.pub_programmes_recherche` et `keystone.pub_jalons`, `arche_app` lit `keystone.pub_catalogue_machines` et `pub_reserves`, `vigie_app` ne lit pas `codex.pub_programmes_recherche` ; `../verifier-droits.sql` : 126 cas conformes ;
+- limite connue : les migrations `0050_capex_needs_share` (`pub_reponses_besoins`) et `0052_internal_client_share` (colonnes ajoutées en fin de `pub_projets`) de Keystone, fusionnées le 25/10/2026, ne sont pas encore recopiées : sur un serveur où elles sont passées, 30 s'arrête sur `pub_projets` (« cannot drop columns from view »).
 
 Essai du 22/10/2026 (ajout de Crucible), sur PostgreSQL 16 (image du socle), en connexions réelles par mot de passe :
 

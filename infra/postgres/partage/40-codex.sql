@@ -1,6 +1,7 @@
 -- Partage des données EPC2I, fichier 40 : vues publiées par Codex (schéma codex).
 --
--- Décisions : D10 documents, D11 registre des types et circuits, D18 journal.
+-- Décisions : D10 documents, D11 registre des types et circuits, D18 journal ; programmes de recherche (CX-2 de Crucible).
+-- Source : 8 vues, créées par les migrations de Codex drizzle/0001_partage.sql (7) et 0002_pub_programmes_recherche.sql (1).
 -- Prérequis portés par d'autres décisions : D01 (users.matricule), D15 (departments.active).
 -- Exécution : en tant que codex_app, après les migrations Drizzle de Codex (voir README.md).
 --   psql "postgres://codex_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/40-codex.sql
@@ -206,6 +207,17 @@ FROM codex.function_holders h
 JOIN codex.functions fn ON fn.key = h.function_key
 JOIN codex.users u      ON u.id = h.user_id;
 COMMENT ON VIEW codex.pub_titulaires_fonction IS 'Contrat D11 v1 : titulaires des fonctions d''approbation. Le département du titulaire n''est pas publié (aucun lecteur ; users.department reste un cache local de Codex). Lecteurs : keystone_app, matrix_app.';
+
+-- CX-2 de Crucible · Programmes de recherche ─────────────────────────────
+-- Source : migration drizzle/0002_pub_programmes_recherche.sql de Codex (24/10/2026), recopiée à l'identique.
+CREATE OR REPLACE VIEW codex.pub_programmes_recherche WITH (security_barrier) AS
+SELECT p.code,                                 -- Crucible : code du programme (documents.program_code, rattachement « research »)
+       p.name        AS libelle,               -- Crucible : libellé
+       u.matricule   AS responsable_matricule, -- Crucible : responsable du programme ↔ matricule commun aux outils (D01)
+       p.active      AS actif                  -- Crucible : un programme clos n'est plus proposé pour un nouveau document
+FROM codex.research_programs p
+JOIN codex.users u ON u.id = p.manager_id;
+COMMENT ON VIEW codex.pub_programmes_recherche IS 'Contrat v1 (demande CX-2 de Crucible) : programmes de recherche de Codex. Lecteurs : crucible_app, matrix_app.';
 
 -- D18 · Journal ──────────────────────────────────────────────────────────
 -- Colonnes communes aux quatre pub_journal (même ordre, mêmes types), réunies par matrix.journal_unifie.

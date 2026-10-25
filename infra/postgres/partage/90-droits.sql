@@ -224,6 +224,8 @@ BEGIN
       ('codex.pub_circuits_type',            ARRAY['keystone_app', 'matrix_app']),
       ('codex.pub_titulaires_fonction',      ARRAY['keystone_app', 'matrix_app']),
       ('codex.pub_journal',                  ARRAY['matrix_app']),
+      -- Codex : programmes de recherche (migration 0002 de Codex, demande CX-2 de Crucible).
+      ('codex.pub_programmes_recherche',     ARRAY['crucible_app', 'matrix_app']),
       -- Vigie : NC et HSE de projet (D13), journal (D18), ECR et ECO (D12).
       ('vigie.pub_non_conformites',          ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_hse_projet',               ARRAY['keystone_app', 'matrix_app']),

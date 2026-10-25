@@ -299,7 +299,7 @@ Le partage passe par les migrations de l'outil (P-02, 18/10/2026). Les colonnes 
 | Outil | Migrations du partage (dépôt de l'outil) | Fichier de Matrix | Tables (catalogue, 18/10/2026) |
 |---|---|---|---|
 | Cursus | À faire (8.b) : `employes.matricule` (déjà dans `cursus/schema.sql`), `site_code`, `unite_code`, `sortie` ; `budgets.unite_code`, `plan_actions.unite_code` ; `certifications.organisme` ; `journal.actor_emp_id`, `objet_ref`, `projet_code` ; 3 index ; vues `pub_` | `20-cursus.sql`, qui crée encore ces prérequis (`IF NOT EXISTS`) | 46 au catalogue (28 dans `cursus/schema.sql`, à réaligner) |
-| Keystone | `0034_share_prerequisites` (`countries.iso2`, `projects.kind`, `departments.org_code`, colonnes des miroirs `vigie_ecos` et `vigie_ncrs`, 2 index ; `persons.matricule` depuis `0024`), `0035_share` (12 vues) ; puis `0037_share_followup_columns` et `0038_share_followup` (5 vues, colonnes en fin de `pub_projets` et `pub_livrables`), `0040_share_installed_base` (`pub_parc_machines`), `0045_machine_catalogue` et `0046_catalogue_share` (`pub_catalogue_machines`) : 18 vues | `30-keystone.sql` : copie des vues, contrôle des prérequis | 212 |
+| Keystone | `0034_share_prerequisites` (`countries.iso2`, `projects.kind`, `departments.org_code`, colonnes des miroirs `vigie_ecos` et `vigie_ncrs`, 2 index ; `persons.matricule` depuis `0024`), `0035_share` (12 vues) ; puis `0037_share_followup_columns` et `0038_share_followup` (5 vues, colonnes en fin de `pub_projets` et `pub_livrables`), `0040_share_installed_base` (`pub_parc_machines`), `0045_machine_catalogue` et `0046_catalogue_share` (`pub_catalogue_machines`), `0049_capex_needs` et `0050_capex_needs_share` (`pub_reponses_besoins`), `0051_internal_clients` et `0052_internal_client_share` (`client_interne`, `filiale_code` en fin de `pub_projets`), `0053_matrix_subsidiaries` et `0054_matrix_rex_clients_share` (`pub_rex`, D22 ; `filiale_code` en fin de `pub_clients`, D21) : 20 vues | `30-keystone.sql` : copie des vues, contrôle des prérequis | 212 |
 | Codex | `0001_partage` (`documents.distribution`, `review_months`, `process_code` ; `users.matricule` ; `departments.active` ; 1 index ; 7 vues) ; `0002_pub_programmes_recherche` (1 vue) | `40-codex.sql` (prérequis en `IF NOT EXISTS`, sans effet) | 22 |
 | Vigie | `0008_partage_prerequis` (`keystone_project_code` dans 4 tables, 9 colonnes du volet NC de `events`, `contractors.supplier_id`), `0009_partage` (3 vues) ; pas de `inductions`, `document_actions` ni `journal` (`pub_journal` lit `change_log`) | `50-vigie.sql` : copie des vues, contrôle des prérequis. `60-vigie-ecr-eco.sql` : module ECR / ECO à construire, à ne pas jouer | 52 |
 | Matrix | `10-matrix-referentiels.sql` : `pays`, `sites`, `organigramme`, `correspondances` | idem | 4, par les migrations de Matrix (§ 11) |
@@ -598,7 +598,9 @@ Décision D22 (22/10/2026, option A « Deux registres, une vue commune ») : Key
 Arche le REX des CAPEX ; chacun publie une vue `pub_rex` et Matrix les réunit par `UNION ALL`, comme le journal unifié
 (`partage/95`). Le contrat ci-dessous, validé le 23/10/2026, a été demandé aux deux outils dans leur `REQUESTS.md`
 (Keystone : « Publier les leçons apprises des projets (vue pub_rex, D22) » ; Arche : « Aligner arche.pub_rex sur le
-contrat commun du REX (D22) »). Lecteur : `matrix_app`, droit déjà posé par `partage/90-droits.sql`.
+contrat commun du REX (D22) »). Lecteur : `matrix_app`, droit déjà posé par `partage/90-droits.sql`. Les deux sont
+publiées : `arche.pub_rex_v2` (migration `0016` d'Arche, 23/10/2026) et `keystone.pub_rex` (migration `0054` de Keystone,
+25/10/2026 : leçons validées ou appliquées seulement, `titre` = numéro et début du constat).
 
 | # | Colonne | Type | Keystone (`lessons_learned`) | Arche (`rex_entries`) |
 |---|---|---|---|---|
@@ -632,7 +634,7 @@ Règles :
 Réunion côté Matrix : `matrix.rex_unifie`, créée par `partage/96-matrix-rex-unifie.sql` (23/10/2026, demande M-13
 d'Arche), sur le modèle de `95-matrix-journal-unifie.sql` : elle lit les 15 colonnes communes de `keystone.pub_rex` et
 `arche.pub_rex_v2` (la vue au contrat commun d'Arche ; `arche.pub_rex`, v1, n'est plus lue). Une vue absente ou non
-accordée est laissée de côté avec un WARNING (Keystone tant qu'il ne publie pas `pub_rex`), une vue dont les 15
+accordée est laissée de côté avec un WARNING (outil pas encore migré sur le serveur), une vue dont les 15
 premières colonnes s'écartent du contrat fait échouer le fichier. À rejouer après chaque publication et `90-droits.sql`.
 
 ## 8 quinquies. Matrix administre les tables et les liens (« dataverse »)

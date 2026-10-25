@@ -2,7 +2,8 @@
 --
 -- Keystone garde les leçons apprises des projets, Arche le REX des CAPEX ; chacun publie une vue au contrat commun du
 -- REX (docs/architecture-postgres.md, § 8 quater) : keystone.pub_rex (demande « Matrix → Keystone — Publier les leçons
--- apprises des projets », pas encore publiée au 23/10/2026) et arche.pub_rex_v2 (migration 0016_share_rex_v2 d'Arche ;
+-- apprises des projets », publiée par la migration 0054_matrix_rex_clients_share de Keystone le 25/10/2026 et recopiée
+-- dans 30-keystone.sql) et arche.pub_rex_v2 (migration 0016_share_rex_v2 d'Arche ;
 -- arche.pub_rex, v1, n'est plus lue). Matrix les réunit ici, en lecture seule, sur le modèle du journal unifié (95).
 -- Contrat commun, dans cet ordre : ref_source text, outil text, projet_code text, capex_code text, numero text,
 -- categorie text, titre text, constat text, impact text, recommandation text, portee text, statut text, auteur text,
@@ -11,7 +12,7 @@
 -- Elle n'est pas une vue pub_ : aucun outil ne la lit.
 -- Exécution : en tant que matrix_app, après 90-droits.sql (qui accorde les vues REX à matrix_app).
 --   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/96-matrix-rex-unifie.sql
--- Une vue absente ou non accordée (Keystone tant qu'il ne publie pas pub_rex) est laissée de côté avec un WARNING ;
+-- Une vue absente ou non accordée (outil pas encore migré sur le serveur) est laissée de côté avec un WARNING ;
 -- si aucune n'est lisible, rien n'est créé (WARNING). Rejouer ce fichier après chaque publication et 90-droits.sql.
 -- Rejouable. Données personnelles : le nom de l'auteur seulement, comme le journal unifié.
 

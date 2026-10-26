@@ -712,7 +712,7 @@ Matrix commence à lire chaque schéma dès la bascule de l'outil. Les étapes 1
 
 ### 10.1 Intégration continue
 
-Aucun des cinq dépôts n'a d'intégration continue aujourd'hui (ni `.github`, ni `.gitlab-ci.yml`, ni `.circleci`, vérifié le 15/10/2026). Le plan s'appuie pourtant sur elle (P-01, tests de Cursus sur deux moteurs, étape 3, § 12). C'est donc un lot à part entière, avec un workflow GitHub Actions par outil, `.github/workflows/postgres.yml` :
+Aucun des cinq dépôts n'a d'intégration continue aujourd'hui (ni `.github`, ni `.gitlab-ci.yml`, ni `.circleci`, vérifié le 15/10/2026). Analyse comparative du 25 oct. 2026 : Matrix lui-même n'a ni test ni intégration continue ; c'est l'écart E-03 du lot 6 (`docs/proposition.md` § 6). Le plan s'appuie pourtant sur elle (P-01, tests de Cursus sur deux moteurs, étape 3, § 12). C'est donc un lot à part entière, avec un workflow GitHub Actions par outil, `.github/workflows/postgres.yml` :
 
 | Étape du workflow | Keystone | Codex | Vigie | Cursus |
 |---|---|---|---|---|
@@ -744,7 +744,7 @@ Changements dans Matrix :
 
 - Fait le 15/10/2026 : `outils/collecteur.mjs`, `parseDrizzle`, accepte les noms qualifiés (`CREATE TABLE "keystone"."cities"`, `ALTER TABLE "keystone"."…"`, `DROP TABLE`, `RENAME`). Essai : les migrations actuelles des trois outils donnent le même résultat qu'avant (203, 22 et 36 tables) ; les migrations régénérées, lues 0 table avant le changement, en donnent autant ; `infra/postgres/cursus/schema.sql` donne 28 tables et 37 clés.
 - Déjà en place : `integration/declarer-schema.mjs` écarte `__drizzle_migrations` et `schema_migrations` (`PG_TABLES`, ligne 32, et la lecture SQLite, ligne 75).
-- À faire, `outils/collecteur.mjs` : lire la liste `SENSITIVE` dans `droits.colonnes_sensibles` une fois le serveur en service ; retirer `CURSUS_FK` pour Cursus dès que ses clés sont déclarées (`enrich()` les ignore déjà quand une clé existe).
+- À faire, `outils/collecteur.mjs` : lire la liste `SENSITIVE` dans `droits.colonnes_sensibles` une fois le serveur en service ; retirer `CURSUS_FK` pour Cursus dès que ses clés sont déclarées (`enrich()` les ignore déjà quand une clé existe). *Analyse comparative du 25 oct. 2026 : toujours à faire ; repris dans `docs/proposition.md` § 6, lot 6, E-08 (colonnes sensibles pilotées en base, glossaire métier) et E-14 (sonde serveur comme source principale, retrait des parseurs par expressions régulières et de `Function()`).*
 - Schéma `matrix` : tables de Matrix (`docs/proposition.md`, § 4) créées par les migrations de Matrix, avec le migrateur du § 4.3 (`DB_SCHEMA = 'matrix'`).
 
 ## 12. Risques

@@ -52,5 +52,8 @@ Décisions prises par l'utilisateur, avec ses mots exacts. Une question tranché
 | N° | Question |
 |---|---|
 | M-03 | Confirmation du remplacement de Lucca par Cursus (aujourd'hui provisoire). |
-| M-04 | Qui documente les tables : le service informatique seul, ou un responsable par domaine ? |
-| M-06 | Fournisseur d'authentification : même réponse que la question O-02 de Codex. |
+| M-04 | Qui documente les tables : le service informatique seul, ou un responsable par domaine ? Analyse comparative du 25 oct. 2026 : fixe aussi qui tient le glossaire métier (E-08) et valide les descriptions proposées par l'IA (E-15). |
+| M-06 | Fournisseur d'authentification : même réponse que la question O-02 de Codex. Analyse comparative du 25 oct. 2026 : devenu bloquant (E-02, `docs/proposition.md` § 6, lot 6). |
+| M-14 | Alertes de changement de schéma (E-05) : canal (e-mail, Teams) et destinataires ? |
+| M-15 | Demande d'accès à une vue `pub_` (E-10) : Matrix pose-t-il lui-même le `GRANT`, ou garde-t-on M-13 (application par `appliquer-liens.sh`) avec seulement la demande par l'outil et la notification ? |
+| M-16 | IA (E-15) : rédaction assistée des descriptions et serveur MCP en lecture seule sur le catalogue ? Fournisseur, et transmission du catalogue (colonnes sensibles comprises) autorisée ? |

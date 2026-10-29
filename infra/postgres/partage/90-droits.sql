@@ -243,6 +243,8 @@ BEGIN
       ('keystone.pub_avenants',              ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_reserves',              ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_pack_ingenierie',       ARRAY['arche_app', 'matrix_app']),
+      -- Expéditions (migration 0064 de Keystone, R-158) : suivies par la filiale dans Arche (décision 6 du 25/10/2026).
+      ('keystone.pub_expeditions',           ARRAY['arche_app', 'matrix_app']),
       -- Arche : CAPEX, besoins machines et montée en cadence (contrats d'Arche, docs/CONTRATS.md § 3), journal (D18).
       ('arche.pub_capex',                    ARRAY['keystone_app', 'matrix_app']),
       ('arche.pub_besoins_machines',         ARRAY['keystone_app', 'matrix_app']),

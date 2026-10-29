@@ -329,6 +329,7 @@ const DATA = JSON.parse(document.getElementById('matrix-data').textContent);
 const CAT = DATA.catalogue, FLUX = DATA.flux, USAGES = DATA.usages, DOUBLONS = DATA.doublons.groupes, HIST = DATA.historique.evenements;
 // SERVEUR : page servie par Matrix (modifications enregistrées sur le serveur) ; sinon maquette en lecture seule.
 const SERVEUR = !!DATA.serveur;
+const SERVEUR_COMMUN = !!DATA.serveurCommun;
 const EDITION = DATA.edition || { documentation: {}, decisions: {}, referentiels: { sites: [], organigramme: [], pays: [], zones: [], filiales: [] }, journal: [] };
 async function envoyer(chemin, corps) {
   const r = await fetch(chemin, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps) });
@@ -1263,7 +1264,7 @@ RENDER.referentiels = () => {
     root.innerHTML = `<div class="wrap">
       <div class="top" style="margin-bottom:14px"><div>${seg('ref', Object.entries(DEF).map(([k, x]) => [k, x.titre, EDITION.referentiels[k].length]), liste)}</div>
         ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary btn-sm" id="ref-ajouter">${icon('plus', 13)} Ajouter une ligne</button><button class="btn btn-secondary btn-sm" id="ref-annuler" ${modifie ? '' : 'disabled'}>Annuler les modifications</button><button class="btn btn-primary btn-sm" id="ref-enregistrer" ${modifie ? '' : 'disabled'}>Enregistrer</button></div>` : ''}</div>
-      <p class="text-muted prose" style="margin-bottom:12px">Liste unique décidée en ${d.decision}, publiée aux outils par la vue <span class="mono">${d.vue}</span> et par <span class="mono">GET /api/referentiels/${liste}</span>.${SERVEUR ? ' Chaque enregistrement est contrôlé avec les mêmes règles que la base et tracé dans le journal.' : ' La modification se fait sur le serveur Matrix.'}</p>
+      <p class="text-muted prose" style="margin-bottom:12px">Liste unique décidée en ${d.decision}, publiée aux outils par la vue <span class="mono">${d.vue}</span> et par <span class="mono">GET /api/referentiels/${liste}</span>.${!SERVEUR ? ' La modification se fait sur le serveur Matrix.' : SERVEUR_COMMUN ? ` Chaque enregistrement est écrit dans la table <span class="mono">${d.vue.replace('pub_', '')}</span> du serveur commun, contrôlé par ses contraintes et tracé dans le journal ; une ligne retirée y est désactivée, jamais supprimée, car les outils gardent son code.` : ' Chaque enregistrement est contrôlé avec les mêmes règles que la base et tracé dans le journal. Serveur commun non relié (MATRIX_DATABASE_URL) : la liste reste dans Matrix et n’atteint pas encore les outils.'}</p>
       <p class="form-error" id="ref-erreur" hidden></p>
       <div class="table-wrap"><table class="table"><thead><tr>${d.cols.map(c => `<th>${c[1]}</th>`).join('')}${SERVEUR ? '<th></th>' : ''}</tr></thead>
       <tbody>${brouillon.map((row, i) => `<tr>${d.cols.map(c => `<td>${champ(row, i, c)}</td>`).join('')}${SERVEUR ? `<td><button class="btn btn-ghost btn-icon" data-retirer="${i}" title="Retirer la ligne" aria-label="Retirer la ligne">${icon('close', 13)}</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="${d.cols.length + 1}" class="empty">Liste vide.</td></tr>`}</tbody></table></div>
@@ -1282,7 +1283,7 @@ RENDER.referentiels = () => {
     if (e.target.closest('#ref-annuler')) { brouillon = copie(); draw(); return; }
     if (e.target.closest('#ref-enregistrer')) {
       const lignes = brouillon.map(x => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, v === '' ? null : v])));
-      try { await envoyer(`/api/referentiels/${liste}`, lignes); brouillon = copie(); draw(); toast(`${DEF[liste].titre} : enregistré`); }
+      try { await envoyer(`/api/referentiels/${liste}`, lignes); brouillon = copie(); draw(); toast(`${DEF[liste].titre} : enregistré${SERVEUR_COMMUN ? ' sur le serveur commun' : ''}`); }
       catch (err) { const p = $('ref-erreur'); p.textContent = err.message; p.hidden = false; }
     }
   });

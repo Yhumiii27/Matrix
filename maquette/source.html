@@ -314,6 +314,9 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
       <section class="screen pad" id="s-qualite" data-title="Qualité des schémas" hidden></section>
       <section class="screen pad" id="s-sante" data-title="Santé des tables et des liens" hidden></section>
       <section class="screen pad" id="s-liens" data-title="Liens entre outils" hidden></section>
+      <section class="screen pad" id="s-journal" data-title="Journal unifié des outils" hidden></section>
+      <section class="screen pad" id="s-rex" data-title="Retours d’expérience" hidden></section>
+      <section class="screen pad" id="s-correspondances" data-title="Correspondances d’identifiants" hidden></section>
       <section class="screen pad" id="s-administration" data-title="Administration" hidden></section>
     </main>
   </div>
@@ -329,6 +332,7 @@ const DATA = JSON.parse(document.getElementById('matrix-data').textContent);
 const CAT = DATA.catalogue, FLUX = DATA.flux, USAGES = DATA.usages, DOUBLONS = DATA.doublons.groupes, HIST = DATA.historique.evenements;
 // SERVEUR : page servie par Matrix (modifications enregistrées sur le serveur) ; sinon maquette en lecture seule.
 const SERVEUR = !!DATA.serveur;
+const SERVEUR_COMMUN = !!DATA.serveurCommun;
 const EDITION = DATA.edition || { documentation: {}, decisions: {}, referentiels: { sites: [], organigramme: [], pays: [], zones: [], filiales: [] }, journal: [] };
 async function envoyer(chemin, corps) {
   const r = await fetch(chemin, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps) });
@@ -473,6 +477,9 @@ const NAV = [
   ['qualite', 'Qualité des schémas', 'pulse'],
   ['sante', 'Santé des données', 'pulse'],
   ['liens', 'Liens entre outils', 'ref'],
+  ['journal', 'Journal unifié', 'list'],
+  ['rex', 'Retours d’expérience', 'eye'],
+  ['correspondances', 'Correspondances', 'key'],
   ['administration', 'Administration', 'shield'],
 ];
 $('nav').innerHTML = NAV.map(([id, label, ic]) => `<a class="nav-item" href="#${id}" data-screen="${id}">${icon(ic)}<span class="label">${label}</span>${id === 'doublons' ? '<span class="tag tag-accent" id="nav-doublons"></span>' : id === 'liens' ? '<span class="tag tag-accent" id="nav-liens" hidden></span>' : ''}</a>`).join('');
@@ -1263,7 +1270,7 @@ RENDER.referentiels = () => {
     root.innerHTML = `<div class="wrap">
       <div class="top" style="margin-bottom:14px"><div>${seg('ref', Object.entries(DEF).map(([k, x]) => [k, x.titre, EDITION.referentiels[k].length]), liste)}</div>
         ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary btn-sm" id="ref-ajouter">${icon('plus', 13)} Ajouter une ligne</button><button class="btn btn-secondary btn-sm" id="ref-annuler" ${modifie ? '' : 'disabled'}>Annuler les modifications</button><button class="btn btn-primary btn-sm" id="ref-enregistrer" ${modifie ? '' : 'disabled'}>Enregistrer</button></div>` : ''}</div>
-      <p class="text-muted prose" style="margin-bottom:12px">Liste unique décidée en ${d.decision}, publiée aux outils par la vue <span class="mono">${d.vue}</span> et par <span class="mono">GET /api/referentiels/${liste}</span>.${SERVEUR ? ' Chaque enregistrement est contrôlé avec les mêmes règles que la base et tracé dans le journal.' : ' La modification se fait sur le serveur Matrix.'}</p>
+      <p class="text-muted prose" style="margin-bottom:12px">Liste unique décidée en ${d.decision}, publiée aux outils par la vue <span class="mono">${d.vue}</span> et par <span class="mono">GET /api/referentiels/${liste}</span>.${!SERVEUR ? ' La modification se fait sur le serveur Matrix.' : SERVEUR_COMMUN ? ` Chaque enregistrement est écrit dans la table <span class="mono">${d.vue.replace('pub_', '')}</span> du serveur commun, contrôlé par ses contraintes et tracé dans le journal ; une ligne retirée y est désactivée, jamais supprimée, car les outils gardent son code.` : ' Chaque enregistrement est contrôlé avec les mêmes règles que la base et tracé dans le journal. Serveur commun non relié (MATRIX_DATABASE_URL) : la liste reste dans Matrix et n’atteint pas encore les outils.'}</p>
       <p class="form-error" id="ref-erreur" hidden></p>
       <div class="table-wrap"><table class="table"><thead><tr>${d.cols.map(c => `<th>${c[1]}</th>`).join('')}${SERVEUR ? '<th></th>' : ''}</tr></thead>
       <tbody>${brouillon.map((row, i) => `<tr>${d.cols.map(c => `<td>${champ(row, i, c)}</td>`).join('')}${SERVEUR ? `<td><button class="btn btn-ghost btn-icon" data-retirer="${i}" title="Retirer la ligne" aria-label="Retirer la ligne">${icon('close', 13)}</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="${d.cols.length + 1}" class="empty">Liste vide.</td></tr>`}</tbody></table></div>
@@ -1282,7 +1289,7 @@ RENDER.referentiels = () => {
     if (e.target.closest('#ref-annuler')) { brouillon = copie(); draw(); return; }
     if (e.target.closest('#ref-enregistrer')) {
       const lignes = brouillon.map(x => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, v === '' ? null : v])));
-      try { await envoyer(`/api/referentiels/${liste}`, lignes); brouillon = copie(); draw(); toast(`${DEF[liste].titre} : enregistré`); }
+      try { await envoyer(`/api/referentiels/${liste}`, lignes); brouillon = copie(); draw(); toast(`${DEF[liste].titre} : enregistré${SERVEUR_COMMUN ? ' sur le serveur commun' : ''}`); }
       catch (err) { const p = $('ref-erreur'); p.textContent = err.message; p.hidden = false; }
     }
   });
@@ -1435,6 +1442,140 @@ RENDER.liens = () => {
   draw();
 };
 navLiens();
+
+// ── Journal unifié, REX, correspondances (serveur commun, écart E-11) ───
+const SANS_SERVEUR_COMMUN = quoi => `<div class="card" style="max-width:720px"><div class="card-kicker">Serveur commun</div>
+  <p class="prose">${quoi} se lit sur le serveur PostgreSQL commun. Il s’affiche ici quand Matrix y est relié (<span class="mono">MATRIX_DATABASE_URL</span>, rôle <span class="mono">matrix_app</span>).</p></div>`;
+async function lireApi(chemin, params = {}) {
+  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ''));
+  const r = await fetch(`${chemin}${q.size ? '?' + q : ''}`);
+  const j = await r.json().catch(() => ({ erreur: 'réponse illisible du serveur' }));
+  if (!r.ok) throw new Error(j.erreur || `erreur ${r.status}`);
+  return j;
+}
+const nomOutil = o => APPS[o] ? `${appMark(o, 16)} ${APPS[o].nom}` : esc(o || '—');
+const champsFiltre = (prefixe, champs) => champs.map(([k, ph, type, largeur]) => `<input class="input" id="${prefixe}-${k}" placeholder="${esc(ph)}" ${type ? `type="${type}"` : ''} style="width:${largeur || 160}px">`).join('');
+
+RENDER.journal = () => {
+  const root = $('s-journal');
+  if (!SERVEUR || !SERVEUR_COMMUN) { root.innerHTML = `<div class="wrap">${SANS_SERVEUR_COMMUN('Le journal unifié (D18)')}</div>`; return; }
+  const st = { outil: '', lignes: [], suite: null, absente: false, erreur: null };
+  const filtres = () => ({ outil: st.outil, projet: $('jr-projet')?.value, recherche: $('jr-recherche')?.value, depuis: $('jr-depuis')?.value, jusqu: $('jr-jusqu')?.value });
+  const charger = async (suite = false) => {
+    try {
+      const j = await lireApi('/api/journal', { ...filtres(), ...(suite && st.suite ? { apres_quand: st.suite.quand, apres_ref: st.suite.ref_source } : {}) });
+      st.lignes = suite ? st.lignes.concat(j.lignes) : j.lignes; st.suite = j.suite; st.absente = !!j.absente; st.erreur = null;
+    } catch (e) { st.erreur = e.message; }
+    drawTable();
+  };
+  root.innerHTML = `<div class="wrap">
+    <p class="text-muted prose" style="margin-bottom:12px">Les journaux d’audit des outils, réunis par <span class="mono">matrix.journal_unifie</span> (D18) aux colonnes communes. <span class="mono">action</span> n’a pas le même sens partout : verbe chez Codex et Cursus, domaine chez Keystone, entité.action chez Vigie. Les données de santé ne sont jamais publiées.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${seg('joutil', [['', 'Tous les outils'], ...APP_IDS.map(a => [a, APPS[a].nom])], '')}
+      ${champsFiltre('jr', [['recherche', 'Qui, action, objet, détail', '', 220], ['projet', 'Code projet', '', 120], ['depuis', 'Depuis', 'date', 150], ['jusqu', 'Jusqu’au', 'date', 150]])}
+      <button class="btn btn-secondary btn-sm" id="jr-chercher">${icon('search', 13)} Chercher</button></div>
+    <div id="jr-table"></div></div>`;
+  const drawTable = () => {
+    const el = $('jr-table');
+    if (st.erreur) { el.innerHTML = `<p class="form-error">${esc(st.erreur)}</p>`; return; }
+    if (st.absente) { el.innerHTML = `<p class="text-muted">La vue <span class="mono">matrix.journal_unifie</span> n’existe pas encore sur le serveur : jouez <span class="mono">partage/95-matrix-journal-unifie.sql</span> après la bascule des outils et <span class="mono">90-droits.sql</span>.</p>`; return; }
+    el.innerHTML = st.lignes.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Outil</th><th>Qui</th><th>Action</th><th>Objet</th><th>Projet</th><th>Détail</th></tr></thead><tbody>
+      ${st.lignes.map(l => `<tr><td class="tabnum text-muted nowrap">${quand(l.quand)}</td><td class="nowrap">${nomOutil(l.outil)}</td>
+        <td>${esc(l.qui || '—')}${l.qui_role ? `<div class="sub text-muted">${esc(l.qui_role)}${l.qui_matricule ? ' · ' + esc(l.qui_matricule) : ''}</div>` : ''}</td>
+        <td class="mono sub">${esc(l.action || '')}</td><td class="mono sub">${esc(l.objet || '')}</td><td class="mono sub">${esc(l.projet || '')}</td>
+        <td class="sub">${esc(String(l.detail ?? '').slice(0, 300))}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub text-muted" style="margin-top:8px">${st.lignes.length} entrée(s) affichée(s), de la plus récente à la plus ancienne.</p>
+      ${st.suite ? `<button class="btn btn-secondary btn-sm" id="jr-suite">Charger la suite</button>` : ''}` : '<p class="text-muted">Aucune entrée pour ces filtres.</p>';
+  };
+  root.addEventListener('click', e => {
+    if (e.target.closest('#jr-chercher')) charger();
+    if (e.target.closest('#jr-suite')) charger(true);
+  });
+  root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest('input')) charger(); });
+  onSeg(root, 'joutil', v => { st.outil = v; charger(); });
+  charger();
+};
+
+RENDER.rex = () => {
+  const root = $('s-rex');
+  if (!SERVEUR || !SERVEUR_COMMUN) { root.innerHTML = `<div class="wrap">${SANS_SERVEUR_COMMUN('Le REX unifié (D22)')}</div>`; return; }
+  const st = { outil: '', categorie: '', lignes: [], categories: [], absente: false, erreur: null };
+  const charger = async () => {
+    try {
+      const j = await lireApi('/api/rex', { outil: st.outil, categorie: st.categorie, code: $('rx-code')?.value, recherche: $('rx-recherche')?.value });
+      Object.assign(st, { lignes: j.lignes, categories: j.categories || st.categories, absente: !!j.absente, erreur: null });
+    } catch (e) { st.erreur = e.message; }
+    draw();
+  };
+  root.innerHTML = `<div class="wrap">
+    <p class="text-muted prose" style="margin-bottom:12px">Leçons apprises des projets (Keystone) et des CAPEX (Arche), réunies au contrat commun du REX par <span class="mono">matrix.rex_unifie</span> (D22). Chaque outil garde son registre : on corrige une leçon dans l’outil qui la porte.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${seg('routil', [['', 'Tous'], ['keystone', 'Keystone · projets'], ['arche', 'Arche · CAPEX']], '')}
+      <select class="input" id="rx-categorie" style="width:180px"><option value="">Toutes les catégories</option></select>
+      ${champsFiltre('rx', [['recherche', 'Titre, constat, recommandation', '', 240], ['code', 'Projet ou CAPEX', '', 150]])}
+      <button class="btn btn-secondary btn-sm" id="rx-chercher">${icon('search', 13)} Chercher</button></div>
+    <div id="rx-liste"></div></div>`;
+  const draw = () => {
+    const sel = $('rx-categorie');
+    sel.innerHTML = `<option value="">Toutes les catégories</option>${st.categories.map(c => `<option ${c === st.categorie ? 'selected' : ''}>${esc(c)}</option>`).join('')}`;
+    const el = $('rx-liste');
+    if (st.erreur) { el.innerHTML = `<p class="form-error">${esc(st.erreur)}</p>`; return; }
+    if (st.absente) { el.innerHTML = `<p class="text-muted">La vue <span class="mono">matrix.rex_unifie</span> n’existe pas encore : jouez <span class="mono">partage/96-matrix-rex-unifie.sql</span> après la publication de <span class="mono">keystone.pub_rex</span> ou <span class="mono">arche.pub_rex_v2</span> et <span class="mono">90-droits.sql</span>.</p>`; return; }
+    el.innerHTML = st.lignes.length ? `<p class="sub text-muted" style="margin-bottom:8px">${st.lignes.length} leçon(s)</p>` + st.lignes.map(r => `<details class="card" style="margin-bottom:8px">
+      <summary style="cursor:pointer;display:flex;gap:10px;align-items:center;flex-wrap:wrap">${nomOutil(r.outil)} <span class="mono sub">${esc(r.numero || '')}</span> <strong>${esc(r.titre || '')}</strong>
+        <span class="tag tag-neutral">${esc(r.categorie || '—')}</span><span class="sub text-muted" style="margin-left:auto">${esc([r.projet_code, r.capex_code].filter(Boolean).join(' · '))} · ${esc(r.auteur || '—')} · ${quand(r.cree_le)}</span></summary>
+      <div class="prose" style="margin-top:10px">${[['Constat', r.constat], ['Impact', r.impact], ['Recommandation', r.recommandation], ['Portée', r.portee]].filter(([, v]) => v).map(([k, v]) => `<p><span class="card-kicker">${k}</span><br>${esc(v)}</p>`).join('')}
+        <p class="sub text-muted">Statut ${esc(r.statut || '—')} · mise à jour ${quand(r.maj_le)} · <span class="mono">${esc(r.ref_source)}</span></p></div></details>`).join('')
+      : '<p class="text-muted">Aucune leçon pour ces filtres.</p>';
+  };
+  root.addEventListener('click', e => { if (e.target.closest('#rx-chercher')) charger(); });
+  root.addEventListener('change', e => { if (e.target.id === 'rx-categorie') { st.categorie = e.target.value; charger(); } });
+  root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest('input')) charger(); });
+  onSeg(root, 'routil', v => { st.outil = v; charger(); });
+  charger();
+};
+
+RENDER.correspondances = () => {
+  const root = $('s-correspondances');
+  if (!SERVEUR || !SERVEUR_COMMUN) { root.innerHTML = `<div class="wrap">${SANS_SERVEUR_COMMUN('La table des correspondances')}</div>`; return; }
+  const OBJ = { personne: 'Personnes (D01)', projet: 'Projets (D02)', site: 'Sites (D14)', unite: 'Unités (D15)', pays: 'Pays (D17)', titre: 'Titres (D08)', document: 'Documents (D10)' };
+  const STA = { propose: 'Proposée', valide: 'Validée', a_creer: 'À créer', abandonne: 'Abandonnée', rejete: 'Rejetée', retire: 'Retirée' };
+  const DEC = { propose: ['valide', 'rejete', 'a_creer', 'abandonne'], a_creer: ['valide', 'abandonne'], valide: ['retire'] };
+  const BTN = { valide: 'Valider', rejete: 'Rejeter', a_creer: 'À créer', abandonne: 'Abandonner', retire: 'Retirer' };
+  const st = { objet: '', statut: 'propose', lignes: [], compte: [], erreur: null };
+  const charger = async () => {
+    try { const j = await lireApi('/api/correspondances', { objet: st.objet, statut: st.statut }); Object.assign(st, { lignes: j.lignes, compte: j.compte, erreur: null }); }
+    catch (e) { st.erreur = e.message; }
+    draw();
+  };
+  const nb = (objet, statut) => st.compte.filter(c => (!objet || c.objet === objet) && (!statut || c.statut === statut)).reduce((n, c) => n + c.n, 0);
+  const decider = async (id, statut) => {
+    const c = st.lignes.find(x => String(x.id) === id); let pivot, note;
+    if (statut === 'valide') { pivot = prompt(`Clé commune pour ${c.outil} · ${c.table_locale} · ${c.id_local}`, c.pivot || ''); if (pivot == null) return; }
+    if (['rejete', 'retire', 'abandonne'].includes(statut)) { note = prompt(`Motif (${BTN[statut].toLowerCase()})`); if (!note) return; }
+    try { await poster('/api/correspondances', { id: c.id, statut, pivot, note }); toast(`Correspondance ${STA[statut].toLowerCase()}`); charger(); }
+    catch (e) { toast(e.message); }
+  };
+  const draw = () => {
+    root.innerHTML = `<div class="wrap">
+      <p class="text-muted prose" style="margin-bottom:12px">Pendant la transition, chaque identifiant local d’un outil (uuid Keystone, slug Codex ou Vigie, entier Cursus…) est relié à la clé commune : matricule, code projet, code de site, d’unité ou de pays. Matrix propose ; les RH valident les personnes, l’informatique le reste. Chaque outil lit les lignes décidées dans <span class="mono">matrix.pub_correspondances</span> et pose lui-même sa clé locale.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        ${seg('cobjet', [['', 'Tous', nb('', st.statut)], ...Object.entries(OBJ).map(([k, l]) => [k, l, nb(k, st.statut)])], st.objet)}
+        ${seg('cstatut', [...Object.entries(STA).map(([k, l]) => [k, l, nb(st.objet, k)]), ['', 'Tous', nb(st.objet, '')]], st.statut)}</div>
+      ${st.erreur ? `<p class="form-error">${esc(st.erreur)}</p>` : st.lignes.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Objet</th><th>Outil</th><th>Identifiant local</th><th>Libellé</th><th>Clé commune</th><th>Méthode</th><th>Statut</th><th>Décision</th><th></th></tr></thead><tbody>
+        ${st.lignes.map(c => `<tr><td>${esc(c.objet)}</td><td class="nowrap">${nomOutil(c.outil)}</td>
+          <td class="mono sub">${esc(c.table_locale)} · ${esc(c.id_local)}${c.cle_naturelle ? `<div class="text-muted">${esc(c.cle_naturelle)}</div>` : ''}</td>
+          <td>${esc(c.libelle_local || '')}</td><td class="mono">${esc(c.pivot || '—')}${c.pivot_provisoire ? ' <span class="tag tag-outline">provisoire</span>' : ''}</td>
+          <td class="sub">${esc(c.methode)}</td><td><span class="tag ${c.statut === 'valide' ? 'tag-neutral' : c.statut === 'propose' ? 'tag-accent' : 'tag-outline'}">${STA[c.statut] || esc(c.statut)}</span></td>
+          <td class="sub text-muted">${c.decide_par ? `${esc(c.decide_par)} · ${quand(c.decide_le)}` : `proposée par ${esc(c.propose_par)} · ${quand(c.propose_le)}`}${c.note ? `<div>${esc(c.note)}</div>` : ''}</td>
+          <td class="nowrap">${(DEC[c.statut] || []).map((d, i) => `<button class="btn ${i ? 'btn-ghost' : 'btn-secondary'} btn-sm" data-cdecide="${d}" data-id="${c.id}">${BTN[d]}</button>`).join(' ')}</td></tr>`).join('')}</tbody></table></div>
+        <p class="sub text-muted" style="margin-top:8px">${st.lignes.length} correspondance(s) · les 1 000 premières au plus.</p>` : '<p class="text-muted">Aucune correspondance pour ces filtres.</p>'}</div>`;
+  };
+  root.addEventListener('click', e => { const b = e.target.closest('[data-cdecide]'); if (b) decider(b.dataset.id, b.dataset.cdecide); });
+  onSeg(root, 'cobjet', v => { st.objet = v; charger(); });
+  onSeg(root, 'cstatut', v => { st.statut = v; charger(); });
+  charger();
+};
 
 // ── Administration ──────────────────────────────────────────────────────
 RENDER.administration = () => {

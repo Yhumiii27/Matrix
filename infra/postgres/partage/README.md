@@ -10,7 +10,7 @@ La convention :
 - Il n'y a pas de clé étrangère entre schémas. Une référence croisée est une colonne texte. L'application la contrôle à la saisie, puis Matrix contrôle les orphelins.
 - Une vue `pub_` est un contrat. On n'en retire ni ne renomme de colonne : un changement de ce type passe par une nouvelle vue `_v2`. On peut seulement ajouter des colonnes en fin de liste.
 - Aucune donnée de santé ni colonne sensible dans une vue `pub_` (liste `droits.colonnes_sensibles`, tables fermées en entier comprises).
-- Les vues `pub_` sont créées par les migrations de l'outil (décision P-02 du 18/10/2026 : Keystone `0035_share`, Codex `0001_partage`, Vigie `0009_partage`). Le fichier de partage de Matrix en est la copie qualifiée : il les recrée à l'identique et ne crée plus de colonne prérequise.
+- Les vues `pub_` sont créées par les migrations de l'outil (décision P-02 du 18/10/2026 : Keystone `0035_share`, Codex `0001_partage`, Vigie `0009_partage`). Le fichier de partage de Matrix en est la copie qualifiée : il les recrée à l'identique et ne crée plus de colonne prérequise. **Décision M-17 (30/10/2026)** : ces copies seront retirées au lot M17-3, quand la sonde contrôlera le contrat de chaque vue (`docs/architecture-postgres.md` § 8 sexies) ; d'ici là, elles restent tenues à jour. Une nouvelle vue `pub_` ne demande plus de copie : seulement un lien du registre.
 
 ## Fichiers et ordre d'exécution
 

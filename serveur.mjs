@@ -16,6 +16,11 @@
 //   GET  /api/liens             registre des liens entre outils, état de chaque lien, journal des décisions
 //   POST /api/liens             décision sur un lien  { vue, lecteur, statut: autorise|refuse|demande, motif }
 //   POST /api/synchro           relire le serveur commun maintenant
+//   GET  /api/journal           journal unifié des outils (matrix.journal_unifie, D18) : outil, projet, recherche,
+//                               depuis, jusqu (AAAA-MM-JJ), apres_quand + apres_ref (page suivante), limite
+//   GET  /api/rex               retours d'expérience réunis (matrix.rex_unifie, D22) : outil, code, categorie, recherche
+//   GET  /api/correspondances   correspondances d'identifiants (matrix.correspondances) : objet, outil, statut
+//   POST /api/correspondances   décision sur une correspondance  { id, statut, pivot?, note? }
 //
 // Variables d'environnement :
 //   PORT               port d'écoute (défaut 3000)
@@ -44,6 +49,7 @@ import { collect } from './outils/collecteur.mjs';
 import { construirePage, RACINE } from './outils/page.mjs';
 import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels } from './outils/edition.mjs';
 import { LISTES, lireReferentiels, comparer, ecrireReferentiels } from './outils/referentiels-pg.mjs';
+import { lireJournal, lireRex, lireCorrespondances, deciderCorrespondance } from './outils/consultation.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
 
@@ -284,8 +290,16 @@ createServer((req, res) => {
       const s = lireSante();
       return json(res, 200, { sonde, liens: s?.liens ?? [], journal: s?.journalLiens ?? [], etats: s?.etatsLien ?? {} });
     }
+    const consultation = url.pathname.match(/^\/api\/(journal|rex|correspondances)$/);
+    if (req.method === 'GET' && consultation) {
+      if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : le journal, le REX et les correspondances sont sur le serveur commun.' });
+      const q = Object.fromEntries(url.searchParams);
+      const lire = { journal: db => lireJournal(db, { ...q, apres: q.apres_quand ? { quand: q.apres_quand, ref_source: q.apres_ref } : null }), rex: db => lireRex(db, q), correspondances: db => lireCorrespondances(db, q) }[consultation[1]];
+      avecServeur(lire).then(r => json(res, 200, r), e => json(res, /date|outil|pagination/.test(e.message) && !e.code ? 422 : 502, { erreur: e.message }));
+      return;
+    }
     const ecriture = (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions'))
-      || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro'));
+      || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro' || url.pathname === '/api/correspondances'));
     if (ecriture) {
       if (PRODUCTION && !MOT_DE_PASSE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE sur le serveur pour autoriser les modifications.' });
       if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { erreur: 'contenu JSON attendu' });
@@ -298,6 +312,10 @@ createServer((req, res) => {
             if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : pas de serveur commun à lire.' });
             const r = await synchroniser(`demandée par ${auteur}`);
             return json(res, r.erreur ? 502 : 200, { sonde: r, sante: lireSante() });
+          }
+          if (url.pathname === '/api/correspondances') {
+            if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les correspondances sont sur le serveur commun.' });
+            return json(res, 200, { ok: true, correspondance: await avecServeur(db => deciderCorrespondance(db, corps ?? {}, auteur)) });
           }
           const lien = await deciderLien(corps, auteur);
           json(res, 200, { ok: true, lien, sonde, liens: lireSante()?.liens ?? [] });

@@ -53,9 +53,16 @@ npm start                                # serveur Matrix sur http://localhost:3
 node outils/collecteur.mjs ..            # relire les schémas dans les dépôts voisins et comparer
 node outils/construire-maquette.mjs      # reconstruire maquette/matrix.html
 node outils/generer-liste-doublons.mjs   # régénérer docs/doublons-a-trancher.md
-npm test                                 # tests (node --test) ; MATRIX_TEST_DATABASE_URL=postgres://matrix_app:…@hôte/epc2i
+npm test                                 # tests (node --test, dossier test/) ; MATRIX_TEST_DATABASE_URL=postgres://matrix_app:…@hôte/epc2i
                                          # ajoute ceux du serveur commun (base d'essai seulement)
+bash scripts/ci-socle.sh                 # rejoue le socle sur un PostgreSQL d'essai et contrôle les droits (PGHOST, mots de passe)
 ```
+
+**Intégration continue** (`.github/workflows/ci.yml`, à chaque demande de fusion et sur `main`) :
+- job `tests` : `npm test` sans base, puis contrôle que `maquette/matrix.html` est à jour (`npm run maquette`) ;
+- job `socle` : l'image `infra/postgres` est construite et démarrée comme en production (`init/` joué au premier démarrage). Ensuite :
+  - `scripts/ci-socle.sh` : `10` et `12` en `matrix_app`, `appliquer-liens.sh` deux fois (le second passage ne doit rien appliquer), `96`, `droits.verifier()` sans erreur, `verifier-droits.sql`, rejeu du socle ;
+  - les tests qui demandent une base.
 
 Pour relire les schémas, les dépôts `keystone/`, `codex/`, `cursus/`, `vigie/`, `arche/` et `crucible/` doivent être clonés à côté de `Matrix/` (ou dans le dossier passé en argument).
 

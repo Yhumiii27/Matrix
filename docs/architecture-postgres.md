@@ -712,7 +712,7 @@ Matrix commence à lire chaque schéma dès la bascule de l'outil. Les étapes 1
 
 ### 10.1 Intégration continue
 
-Aucun des cinq dépôts n'a d'intégration continue aujourd'hui (ni `.github`, ni `.gitlab-ci.yml`, ni `.circleci`, vérifié le 15/10/2026). Analyse comparative du 25 oct. 2026 : Matrix lui-même n'a ni test ni intégration continue ; c'est l'écart E-03 du lot 6 (`docs/proposition.md` § 6). Le plan s'appuie pourtant sur elle (P-01, tests de Cursus sur deux moteurs, étape 3, § 12). C'est donc un lot à part entière, avec un workflow GitHub Actions par outil, `.github/workflows/postgres.yml` :
+Aucun des cinq dépôts n'a d'intégration continue aujourd'hui (ni `.github`, ni `.gitlab-ci.yml`, ni `.circleci`, vérifié le 15/10/2026). Analyse comparative du 25 oct. 2026 : Matrix lui-même n'avait ni test ni intégration continue ; c'est l'écart E-03 du lot 6 (`docs/proposition.md` § 6), traité le 30/10/2026 (`.github/workflows/ci.yml` : l'image du socle est démarrée et `scripts/ci-socle.sh` la contrôle). Le plan s'appuie pourtant sur elle (P-01, tests de Cursus sur deux moteurs, étape 3, § 12). C'est donc un lot à part entière, avec un workflow GitHub Actions par outil, `.github/workflows/postgres.yml` :
 
 | Étape du workflow | Keystone | Codex | Vigie | Cursus |
 |---|---|---|---|---|

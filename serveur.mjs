@@ -9,7 +9,8 @@
 //   GET  /api/edition           documentation, décisions, référentiels et journal saisis dans Matrix
 //   PUT  /api/documentation     documenter une table      { app, table, description, domaine, responsable, note }
 //   PUT  /api/decisions         décision sur un doublon   { id, option }  (option null pour la retirer)
-//   PUT  /api/referentiels/:nom remplacer un référentiel  [ … lignes … ]  (sites, organigramme, pays, zones, filiales)
+//   PUT  /api/referentiels/:nom remplacer un référentiel  [ … lignes … ]  (sites, organigramme, pays, zones, filiales) ;
+//                               avec le serveur commun, écrit d'abord dans le schéma matrix (outils/referentiels-pg.mjs)
 //   GET  /api/referentiels/:nom un référentiel publié (lu par les outils)
 //   GET  /api/etat              état de santé des tables et des liens (dernière lecture du serveur commun)
 //   GET  /api/liens             registre des liens entre outils, état de chaque lien, journal des décisions
@@ -27,7 +28,10 @@
 //   MATRIX_DATABASE_URL connexion au serveur PostgreSQL commun en matrix_app (postgres://matrix_app:…@hôte:5432/epc2i).
 //                      Avec elle, la sonde (outils/sonde.mjs) lit elle-même les tables, liens, vues pub_ et droits
 //                      de chaque outil, met le registre et les graphes à jour, calcule l'état de santé et tient le
-//                      registre des liens (matrix.liens). Sans elle, Matrix vit des déclarations et du code des dépôts.
+//                      registre des liens (matrix.liens). Les référentiels saisis sont écrits dans le schéma matrix
+//                      (pays, zones, filiales, sites, organigramme), que les outils lisent par les vues matrix.pub_*.
+//                      Sans elle, Matrix vit des déclarations et du code des dépôts, et ses référentiels restent dans
+//                      edition.json.
 //   MATRIX_SYNCHRO_MINUTES intervalle entre deux lectures du serveur commun (défaut 60 ; 0 : au démarrage et à la
 //                      demande seulement).
 
@@ -38,7 +42,8 @@ import { createRequire } from 'node:module';
 import { timingSafeEqual } from 'node:crypto';
 import { collect } from './outils/collecteur.mjs';
 import { construirePage, RACINE } from './outils/page.mjs';
-import { chargerEdition, documenter, decider, enregistrerReferentiel } from './outils/edition.mjs';
+import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels } from './outils/edition.mjs';
+import { LISTES, lireReferentiels, comparer, ecrireReferentiels } from './outils/referentiels-pg.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
 
@@ -79,7 +84,68 @@ function rafraichir() {
 }
 
 let page = null;
-const pageCourante = () => (page ??= construirePage({ forme: 'document', dataDir: DATA }));
+const pageCourante = () => (page ??= construirePage({ forme: 'document', dataDir: DATA, serveurCommun: Boolean(DB_URL) }));
+
+// ── Référentiels sur le serveur commun (E-01) ─────────────────────────────
+
+// Une écriture de référentiel à la fois : valider, écrire sur le serveur, puis enregistrer edition.json, sans qu'une
+// autre écriture ne s'intercale entre ces étapes.
+let fileReferentiels = Promise.resolve();
+const enSerie = tache => { const p = fileReferentiels.then(tache); fileReferentiels = p.catch(() => {}); return p; };
+
+async function avecServeur(tache) {
+  const db = client(DB_URL);
+  try { await db.connect(); return await tache(db); } finally { await db.end().catch(() => {}); }
+}
+
+async function ecrireReferentiel(liste, lignes, auteur) {
+  if (!DB_URL) return enregistrerReferentiel(DATA, liste, lignes, auteur);
+  return enSerie(async () => {
+    const p = preparerReferentiel(DATA, liste, lignes);
+    if (p.inchange) return p.lignes;
+    const bilan = await avecServeur(db => ecrireReferentiels(db, { [liste]: p.lignes }));
+    const b = bilan[liste];
+    const r = appliquerReferentiel(DATA, p, auteur, ` · serveur commun : ${b.ecrites} ligne(s) écrite(s)${b.desactivees ? `, ${b.desactivees} désactivée(s)` : ''}`);
+    referentiels = { ...referentiels, ecarts: { ...referentiels.ecarts, [liste]: undefined } };
+    return r;
+  });
+}
+
+// Compare les référentiels de Matrix à ceux du schéma matrix. Au démarrage (aligner), une liste déjà saisie dans Matrix
+// est écrite sur le serveur (Matrix fait foi : D14, D15, D17, D21) ; une liste jamais saisie est reprise du serveur
+// (amorçage de 10-matrix-referentiels.sql, ou saisie antérieure). Ensuite, à chaque lecture planifiée, l'écart est
+// seulement constaté (/api/etat, /api/sante) : rien n'est réécrit sans une saisie.
+let referentiels = { actif: Boolean(DB_URL), alignesLe: null, ecarts: {}, erreur: null };
+async function alignerReferentiels(db, aligner) {
+  return enSerie(async () => {
+    try {
+      const serveur = await lireReferentiels(db);
+      const ed = chargerEdition(DATA), saisis = referentielsSaisis(DATA);
+      const ecarts = {}, aEcrire = {}, aReprendre = {};
+      for (const liste of LISTES) {
+        const c = comparer(liste, ed.referentiels[liste], serveur[liste]);
+        if (c.egal) continue;
+        if (aligner && saisis.has(liste)) aEcrire[liste] = ed.referentiels[liste];
+        else if (aligner) aReprendre[liste] = serveur[liste];
+        else ecarts[liste] = { aEcrire: c.aEcrire, aDesactiver: c.aDesactiver };
+      }
+      if (Object.keys(aEcrire).length) {
+        const bilan = await ecrireReferentiels(db, aEcrire);
+        console.log(`référentiels écrits sur le serveur commun : ${Object.entries(bilan).map(([l, b]) => `${l} ${b.ecrites} écrite(s), ${b.desactivees} désactivée(s)`).join(' · ')}`);
+      }
+      if (Object.keys(aReprendre).length) {
+        adopterReferentiels(DATA, aReprendre, 'serveur commun');
+        page = null;
+        console.log(`référentiels repris du serveur commun : ${Object.keys(aReprendre).join(', ')}`);
+      }
+      referentiels = { actif: true, alignesLe: new Date().toISOString(), ecarts, erreur: null, ecrits: Object.keys(aEcrire), repris: Object.keys(aReprendre) };
+    } catch (e) {
+      referentiels = { ...referentiels, erreur: e.message, erreurLe: new Date().toISOString() };
+      console.error(`référentiels du serveur commun : ${e.message}`);
+    }
+    return referentiels;
+  });
+}
 
 // ── Sonde du serveur commun ───────────────────────────────────────────────
 
@@ -93,6 +159,7 @@ async function synchroniser(declencheur) {
   const db = client(DB_URL);
   try {
     await db.connect();
+    await alignerReferentiels(db, declencheur === 'démarrage');
     const references = lireJson(join(RACINE, 'data', 'references.json')).references;
     const lecture = await lireServeur(db, { references });
     vuesConnues = new Set(lecture.vues.map(v => v.vue));
@@ -212,7 +279,7 @@ createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));
     const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays|zones|filiales)$/);
     if (req.method === 'GET' && ref) return json(res, 200, chargerEdition(DATA).referentiels[ref[1]].filter(x => x.actif !== false || url.searchParams.get('tous') === '1'));
-    if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, { sonde, sante: lireSante() });
+    if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, { sonde, referentiels, sante: lireSante() });
     if (req.method === 'GET' && url.pathname === '/api/liens') {
       const s = lireSante();
       return json(res, 200, { sonde, liens: s?.liens ?? [], journal: s?.journalLiens ?? [], etats: s?.etatsLien ?? {} });
@@ -236,10 +303,10 @@ createServer((req, res) => {
           json(res, 200, { ok: true, lien, sonde, liens: lireSante()?.liens ?? [] });
         } catch (e) { json(res, 422, { erreur: e.message }); }
       });
-      return lireCorps(req, res, corps => {
+      return lireCorps(req, res, async corps => {
         try {
           let r;
-          if (ref) r = enregistrerReferentiel(DATA, ref[1], corps, auteur);
+          if (ref) r = await ecrireReferentiel(ref[1], corps, auteur);
           else if (url.pathname === '/api/documentation') r = documenter(DATA, lireJson(join(DATA, 'catalogue.json')), corps ?? {}, auteur);
           else r = decider(DATA, corps ?? {}, auteur);
           page = null;
@@ -258,7 +325,8 @@ createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/sante') {
       const c = lireJson(join(DATA, 'catalogue.json'));
       return json(res, 200, { ok: true, tables: c.apps.reduce((n, a) => n + a.tables.length, 0), collecteLe: c.generatedAt, declarations: TOKEN ? 'actives' : 'désactivées (MATRIX_TOKEN absent)',
-        sonde: DB_URL ? { derniere: sonde.derniere, erreur: sonde.erreur, etat: sonde.etat } : 'désactivée (MATRIX_DATABASE_URL absent)' });
+        sonde: DB_URL ? { derniere: sonde.derniere, erreur: sonde.erreur, etat: sonde.etat } : 'désactivée (MATRIX_DATABASE_URL absent)',
+        referentiels: DB_URL ? { alignesLe: referentiels.alignesLe, ecarts: Object.keys(referentiels.ecarts).filter(l => referentiels.ecarts[l]), erreur: referentiels.erreur } : 'dans edition.json (MATRIX_DATABASE_URL absent)' });
     }
     if (req.method === 'GET' && url.pathname === '/api/catalogue') return json(res, 200, lireJson(join(DATA, 'catalogue.json')));
     if (req.method === 'GET' && url.pathname === '/api/declarations') {

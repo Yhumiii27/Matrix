@@ -1,0 +1,76 @@
+# Intégration continue de Matrix (écart E-03, docs/proposition.md § 6).
+# - tests : node --test, sans base (règles de santé, saisies, sonde, serveur démarré), et maquette/matrix.html à jour ;
+# - socle : image infra/postgres construite et démarrée comme en production (init/ joué au premier démarrage), puis
+#   scripts/ci-socle.sh (10, 12, appliquer-liens.sh, 96, droits.verifier(), verifier-droits.sql, rejeu du socle) et
+#   les tests qui demandent une base (MATRIX_TEST_DATABASE_URL). Mots de passe d'essai, propres à ce job.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: maquette/matrix.html à jour (npm run maquette)
+        run: |
+          npm run -s maquette
+          git diff --exit-code maquette/matrix.html || { echo "::error::maquette/matrix.html n'est pas à jour : lancez npm run maquette et committez-le."; exit 1; }
+
+  socle:
+    runs-on: ubuntu-24.04
+    env:
+      POSTGRES_PASSWORD: ci-postgres
+      KEYSTONE_APP_PASSWORD: ci-keystone
+      CODEX_APP_PASSWORD: ci-codex
+      CURSUS_APP_PASSWORD: ci-cursus
+      VIGIE_APP_PASSWORD: ci-vigie
+      ARCHE_APP_PASSWORD: ci-arche
+      CRUCIBLE_APP_PASSWORD: ci-crucible
+      MATRIX_APP_PASSWORD: ci-matrix
+      EPC2I_SAUVEGARDE_PASSWORD: ci-sauvegarde
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+    steps:
+      - uses: actions/checkout@v5
+      - name: Image du serveur commun (infra/postgres/Dockerfile)
+        run: docker build -t epc2i-postgres infra/postgres
+      - name: Démarrage, init/ joué au premier démarrage
+        run: |
+          docker run -d --name epc2i-postgres -p 127.0.0.1:5432:5432 \
+            -e POSTGRES_PASSWORD -e KEYSTONE_APP_PASSWORD -e CODEX_APP_PASSWORD -e CURSUS_APP_PASSWORD -e VIGIE_APP_PASSWORD \
+            -e ARCHE_APP_PASSWORD -e CRUCIBLE_APP_PASSWORD -e MATRIX_APP_PASSWORD -e EPC2I_SAUVEGARDE_PASSWORD \
+            epc2i-postgres
+          for i in $(seq 1 60); do
+            docker exec epc2i-postgres pg_isready -h 127.0.0.1 -U postgres -d epc2i -q && exit 0
+            sleep 2
+          done
+          docker logs epc2i-postgres; exit 1
+      - name: Client psql
+        run: command -v psql || { sudo apt-get update -q && sudo apt-get install -y -q postgresql-client; }
+      - name: Socle, partage de Matrix, droits
+        run: bash scripts/ci-socle.sh
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tests avec base (référentiels, sonde)
+        run: npm test
+        env:
+          MATRIX_TEST_DATABASE_URL: postgres://matrix_app:ci-matrix@127.0.0.1:5432/epc2i
+      - name: Journaux du serveur (en cas d'échec)
+        if: failure()
+        run: docker logs epc2i-postgres 2>&1 | tail -100

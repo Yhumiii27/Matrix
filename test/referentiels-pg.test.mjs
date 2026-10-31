@@ -1,12 +1,12 @@
-// Tests des référentiels sur le serveur commun (E-01) : npm test (node --test "outils/**/*.test.mjs").
+// Tests des référentiels sur le serveur commun (E-01) : npm test (node --test "test/**/*.test.mjs").
 // La partie base de données ne tourne qu'avec MATRIX_TEST_DATABASE_URL, en matrix_app, sur un serveur où le socle et
 // partage/10-matrix-referentiels.sql sont joués. Elle écrit des codes d'essai (zone ZTEST, filiale ZZT, site ztest_*)
 // qu'elle désactive à la fin : à ne jamais lancer sur le serveur en service.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { comparer, lireReferentiels, ecrireReferentiels } from './referentiels-pg.mjs';
-import { client } from './sonde.mjs';
+import { comparer, lireReferentiels, ecrireReferentiels } from '../outils/referentiels-pg.mjs';
+import { client } from '../outils/sonde.mjs';
 
 const site = (code, extra = {}) => ({ code, libelle: code, ville: null, pays_iso2: 'FR', ordre: 0, actif: true, filiale_code: null, latitude: null, longitude: null, ...extra });
 

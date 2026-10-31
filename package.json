@@ -11,7 +11,7 @@
     "collecter": "node outils/collecteur.mjs ..",
     "maquette": "node outils/construire-maquette.mjs",
     "doublons": "node outils/generer-liste-doublons.mjs",
-    "test": "node --test \"outils/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "cytoscape": "3.33.1",

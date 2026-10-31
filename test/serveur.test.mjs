@@ -68,6 +68,16 @@ test('mot de passe : 401 sans identifiant, accès avec, /api/sante reste libre',
   assert.equal((await r.json()).edition.journal.at(-1).qui, 'claire');
 });
 
+test('journal, REX et correspondances : 409 sans serveur commun', async () => {
+  for (const chemin of ['/api/journal', '/api/rex', '/api/correspondances']) {
+    const r = await fetch(libre + chemin);
+    assert.equal(r.status, 409);
+    assert.match((await r.json()).erreur, /MATRIX_DATABASE_URL/);
+  }
+  const p = await fetch(libre + '/api/correspondances', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(p.status, 409);
+});
+
 test('déclarations : refusées sans jeton configuré', async () => {
   const r = await fetch(libre + '/api/declarations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(r.status, 503);

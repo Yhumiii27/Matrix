@@ -90,6 +90,27 @@ test('déclaration d’un outil : jeton exigé, jamais prise pour une lecture du
   assert.match(vigie.source, /^déclaration du/);
 });
 
+test('catalogue en lecture et exports : JSON, recherche, fiche, CSV, dictionnaire, Mermaid', async () => {
+  const liste = await (await fetch(libre + '/api/catalogue/tables?outil=keystone')).json();
+  assert.ok(liste.length > 100 && liste.every(t => t.outil === 'keystone'));
+  const q = await (await fetch(libre + '/api/catalogue/tables?q=' + encodeURIComponent('matricule'))).json();
+  assert.ok(q.length > 0 && q[0].trouvee_par.length > 0);
+  const f = await fetch(libre + '/api/catalogue/tables/keystone/projects');
+  assert.equal(f.status, 200);
+  assert.ok((await f.json()).colonnes.some(c => c.nom === 'code'));
+  assert.equal((await fetch(libre + '/api/catalogue/tables/keystone/inexistante')).status, 404);
+  assert.equal((await fetch(libre + '/api/catalogue/tables?outil=bidon')).status, 404);
+  const csv = await fetch(libre + '/api/export/colonnes.csv?outil=codex');
+  assert.match(csv.headers.get('content-type'), /text\/csv/);
+  assert.match(csv.headers.get('content-disposition'), /matrix-codex-colonnes\.csv/);
+  const octets = new Uint8Array(await csv.arrayBuffer());
+  assert.deepEqual([...octets.slice(0, 3)], [0xEF, 0xBB, 0xBF]);   // BOM : Excel lit l'UTF-8
+  assert.match(new TextDecoder('utf-8', { ignoreBOM: true }).decode(octets.slice(3)), /^outil;table;colonne/);
+  assert.match(await (await fetch(libre + '/api/export/dictionnaire.html?outil=vigie')).text(), /<h2>Vigie/);
+  assert.match(await (await fetch(libre + '/api/export/schema.mmd?outil=crucible')).text(), /^erDiagram/);
+  assert.equal((await fetch(protege + '/api/export/tables.csv')).status, 401);
+});
+
 test('déclarations : refusées sans jeton configuré', async () => {
   const r = await fetch(libre + '/api/declarations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(r.status, 503);

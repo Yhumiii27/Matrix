@@ -21,6 +21,9 @@
 //   GET  /api/rex               retours d'expérience réunis (matrix.rex_unifie, D22) : outil, code, categorie, recherche
 //   GET  /api/correspondances   correspondances d'identifiants (matrix.correspondances) : objet, outil, statut
 //   POST /api/correspondances   décision sur une correspondance  { id, statut, pivot?, note? }
+//   GET  /api/catalogue/tables  liste des tables (outil, domaine, q : recherche plein texte), pour les outils et les agents
+//   GET  /api/catalogue/tables/:outil/:table  fiche d'une table : colonnes, liens, documentation, vues qui la publient, santé
+//   GET  /api/export/tables.csv | colonnes.csv | dictionnaire.html | schema.mmd   exports (outil, domaine, q)
 //
 // Variables d'environnement :
 //   PORT               port d'écoute (défaut 3000)
@@ -50,6 +53,8 @@ import { construirePage, RACINE } from './outils/page.mjs';
 import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels } from './outils/edition.mjs';
 import { LISTES, lireReferentiels, comparer, ecrireReferentiels } from './outils/referentiels-pg.mjs';
 import { lireJournal, lireRex, lireCorrespondances, deciderCorrespondance } from './outils/consultation.mjs';
+import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, diagrammeMermaid } from './outils/export.mjs';
+import { chercher } from './outils/recherche.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
 
@@ -313,6 +318,43 @@ createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/liens') {
       const s = lireSante();
       return json(res, 200, { sonde, liens: s?.liens ?? [], journal: s?.journalLiens ?? [], etats: s?.etatsLien ?? {} });
+    }
+    // Catalogue en lecture et exports (E-12) : structure seulement, jamais de données des tables.
+    if (req.method === 'GET' && (url.pathname.startsWith('/api/catalogue/') || url.pathname.startsWith('/api/export/'))) {
+      const q = Object.fromEntries(url.searchParams);
+      if (q.outil && !APPS.includes(q.outil)) return json(res, 404, { erreur: `outil inconnu : ${q.outil}` });
+      const sante = lireSante();
+      let liste = fichesCatalogue(lireJson(join(DATA, 'catalogue.json')), { edition: chargerEdition(DATA), sante, outil: q.outil || null });
+      if (q.domaine) liste = liste.filter(f => f.domaine === q.domaine);
+      if (q.q) {
+        // Mêmes fiches que la recherche de la page (maquette/source.html, ficheRecherche) : flux et lectures compris.
+        const flux = lireJson(join(EMBARQUE, 'flux.json')).flux ?? [];
+        const fluxDe = f => flux.filter(x => (x.de === f.outil && x.source.includes(f.table)) || (x.vers === f.outil && x.cible.includes(f.table))).map(x => `${x.id} ${x.nom}`);
+        const lectures = new Map((sante?.tables ?? []).map(s => [`${s.app}.${s.table}`, (s.stats?.lecturesSequentielles || 0) + (s.stats?.lecturesIndex || 0)]));
+        const ordre = chercher(liste.map(f => ({ cle: f.cle, nom: f.table, domaine: f.domaine, description: f.description, documentation: { description: f.description, note: f.note, responsable: f.responsable },
+          colonnes: f.colonnes.map(c => ({ nom: c.nom, description: c.description })), flux: fluxDe(f), lectures: lectures.get(f.cle) ?? 0 })), q.q);
+        const par = new Map(liste.map(f => [f.cle, f]));
+        liste = ordre.map(r => ({ ...par.get(r.cle), pertinence: r.score, trouvee_par: r.raisons }));
+      }
+      const fiche = url.pathname.match(/^\/api\/catalogue\/tables\/(\w+)\/(\w+)$/);
+      if (fiche) {
+        const f = liste.find(x => x.outil === fiche[1] && x.table === fiche[2]);
+        if (!f) return json(res, 404, { erreur: 'table inconnue' });
+        const s = sante?.tables?.find(t => t.app === f.outil && t.table === f.table);
+        return json(res, 200, { ...f, sante: s ? { etat: s.etat, constats: s.constats, stats: s.stats } : null });
+      }
+      const nomFichier = n => `matrix-${q.outil || 'tous-les-outils'}${q.domaine ? '-' + q.domaine.normalize('NFD').replace(/[^\w]+/g, '-').toLowerCase() : ''}-${n}`;
+      const fichier = (type, nom, corps) => { res.writeHead(200, { ...ENTETES, 'content-type': type, 'cache-control': 'no-store', 'content-disposition': `attachment; filename="${nomFichier(nom)}"` }); res.end(corps); };
+      if (url.pathname === '/api/catalogue/tables')
+        return json(res, 200, liste.map(({ colonnes, liens, publiee_par, unicites, ...f }) => ({ ...f, colonnes: colonnes.length, liens: liens.length, publiee_par: publiee_par.map(v => v.vue) })));
+      if (url.pathname === '/api/export/tables.csv') return fichier('text/csv; charset=utf-8', 'tables.csv', csvTables(liste));
+      if (url.pathname === '/api/export/colonnes.csv') return fichier('text/csv; charset=utf-8', 'colonnes.csv', csvColonnes(liste));
+      if (url.pathname === '/api/export/schema.mmd') return fichier('text/plain; charset=utf-8', 'schema.mmd', diagrammeMermaid(liste));
+      if (url.pathname === '/api/export/dictionnaire.html') {
+        res.writeHead(200, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(dictionnaireHtml(liste, { titre: `Dictionnaire des données${q.outil ? ' · ' + q.outil : ''}${q.domaine ? ' · ' + q.domaine : ''}` }));
+      }
+      return json(res, 404, { erreur: 'introuvable' });
     }
     const consultation = url.pathname.match(/^\/api\/(journal|rex|correspondances)$/);
     if (req.method === 'GET' && consultation) {

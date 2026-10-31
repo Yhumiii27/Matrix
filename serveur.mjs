@@ -50,7 +50,7 @@ import { construirePage, RACINE } from './outils/page.mjs';
 import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels } from './outils/edition.mjs';
 import { LISTES, lireReferentiels, comparer, ecrireReferentiels } from './outils/referentiels-pg.mjs';
 import { lireJournal, lireRex, lireCorrespondances, deciderCorrespondance } from './outils/consultation.mjs';
-import { client, lireServeur, declarations, validerLien, ecrireLien } from './outils/sonde.mjs';
+import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
 
 const PORT = +(process.env.PORT ?? 3000);
@@ -87,6 +87,14 @@ function rafraichir() {
   }
   page = null;
   return { catalogue, events };
+}
+
+function ajouterHistorique(evenements) {
+  const histFile = join(DATA, 'historique.json');
+  const hist = existsSync(histFile) ? lireJson(histFile) : { evenements: [] };
+  hist.evenements.push(...evenements);
+  ecrireJson(histFile, hist);
+  page = null;
 }
 
 let page = null;
@@ -174,15 +182,27 @@ async function synchroniser(declencheur) {
     // Lecture du serveur : declarations/<outil>.serveur.json, à côté de la déclaration envoyée par l'outil
     // (<outil>.json) ; le collecteur fait passer le serveur en premier (E-14). Une ancienne lecture du serveur écrite
     // dans <outil>.json (avant le 31/10/2026) est déplacée.
+    // Migrations (E-06) : nouvelles migrations appliquées, ou structure changée sans migration, d'une lecture à l'autre.
+    const suivi = [];
     for (const d of declarations(lecture)) {
       const file = join(DECL, `${d.app}.serveur.json`), ancien = join(DECL, `${d.app}.json`);
       if (existsSync(ancien) && lireJson(ancien).origine === 'serveur') { unlinkSync(ancien); changes.push(d.app); }
-      if (existsSync(file) && lireJson(file).empreinte === d.empreinte) continue;
+      const avant = existsSync(file) ? lireJson(file) : null;
+      const { evenements, horsMigration } = suivreMigrations(avant, d, lecture.luLe);
+      suivi.push(...evenements);
+      if (horsMigration) d.horsMigration = horsMigration;
+      if (avant && avant.empreinte === d.empreinte && JSON.stringify(avant.migrations ?? null) === JSON.stringify(d.migrations ?? null)
+          && JSON.stringify(avant.horsMigration ?? null) === JSON.stringify(d.horsMigration ?? null)) continue;
       ecrireJson(file, d);
-      if (!changes.includes(d.app)) changes.push(d.app);
+      if (avant?.empreinte !== d.empreinte && !changes.includes(d.app)) changes.push(d.app);
     }
     const { events } = changes.length ? rafraichir() : { events: [] };
-    const sante = calculerSante(lecture, { catalogue: lireJson(join(DATA, 'catalogue.json')), edition: chargerEdition(DATA) });
+    if (suivi.length) ajouterHistorique(suivi);
+    const horsMigration = Object.fromEntries(declarations(lecture).map(d => {
+      const f = join(DECL, `${d.app}.serveur.json`);
+      return [d.app, existsSync(f) ? lireJson(f).horsMigration ?? null : null];
+    }));
+    const sante = calculerSante(lecture, { catalogue: lireJson(join(DATA, 'catalogue.json')), edition: chargerEdition(DATA), horsMigration });
     ecrireJson(join(DATA, 'sante.json'), sante);
     page = null;
     sonde = { ...sonde, derniere: lecture.luLe, erreur: null, declencheur, outils: Object.keys(lecture.outils), schemasModifies: changes, changements: events.length, etat: sante.etat };

@@ -141,6 +141,7 @@ export async function lireServeur(db, { references = [] } = {}) {
   const sensibles = await essayer(db, `SELECT schema_nom AS schema, table_nom AS table, colonne_nom AS colonne, motif, origine
                                        FROM droits.colonnes_sensibles ORDER BY 1, 2, 3`);
   const verifier = await essayer(db, `SELECT gravite, objet, constat FROM droits.verifier() WHERE gravite IN ('erreur', 'attention')`);
+  const migrations = await lireMigrations(db, colonnes);
 
   return {
     luLe,
@@ -150,7 +151,29 @@ export async function lireServeur(db, { references = [] } = {}) {
     sensibles: sensibles.lignes,
     verifier: { lignes: verifier.lignes, ...(verifier.erreur ? { erreur: verifier.erreur } : {}) },
     references: await controlerReferences(db, references, colonnes),
+    migrations,
   };
+}
+
+// Journal des migrations de chaque outil (écart E-06) : __drizzle_migrations (Drizzle : created_at en millisecondes,
+// hash) ou schema_migrations, dans le schéma de l'outil. Nombre de migrations appliquées et date de la dernière ; un
+// journal absent ou illisible est dit tel quel. Sert à repérer une structure changée sans nouvelle migration.
+async function lireMigrations(db, colonnes) {
+  const out = {};
+  for (const app of OUTILS) {
+    const journal = JOURNAUX_MIGRATIONS.find(j => colonnes.some(c => c.schema === app && c.table === j));
+    if (!journal) continue;
+    const cols = new Set(colonnes.filter(c => c.schema === app && c.table === journal).map(c => c.nom));
+    const t = `${ident(app)}.${ident(journal)}`;
+    const quand = cols.has('created_at')
+      ? (journal === '__drizzle_migrations' ? `to_timestamp(max(created_at)::double precision / 1000)` : `max(created_at)::timestamptz`)
+      : cols.has('applied_at') ? 'max(applied_at)::timestamptz' : 'NULL::timestamptz';
+    const empreinte = cols.has('hash') ? `, (SELECT hash FROM ${t} ORDER BY ${cols.has('created_at') ? 'created_at DESC, ' : ''}hash DESC LIMIT 1) AS empreinte` : '';
+    const r = await essayer(db, `SELECT count(*)::int AS nombre, ${quand} AS derniere${empreinte} FROM ${t}`);
+    out[app] = r.erreur ? { journal: `${app}.${journal}`, erreur: r.erreur }
+      : { journal: `${app}.${journal}`, nombre: r.lignes[0].nombre, derniere: r.lignes[0].derniere?.toISOString?.() ?? null, ...(r.lignes[0].empreinte ? { empreinte: r.lignes[0].empreinte } : {}) };
+  }
+  return out;
 }
 
 // Référence « schema.table.colonne » → « schema.vue.colonne » : nombre de valeurs distinctes orphelines (absentes de la
@@ -187,7 +210,12 @@ export function declarations(lecture) {
       ...t, fks: t.fks.map(({ nom, valide, indexe, ...f }) => f),
     })).sort((a, b) => a.name.localeCompare(b.name));
     const empreinte = createHash('sha256').update(JSON.stringify(tables)).digest('hex').slice(0, 16);
-    return { schema: 'matrix.schema/1', app, version: null, origine: 'serveur', declareLe: lecture.luLe, empreinte, tables };
+    // Structure seule (colonnes, types, nullité, défauts, clés) : ni commentaires ni droits de Matrix, que le socle peut
+    // changer sans migration de l'outil. Sert à repérer un changement hors migration (E-06).
+    const structure = tables.map(t => ({ n: t.name, c: t.columns.map(c => [c.name, c.type, c.nullable, c.default]), p: t.pk, u: t.uniques, f: t.fks }));
+    const empreinteStructure = createHash('sha256').update(JSON.stringify(structure)).digest('hex').slice(0, 16);
+    return { schema: 'matrix.schema/1', app, version: null, origine: 'serveur', declareLe: lecture.luLe, empreinte, empreinteStructure,
+      ...(lecture.migrations?.[app] ? { migrations: lecture.migrations[app] } : {}), tables };
   });
 }
 
@@ -222,4 +250,27 @@ export async function ecrireLien(db, lien, par) {
      RETURNING vue, lecteur, statut, origine, motif, demande_par, demande_le, decide_par, decide_le, modifie_le`,
     [lien.vue, lien.lecteur, lien.statut, lien.motif, par]);
   return r.rows[0];
+}
+
+/**
+ * Suivi des migrations d'un outil entre deux lectures du serveur (écart E-06). `avant` et `apres` sont ses déclarations
+ * (empreinteStructure, migrations). Renvoie les événements d'historique et l'état « hors migration » à garder :
+ *   - nouvelles migrations appliquées → événement migrations_appliquees, l'état hors migration est levé ;
+ *   - structure changée sans nouvelle migration (journal lisible des deux côtés) → hors_migration, gardé jusqu'à la
+ *     prochaine migration appliquée ;
+ *   - sinon, l'état précédent est gardé.
+ */
+export function suivreMigrations(avant, apres, date) {
+  const evenements = [];
+  const ma = avant?.migrations, mb = apres?.migrations;
+  const lisibles = ma && mb && ma.nombre != null && mb.nombre != null;
+  let horsMigration = avant?.horsMigration ?? null;
+  if (lisibles && mb.nombre !== ma.nombre) {
+    evenements.push({ date, app: apres.app, type: 'migrations_appliquees', avant: ma.nombre, apres: mb.nombre, derniere: mb.derniere ?? null });
+    horsMigration = null;
+  } else if (lisibles && avant.empreinteStructure && apres.empreinteStructure && avant.empreinteStructure !== apres.empreinteStructure) {
+    horsMigration = { le: date, migrations: mb.nombre, derniere: mb.derniere ?? null };
+    evenements.push({ date, app: apres.app, type: 'hors_migration', migrations: mb.nombre, derniere: mb.derniere ?? null });
+  }
+  return { evenements, horsMigration };
 }

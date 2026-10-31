@@ -99,5 +99,10 @@ Le `Dockerfile` à la racine installe la dépendance et lance `node serveur.mjs`
   3. le code des dépôts voisins, lu sans rien exécuter : expressions régulières pour les migrations Drizzle, lecteur de données littérales pour `TABLES` de Cursus. Une instruction de migration non reconnue est signalée dans l'écran Administration ;
   4. le catalogue embarqué.
   Les colonnes que le serveur ferme à Matrix (`droits.colonnes_sensibles`) sont marquées sensibles.
+- **Historique des schémas et migrations** (écart E-06). À chaque collecte, l'historique (`data/historique.json`) détaille chaque changement avec avant et après :
+  - colonne ajoutée, retirée, ou dont le type, la nullité ou le défaut change ;
+  - clé primaire, unicité ou clé étrangère ajoutée ou retirée ;
+  - quand la source d'un outil change (code → serveur), un seul événement « source changée », sans comparer les colonnes, dont l'écriture diffère.
+  La fiche de chaque table a un onglet « Historique ». La sonde lit aussi le journal des migrations de chaque outil (`__drizzle_migrations` ou `schema_migrations` de son schéma). Une structure qui change sans nouvelle migration appliquée est signalée (« changement hors migration », état attention dans « Santé › Migrations ») jusqu'à la migration suivante.
 - **Registre des liens.** Une décision prise dans l'écran « Liens entre outils » est écrite dans `matrix.liens` (journalisée dans `matrix.liens_journal`). Elle prend effet au passage suivant de `infra/postgres/partage/90-droits.sql`, rejoué dans les 15 minutes par la tâche planifiée `infra/postgres/partage/appliquer-liens.sh` : droit posé pour un lien autorisé, retiré pour un lien refusé ou absent du registre. Matrix ne pose aucun droit lui-même.
 - Si vous préférez l'authentification HTTP de Coolify à `MATRIX_MOT_DE_PASSE`, les outils déclarent leurs tables avec `MATRIX_URL=https://identifiant:mot-de-passe@matrix.votre-domaine` ; le jeton part dans l'en-tête `X-Matrix-Token`.

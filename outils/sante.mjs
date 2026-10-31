@@ -29,6 +29,14 @@ export const ETATS_LIEN = {
   hors_registre: { gravite: 'erreur', libelle: 'Droit posé hors du registre de Matrix (rejouer 90-droits.sql)' },
 };
 
+// Migrations de chaque outil (E-06) : journal lu sur le serveur, et structure changée sans nouvelle migration.
+export const ETATS_MIGRATIONS = {
+  suivi: { gravite: 'ok', libelle: 'Structure conforme aux migrations appliquées' },
+  hors_migration: { gravite: 'attention', libelle: 'Structure changée sans nouvelle migration (ALTER passé à la main ?) : à reporter dans une migration de l’outil' },
+  sans_journal: { gravite: 'info', libelle: 'Aucun journal de migrations lisible dans le schéma de l’outil' },
+  illisible: { gravite: 'info', libelle: 'Journal de migrations illisible pour Matrix' },
+};
+
 const pire = gravites => gravites.includes('erreur') ? 'erreur' : gravites.includes('attention') ? 'attention' : 'ok';
 
 function constatsTable(t, documentee) {
@@ -53,7 +61,7 @@ function constatsTable(t, documentee) {
 }
 
 /** Calcule l'état de santé. `catalogue` et `edition` servent à savoir si une table est documentée dans Matrix. */
-export function calculerSante(lecture, { catalogue = null, edition = null } = {}) {
+export function calculerSante(lecture, { catalogue = null, edition = null, horsMigration = {} } = {}) {
   const docCatalogue = new Set((catalogue?.apps ?? []).flatMap(a => a.tables.filter(t => t.description).map(t => `${a.id}.${t.name}`)));
   const docEdition = new Set(Object.keys(edition?.documentation ?? {}));
 
@@ -95,6 +103,13 @@ export function calculerSante(lecture, { catalogue = null, edition = null } = {}
   // Contrôle du socle (droits.verifier()).
   const socle = lecture.verifier.lignes.map(v => ({ ...v }));
 
+  // Migrations, par outil présent sur le serveur.
+  const migrations = Object.keys(lecture.outils).map(app => {
+    const m = lecture.migrations?.[app], h = horsMigration?.[app] ?? null;
+    const etat = !m ? 'sans_journal' : m.erreur ? 'illisible' : h ? 'hors_migration' : 'suivi';
+    return { app, ...(m ?? {}), horsMigration: h, etat, gravite: ETATS_MIGRATIONS[etat].gravite };
+  });
+
   const compte = l => l.reduce((n, x) => { n[x.gravite] = (n[x.gravite] ?? 0) + 1; return n; }, {});
   const parOutil = {};
   for (const t of tables) {
@@ -105,7 +120,7 @@ export function calculerSante(lecture, { catalogue = null, edition = null } = {}
 
   const etatGlobal = pire([
     ...tables.map(t => t.etat), ...liens.map(l => l.gravite), ...references.map(r => r.gravite),
-    ...socle.map(s => s.gravite),
+    ...socle.map(s => s.gravite), ...migrations.map(m => m.gravite),
   ]);
   return {
     calculeLe: new Date().toISOString(),
@@ -116,9 +131,9 @@ export function calculerSante(lecture, { catalogue = null, edition = null } = {}
       liens: compte(liens), references: compte(references), socle: compte(socle),
       registre: registreLu ? 'lu' : `illisible (${lecture.liens.erreur})`,
     },
-    parOutil, tables, liens, references, socle,
+    parOutil, tables, liens, references, socle, migrations,
     vues: lecture.vues.map(v => ({ vue: v.vue, lecteurs: v.lecteurs, description: v.description })),
     journalLiens: lecture.liens.journal,
-    regles: REGLES, etatsLien: ETATS_LIEN,
+    regles: REGLES, etatsLien: ETATS_LIEN, etatsMigrations: ETATS_MIGRATIONS,
   };
 }

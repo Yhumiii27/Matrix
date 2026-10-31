@@ -3,15 +3,18 @@
 -- Décisions : D02 projets, D03 chantiers, D04 affectations, D05 tâches, D16 clients et fournisseurs (D21 : code de la
 -- filiale d'un client interne), D12 et D13 (référentiels lus par Vigie : articles, nomenclatures, parc, activités,
 -- livrables), D18 journal, D22 REX ; demandes d'Arche (K-01 à K-10) et de Crucible.
--- Source : les 20 vues sont créées par les migrations de Keystone (dépôt Keystone, décision P-02 du 18/10/2026) :
+-- Source : les 22 vues sont créées par les migrations de Keystone (dépôt Keystone, décision P-02 du 18/10/2026) :
 -- drizzle/0035_share.sql (12 vues), 0038_share_followup.sql (pub_jalons, pub_jalons_projets, pub_avancement_projets,
 -- pub_avenants, pub_reserves ; colonnes ajoutées en fin de pub_projets et pub_livrables), 0040_share_installed_base.sql
 -- (colonnes ajoutées en fin de pub_parc_machines), 0046_catalogue_share.sql (pub_catalogue_machines),
 -- 0050_capex_needs_share.sql (pub_reponses_besoins), 0052_internal_client_share.sql (colonnes ajoutées en fin de
--- pub_projets) et 0054_matrix_rex_clients_share.sql (pub_rex ; colonne ajoutée en fin de pub_clients). Leurs colonnes,
+-- pub_projets), 0054_matrix_rex_clients_share.sql (pub_rex ; colonne ajoutée en fin de pub_clients),
+-- 0060_engineering_pack_share.sql (pub_pack_ingenierie) et 0064_shipments_share.sql (pub_expeditions ; pub_jalons_projets,
+-- dernière définition, après celle de 0057_capex_milestone_share). Leurs colonnes,
 -- tables et index prérequis viennent de 0034_share_prerequisites.sql (persons.matricule : 0024),
 -- 0037_share_followup_columns, 0045_machine_catalogue, 0049_capex_needs, 0051_internal_clients et
--- 0053_matrix_subsidiaries ; le déclencheur machine_catalogue_entries_frozen, de 0046. Ce
+-- 0053_matrix_subsidiaries, 0055_capex_milestone_code, 0058_engineering_pack, 0061_shipments et 0063_shipments_reception ;
+-- le déclencheur machine_catalogue_entries_frozen, de 0046. Ce
 -- fichier en est la copie, qualifiée keystone. et commentée colonne par colonne : le rejouer sur un serveur où Keystone
 -- a passé ses migrations (npm run db:migrate) ne change rien (CREATE OR REPLACE VIEW, même définition). Il ne crée ni
 -- colonne ni contrainte : migration de Keystone d'abord, puis ce fichier, puis 90-droits.sql. Toute évolution d'une
@@ -32,7 +35,7 @@
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
 \pset pager off
 
--- ═══ Prérequis : migrations 0034 à 0054 de Keystone ═══
+-- ═══ Prérequis : migrations 0034 à 0064 de Keystone ═══
 -- Ce fichier ne crée rien d'autre que les vues. Une colonne, une table ou un déclencheur absent signale une migration
 -- de Keystone non passée.
 DO $$
@@ -53,11 +56,18 @@ BEGIN
                -- 0051_internal_clients (pub_projets, pub_clients)
                ('clients', 'is_internal'), ('clients', 'subsidiary_code'),
                -- pub_rex (table des leçons apprises, antérieure au partage)
-               ('lessons_learned', 'updated_at')) AS x(t, c)
+               ('lessons_learned', 'updated_at'),
+               -- 0055_capex_milestone_code (pub_jalons_projets)
+               ('milestones', 'capex_milestone_code'),
+               -- 0058_engineering_pack (pub_pack_ingenierie)
+               ('machine_type_pack_families', 'machine_type_code'), ('document_types', 'pack_family'),
+               -- 0061_shipments et 0063_shipments_reception (pub_expeditions, pub_jalons_projets)
+               ('shipments', 'received_on'), ('contracts', 'incoterm_id'), ('incoterms', 'code'),
+               ('shipment_punch_items', 'shipment_id')) AS x(t, c)
   WHERE NOT EXISTS (SELECT FROM information_schema.columns ic
                     WHERE ic.table_schema = 'keystone' AND ic.table_name = x.t AND ic.column_name = x.c);
   IF v_manque IS NOT NULL THEN
-    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites à 0054_matrix_rex_clients_share), puis rejouez ce fichier.', v_manque;
+    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites à 0064_shipments_share), puis rejouez ce fichier.', v_manque;
   END IF;
   -- 0046_catalogue_share : une version publiée du catalogue est figée par ce déclencheur (R-186), condition du contrat
   -- de pub_catalogue_machines.
@@ -66,13 +76,14 @@ BEGIN
                    AND t.tgname = 'machine_catalogue_entries_frozen' AND NOT t.tgisinternal) THEN
     RAISE EXCEPTION 'Déclencheur keystone.machine_catalogue_entries_frozen absent : lancez npm run db:migrate de Keystone (migration 0046_catalogue_share), puis rejouez ce fichier.';
   END IF;
-  -- Index des colonnes maj_le (K-11) : need_answers_updated_at_idx (0049, pub_reponses_besoins) et
-  -- lessons_learned_updated_at_idx (0053, pub_rex) ; les lecteurs filtrent sur maj_le.
+  -- Index des colonnes maj_le (K-11) : need_answers_updated_at_idx (0049, pub_reponses_besoins),
+  -- lessons_learned_updated_at_idx (0053, pub_rex) et shipments_updated_at_idx (0063, pub_expeditions) ; les lecteurs
+  -- filtrent sur maj_le.
   SELECT string_agg(x.i, ', ') INTO v_manque
-  FROM (VALUES ('need_answers_updated_at_idx'), ('lessons_learned_updated_at_idx')) AS x(i)
+  FROM (VALUES ('need_answers_updated_at_idx'), ('lessons_learned_updated_at_idx'), ('shipments_updated_at_idx')) AS x(i)
   WHERE to_regclass('keystone.' || x.i) IS NULL;
   IF v_manque IS NOT NULL THEN
-    RAISE EXCEPTION 'Index absents du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0049_capex_needs et 0053_matrix_subsidiaries), puis rejouez ce fichier.', v_manque;
+    RAISE EXCEPTION 'Index absents du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0049_capex_needs, 0053_matrix_subsidiaries et 0063_shipments_reception), puis rejouez ce fichier.', v_manque;
   END IF;
 END $$;
 
@@ -321,9 +332,14 @@ COMMENT ON VIEW keystone.pub_jalons IS 'Contrat R-195 v1 : jalons du planning de
 -- Côté vente seulement (question P-05, AC-2 d'Arche) : aucun coût interne, taux, coût réel, budget, CPI, EAC ni marge.
 -- Montants en k€, convertis de la devise du contrat au taux budgétaire du projet (comme toute consolidation de Keystone,
 -- src/domain/currency.ts eurRate : 1 pour l'euro, le taux budgétaire pour la devise du projet, 1 sinon).
--- pub_jalons_projets : une ligne par projet et jalon CAPEX. Un jalon est atteint à la première entrée, toujours valable
--- (ni annulée ni refusée), dans une phase de rang donné ou suivante ; sa date prévue vient du module qui le planifie quand
--- Keystone en a un, sinon c'est la date réelle. Pas encore de date de référence (BL1) : reference_le est nul.
+-- pub_jalons_projets : une ligne par projet et jalon CAPEX ; définition de 0064_shipments_share (après 0057).
+-- - Jalon du planning marqué du code (milestones.capex_milestone_code, 0055) : ses dates sont celles de son activité (fin
+--   courante, fin réelle une fois terminée) ; reference_le = fin de la même activité dans l'instantané BL1
+--   (baseline_activities), nul sans BL1 approuvée ou sans jalon marqué.
+-- - Sinon, comme avant : atteint à la première entrée, toujours valable, dans une phase de rang donné ou suivante ; date
+--   prévue du module qui le planifie, sinon date réelle.
+-- - expedition et arrivee_site suivent les expéditions du projet (premier enlèvement réel, dernière arrivée quand toutes
+--   les expéditions envoyées sont arrivées) ; maj_le suit aussi les expéditions.
 CREATE OR REPLACE VIEW keystone.pub_jalons_projets WITH (security_barrier) AS
 WITH standing AS (
   SELECT t.project_id, s.seq, t.effective_on, t.created_at
@@ -336,10 +352,10 @@ WITH standing AS (
 )
 SELECT p.code              AS projet_code,
        j.jalon_code,
-       coalesce(j.prevu, j.reel) AS prevu_le,
-       NULL::date          AS reference_le,
-       j.reel              AS reel_le,
-       greatest(p.updated_at, e.changed, j.changed) AS maj_le
+       coalesce(j.prevu, cm.prevu, j.ship_prevu, CASE WHEN j.ship_decides THEN j.ship_reel ELSE coalesce(j.ship_reel, j.reel, cm.reel) END) AS prevu_le,
+       cm.reference        AS reference_le,
+       CASE WHEN j.ship_decides THEN j.ship_reel ELSE coalesce(j.ship_reel, j.reel, cm.reel) END AS reel_le,
+       greatest(p.updated_at, e.changed, j.changed, cm.changed, shp.changed) AS maj_le
 FROM keystone.projects p
 LEFT JOIN keystone.contracts c    ON c.project_id = p.id
 LEFT JOIN keystone.site_sheets ss ON ss.project_id = p.id
@@ -376,17 +392,56 @@ CROSS JOIN LATERAL (
   SELECT max(coalesce(mc.extended_until, mc.warranty_end_on)) AS ends, max(mc.updated_at) AS changed
   FROM keystone.machines mc WHERE mc.project_id = p.id
 ) w
+CROSS JOIN LATERAL (
+  SELECT min(sh.atd) AS depart, min(sh.etd) AS etd, max(sh.eta) AS eta,
+         count(*) FILTER (WHERE sh.status <> 'draft') AS sent,
+         CASE WHEN count(*) FILTER (WHERE sh.status <> 'draft') > 0 AND bool_and(sh.ata IS NOT NULL) FILTER (WHERE sh.status <> 'draft')
+              THEN max(sh.ata) FILTER (WHERE sh.status <> 'draft') END AS arrivee,
+         max(sh.updated_at) AS changed
+  FROM keystone.shipments sh WHERE sh.project_id = p.id
+) shp
 CROSS JOIN LATERAL (VALUES
-  ('commande',     NULL::date,                         coalesce(c.signed_on, e.etudes), c.updated_at),
-  ('fin_etudes',   NULL::date,                         e.approvisionnements,            NULL::timestamptz),
-  ('fat',          fat.planned,                        e.expedition,                    fat.changed),
-  ('expedition',   NULL::date,                         e.expedition,                    NULL::timestamptz),
-  ('arrivee_site', ss.start_on,                        e.chantier,                      ss.updated_at),
-  ('sat',          coalesce(sat.planned, satp.planned), sat.done,                       satp.changed),
-  ('pv_reception', pv.due,                             pv.accepted,                     pv.changed),
-  ('fin_garantie', w.ends,                             e.clos,                          w.changed)
-) AS j(jalon_code, prevu, reel, changed);
-COMMENT ON VIEW keystone.pub_jalons_projets IS 'Contrat R-189 v1 : une ligne par projet et jalon CAPEX (commande, fin_etudes, fat, expedition, arrivee_site, sat, pv_reception, fin_garantie) ; reel_le null tant que le jalon n''est pas atteint. Lecteurs : arche_app, matrix_app.';
+  ('commande',     NULL::date,                         coalesce(c.signed_on, e.etudes), c.updated_at,       NULL::date, NULL::date,  false),
+  ('fin_etudes',   NULL::date,                         e.approvisionnements,            NULL::timestamptz, NULL::date, NULL::date,  false),
+  ('fat',          fat.planned,                        e.expedition,                    fat.changed,       NULL::date, NULL::date,  false),
+  ('expedition',   NULL::date,                         e.expedition,                    NULL::timestamptz, shp.etd,    shp.depart,  false),
+  ('arrivee_site', ss.start_on,                        e.chantier,                      ss.updated_at,     shp.eta,    shp.arrivee, shp.sent > 0),
+  ('sat',          coalesce(sat.planned, satp.planned), sat.done,                       satp.changed,      NULL::date, NULL::date,  false),
+  ('pv_reception', pv.due,                             pv.accepted,                     pv.changed,        NULL::date, NULL::date,  false),
+  ('fin_garantie', w.ends,                             e.clos,                          w.changed,         NULL::date, NULL::date,  false)
+) AS j(jalon_code, prevu, reel, changed, ship_prevu, ship_reel, ship_decides)
+LEFT JOIN LATERAL (
+  SELECT CASE WHEN a.id IS NOT NULL THEN a.finish_date
+              ELSE fm.d0 + (least(greatest(1, fm.day), extract(day FROM fm.d0 + interval '1 month - 1 day')::int) - 1) END AS prevu,
+         CASE WHEN a.id IS NOT NULL THEN CASE WHEN a.finish_actual OR a.percent_complete >= 100 THEN a.finish_date END
+              WHEN m.status = 'done' THEN fm.d0 + (least(greatest(1, fm.day), extract(day FROM fm.d0 + interval '1 month - 1 day')::int) - 1) END AS reel,
+         CASE WHEN bl1.id IS NULL THEN NULL
+              WHEN a.id IS NOT NULL THEN bla.finish_date
+              ELSE bm.d0 + (least(greatest(1, bm.day), extract(day FROM bm.d0 + interval '1 month - 1 day')::int) - 1) END AS reference,
+         greatest(m.updated_at, a.updated_at, a.scheduled_at, bl1.updated_at) AS changed
+  FROM keystone.milestones m
+  LEFT JOIN keystone.activities a ON a.id = m.activity_id
+  LEFT JOIN keystone.baselines bl1 ON bl1.project_id = m.project_id AND bl1.code = 'BL1' AND bl1.state <> 'proposed'
+  LEFT JOIN LATERAL (
+    SELECT ba.finish_date FROM keystone.baseline_activities ba
+    WHERE ba.baseline_id = bl1.id AND (ba.activity_id = a.id OR ba.activity_code = a.code)
+    ORDER BY (ba.activity_id = a.id) DESC NULLS LAST
+    LIMIT 1
+  ) bla ON true
+  LEFT JOIN keystone.project_controls pc ON pc.project_id = m.project_id
+  LEFT JOIN LATERAL (
+    SELECT make_date((floor(v.x)::int + 1200) / 12 + 1926, (floor(v.x)::int + 1200) % 12 + 1, 1) AS d0,
+           floor((v.x - floor(v.x)) * 30 + 0.5)::int AS day
+    FROM (SELECT pc.start_month + m.baseline_month AS x) v
+  ) bm ON true
+  LEFT JOIN LATERAL (
+    SELECT make_date((floor(v.x)::int + 1200) / 12 + 1926, (floor(v.x)::int + 1200) % 12 + 1, 1) AS d0,
+           floor((v.x - floor(v.x)) * 30 + 0.5)::int AS day
+    FROM (SELECT pc.start_month + m.forecast_month AS x) v
+  ) fm ON true
+  WHERE m.project_id = p.id AND m.capex_milestone_code = j.jalon_code
+) cm ON true;
+COMMENT ON VIEW keystone.pub_jalons_projets IS 'Contrat R-189 v1 : une ligne par projet et jalon CAPEX (commande, fin_etudes, fat, expedition, arrivee_site, sat, pv_reception, fin_garantie) ; reel_le null tant que le jalon n''est pas atteint ; reference_le = date BL1 du jalon du planning portant ce code (milestones.capex_milestone_code), null sans BL1 ni jalon codé ; R-158 : expedition = premier enlèvement réel des expéditions, arrivee_site = dernière arrivée réelle une fois toutes les expéditions envoyées arrivées (ETD / ETA en date prévue à défaut d''autre source). Lecteurs : arche_app, matrix_app.';
 
 -- Avancement physique et SPI : calculés par Keystone (valeur acquise à la date de situation) et tenus dans
 -- share_project_progress par la tâche planifiée share-progress (nuls avant son premier passage) ; le reste est lu en direct.
@@ -543,6 +598,93 @@ FROM keystone.lessons_learned l
 JOIN keystone.projects p ON p.id = l.project_id
 WHERE l.status IN ('validated', 'applied');
 COMMENT ON VIEW keystone.pub_rex IS 'Contrat commun du REX de Matrix (D22) : leçons apprises des projets EPC2i, validées ou appliquées (une leçon proposée n''est pas publiée), mêmes colonnes que arche.pub_rex_v2. Lecteurs : matrix_app.';
+
+-- R-191 · Part EPC2i du pack ingénierie (Arche K-08) ──────────────────────
+-- Une ligne par projet et famille (pid, bom, layout, electrique, analyse_fonctionnelle), pour le critère G2 d'Arche (pack
+-- au-dessus du seuil). Règles de src/domain/engineering-pack.ts de Keystone : familles pesées par les types des lignes
+-- d'équipement du projet ; pièces attendues = documents de l'index Codex rattachés à la famille par leur type.
+CREATE OR REPLACE VIEW keystone.pub_pack_ingenierie WITH (security_barrier) AS
+WITH lines AS (
+  SELECT e.project_id, e.machine_type_code, e.position, e.updated_at
+  FROM keystone.project_equipments e
+  UNION ALL
+  SELECT p.id, p.machine_type_code, -1, p.updated_at
+  FROM keystone.projects p
+  WHERE p.machine_type_code IS NOT NULL AND NOT EXISTS (SELECT 1 FROM keystone.project_equipments e WHERE e.project_id = p.id)
+),
+weighed AS (
+  SELECT l.project_id, f.family, f.weight, f.min_expected, greatest(f.updated_at, l.updated_at) AS updated_at,
+         row_number() OVER (PARTITION BY l.project_id, f.family ORDER BY l.position) AS rank_in_project
+  FROM lines l
+  JOIN keystone.machine_type_pack_families f ON f.machine_type_code = l.machine_type_code AND f.weight > 0
+),
+standard AS (
+  SELECT project_id, family, max(weight) FILTER (WHERE rank_in_project = 1) AS weight, max(min_expected) AS min_expected,
+         max(updated_at) AS updated_at
+  FROM weighed
+  GROUP BY project_id, family
+),
+docs AS (
+  SELECT d.project_id, t.pack_family AS family,
+         count(*) FILTER (WHERE d.status <> 'obsolete') AS indexed,
+         count(*) FILTER (WHERE d.status = 'released') AS released,
+         max(d.updated_at) AS updated_at
+  FROM keystone.documents d
+  JOIN keystone.document_types t ON t.code = d.type_code
+  WHERE d.project_id IS NOT NULL AND t.pack_family IS NOT NULL
+  GROUP BY d.project_id, t.pack_family
+),
+fam AS (
+  SELECT s.project_id, s.family, s.weight,
+         greatest(s.min_expected, coalesce(dc.indexed, 0))::int AS expected,
+         coalesce(dc.released, 0)::int AS validated,
+         greatest(s.updated_at, dc.updated_at) AS updated_at
+  FROM standard s
+  LEFT JOIN docs dc ON dc.project_id = s.project_id AND dc.family = s.family
+)
+SELECT p.code                                AS projet_code,
+       r.family                              AS famille,
+       r.expected                            AS attendues,
+       r.validated                           AS validees,
+       r.weight::numeric                     AS poids,
+       coalesce(round(100 * sum(CASE WHEN r.expected > 0 THEN r.weight * r.validated::numeric / r.expected END) OVER w
+                      / nullif(sum(CASE WHEN r.expected > 0 THEN r.weight END) OVER w, 0), 1), 0)::numeric AS pct_pondere,
+       greatest(p.updated_at, max(r.updated_at) OVER w) AS maj_le
+FROM fam r
+JOIN keystone.projects p ON p.id = r.project_id
+WINDOW w AS (PARTITION BY r.project_id);
+COMMENT ON VIEW keystone.pub_pack_ingenierie IS 'Contrat K-08 v1 (R-191) : part EPC2i du pack ingénierie, une ligne par projet et famille (pid, bom, layout, electrique, analyse_fonctionnelle) ; pièces attendues (documents de l''index Codex rattachés à la famille par leur type, hors obsolètes, au moins le minimum de la liste type) et validées (diffusées BPE), poids de la famille et % pondéré du projet (même valeur sur chaque ligne ; cible G2 > 80 %). Liste type provisoire (5 familles × 20 %) en attendant le point C-9. Lecteurs : arche_app.';
+
+-- R-158 · Expéditions vers le site (Arche, décision 6 du 25/10/2026 : la filiale suit les expéditions dans Arche) ───────
+-- Une ligne par expédition : ni valeur, ni prix, ni transitaire (tiers externe, ses coordonnées restent dans Keystone).
+-- Incoterm et lieu du contrat lus en direct ; nb_reserves_ouvertes = réserves levées à la réception et non closes ;
+-- maj_le = shipments.updated_at (index shipments_updated_at_idx, K-11).
+CREATE OR REPLACE VIEW keystone.pub_expeditions WITH (security_barrier) AS
+SELECT p.code              AS projet_code,
+       s.ref               AS expedition_ref,
+       (SELECT string_agg(pe.ref || ' · ' || CASE WHEN pe.quantity > 1 THEN pe.quantity::text || ' × ' ELSE '' END || pe.machine_type_code, ', ' ORDER BY pe.position, pe.ref)
+          FROM keystone.shipment_equipments se JOIN keystone.project_equipments pe ON pe.id = se.equipment_id
+         WHERE se.shipment_id = s.id) AS equipements,
+       s.status            AS statut,
+       s.mode,
+       i.code              AS incoterm,
+       c.incoterm_place    AS incoterm_lieu,
+       s.origin            AS origine,
+       s.destination,
+       s.etd,
+       s.eta,
+       s.atd               AS depart_reel_le,
+       s.ata               AS arrivee_reelle_le,
+       s.received_on       AS receptionnee_le,
+       (SELECT count(*)::int FROM keystone.shipment_loads sl WHERE sl.shipment_id = s.id) AS nb_chargements,
+       (SELECT count(*)::int FROM keystone.shipment_punch_items sp JOIN keystone.punch_items pi ON pi.id = sp.punch_item_id
+         WHERE sp.shipment_id = s.id AND pi.status <> 'closed') AS nb_reserves_ouvertes,
+       s.updated_at        AS maj_le
+FROM keystone.shipments s
+JOIN keystone.projects p          ON p.id = s.project_id
+LEFT JOIN keystone.contracts c    ON c.project_id = p.id
+LEFT JOIN keystone.incoterms i    ON i.id = c.incoterm_id;
+COMMENT ON VIEW keystone.pub_expeditions IS 'Contrat R-158 v1 : une ligne par expédition du matériel EPC2i vers le site — équipements, statut (draft, prepared, picked_up, in_transit, arrived, received, closed), mode, Incoterm et lieu du contrat, origine, destination, ETD / ETA, départ et arrivée réels, réception sur site, nombre de chargements et de réserves ouvertes ; aucune valeur, aucun prix, aucun contact du transitaire. Lecteurs : arche_app.';
 
 -- D18 · Journal ──────────────────────────────────────────────────────────
 -- Colonnes communes aux quatre pub_journal (même ordre, mêmes types), réunies par matrix.journal_unifie.

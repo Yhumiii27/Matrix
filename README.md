@@ -35,7 +35,8 @@ integration/declarer-schema.mjs   module à ajouter dans chaque outil
 serveur.mjs                       serveur de Matrix : la page, les API, la lecture périodique du serveur commun
 outils/sonde.mjs                  lecture du serveur commun (rôle matrix_app) et registre des liens (matrix.liens)
 outils/sante.mjs                  règles et calcul de l'état de santé des tables et des liens
-outils/collecteur.mjs             lit les schémas (déclarations, sinon code source) et compare
+outils/collecteur.mjs             lit les schémas (serveur commun, puis déclaration de l'outil, puis code source lu sans rien exécuter) et compare
+outils/litteral.mjs               lit un objet littéral JavaScript sans l'exécuter (déclaration TABLES de Cursus)
 outils/edition.mjs                documentation, décisions, référentiels, journal (/data/edition.json)
 outils/referentiels-pg.mjs        référentiels écrits dans le schéma matrix du serveur commun (pays, zones, filiales, sites, organigramme)
 outils/consultation.mjs           journal unifié, REX unifié et correspondances d'identifiants lus sur le serveur commun
@@ -92,5 +93,11 @@ Le `Dockerfile` à la racine installe la dépendance et lance `node serveur.mjs`
   - « Retours d'expérience » : `matrix.rex_unifie` (D22), REX des projets (Keystone) et des CAPEX (Arche). Filtres : outil, catégorie, projet ou CAPEX, recherche.
   - « Correspondances » : `matrix.correspondances`, à décider : valider (clé commune modifiable), rejeter, à créer, abandonner, retirer. Un rejet, un abandon ou un retrait est motivé ; les contraintes de la table contrôlent la forme de la clé.
   - API : `GET /api/journal`, `GET /api/rex`, `GET /api/correspondances`, `POST /api/correspondances`.
+- **Sources du catalogue** (écart E-14). Par outil, dans cet ordre :
+  1. la lecture du serveur commun par la sonde (`declarations/<outil>.serveur.json`) ;
+  2. la déclaration envoyée par l'outil (`declarations/<outil>.json`, qui ne peut jamais se faire passer pour le serveur) ;
+  3. le code des dépôts voisins, lu sans rien exécuter : expressions régulières pour les migrations Drizzle, lecteur de données littérales pour `TABLES` de Cursus. Une instruction de migration non reconnue est signalée dans l'écran Administration ;
+  4. le catalogue embarqué.
+  Les colonnes que le serveur ferme à Matrix (`droits.colonnes_sensibles`) sont marquées sensibles.
 - **Registre des liens.** Une décision prise dans l'écran « Liens entre outils » est écrite dans `matrix.liens` (journalisée dans `matrix.liens_journal`). Elle prend effet au passage suivant de `infra/postgres/partage/90-droits.sql`, rejoué dans les 15 minutes par la tâche planifiée `infra/postgres/partage/appliquer-liens.sh` : droit posé pour un lien autorisé, retiré pour un lien refusé ou absent du registre. Matrix ne pose aucun droit lui-même.
 - Si vous préférez l'authentification HTTP de Coolify à `MATRIX_MOT_DE_PASSE`, les outils déclarent leurs tables avec `MATRIX_URL=https://identifiant:mot-de-passe@matrix.votre-domaine` ; le jeton part dans l'en-tête `X-Matrix-Token`.

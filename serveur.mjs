@@ -41,7 +41,7 @@
 //                      demande seulement).
 
 import { createServer } from 'node:http';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { timingSafeEqual } from 'node:crypto';
@@ -171,11 +171,15 @@ async function synchroniser(declencheur) {
     vuesConnues = new Set(lecture.vues.map(v => v.vue));
     const changes = [];
     mkdirSync(DECL, { recursive: true });
+    // Lecture du serveur : declarations/<outil>.serveur.json, à côté de la déclaration envoyée par l'outil
+    // (<outil>.json) ; le collecteur fait passer le serveur en premier (E-14). Une ancienne lecture du serveur écrite
+    // dans <outil>.json (avant le 31/10/2026) est déplacée.
     for (const d of declarations(lecture)) {
-      const file = join(DECL, `${d.app}.json`);
+      const file = join(DECL, `${d.app}.serveur.json`), ancien = join(DECL, `${d.app}.json`);
+      if (existsSync(ancien) && lireJson(ancien).origine === 'serveur') { unlinkSync(ancien); changes.push(d.app); }
       if (existsSync(file) && lireJson(file).empreinte === d.empreinte) continue;
       ecrireJson(file, d);
-      changes.push(d.app);
+      if (!changes.includes(d.app)) changes.push(d.app);
     }
     const { events } = changes.length ? rafraichir() : { events: [] };
     const sante = calculerSante(lecture, { catalogue: lireJson(join(DATA, 'catalogue.json')), edition: chargerEdition(DATA) });
@@ -348,10 +352,11 @@ createServer((req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/catalogue') return json(res, 200, lireJson(join(DATA, 'catalogue.json')));
     if (req.method === 'GET' && url.pathname === '/api/declarations') {
-      return json(res, 200, APPS.filter(a => existsSync(join(DECL, `${a}.json`))).map(a => {
-        const d = lireJson(join(DECL, `${a}.json`));
-        return { app: a, declareLe: d.declareLe, version: d.version, empreinte: d.empreinte, tables: d.tables.length };
-      }));
+      // Par outil, la lecture du serveur et la déclaration de l'outil, quand elles existent.
+      return json(res, 200, APPS.flatMap(a => [`${a}.serveur.json`, `${a}.json`].filter(f => existsSync(join(DECL, f))).map(f => {
+        const d = lireJson(join(DECL, f));
+        return { app: a, origine: d.origine ?? 'outil', declareLe: d.declareLe, version: d.version, empreinte: d.empreinte, tables: d.tables.length };
+      })));
     }
     if (req.method === 'POST' && url.pathname === '/api/declarations') {
       if (!TOKEN) return json(res, 503, { erreur: 'MATRIX_TOKEN n’est pas défini sur le serveur Matrix : les déclarations sont désactivées.' });

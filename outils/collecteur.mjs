@@ -1,10 +1,15 @@
 // Collecteur Matrix : construit data/catalogue.json à partir des schémas des six outils.
 //
-// Deux sources, par ordre de priorité :
-//   1. Les déclarations (declarations/<outil>.json, contrat matrix.schema/1) : écrites par la sonde de Matrix, qui lit
-//      elle-même le serveur commun (outils/sonde.mjs, origine « serveur »), ou envoyées par un outil au démarrage
-//      (integration/declarer-schema.mjs). C'est le schéma réel de la base en service.
-//   2. Le code source des dépôts voisins, en lecture seule :
+// Sources, par ordre de priorité (écart E-14 : le serveur fait foi, le code n'est qu'un repli) :
+//   1. Le serveur commun : declarations/<outil>.serveur.json, écrite par la sonde de Matrix (outils/sonde.mjs, origine
+//      « serveur »). C'est le schéma réel de la base en service.
+//   2. La déclaration envoyée par l'outil au démarrage (declarations/<outil>.json, contrat matrix.schema/1,
+//      integration/declarer-schema.mjs), pour un outil que la sonde ne lit pas.
+//   3. Le code source des dépôts voisins, en lecture seule, hors serveur (poste local, outil pas encore migré). Rien n'y
+//      est exécuté : les migrations sont lues par expressions régulières, l'objet TABLES de Cursus par un lecteur de
+//      données littérales (outils/litteral.mjs). Ce qui n'est pas reconnu est signalé dans « avertissements ».
+//   4. Le catalogue embarqué dans l'image, en dernier recours. Le code des dépôts sert aussi, quelle que soit la source,
+//      aux descriptions et domaines tirés des commentaires.
 //      - Keystone, Codex, Vigie : migrations Drizzle (drizzle/*.sql) + commentaires de src/**/schema*.ts
 //      - Cursus : objet TABLES de server/src/db.ts (SQLite, pas de clé étrangère déclarée)
 //      - Arche : migrations Drizzle dès qu'elles existent ; avant, tables de sa spécification
@@ -22,6 +27,7 @@
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lireLitteral } from './litteral.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ORDER = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
@@ -138,8 +144,12 @@ if (existsSync(SOCLE_DROITS)) {
 
 // ── Lecture des migrations Drizzle ───────────────────────────────────────
 
+// Reconnaît ce que drizzle-kit génère pour la structure : tables, colonnes (ajout, retrait, type, nullité, défaut,
+// renommage), clés étrangères et unicités. Index, vues, fonctions, déclencheurs et données sont ignorés sans bruit ;
+// toute autre instruction CREATE TABLE ou ALTER TABLE non reconnue est comptée dans tables.avertissements.
 function parseDrizzle(dir) {
   const tables = new Map();
+  const avertissements = [];
   const files = readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
   for (const f of files) {
     const sql = readFileSync(join(dir, f), 'utf8');
@@ -174,10 +184,26 @@ function parseDrizzle(dir) {
         if (t) { tables.delete(m[1]); t.name = m[2]; tables.set(m[2], t); }
       } else if ((m = s.match(/^DROP TABLE (?:IF EXISTS )?(?:"\w+"\.)?"(\w+)"/))) {
         tables.delete(m[1]);
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" RENAME COLUMN "(\w+)" TO "(\w+)"/))) {
+        const c = tables.get(m[1])?.columns.find(x => x.name === m[2]);
+        if (c) c.name = m[3];
+      } else if ((m = s.match(/^ALTER TABLE (?:"\w+"\.)?"(\w+)" ALTER COLUMN "(\w+)" (SET DATA TYPE (.+?)(?: USING .*)?|SET NOT NULL|DROP NOT NULL|SET DEFAULT (.+?)|DROP DEFAULT);?$/))) {
+        const c = tables.get(m[1])?.columns.find(x => x.name === m[2]);
+        if (c) {
+          if (m[4]) c.type = m[4].trim();
+          else if (m[3] === 'SET NOT NULL') c.nullable = false;
+          else if (m[3] === 'DROP NOT NULL') c.nullable = true;
+          else if (m[5]) c.default = m[5].trim();
+          else if (m[3] === 'DROP DEFAULT') c.default = null;
+        }
+      } else if (/^(CREATE TABLE|ALTER TABLE)\b/i.test(s) && !/ADD CONSTRAINT "\w+" (CHECK|PRIMARY KEY)|DROP CONSTRAINT|ENABLE ROW|DISABLE ROW|OWNER TO|SET SCHEMA/i.test(s)) {
+        avertissements.push(`${f} : ${s.split('\n')[0].slice(0, 120)}`);
       }
     }
   }
-  return [...tables.values()];
+  const out = [...tables.values()];
+  out.avertissements = avertissements;
+  return out;
 }
 
 function column(name, def) {
@@ -218,7 +244,7 @@ const snake = s => s.replace(/[A-Z]/g, m => '_' + m.toLowerCase());
 function parseCursus(file) {
   const src = readFileSync(file, 'utf8');
   const body = src.slice(src.indexOf('export const TABLES = {') + 'export const TABLES = '.length, src.indexOf('} satisfies') + 1);
-  const TABLES = Function(`return (${body})`)();
+  const TABLES = lireLitteral(body);
   const TYPE = { text: 'TEXT', int: 'INTEGER', real: 'REAL', bool: 'INTEGER (booléen)', json: 'TEXT (JSON)' };
   return Object.entries(TABLES).map(([key, def]) => ({
     name: snake(key), pk: [snake(def.pk)], fks: [],
@@ -296,17 +322,25 @@ function fromRepos(root) {
     out.crucible = { tables: parseDrizzle(join(cr, 'drizzle')), comments: schemaComments(files, /crucible\.table\(\s*'(\w+)'/, /crucible\.table\(\s*$/), source: 'dépôt (migrations Drizzle)' };
   }
   const cu = join(root, 'cursus', 'server/src/db.ts');
-  if (existsSync(cu)) out.cursus = { tables: parseCursus(cu), comments: {}, source: 'dépôt (server/src/db.ts)' };
+  if (existsSync(cu)) {
+    try { out.cursus = { tables: parseCursus(cu), comments: {}, source: 'dépôt (server/src/db.ts)' }; }
+    catch (e) { console.warn(`cursus : ${e.message} (server/src/db.ts) ; repli sur la déclaration ou le catalogue embarqué`); }
+  }
   return out;
 }
 
+// Par outil : la lecture du serveur (origine « serveur ») passe avant la déclaration de l'outil, quel que soit le
+// fichier ; à origine égale, la plus récente.
 function fromDeclarations(dir) {
   const out = {};
   if (!existsSync(dir)) return out;
-  for (const f of readdirSync(dir).filter(f => f.endsWith('.json'))) {
+  for (const f of readdirSync(dir).filter(f => f.endsWith('.json')).sort()) {
     const doc = JSON.parse(readFileSync(join(dir, f), 'utf8'));
     if (doc.schema !== 'matrix.schema/1' || !ORDER.includes(doc.app)) { console.warn(`déclaration ignorée : ${f}`); continue; }
-    out[doc.app] = { tables: doc.tables, declareLe: doc.declareLe, empreinte: doc.empreinte, version: doc.version, origine: doc.origine ?? 'outil' };
+    const d = { tables: doc.tables, declareLe: doc.declareLe, empreinte: doc.empreinte, version: doc.version, origine: doc.origine ?? 'outil' };
+    const avant = out[doc.app];
+    const rang = x => (x.origine === 'serveur' ? 1 : 0);
+    if (!avant || rang(d) > rang(avant) || (rang(d) === rang(avant) && String(d.declareLe) > String(avant.declareLe))) out[doc.app] = d;
   }
   return out;
 }
@@ -335,8 +369,11 @@ function enrich(app, tables, comments, known = new Map()) {
     // Description : celle du code ou de la connaissance de Matrix, sinon le commentaire lu en base (sonde du serveur commun).
     const out = { ...t, fks, domain: domain ?? k.domain ?? 'Nouvelles tables', description: description ?? k.description ?? t.description ?? null };
     delete out.vueLe; delete out.nouvelle; delete out.doublonsPossibles;
-    const sens = SENSITIVE[`${app}.${t.name}`];
-    if (sens) out.sensitive = sens.includes('*') ? out.columns.map(c => c.name) : sens;
+    // Sensibles : liste du socle (ou de repli) et colonnes que le serveur ferme à Matrix (droits.colonnes_sensibles).
+    const sens = SENSITIVE[`${app}.${t.name}`] ?? [];
+    const fermees = out.columns.filter(c => c.fermee).map(c => c.name);
+    const toutes = sens.includes('*') ? out.columns.map(c => c.name) : [...new Set([...sens, ...fermees])];
+    if (toutes.length) out.sensitive = toutes;
     return out;
   });
 }
@@ -410,6 +447,7 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
       id, tables: tables.sort((a, b) => a.name.localeCompare(b.name)),
       source: decl ? (decl.origine === 'serveur' ? `serveur commun lu le ${decl.declareLe}` : `déclaration du ${decl.declareLe}`) : repo ? repo.source : fb.source ?? 'catalogue embarqué',
       ...(decl ? { empreinte: decl.empreinte, version: decl.version } : {}),
+      ...(!decl && repo?.tables.avertissements?.length ? { avertissements: repo.tables.avertissements } : {}),
     });
   }
 
@@ -440,6 +478,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const fk = a.tables.reduce((n, t) => n + t.fks.length, 0);
     const cols = a.tables.reduce((n, t) => n + t.columns.length, 0);
     console.log(`${a.id.padEnd(9)} ${String(a.tables.length).padStart(3)} tables  ${String(cols).padStart(4)} colonnes  ${String(fk).padStart(3)} liens  · ${a.source}`);
+    for (const w of a.avertissements ?? []) console.log(`          non reconnu : ${w}`);
   }
   if (events.length) {
     console.log(`\n${events.length} changement(s) depuis la collecte précédente :`);

@@ -552,7 +552,10 @@ function tableSheet(t, tab = 'colonnes', opts = {}) {
     const inn = t.in.map(i => { const s = T.get(i.from); return `<div class="link-row"><button class="link-btn mono" data-open="${esc(i.from)}">${esc(s.name)}</button><span class="text-muted mono">.${esc(i.columns.join(', '))}</span>${i.declared ? '' : '<span class="tag tag-ghost">logique</span>'}</div>`; }).join('');
     const refs = t.refs.map(g => `<div class="link-row"><button class="link-btn" data-doublon="${g.id}">${esc(g.id)} · ${esc(g.objet)}</button>${natureTag(g.nature)}<span class="text-muted">· ${g.tables.filter(o => o.table !== '—' && key(o.app, o.table) !== t.key).map(o => APPS[o.app].nom + '.' + o.table).join(', ')}</span></div>`).join('');
     const sim = (t.doublonsPossibles || []).map(d => `<div class="link-row"><button class="link-btn mono" data-open="${esc(key(d.app, d.table))}">${APPS[d.app].nom}.${esc(d.table)}</button><span class="text-muted">· ${Math.round(d.score * 100)} % de colonnes communes${d.memeNom ? ' · même nom' : ''}</span></div>`).join('');
+    const pubs = vuesDeTable(t.app, t.name).map(v => `<div class="link-row" style="flex-wrap:wrap"><span class="mono">${esc(v.vue)}</span><span class="text-muted sub">· lue par ${[...new Set(v.lecteurs.filter(l => /_app$/.test(l)).map(l => APPS[l.replace(/_app$/, '')]?.nom || 'Matrix'))].join(', ') || 'aucun outil'}</span>
+      ${v.colonnes.length ? `<div class="sub" style="width:100%">${v.colonnes.map(c => `<span class="mono">${esc(c.sources.filter(s => s.table === t.app + '.' + t.name).map(s => s.colonne).join(' + '))}</span> → <span class="mono">${esc(c.colonne)}</span> <span class="text-muted">(${GENRE_LIGNAGE[c.genre]})</span>`).join(' · ')}</div>` : ''}</div>`).join('');
     body = `<div><div class="block-title">Pointe vers <span>${t.fks.length}</span></div>${out || '<p class="text-muted sub">Aucun lien sortant.</p>'}</div>
+      ${pubs ? `<div><div class="block-title">Publiée par les vues pub_ (lignage lu sur le serveur)</div>${pubs}</div>` : ''}
       <div><div class="block-title">Référencée par <span>${t.in.length}</span></div>${inn || '<p class="text-muted sub">Aucune table ne pointe vers celle-ci.</p>'}</div>
       ${refs ? `<div><div class="block-title">Doublons relevés</div>${refs}</div>` : ''}
       ${sim ? `<div><div class="block-title">Doublons possibles (détection automatique)</div>${sim}</div>` : ''}`;
@@ -587,11 +590,26 @@ function tableSheet(t, tab = 'colonnes', opts = {}) {
     ${opts.actions !== false ? `<div class="actions"><button class="btn btn-primary" data-graph="${esc(t.key)}">${icon('graph', 14)} Voir dans le graphe</button><button class="btn btn-secondary" data-copy="${esc(t.name)}">${icon('copy', 14)} Copier le nom</button></div>` : ''}`;
 }
 
+// ── Lignage et flux observés sur le serveur commun (E-07) ───────────────
+const LIGNAGE = DATA.lignage || null;
+const OBS = Object.fromEntries((LIGNAGE?.saisis || []).map(x => [x.id, x]));
+const obsTag = id => !LIGNAGE ? '' : OBS[id]?.etat === 'confirme'
+  ? `<span class="tag tag-accent" title="Lien appliqué sur le serveur commun : ${esc((OBS[id].vues || []).join(', '))}">observé</span>`
+  : '<span class="tag tag-ghost" title="Aucun lien appliqué sur le serveur commun ne correspond à ce flux (pas encore basculé, ou passe par une API)">non observé</span>';
+const GENRE_LIGNAGE = { directe: 'telle quelle', transformee: 'transformée', calculee: 'calculée' };
+// Vues pub_ qui publient des colonnes d'une table, avec leur correspondance colonne publiée ← colonne source.
+function vuesDeTable(app, table) {
+  const cle = `${app}.${table}`;
+  return ((DATA.sante || {}).vues || []).filter(v => (v.sources || []).some(s => s.startsWith(cle + '.')))
+    .map(v => ({ vue: v.vue, lecteurs: v.lecteurs || [], colonnes: (v.lignage || []).filter(c => c.sources.some(s => s.table === cle)) }));
+}
+
 function fluxSheet(f, opts = {}) {
   const tl = (a, list) => list.length ? list.map(n => `<button class="link-btn mono" data-open="${esc(key(a, n))}">${esc(n)}</button>`).join(', ') : '<span class="text-muted">aucune table aujourd’hui</span>';
   return `
     <div class="quick-head"><div class="quick-title">${esc(f.nom)}</div>${opts.close ? `<button class="btn btn-ghost btn-icon" data-close aria-label="Fermer">${icon('close', 14)}</button>` : ''}</div>
-    <div class="tags"><span class="tag tag-ghost">${esc(f.id)}</span>${statutTag(f.statut)}<span class="tag tag-neutral">${esc(f.mode)}</span></div>
+    <div class="tags"><span class="tag tag-ghost">${esc(f.id)}</span>${statutTag(f.statut)}${obsTag(f.id)}<span class="tag tag-neutral">${esc(f.mode)}</span></div>
+    ${OBS[f.id]?.etat === 'confirme' ? `<p class="sub text-muted">Observé sur le serveur commun : ${OBS[f.id].vues.map(v => `<span class="mono">${esc(v)}</span>`).join(', ')}${OBS[f.id].tablesCommunes.length ? ` (tables ${OBS[f.id].tablesCommunes.map(esc).join(', ')})` : ''}.</p>` : ''}
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${appTag(f.de)}<span class="arrow">→</span>${appTag(f.vers)}</div>
     <dl class="dl"><dt>Point d’accès</dt><dd class="mono">${esc(f.point)}</dd><dt>Sécurité</dt><dd>${esc(f.auth)}</dd>
       <dt>Lit dans ${APPS[f.de].nom}</dt><dd>${tl(f.de, f.source)}</dd><dt>Écrit dans ${APPS[f.vers].nom}</dt><dd>${tl(f.vers, f.cible)}</dd></dl>
@@ -1153,6 +1171,9 @@ const Flows = (() => {
         <div style="padding:4px 8px 0"><div class="block-title">Nombre de flux · de (ligne) vers (colonne)</div>
           <div class="matrix-grid" id="fl-matrix"></div></div>
         <div class="table-wrap"><table class="table"><thead><tr><th>Flux</th><th>De → vers</th><th>Mode</th><th>Tables lues</th><th>État</th></tr></thead><tbody id="fl-rows"></tbody></table></div>
+        ${LIGNAGE ? `<div style="padding:22px 8px 0"><div class="block-title">Flux observés sur le serveur, non décrits <span>${LIGNAGE.nonDecrits.length}</span></div>
+          <p class="sub text-muted" style="margin-bottom:8px">Liens appliqués entre outils (registre des liens) qu’aucun flux saisi ne décrit : un outil lit les vues <span class="mono">pub_</span> d’un autre. ${LIGNAGE.saisis.filter(x => x.etat === 'confirme').length} flux saisi(s) sur ${LIGNAGE.saisis.length} observé(s) sur le serveur.</p>
+          ${LIGNAGE.nonDecrits.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>De → vers</th><th>Vues lues</th><th>Tables sources</th></tr></thead><tbody>${LIGNAGE.nonDecrits.map(o => `<tr><td class="nowrap"><span style="display:inline-flex;gap:6px;align-items:center">${APPS[o.de] ? appMark(o.de) : esc(o.de)}<span class="arrow">→</span>${APPS[o.vers] ? appMark(o.vers) : esc(o.vers)}</span></td><td class="mono sub">${o.vues.map(esc).join(', ')}</td><td class="mono sub text-muted">${o.tables.slice(0, 8).map(esc).join(', ')}${o.tables.length > 8 ? ` +${o.tables.length - 8}` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-muted sub">Tous les liens appliqués sont décrits par un flux saisi.</p>'}</div>` : ''}
         <div style="padding:22px 8px 0"><div class="block-title">Systèmes externes</div>
           <div class="table-wrap"><table class="table"><tbody>${FLUX.externes.map(e => `<tr><td>${esc(e.nom)}</td><td>${appTag(e.app)}</td><td class="text-muted">${esc(e.sens)}</td><td class="mono text-muted">${e.tables.map(esc).join(', ')}</td><td>${statutTag(e.statut)}</td></tr>`).join('')}</tbody></table></div></div>
       </div></div><aside class="quick" id="fl-quick"></aside></div>`;
@@ -1175,7 +1196,7 @@ const Flows = (() => {
       <td class="nowrap"><span style="display:inline-flex;gap:6px;align-items:center">${appMark(f.de)}<span class="arrow">→</span>${appMark(f.vers)}</span></td>
       <td class="text-muted nowrap">${esc(f.mode)}</td>
       <td class="mono text-muted" style="font-size:11.5px">${f.source.length ? esc(f.source.slice(0, 3).join(', ')) + (f.source.length > 3 ? ` +${f.source.length - 3}` : '') : '—'}</td>
-      <td>${statutTag(f.statut)}</td></tr>`).join('');
+      <td>${statutTag(f.statut)} ${obsTag(f.id)}</td></tr>`).join('');
     const f = FLUX.flux.find(x => x.id === st.sel);
     $('fl-quick').innerHTML = f ? fluxSheet(f) : '';
   }

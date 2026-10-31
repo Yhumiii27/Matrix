@@ -7,6 +7,7 @@
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { chargerEdition } from './edition.mjs';
+import { fluxObserves } from './lignage.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +26,8 @@ export function donnees({ dataDir = join(RACINE, 'data'), serveur = false, serve
     const d = lire(join(declDir, f));
     return { app: d.app, origine: d.origine ?? 'outil', declareLe: d.declareLe, version: d.version, tables: d.tables.length };
   }) : [];
+  const sante = existsSync(join(dataDir, 'sante.json')) ? lire(join(dataDir, 'sante.json')) : null;
+  const flux = lire(join(connaissance, 'flux.json'));
   return {
     serveur,
     // Référentiels écrits dans le schéma matrix du serveur commun (MATRIX_DATABASE_URL, outils/referentiels-pg.mjs).
@@ -32,12 +35,14 @@ export function donnees({ dataDir = join(RACINE, 'data'), serveur = false, serve
     edition: { ...edition, journal: edition.journal.slice(-300) },
     declarations,
     catalogue: lire(join(dataDir, 'catalogue.json')),
-    flux: lire(join(connaissance, 'flux.json')),
+    flux,
     usages: lire(join(connaissance, 'usages.json')),
     doublons: lire(join(connaissance, 'doublons.json')),
     historique: existsSync(historique) ? lire(historique) : { evenements: [] },
     // État de santé des tables et des liens : écrit par la sonde du serveur commun (serveur.mjs, MATRIX_DATABASE_URL).
-    sante: existsSync(join(dataDir, 'sante.json')) ? lire(join(dataDir, 'sante.json')) : null,
+    sante,
+    // Flux observés sur le serveur (liens appliqués et lignage des vues pub_), rapprochés des flux saisis (E-07).
+    lignage: sante ? fluxObserves({ vues: sante.vues, liens: sante.liens, flux: flux.flux }) : null,
   };
 }
 

@@ -14,6 +14,7 @@
 //   - references : le contrôle des références entre outils de data/references.json (valeurs orphelines).
 
 import { createHash } from 'node:crypto';
+import { analyserVue, confirmer } from './lignage.mjs';
 import pg from 'pg';
 
 export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
@@ -76,6 +77,21 @@ const Q_VUES = `
   WHERE n.nspname = ANY ($1) AND c.relkind = 'v' AND c.relname LIKE 'pub\\_%'
   ORDER BY 1, 2`;
 
+// Lignage des vues pub_ (E-07) : colonnes des tables dont chaque vue dépend (pg_depend, sûr) et définition de la vue
+// (pg_get_viewdef), analysée par outils/lignage.mjs. Catalogues lisibles par tout rôle : aucune donnée n'est lue.
+const Q_LIGNAGE = `
+  SELECT vn.nspname || '.' || v.relname AS vue, pg_get_viewdef(v.oid, true) AS definition,
+         array(SELECT DISTINCT tn.nspname || '.' || t.relname || '.' || a.attname
+               FROM pg_rewrite r
+               JOIN pg_depend d ON d.objid = r.oid AND d.classid = 'pg_rewrite'::regclass AND d.refclassid = 'pg_class'::regclass AND d.refobjsubid > 0
+               JOIN pg_class t ON t.oid = d.refobjid AND t.oid <> v.oid
+               JOIN pg_namespace tn ON tn.oid = t.relnamespace
+               JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+               WHERE r.ev_class = v.oid ORDER BY 1)::text[] AS sources
+  FROM pg_class v
+  JOIN pg_namespace vn ON vn.oid = v.relnamespace
+  WHERE vn.nspname = ANY ($1) AND v.relkind = 'v' AND v.relname LIKE 'pub\\_%'`;
+
 const ON_DELETE = { a: 'no action', r: 'restrict', c: 'cascade', n: 'set null', d: 'set default' };
 const nombre = v => v == null ? null : Number(v);
 const ident = s => `"${String(s).replace(/"/g, '""')}"`;
@@ -128,11 +144,18 @@ export async function lireServeur(db, { references = [] } = {}) {
       },
     });
   }
+  const lignage = new Map((await essayer(db, Q_LIGNAGE, [SCHEMAS_LIENS])).lignes.map(l => [l.vue, l]));
   const vuesParSchema = {};
-  for (const v of vues) (vuesParSchema[v.schema] ??= []).push({
-    vue: `${v.schema}.${v.nom}`, description: v.description, lecteurs: v.lecteurs,
-    colonnes: (cols.get(cle(v.schema, v.nom)) ?? []).map(c => c.nom),
-  });
+  for (const v of vues) {
+    const l = lignage.get(`${v.schema}.${v.nom}`);
+    let colonnesLignage = null;
+    try { colonnesLignage = l ? confirmer(analyserVue(l.definition, v.schema), l.sources) : null; } catch { colonnesLignage = null; }
+    (vuesParSchema[v.schema] ??= []).push({
+      vue: `${v.schema}.${v.nom}`, description: v.description, lecteurs: v.lecteurs,
+      colonnes: (cols.get(cle(v.schema, v.nom)) ?? []).map(c => c.nom),
+      ...(l ? { sources: l.sources, lignage: colonnesLignage } : {}),
+    });
+  }
   for (const [s, l] of Object.entries(vuesParSchema)) if (outils[s]) outils[s].vues = l;
 
   const registre = await essayer(db, `SELECT vue, lecteur, statut, origine, motif, demande_par, demande_le, decide_par, decide_le, modifie_le

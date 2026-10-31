@@ -4,7 +4,9 @@
 // Tout est enregistré dans un seul fichier, <MATRIX_DATA_DIR>/edition.json, écrit de façon atomique (fichier
 // temporaire puis renommage). Les référentiels partent de data/referentiels.json tant que rien n'a été saisi.
 // Les règles de validation reprennent les contraintes du schéma matrix (infra/postgres/partage/10-matrix-referentiels.sql),
-// pour que ce qui est saisi ici puisse y être chargé tel quel.
+// pour que ce qui est saisi ici puisse y être chargé tel quel. Avec le serveur commun (MATRIX_DATABASE_URL), serveur.mjs
+// écrit chaque référentiel validé dans le schéma matrix avant de l'enregistrer ici (preparerReferentiel, puis
+// outils/referentiels-pg.mjs, puis appliquerReferentiel) : edition.json en garde la copie et le journal.
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -29,6 +31,8 @@ export function chargerEdition(dataDir) {
       filiales: e.referentiels?.filiales ?? depart.filiales ?? [],
     },
     journal: e.journal ?? [],
+    // Listes de référentiels saisies dans Matrix (les autres viennent de data/referentiels.json ou du serveur commun).
+    ...(e.saisis ? { saisis: e.saisis } : {}),
   };
 }
 
@@ -93,11 +97,12 @@ export function decider(dataDir, { id, option }, qui) {
 const bool = v => v === true || v === 'true';
 const entier = (v, champ) => { const n = Number(v ?? 0); if (!Number.isInteger(n)) throw new Error(`${champ} doit être un nombre entier`); return n; };
 // Degrés décimaux (coordonnées d'un site, cadre d'une zone : demandes M-11 et M-12 d'Arche) ; vide = null.
-const degres = (v, min, max, champ) => {
+// Arrondi à la précision de la colonne du schéma : numeric(9,6) pour un site, numeric(6,2) pour le cadre d'une zone.
+const degres = (v, min, max, champ, decimales = 6) => {
   if (v == null || v === '') return null;
   const n = Number(v);
   if (!Number.isFinite(n) || n < min || n > max) throw new Error(`${champ} : nombre entre ${min} et ${max} attendu (degrés décimaux)`);
-  return Math.round(n * 1e6) / 1e6;
+  return Math.round(n * 10 ** decimales) / 10 ** decimales;
 };
 
 function validerPays(lignes) {
@@ -178,8 +183,8 @@ function validerZones(lignes) {
     const libelle = texte(z.libelle, 120, `Zone ${code}, libellé`);
     if (!libelle) throw new Error(`Zone ${code} : le libellé est obligatoire`);
     // M-12 d'Arche : cadre de la zone sur la carte, les quatre bornes ou aucune.
-    const ouest = degres(z.ouest, -180, 180, `Zone ${code}, ouest`), est = degres(z.est, -180, 180, `Zone ${code}, est`);
-    const sud = degres(z.sud, -90, 90, `Zone ${code}, sud`), nord = degres(z.nord, -90, 90, `Zone ${code}, nord`);
+    const ouest = degres(z.ouest, -180, 180, `Zone ${code}, ouest`, 2), est = degres(z.est, -180, 180, `Zone ${code}, est`, 2);
+    const sud = degres(z.sud, -90, 90, `Zone ${code}, sud`, 2), nord = degres(z.nord, -90, 90, `Zone ${code}, nord`, 2);
     const bornes = [ouest, nord, est, sud].filter(b => b != null).length;
     if (bornes !== 0 && bornes !== 4) throw new Error(`Zone ${code} : le cadre se saisit en entier (ouest, nord, est, sud) ou pas du tout`);
     if (bornes === 4 && !(ouest < est && sud < nord)) throw new Error(`Zone ${code} : le cadre doit vérifier ouest < est et sud < nord`);
@@ -206,7 +211,54 @@ function validerFiliales(lignes, pays, zones) {
   });
 }
 
+const LIBELLES = { pays: 'Pays', sites: 'Sites', organigramme: 'Organigramme', zones: 'Zones', filiales: 'Filiales' };
+const CLES = { pays: 'iso2', sites: 'code', organigramme: 'code', zones: 'code', filiales: 'code' };
+
+function resumer(avant, apres, cle) {
+  const A = new Map(avant.map(x => [x[cle], JSON.stringify(x)])), B = new Map(apres.map(x => [x[cle], JSON.stringify(x)]));
+  const ajoutes = [...B.keys()].filter(k => !A.has(k)), retires = [...A.keys()].filter(k => !B.has(k));
+  const modifies = [...B.keys()].filter(k => A.has(k) && A.get(k) !== B.get(k));
+  if (!ajoutes.length && !retires.length && !modifies.length) return null;
+  return [ajoutes.length && `ajout : ${ajoutes.join(', ')}`, modifies.length && `modification : ${modifies.join(', ')}`, retires.length && `retrait : ${retires.join(', ')}`].filter(Boolean).join(' · ');
+}
+
+/**
+ * Listes de référentiels saisies dans Matrix, par opposition à celles de départ (data/referentiels.json) ou reprises du
+ * serveur commun. edition.json les note dans saisis ; un fichier plus ancien, qui ne les note pas, compte comme saisie
+ * toute liste qui diffère de celle de départ.
+ */
+export function referentielsSaisis(dataDir) {
+  const f = join(dataDir, 'edition.json');
+  const e = existsSync(f) ? lire(f) : {};
+  if (Array.isArray(e.saisis)) return new Set(e.saisis);
+  const depart = lire(join(RACINE, 'data/referentiels.json'));
+  return new Set(Object.keys(e.referentiels ?? {}).filter(l => JSON.stringify(e.referentiels[l]) !== JSON.stringify(depart[l] ?? [])));
+}
+
+/**
+ * Remplace des référentiels par ceux du serveur commun (lignes désactivées comprises), sans validation : le schéma
+ * matrix les a déjà contrôlés. Sert au démarrage, pour une liste que Matrix n'a encore jamais saisie.
+ */
+export function adopterReferentiels(dataDir, listes, qui) {
+  const ed = chargerEdition(dataDir);
+  ed.saisis = [...referentielsSaisis(dataDir)];
+  for (const [liste, lignes] of Object.entries(listes)) {
+    const detail = resumer(ed.referentiels[liste], lignes, CLES[liste]);
+    if (!detail) continue;
+    ed.referentiels[liste] = lignes;
+    tracer(ed, qui, 'Référentiel relu du serveur commun', LIBELLES[liste], detail);
+  }
+  enregistrer(dataDir, ed);
+  return ed.referentiels;
+}
+
 export function enregistrerReferentiel(dataDir, liste, lignes, qui) {
+  const p = preparerReferentiel(dataDir, liste, lignes);
+  return p.inchange ? p.lignes : appliquerReferentiel(dataDir, p, qui);
+}
+
+/** Valide une liste saisie et calcule le changement ; rien n'est écrit (voir appliquerReferentiel). */
+export function preparerReferentiel(dataDir, liste, lignes) {
   if (!Array.isArray(lignes)) throw new Error('la liste doit être un tableau');
   if (lignes.length > 5000) throw new Error('5 000 lignes au plus');
   const ed = chargerEdition(dataDir);
@@ -236,15 +288,16 @@ export function enregistrerReferentiel(dataDir, liste, lignes, qui) {
   } else if (liste === 'organigramme') {
     r.organigramme = validerOrganigramme(lignes, r.sites);
   } else throw new Error(`référentiel inconnu : ${liste}`);
-  const avant = ed.referentiels[liste], apres = r[liste];
-  const cle = { pays: 'iso2', sites: 'code', organigramme: 'code', zones: 'code', filiales: 'code' }[liste];
-  const A = new Map(avant.map(x => [x[cle], JSON.stringify(x)])), B = new Map(apres.map(x => [x[cle], JSON.stringify(x)]));
-  const ajoutes = [...B.keys()].filter(k => !A.has(k)), retires = [...A.keys()].filter(k => !B.has(k));
-  const modifies = [...B.keys()].filter(k => A.has(k) && A.get(k) !== B.get(k));
-  if (!ajoutes.length && !retires.length && !modifies.length) return apres;
-  ed.referentiels = r;
-  const detail = [ajoutes.length && `ajout : ${ajoutes.join(', ')}`, modifies.length && `modification : ${modifies.join(', ')}`, retires.length && `retrait : ${retires.join(', ')}`].filter(Boolean).join(' · ');
-  tracer(ed, qui, 'Référentiel modifié', { pays: 'Pays', sites: 'Sites', organigramme: 'Organigramme', zones: 'Zones', filiales: 'Filiales' }[liste], detail);
+  const detail = resumer(ed.referentiels[liste], r[liste], CLES[liste]);
+  return { liste, lignes: r[liste], detail, inchange: !detail };
+}
+
+/** Enregistre dans edition.json une liste préparée par preparerReferentiel, avec son entrée de journal. */
+export function appliquerReferentiel(dataDir, { liste, lignes, detail }, qui, suffixe = '') {
+  const ed = chargerEdition(dataDir);
+  ed.saisis = [...new Set([...referentielsSaisis(dataDir), liste])];
+  ed.referentiels[liste] = lignes;
+  tracer(ed, qui, 'Référentiel modifié', LIBELLES[liste], detail + suffixe);
   enregistrer(dataDir, ed);
-  return apres;
+  return lignes;
 }

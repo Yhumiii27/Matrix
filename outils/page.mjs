@@ -16,7 +16,7 @@ const CDN_CYTOSCAPE = 'https://cdn.jsdelivr.net/npm/cytoscape@3.33.1/dist/cytosc
 const lire = f => JSON.parse(readFileSync(f, 'utf8'));
 
 /** Rassemble les données de la page. Le catalogue et l'historique viennent de dataDir ; le reste du dépôt. */
-export function donnees({ dataDir = join(RACINE, 'data'), serveur = false } = {}) {
+export function donnees({ dataDir = join(RACINE, 'data'), serveur = false, serveurCommun = false } = {}) {
   const connaissance = join(RACINE, 'data');
   const historique = join(dataDir, 'historique.json');
   const edition = chargerEdition(dataDir);
@@ -27,6 +27,8 @@ export function donnees({ dataDir = join(RACINE, 'data'), serveur = false } = {}
   }) : [];
   return {
     serveur,
+    // Référentiels écrits dans le schéma matrix du serveur commun (MATRIX_DATABASE_URL, outils/referentiels-pg.mjs).
+    serveurCommun,
     edition: { ...edition, journal: edition.journal.slice(-300) },
     declarations,
     catalogue: lire(join(dataDir, 'catalogue.json')),
@@ -39,8 +41,8 @@ export function donnees({ dataDir = join(RACINE, 'data'), serveur = false } = {}
   };
 }
 
-export function construirePage({ forme = 'fragment', dataDir } = {}) {
-  const json = JSON.stringify(donnees({ dataDir, serveur: forme === 'document' })).replace(/</g, '\\u003c');
+export function construirePage({ forme = 'fragment', dataDir, serveurCommun = false } = {}) {
+  const json = JSON.stringify(donnees({ dataDir, serveur: forme === 'document', serveurCommun })).replace(/</g, '\\u003c');
   const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json);
   if (forme === 'fragment') return source;
   const fin = source.indexOf('</style>') + '</style>'.length;

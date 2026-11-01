@@ -24,6 +24,11 @@
 //   GET  /api/catalogue/tables  liste des tables (outil, domaine, q : recherche plein texte), pour les outils et les agents
 //   GET  /api/catalogue/tables/:outil/:table  fiche d'une table : colonnes, liens, documentation, vues qui la publient, santé
 //   GET  /api/export/tables.csv | colonnes.csv | dictionnaire.html | schema.mmd   exports (outil, domaine, q)
+//   GET  /api/publications      registre des publications (vues pub_ des outils, M-18) et vues pas encore reprises
+//   GET  /api/publications/:vue fiche d'une publication : définition, contrat, liens, journal
+//   PUT  /api/publications/:vue brouillon  { mode: colonnes|sql, source, colonnes: [{ colonne, nom }], filtre, definition, description }
+//   POST /api/publications/:vue/appliquer   appliquer sur le serveur (rôle matrix_gestion) : vue, contrôles, droits des liens
+//   POST /api/publications/:vue/retirer     supprimer la vue (aucun lien autorisé)  { motif }
 //
 // Variables d'environnement :
 //   PORT               port d'écoute (défaut 3000)
@@ -38,6 +43,9 @@
 //                      de chaque outil, met le registre et les graphes à jour, calcule l'état de santé et tient le
 //                      registre des liens (matrix.liens). Les référentiels saisis sont écrits dans le schéma matrix
 //                      (pays, zones, filiales, sites, organigramme), que les outils lisent par les vues matrix.pub_*.
+//   MATRIX_GESTION_DATABASE_URL connexion en matrix_gestion (décision M-18) : Matrix applique lui-même les publications
+//                      (vues pub_ des outils) et les décisions sur les liens, tout de suite. Sans elle, les publications
+//                      restent en brouillon et les liens sont appliqués par appliquer-liens.sh (15 minutes).
 //                      Sans elle, Matrix vit des déclarations et du code des dépôts, et ses référentiels restent dans
 //                      edition.json.
 //   MATRIX_SYNCHRO_MINUTES intervalle entre deux lectures du serveur commun (défaut 60 ; 0 : au démarrage et à la
@@ -57,6 +65,7 @@ import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, di
 import { chercher } from './outils/recherche.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
+import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien } from './outils/publications.mjs';
 
 const PORT = +(process.env.PORT ?? 3000);
 const DATA = process.env.MATRIX_DATA_DIR ?? join(RACINE, 'data');
@@ -66,6 +75,7 @@ const TOKEN = process.env.MATRIX_TOKEN ?? '';
 const MOT_DE_PASSE = process.env.MATRIX_MOT_DE_PASSE ?? '';
 const PRODUCTION = process.env.NODE_ENV === 'production';
 const DB_URL = process.env.MATRIX_DATABASE_URL ?? '';
+const GESTION_URL = process.env.MATRIX_GESTION_DATABASE_URL ?? '';
 const SYNCHRO_MINUTES = Math.max(0, Number(process.env.MATRIX_SYNCHRO_MINUTES ?? 60) || 0);
 const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 const MAX_OCTETS = 10 * 1024 * 1024;
@@ -112,10 +122,13 @@ const pageCourante = () => (page ??= construirePage({ forme: 'document', dataDir
 let fileReferentiels = Promise.resolve();
 const enSerie = tache => { const p = fileReferentiels.then(tache); fileReferentiels = p.catch(() => {}); return p; };
 
-async function avecServeur(tache) {
-  const db = client(DB_URL);
+async function avecServeur(tache, url = DB_URL) {
+  const db = client(url);
   try { await db.connect(); return await tache(db); } finally { await db.end().catch(() => {}); }
 }
+// Administration (M-18) : une seule opération à la fois, pour qu'une publication et un lien ne se croisent pas.
+let fileGestion = Promise.resolve();
+const avecGestion = tache => { const p = fileGestion.then(() => avecServeur(tache, GESTION_URL)); fileGestion = p.catch(() => {}); return p; };
 
 async function ecrireReferentiel(liste, lignes, auteur) {
   if (!DB_URL) return enregistrerReferentiel(DATA, liste, lignes, auteur);
@@ -228,6 +241,10 @@ async function deciderLien(corps, auteur) {
   const lien = validerLien(corps ?? {}, vuesConnues);
   const db = client(DB_URL);
   try { await db.connect(); var ecrit = await ecrireLien(db, lien, auteur); } finally { await db.end().catch(() => {}); }
+  // M-18 : la décision est appliquée tout de suite par matrix_gestion ; sinon par appliquer-liens.sh (15 minutes).
+  ecrit.application = GESTION_URL
+    ? await avecGestion(db => appliquerLien(db, lien)).catch(e => ({ applique: false, raison: e.message }))
+    : { applique: false, raison: 'MATRIX_GESTION_DATABASE_URL absent : appliqué par appliquer-liens.sh dans les 15 minutes' };
   await synchroniser('décision sur un lien');
   return ecrit;
 }
@@ -356,6 +373,15 @@ createServer((req, res) => {
       }
       return json(res, 404, { erreur: 'introuvable' });
     }
+    // Publications (M-18) : lecture du registre en matrix_app.
+    const publication = url.pathname.match(/^\/api\/publications(?:\/([a-z]+\.pub_[a-z0-9_]+))?(?:\/(appliquer|retirer))?$/);
+    if (req.method === 'GET' && publication && !publication[2]) {
+      if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les publications sont sur le serveur commun.' });
+      const lire = publication[1] ? db => lirePublication(db, publication[1]) : db => listerPublications(db);
+      avecServeur(lire).then(r => r ? json(res, 200, { gestion: Boolean(GESTION_URL), ...(publication[1] ? { publication: r } : r) }) : json(res, 404, { erreur: 'publication inconnue' }),
+        e => json(res, e.code ? 502 : 422, { erreur: e.message }));
+      return;
+    }
     const consultation = url.pathname.match(/^\/api\/(journal|rex|correspondances)$/);
     if (req.method === 'GET' && consultation) {
       if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : le journal, le REX et les correspondances sont sur le serveur commun.' });
@@ -364,14 +390,27 @@ createServer((req, res) => {
       avecServeur(lire).then(r => json(res, 200, r), e => json(res, /date|outil|pagination/.test(e.message) && !e.code ? 422 : 502, { erreur: e.message }));
       return;
     }
-    const ecriture = (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions'))
-      || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro' || url.pathname === '/api/correspondances'));
+    const ecriture = (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
+      || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro' || url.pathname === '/api/correspondances' || publication?.[2]));
     if (ecriture) {
       if (PRODUCTION && !MOT_DE_PASSE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE sur le serveur pour autoriser les modifications.' });
       if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { erreur: 'contenu JSON attendu' });
       const origine = req.headers.origin;
       if (origine && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
       const auteur = qui || 'anonyme';
+      if (publication?.[1]) return lireCorps(req, res, async corps => {
+        try {
+          if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les publications sont sur le serveur commun.' });
+          const vue = publication[1];
+          if (req.method === 'PUT') return json(res, 200, { ok: true, publication: await avecServeur(db => enregistrerPublication(db, { ...(corps ?? {}), vue }, auteur)) });
+          if (!GESTION_URL) return json(res, 409, { erreur: 'MATRIX_GESTION_DATABASE_URL n’est pas défini : Matrix ne peut pas appliquer les publications (rôle matrix_gestion).' });
+          const r = publication[2] === 'appliquer'
+            ? await avecGestion(db => appliquerPublication(db, vue, auteur))
+            : await avecGestion(db => retirerPublication(db, vue, auteur, corps?.motif));
+          await synchroniser(`publication ${vue}`);
+          json(res, 200, { ok: true, resultat: r });
+        } catch (e) { json(res, 422, { erreur: e.message }); }
+      });
       if (req.method === 'POST') return lireCorps(req, res, async corps => {
         try {
           if (url.pathname === '/api/synchro') {

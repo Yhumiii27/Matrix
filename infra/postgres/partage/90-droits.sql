@@ -351,7 +351,8 @@ BEGIN
                                    WHERE x.vue = p.vue AND p.lecteur = ANY (x.lecteurs))$q$ USING v_voulus;
     END IF;
     FOR r IN
-      SELECT n.nspname AS schema, pg_get_userbyid(n.nspowner) AS proprio, pg_get_userbyid(a.grantee) AS lecteur
+      -- Chaque USAGE est retiré par celui qui l'a donné : le propriétaire du schéma, ou matrix_gestion (lot P2 de M-18).
+      SELECT n.nspname AS schema, pg_get_userbyid(a.grantor) AS proprio, pg_get_userbyid(a.grantee) AS lecteur
       FROM pg_namespace n
       CROSS JOIN LATERAL aclexplode(n.nspacl) a
       WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND a.privilege_type = 'USAGE'

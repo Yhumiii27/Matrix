@@ -810,6 +810,7 @@ absent, erreur) et Matrix la recrée.
 |---|---|---|
 | P1 | Rôle `matrix_gestion` (init 01 et 03, `droits.verifier()` l'admet), registre `matrix.publications` (`partage/13`), reprise (`partage/14`). *Fait le 01/11/2026 : reprise éprouvée sur les 30 vues de Keystone et Codex (vraies migrations), lecteurs conservés, lien refusé puis rétabli par `90-droits.sql`, aucune erreur de `droits.verifier()` ; CI du socle (`scripts/ci-socle.sh`) étendue.* | M |
 | P2 | Moteur (`outils/publications.mjs`) : génération, application, contrat, colonnes sensibles, import ; liens appliqués tout de suite ; API | M |
+|  | *Fait le 01/11/2026 : `matrix_gestion` transmet `USAGE` sur les schémas des outils (`WITH GRANT OPTION`), tient `droits.partage_lecteurs` et appelle `droits.verifier()` ; `90-droits.sql` retire chaque `USAGE` par celui qui l'a donné et `appliquer-liens.sh` repère un `USAGE` resté sans vue lisible. Éprouvé : les 30 vues reprises de Keystone et Codex réappliquées depuis le registre, une vue créée et liée par l'API, refus d'une colonne retirée, d'une colonne sensible et d'une table d'un autre schéma (`test/publications.test.mjs`, en CI).* | |
 | P3 | Écran « Publications » : liste par outil, fiche, édition (colonnes ou SQL), aperçu des colonnes, journal | M |
 | P4 | Écritures : liens de nature `execution` sur les fonctions `pub_` (lot M17-1) | M |
 | P5 | Demandes aux six outils (après validation) : plus de vue `pub_` dans les migrations, fonctions `pub_` pour les écritures reçues, règles dans leur `CLAUDE.md` | S par outil |

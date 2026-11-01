@@ -68,10 +68,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Tests avec base (référentiels, sonde)
+      - name: Tests avec base (référentiels, sonde, publications)
         run: npm test
         env:
           MATRIX_TEST_DATABASE_URL: postgres://matrix_app:ci-matrix@127.0.0.1:5432/epc2i
+          MATRIX_TEST_GESTION_URL: postgres://matrix_gestion:ci-gestion@127.0.0.1:5432/epc2i
+          MATRIX_TEST_ADMIN_URL: postgres://postgres:ci-postgres@127.0.0.1:5432/epc2i
       - name: Journaux du serveur (en cas d'échec)
         if: failure()
         run: docker logs epc2i-postgres 2>&1 | tail -100

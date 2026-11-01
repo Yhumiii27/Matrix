@@ -73,6 +73,18 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
       AND NOT EXISTS (SELECT FROM matrix.liens l
                       WHERE l.vue = n.nspname || '.' || c.relname AND l.lecteur = pg_get_userbyid(a.grantee)
                         AND l.statut = 'autorise')
+    UNION ALL
+    -- USAGE restant sur un schéma où l'outil ne lit plus aucune vue pub_ (lien retiré par Matrix, lot P2 de M-18 :
+    -- l'USAGE donné par le propriétaire du schéma ne peut être retiré que par lui).
+    SELECT false
+    FROM pg_namespace n
+    CROSS JOIN LATERAL aclexplode(n.nspacl) a
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND a.privilege_type = 'USAGE'
+      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app')
+      AND a.grantee <> n.nspowner
+      AND NOT EXISTS (SELECT FROM pg_class v
+                      WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
+                        AND has_table_privilege(a.grantee, v.oid, 'SELECT'))
   ) e
 ) END
 SQL

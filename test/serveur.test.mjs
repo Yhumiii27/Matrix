@@ -78,6 +78,18 @@ test('journal, REX et correspondances : 409 sans serveur commun', async () => {
   assert.equal(p.status, 409);
 });
 
+test('publications (M-18) : 409 sans serveur commun, chemin invalide introuvable', async () => {
+  for (const chemin of ['/api/publications', '/api/publications/keystone.pub_projets']) {
+    const r = await fetch(libre + chemin);
+    assert.equal(r.status, 409);
+    assert.match((await r.json()).erreur, /MATRIX_DATABASE_URL/);
+  }
+  const ecrire = (chemin, methode = 'POST') => fetch(libre + chemin, { method: methode, headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal((await ecrire('/api/publications/keystone.pub_projets/appliquer')).status, 409);
+  assert.equal((await ecrire('/api/publications/keystone.pub_projets', 'PUT')).status, 409);
+  assert.equal((await fetch(libre + '/api/publications/keystone.projets')).status, 404);
+});
+
 test('déclaration d’un outil : jeton exigé, jamais prise pour une lecture du serveur', async () => {
   const doc = { schema: 'matrix.schema/1', app: 'vigie', origine: 'serveur', declareLe: '2026-10-31T00:00:00Z',
     tables: [{ name: 'events', pk: ['id'], fks: [], uniques: [], columns: [{ name: 'id', type: 'integer' }] }] };

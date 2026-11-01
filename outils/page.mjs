@@ -23,7 +23,7 @@ export function donnees({ dataDir = join(RACINE, 'data'), serveur = false, serve
   const declDir = join(dataDir, 'declarations');
   const declarations = existsSync(declDir) ? readdirSync(declDir).filter(f => f.endsWith('.json')).map(f => {
     const d = lire(join(declDir, f));
-    return { app: d.app, declareLe: d.declareLe, version: d.version, tables: d.tables.length };
+    return { app: d.app, origine: d.origine ?? 'outil', declareLe: d.declareLe, version: d.version, tables: d.tables.length };
   }) : [];
   return {
     serveur,

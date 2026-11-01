@@ -26,8 +26,8 @@ async function demarrer(env) {
 }
 after(() => { for (const { p, data } of serveurs) { p.kill(); rmSync(data, { recursive: true, force: true }); } });
 
-let libre, protege;
-before(async () => { [libre, protege] = await Promise.all([demarrer({}), demarrer({ MATRIX_MOT_DE_PASSE: 'secret' })]); });
+let libre, protege, jeton;
+before(async () => { [libre, protege, jeton] = await Promise.all([demarrer({}), demarrer({ MATRIX_MOT_DE_PASSE: 'secret' }), demarrer({ MATRIX_TOKEN: 'jeton-essai' })]); });
 
 const put = (base, chemin, corps, entetes = {}) => fetch(base + chemin, { method: 'PUT', headers: { 'content-type': 'application/json', ...entetes }, body: JSON.stringify(corps) });
 
@@ -76,6 +76,18 @@ test('journal, REX et correspondances : 409 sans serveur commun', async () => {
   }
   const p = await fetch(libre + '/api/correspondances', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(p.status, 409);
+});
+
+test('déclaration d’un outil : jeton exigé, jamais prise pour une lecture du serveur', async () => {
+  const doc = { schema: 'matrix.schema/1', app: 'vigie', origine: 'serveur', declareLe: '2026-10-31T00:00:00Z',
+    tables: [{ name: 'events', pk: ['id'], fks: [], uniques: [], columns: [{ name: 'id', type: 'integer' }] }] };
+  const envoyer = entetes => fetch(jeton + '/api/declarations', { method: 'POST', headers: { 'content-type': 'application/json', ...entetes }, body: JSON.stringify(doc) });
+  assert.equal((await envoyer({ 'x-matrix-token': 'faux' })).status, 401);
+  assert.equal((await envoyer({ 'x-matrix-token': 'jeton-essai' })).status, 200);
+  const liste = await (await fetch(jeton + '/api/declarations')).json();
+  assert.deepEqual(liste.map(d => [d.app, d.origine]), [['vigie', 'outil']]);
+  const vigie = (await (await fetch(jeton + '/api/catalogue')).json()).apps.find(a => a.id === 'vigie');
+  assert.match(vigie.source, /^déclaration du/);
 });
 
 test('déclarations : refusées sans jeton configuré', async () => {

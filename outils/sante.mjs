@@ -132,7 +132,7 @@ export function calculerSante(lecture, { catalogue = null, edition = null, horsM
       registre: registreLu ? 'lu' : `illisible (${lecture.liens.erreur})`,
     },
     parOutil, tables, liens, references, socle, migrations,
-    vues: lecture.vues.map(v => ({ vue: v.vue, lecteurs: v.lecteurs, description: v.description })),
+    vues: lecture.vues.map(v => ({ vue: v.vue, lecteurs: v.lecteurs, description: v.description, sources: v.sources ?? [], lignage: v.lignage ?? null })),
     journalLiens: lecture.liens.journal,
     regles: REGLES, etatsLien: ETATS_LIEN, etatsMigrations: ETATS_MIGRATIONS,
   };

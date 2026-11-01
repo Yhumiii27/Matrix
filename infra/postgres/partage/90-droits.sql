@@ -240,6 +240,9 @@ BEGIN
       ('vigie.pub_eco_approbations',         ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_eco_effectivite',          ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_demandes_modification',    ARRAY['codex_app', 'keystone_app', 'matrix_app']),
+      -- M-15 d'Arche (01/11/2026, AR-033) : études de sécurité des procédés, vue définie dans Matrix (M-18) quand Vigie
+      -- tiendra les études (contrat : data/contrats/vigie.pub_etudes_securite.json) ; absente jusque-là (WARNING).
+      ('vigie.pub_etudes_securite',          ARRAY['arche_app', 'matrix_app']),
       -- Keystone, vues demandées par Arche (R-186 à R-191), absentes tant que Keystone ne les publie pas (WARNING).
       ('keystone.pub_catalogue_machines',    ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_reponses_besoins',      ARRAY['arche_app', 'matrix_app']),

@@ -1,346 +1,1026 @@
 {
-  "_lisezmoi": "Connaissance inter-applications saisie à la main d'après le code des quatre dépôts (15 octobre 2026), puis les contrats d'Arche (docs/CONTRATS.md, 22 octobre 2026) et les demandes de Crucible (docs/DEMANDES-MATRIX.md, 22 octobre 2026). Le collecteur ne peut pas la déduire des schémas. statut : reel = implémenté des deux côtés ; partiel = un seul côté est implémenté ; simule = remplacé par une écriture locale ; propose = contrat écrit mais rien de construit ; copie = données recopiées par le jeu de démo, sans synchronisation ; prevu = annoncé dans l'interface ou la doc.",
-  "flux": [
-    {
-      "id": "F01", "nom": "Verdict Go / No Go par chantier",
-      "de": "cursus", "vers": "keystone", "mode": "API REST (lecture)", "statut": "reel",
-      "point": "GET /api/integrations/keystone/chantiers/:id/go-no-go", "auth": "En-tête X-Api-Key (KEYSTONE_API_KEY)",
-      "source": ["chantiers", "employes", "certifications", "hab_titres", "habilitations", "voyages", "visas", "vaccinations", "destinations", "sessions", "demandes_keystone", "settings"],
-      "cible": ["cursus_clearances", "cursus_sync_runs"],
-      "champs": [
-        ["chantiers.id", "cursus_clearances.chantier_id"],
-        ["employes.id → matricule EMP-xxxx", "cursus_clearances.matricule"],
-        ["verdict calculé (GO / GO_RESERVE / NO_GO)", "cursus_clearances.verdict"],
-        ["motifs HABILITATION, CERTIFICATION…", "cursus_clearances.reason_codes"],
-        ["libellés des motifs (mode détaillé)", "cursus_clearances.clearance_note"],
-        ["date d'évaluation", "cursus_clearances.received_at"]
-      ],
-      "note": "Keystone n'appelle Cursus que si CURSUS_API_URL est défini et que site_sheets.cursus_chantier_id est renseigné (vide dans la démo). Appel limité à un par minute et par projet."
-    },
-    {
-      "id": "F02", "nom": "Demande de déplacement vers les RH",
-      "de": "keystone", "vers": "cursus", "mode": "API REST (écriture)", "statut": "reel",
-      "point": "POST /api/integrations/keystone/demandes", "auth": "En-tête X-Api-Key",
-      "source": ["cursus_requests"], "cible": ["demandes_keystone"],
-      "champs": [
-        ["cursus_requests.payload.matricule", "demandes_keystone.emp_id"],
-        ["cursus_requests.payload.chantier", "demandes_keystone.chantier"],
-        ["cursus_requests.payload.destination", "demandes_keystone.dest"],
-        ["cursus_requests.payload.depart / retour", "demandes_keystone.depart / retour"],
-        ["réponse id", "cursus_requests.cursus_ref"]
-      ],
-      "note": "La demande est supprimée côté Cursus une fois traitée par les RH ; elle devient un voyage (voyages.origine = keystone)."
-    },
-    {
-      "id": "F03", "nom": "Événements RH : heures validées, absences, décisions",
-      "de": "cursus", "vers": "keystone", "mode": "Webhook (écriture)", "statut": "simule",
-      "point": "POST {KEYSTONE_URL}/events", "auth": "Jeton (non défini)",
-      "source": ["feuilles", "absences", "demandes_keystone"], "cible": ["hours_lines", "leave_entries"],
-      "champs": [
-        ["feuilles.lignes (heures par code projet)", "heures.validees → projets{code: heures}"],
-        ["absences.du / au / type", "absence.validee → {matricule, du, au, nature}"],
-        ["décision RH", "demande.decision → {demandeId, decision}"]
-      ],
-      "note": "Cursus écrit seulement une ligne dans journal. Keystone n'a pas de point d'entrée /events. Les tables cibles sont une proposition."
-    },
-    {
-      "id": "F04", "nom": "Registre des types de document",
-      "de": "codex", "vers": "keystone", "mode": "API REST (lecture)", "statut": "partiel",
-      "point": "GET /api/registry", "auth": "Aucune (public, ETag, cache 60 s)",
-      "source": ["families", "doc_types", "functions"], "cible": ["document_types", "document_type_circuit_steps"],
-      "champs": [
-        ["doc_types.code / label_fr / label_en", "document_types.code / libellés"],
-        ["doc_types.circuit + functions.scope", "document_type_circuit_steps"],
-        ["doc_types.retention_*", "retention {years, trigger, disposition}"],
-        ["doc_types.conf_allowed / conf_default", "confAllowed / confDefault"]
-      ],
-      "note": "Codex expose le registre ; Keystone ne le lit pas encore et garde sa propre table document_types (28 types contre 69 dans Codex)."
-    },
-    {
-      "id": "F05", "nom": "Décision sur une demande de modification (ECR)",
-      "de": "vigie", "vers": "codex", "mode": "Webhook (écriture)", "statut": "partiel",
-      "point": "POST /api/integrations/vigie", "auth": "Bearer VIGIE_WEBHOOK_TOKEN",
-      "source": [], "cible": ["change_requests", "revisions", "documents", "workflows", "audit_log"],
-      "champs": [
-        ["requestId", "change_requests.id"],
-        ["accepted", "change_requests.status"],
-        ["ecoRef", "change_requests.eco_ref, revisions.change_ref"],
-        ["modifierId", "change_requests.modifier_id, revisions.modifier_id"],
-        ["note", "change_requests.decision_note"]
-      ],
-      "note": "Codex reçoit la décision, mais Vigie n'a aucune table ECR/ECO et n'émet rien. Codex simule la décision tant que VIGIE_API_URL n'est pas défini."
-    },
-    {
-      "id": "F06", "nom": "Envoi d'une demande de modification",
-      "de": "codex", "vers": "vigie", "mode": "API REST (écriture)", "statut": "simule",
-      "point": "POST {VIGIE_API_URL}/change-requests", "auth": "À définir",
-      "source": ["change_requests", "documents"], "cible": [],
-      "champs": [
-        ["change_requests.id (ECR-AAAA-NNN)", "référence de la demande"],
-        ["change_requests.kind / reason / description", "contenu de la demande"],
-        ["change_requests.doc_id", "document concerné"]
-      ],
-      "note": "La demande est créée localement dans Codex (source = codex). Vigie n'a pas de table pour la recevoir."
-    },
-    {
-      "id": "F07", "nom": "Ordres de modification technique (ECO)",
-      "de": "vigie", "vers": "keystone", "mode": "API REST (lecture)", "statut": "propose",
-      "point": "GET /api/ecos?source=keystone", "auth": "Aucune",
-      "source": [], "cible": ["vigie_ecos", "vigie_eco_approvals", "vigie_eco_parts", "vigie_eco_projects", "vigie_eco_effectivity"],
-      "champs": [
-        ["number, title, type, status", "vigie_ecos.number / title / eco_type / status"],
-        ["fromRevision, toRevision, costEur, scheduleDays", "vigie_ecos.*"],
-        ["parts[]", "vigie_eco_parts.part_ref"],
-        ["projects[] (codes Keystone)", "vigie_eco_projects.project_code"],
-        ["approvals[]", "vigie_eco_approvals"],
-        ["effectivity[]", "vigie_eco_effectivity"]
-      ],
-      "note": "Contrat rédigé par Keystone (questions V-2, V-3). Vigie n'a ni le point d'API ni les données ECO. Keystone fonctionne sur un connecteur fictif."
-    },
-    {
-      "id": "F08", "nom": "Avancement ECO et non-conformités",
-      "de": "keystone", "vers": "vigie", "mode": "API REST (écriture)", "statut": "propose",
-      "point": "POST /api/ecos/:number/progress · POST /api/ncrs/:project/:number/progress", "auth": "Aucune",
-      "source": ["vigie_eco_progress", "vigie_ncr_progress"], "cible": ["actions", "events"],
-      "champs": [
-        ["kind, decision, targetStatus, comment", "décision d'étape"],
-        ["actor {name, role}", "auteur"],
-        ["réponse id", "vigie_eco_progress.vigie_ref"]
-      ],
-      "note": "File d'attente (outbox) côté Keystone. Côté Vigie, rien n'est construit."
-    },
-    {
-      "id": "F09", "nom": "Non-conformités et éléments HSE par projet",
-      "de": "vigie", "vers": "keystone", "mode": "API REST (lecture)", "statut": "propose",
-      "point": "GET /api/ncrs?source=keystone · GET /api/hse?source=keystone", "auth": "Aucune",
-      "source": ["events", "prevention_plans", "permits"], "cible": ["vigie_ncrs", "vigie_hse_items"],
-      "champs": [
-        ["events.id (type NC)", "vigie_ncrs.vigie_ref"],
-        ["events.title / severity / step", "vigie_ncrs.title / severity / status"],
-        ["events.keystone_project", "vigie_ncrs.project_code"],
-        ["events.nc_origin", "vigie_ncrs.source"],
-        ["prevention_plans / permits", "vigie_hse_items (kind, title, status)"]
-      ],
-      "note": "Les tables sources sont celles où Vigie stocke aujourd'hui l'information correspondante. Le contrat n'est pas implémenté côté Vigie."
-    },
-    {
-      "id": "F10", "nom": "Projets Keystone recopiés dans Codex",
-      "de": "keystone", "vers": "codex", "mode": "Copie (jeu de démo)", "statut": "copie",
-      "point": "src/lib/keystone.ts (corps à remplacer par un appel d'API)", "auth": "—",
-      "source": ["projects", "clients", "persons"], "cible": ["projects", "project_expected", "project_events"],
-      "champs": [
-        ["projects.code", "projects.code"],
-        ["projects.name", "projects.name"],
-        ["clients.name", "projects.client (texte)"],
-        ["projects.stage", "projects.stage"],
-        ["projects.pm_person_id → persons", "projects.manager_id → users"]
-      ],
-      "note": "Trois projets recopiés. Le chef de projet est relié à un utilisateur Codex sans clé commune avec persons."
-    },
-    {
-      "id": "F11", "nom": "Projets Keystone recopiés dans Vigie",
-      "de": "keystone", "vers": "vigie", "mode": "Copie (jeu de démo)", "statut": "copie",
-      "point": "src/db/seed.ts", "auth": "—",
-      "source": ["projects", "clients"], "cible": ["keystone_projects", "events", "prevention_plans", "permits", "site_activities"],
-      "champs": [
-        ["projects.code", "keystone_projects.id (format K-2025-042)"],
-        ["clients.name", "keystone_projects.client"],
-        ["projects.name", "keystone_projects.title"],
-        ["« id · client »", "events.keystone_project (texte libre)"]
-      ],
-      "note": "Le format d'identifiant diffère de Keystone (HLT-026). Le projet est stocké en texte libre dans 4 tables, sans clé étrangère."
-    },
-    {
-      "id": "F12", "nom": "Affectations du planning dans Vigie",
-      "de": "keystone", "vers": "vigie", "mode": "Copie (jeu de démo)", "statut": "copie",
-      "point": "src/db/seed.ts", "auth": "—",
-      "source": ["activity_assignments", "allocations", "persons"], "cible": ["keystone_assignments"],
-      "champs": [
-        ["persons → people.id (slug)", "keystone_assignments.person_id"],
-        ["projects.code · client", "keystone_assignments.project"],
-        ["activities.name", "keystone_assignments.activity"],
-        ["dates d'affectation", "keystone_assignments.start_on / end_on"]
-      ],
-      "note": "Sert aux alertes d'habilitation avant une affectation."
-    },
-    {
-      "id": "F13", "nom": "Chantiers, missions et tâches dans Cursus",
-      "de": "keystone", "vers": "cursus", "mode": "Copie (jeu de démo)", "statut": "copie",
-      "point": "server/src/seed.ts", "auth": "—",
-      "source": ["projects", "site_sheets", "tasks", "allocations"], "cible": ["chantiers", "projets", "missions", "taches"],
-      "champs": [
-        ["projects.code", "chantiers.id / projets.code (format K-2614)"],
-        ["site_sheets.site_name / country", "chantiers.lieu / pays"],
-        ["tasks + heures prévues", "taches.tache / heures"],
-        ["allocations", "missions"]
-      ],
-      "note": "Aucune route n'alimente ces tables. Elles pré-remplissent les feuilles de temps (taches) et les alertes de congés (missions)."
-    },
-    {
-      "id": "F14", "nom": "Personnel et heures travaillées dans Vigie",
-      "de": "cursus", "vers": "vigie", "mode": "Connecteur", "statut": "prevu",
-      "point": "Bouton « Connecteur Cursus · à venir »", "auth": "À définir",
-      "source": ["employes", "feuilles", "certifications", "hab_titres"], "cible": ["people", "hours_worked", "qualifications"],
-      "champs": [
-        ["employes.nom / poste", "people.name / job"],
-        ["somme des feuilles validées", "hours_worked.hours (calcul TF1 / TG)"],
-        ["certifications / hab_titres", "qualifications"]
-      ],
-      "note": "Aujourd'hui, le personnel est saisi à la main dans Vigie."
-    },
-    {
-      "id": "F15", "nom": "Index documentaire et dépôts",
-      "de": "keystone", "vers": "codex", "mode": "Synchronisation", "statut": "simule",
-      "point": "syncCodexIndex · depositInCodex", "auth": "—",
-      "source": ["documents", "document_deposits", "document_revisions"], "cible": ["documents", "revisions", "working_versions"],
-      "champs": [
-        ["documents.number", "documents.id"],
-        ["documents.codex_id / codex_url", "jamais renseignés"]
-      ],
-      "note": "Keystone tient un index local de 42 documents « Codex ». Aucun échange réel n'a lieu."
-    },
-    {
-      "id": "F16", "nom": "Besoins machines d'un CAPEX",
-      "de": "arche", "vers": "keystone", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "arche.pub_besoins_machines (serveur commun, lue par keystone_app)", "auth": "Rôle keystone_app, convention de partage (partage/90-droits.sql)",
-      "source": ["machine_needs", "capex"], "cible": [],
-      "champs": [
-        ["machine_needs : référence <code CAPEX>/B01, fiche du catalogue et version, quantité, options, capacité, date de besoin", "besoin à qualifier dans Keystone (R-187)"]
-      ],
-      "note": "Arche, docs/CONTRATS.md § 3. Keystone répond par F17."
-    },
-    {
-      "id": "F17", "nom": "Catalogue machines et réponses aux besoins",
-      "de": "keystone", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "keystone.pub_catalogue_machines, pub_reponses_besoins (R-186, R-187, à créer dans Keystone)", "auth": "Rôle arche_app, convention de partage",
-      "source": [], "cible": ["machine_needs"],
-      "champs": [
-        ["pub_catalogue_machines : code, version, type, options, capacité, prix indicatif", "choix du besoin"],
-        ["pub_reponses_besoins : qualification, fourchette E50 / E30 / E10, délai, projet créé", "réponse affichée sur le besoin"]
-      ],
-      "note": "Arche, docs/CONTRATS.md § 2.2 ; Arche garde des miroirs keystone_* avec synced_at."
-    },
-    {
-      "id": "F18", "nom": "Projets EPC2i liés à un CAPEX : jalons, avancement, avenants, réserves",
-      "de": "keystone", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "keystone.pub_projets, pub_livrables, pub_parc_machines (existent) ; pub_jalons_projets, pub_avancement_projets, pub_avenants, pub_reserves, pub_pack_ingenierie (R-189 à R-191, à créer)", "auth": "Rôle arche_app, convention de partage",
-      "source": [], "cible": ["capex_lots", "machine_needs", "production_lines"],
-      "champs": [
-        ["pub_projets.capex_code, besoin_ref (K-05, colonnes à ajouter)", "rattachement du projet au CAPEX"],
-        ["pub_avancement_projets : % physique, SPI, prix de vente, avenants, facturé (ni coût ni marge, AC-2)", "lot machines du CAPEX"]
-      ],
-      "note": "Arche, docs/CONTRATS.md § 2 ; demandes K-01 à K-08 d'Arche à Keystone."
-    },
-    {
-      "id": "F19", "nom": "CAPEX et montée en cadence vus de Keystone",
-      "de": "arche", "vers": "keystone", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "arche.pub_capex, arche.pub_rampup", "auth": "Rôle keystone_app, convention de partage",
-      "source": ["capex", "gates", "production_lines", "rampup_days"], "cible": [],
-      "champs": [
-        ["pub_capex : code, filiale, phase, typologie, jalons", "fiche projet EPC2i (lien vers le CAPEX)"],
-        ["pub_rampup : TRS et production par ligne", "garantie et SAV des machines"]
-      ],
-      "note": "Arche, docs/CONTRATS.md § 3."
-    },
-    {
-      "id": "F20", "nom": "Jalons HSE d'un CAPEX",
-      "de": "vigie", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "prevu",
-      "point": "vue des études de sécurité de Vigie (HazID, HazOp, AMDEC, PSSR), à définir (AC-3, M-6)", "auth": "Rôle arche_app, convention de partage",
-      "source": [], "cible": ["hs_statuses"],
-      "champs": [
-        ["statut et preuve des jalons HS2 à HS6 et PSSR", "hs_statuses (source vigie ; déclaratif en attendant, N-13)"]
-      ],
-      "note": "Rien n'existe encore dans Vigie."
-    },
-    {
-      "id": "F21", "nom": "Références de documents d'un dossier CAPEX",
-      "de": "codex", "vers": "arche", "mode": "Vue pub_ (lecture)", "statut": "prevu",
-      "point": "codex.pub_documents, pub_revisions_document", "auth": "Rôle arche_app (droit à poser quand Arche les lira)",
-      "source": ["documents", "revisions"], "cible": ["dossier_attachments", "authorizations", "pack_items"],
-      "champs": [
-        ["identifiant et révision Codex", "codex_ref, revision (Arche ne stocke aucun fichier, N-17)"]
-      ],
-      "note": "Arche, décisions C-12 et N-17. Le droit de lecture n'est pas encore posé (demande à confirmer)."
-    },
-    {
-      "id": "F22", "nom": "Projets et jalons pour la planification des essais",
-      "de": "keystone", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "keystone.pub_projets (existe) ; pub_jalons (K-2 de Crucible, à créer dans Keystone)", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
-      "source": ["projects"], "cible": ["projects"],
-      "champs": [
-        ["pub_projets : code, nom, client, statut", "projets de Crucible (projects.code ; saisis dans Crucible en attendant)"],
-        ["pub_jalons : jalon, mois prévu, statut, fin de l'activité liée", "rétro-planification des essais (livraison L3)"]
-      ],
-      "note": "Crucible, docs/DEMANDES-MATRIX.md M-4 et docs/DEMANDES-KEYSTONE.md K-2 (décision S-2)."
-    },
-    {
-      "id": "F23", "nom": "Opérateurs, habilitations et absences",
-      "de": "cursus", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "cursus.pub_salaries, pub_titres, pub_titres_detenus (existent) ; pub_absences sans motif (CU-1 de Crucible, à créer dans Cursus)", "auth": "Rôle crucible_app, convention de partage",
-      "source": ["employes", "hab_titres", "habilitations", "absences"], "cible": [],
-      "champs": [
-        ["matricule, nom, habilitations détenues et leur échéance", "opérateurs qualifiés d'un moyen d'essai"],
-        ["absences validées ou demandées (du, au, demi-journées), sans motif", "ne pas planifier un opérateur absent (livraison L4)"]
-      ],
-      "note": "Crucible, M-4 et docs/DEMANDES-CURSUS.md CU-1 (décision S-3)."
-    },
-    {
-      "id": "F24", "nom": "Moyens d'essais et réservations confirmées",
-      "de": "crucible", "vers": "keystone", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "crucible.pub_moyens, pub_reservations (livraison L3 de Crucible)", "auth": "Rôle keystone_app, convention de partage (droits posés d'avance par partage/90-droits.sql)",
-      "source": ["facilities", "projects"], "cible": [],
-      "champs": [
-        ["pub_reservations : moyen, projet, début, fin, statut", "essais planifiés dans le planning d'un projet (K-4 de Crucible, facultatif)"]
-      ],
-      "note": "Crucible, décision S-5."
-    },
-    {
-      "id": "F25", "nom": "Réservations pour la coactivité",
-      "de": "crucible", "vers": "vigie", "mode": "Vue pub_ (lecture)", "statut": "propose",
-      "point": "crucible.pub_reservations, pub_moyens (livraison L3 de Crucible)", "auth": "Rôle vigie_app, convention de partage (droits posés d'avance par partage/90-droits.sql)",
-      "source": ["facilities", "facility_partners"], "cible": ["prevention_plans"],
-      "champs": [
-        ["réservations d'un moyen partagé (laboratoire 67 et EPC France) : moyen, entité, début, fin", "détection de la coactivité et plans de prévention"]
-      ],
-      "note": "Crucible, docs/DEMANDES-VIGIE.md V-3 (décision R-7). Le plan de prévention reste dans Vigie."
-    },
-    {
-      "id": "F26", "nom": "Références documentaires des essais",
-      "de": "codex", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "prevu",
-      "point": "codex.pub_documents, pub_revisions_document", "auth": "Rôle crucible_app, convention de partage",
-      "source": ["documents", "revisions"], "cible": [],
-      "champs": [
-        ["identifiant et révision Codex", "références d'un moyen ou d'un essai (Crucible ne stocke aucun fichier)"]
-      ],
-      "note": "Crucible, M-4 (livraison L3)."
-    },
-    {
-      "id": "F27", "nom": "Contrôles périodiques et interventions qui suspendent les essais",
-      "de": "vigie", "vers": "crucible", "mode": "Vue pub_ (lecture)", "statut": "prevu",
-      "point": "vigie.pub_controles, pub_suspensions_essais (demandes V-1 et V-2 de Crucible, à créer dans Vigie)", "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
-      "source": ["controls", "control_records", "site_activities"], "cible": ["unavailabilities"],
-      "champs": [
-        ["controls.next_on, reserves, equipement_code (colonne nouvelle)", "unavailabilities (origine Vigie : contrôle échu, R-6)"],
-        ["activités de coactivité : zone, du, au", "unavailabilities (intervention extérieure, R-7)"]
-      ],
-      "note": "Crucible, docs/DEMANDES-VIGIE.md ; D23, option A (22/10/2026) : Vigie fait foi."
-    }
-  ],
-  "externes": [
-    { "id": "sage", "nom": "Sage Paie", "app": "cursus", "sens": "sortie", "statut": "simule", "tables": ["feuilles", "settings"], "note": "Variables de paie (HN, HS25…) depuis les feuilles validées." },
-    { "id": "sharepoint", "nom": "SharePoint", "app": "codex", "sens": "sortie", "statut": "partiel", "tables": ["working_versions"], "note": "Stockage des fichiers uniquement ; les métadonnées restent dans Codex." },
-    { "id": "lucca", "nom": "Lucca", "app": "keystone", "sens": "entrée", "statut": "simule", "tables": ["hours_imports", "hours_lines", "connectors"], "note": "Import des heures." },
-    { "id": "x3", "nom": "Sage X3", "app": "keystone", "sens": "double", "statut": "simule", "tables": ["stock_positions", "stock_movements", "x3_sync_runs"], "note": "Stock et code analytique." },
-    { "id": "trackdechets", "nom": "Trackdéchets", "app": "vigie", "sens": "sortie", "statut": "prevu", "tables": ["waste_entries"], "note": "Bordereaux de suivi de déchets." }
-  ],
-  "alertes": [
-    { "gravite": "critique", "app": "toutes", "titre": "Bases embarquées non partagées", "detail": "Keystone, Codex et Vigie utilisent PGlite et Cursus utilise SQLite, chacun dans le volume de son conteneur. Ces moteurs n'acceptent qu'un seul processus : un outil tiers ne peut pas s'y connecter pendant que l'application tourne." },
-    { "gravite": "critique", "app": "cursus", "titre": "Données de santé non isolées", "detail": "employes.visite, vaccinations et le contenu des entretiens (entretiens.cr) sont dans les mêmes tables que les données courantes. Matrix doit les masquer par défaut." },
-    { "gravite": "majeur", "app": "cursus", "titre": "Aucune clé étrangère déclarée", "detail": "37 liens sont appliqués uniquement par le code. Renommer une équipe met à jour 4 tables à la main (equipes.nom sert de clé)." },
-    { "gravite": "majeur", "app": "vigie", "titre": "Projet Keystone en texte libre", "detail": "events, prevention_plans, permits et site_activities stockent « id · client » au lieu d'une clé." },
-    { "gravite": "majeur", "app": "vigie", "titre": "Lien polymorphe", "detail": "attachments.entity_type + entity_id pointent vers 5 tables sans contrôle d'intégrité." },
-    { "gravite": "mineur", "app": "codex", "titre": "Journal sans clé étrangère", "detail": "audit_log.doc_id est réécrit par le code quand un document change d'identifiant." },
-    { "gravite": "mineur", "app": "keystone", "titre": "Aucun index secondaire", "detail": "Seules les clés primaires et les contraintes d'unicité sont indexées, sur 203 tables." },
-    { "gravite": "mineur", "app": "keystone", "titre": "Champs de liaison jamais remplis", "detail": "documents.codex_id, documents.codex_url et site_sheets.cursus_chantier_id sont vides." }
-  ]
+ "_lisezmoi": "Connaissance inter-applications saisie à la main d'après le code des quatre dépôts (15 octobre 2026), puis les contrats d'Arche (docs/CONTRATS.md, 22 octobre 2026) et les demandes de Crucible (docs/DEMANDES-MATRIX.md, 22 octobre 2026). Le collecteur ne peut pas la déduire des schémas. statut : reel = implémenté des deux côtés ; partiel = un seul côté est implémenté ; simule = remplacé par une écriture locale ; propose = contrat écrit mais rien de construit ; copie = données recopiées par le jeu de démo, sans synchronisation ; prevu = annoncé dans l'interface ou la doc.",
+ "flux": [
+  {
+   "id": "F01",
+   "nom": "Verdict Go / No Go par chantier",
+   "de": "cursus",
+   "vers": "keystone",
+   "mode": "API REST (lecture)",
+   "statut": "reel",
+   "point": "GET /api/integrations/keystone/chantiers/:id/go-no-go",
+   "auth": "En-tête X-Api-Key (KEYSTONE_API_KEY)",
+   "source": [
+    "chantiers",
+    "employes",
+    "certifications",
+    "hab_titres",
+    "habilitations",
+    "voyages",
+    "visas",
+    "vaccinations",
+    "destinations",
+    "sessions",
+    "demandes_keystone",
+    "settings"
+   ],
+   "cible": [
+    "cursus_clearances",
+    "cursus_sync_runs"
+   ],
+   "champs": [
+    [
+     "chantiers.id",
+     "cursus_clearances.chantier_id"
+    ],
+    [
+     "employes.id → matricule EMP-xxxx",
+     "cursus_clearances.matricule"
+    ],
+    [
+     "verdict calculé (GO / GO_RESERVE / NO_GO)",
+     "cursus_clearances.verdict"
+    ],
+    [
+     "motifs HABILITATION, CERTIFICATION…",
+     "cursus_clearances.reason_codes"
+    ],
+    [
+     "libellés des motifs (mode détaillé)",
+     "cursus_clearances.clearance_note"
+    ],
+    [
+     "date d'évaluation",
+     "cursus_clearances.received_at"
+    ]
+   ],
+   "note": "Keystone n'appelle Cursus que si CURSUS_API_URL est défini et que site_sheets.cursus_chantier_id est renseigné (vide dans la démo). Appel limité à un par minute et par projet."
+  },
+  {
+   "id": "F02",
+   "nom": "Demande de déplacement vers les RH",
+   "de": "keystone",
+   "vers": "cursus",
+   "mode": "API REST (écriture)",
+   "statut": "reel",
+   "point": "POST /api/integrations/keystone/demandes",
+   "auth": "En-tête X-Api-Key",
+   "source": [
+    "cursus_requests"
+   ],
+   "cible": [
+    "demandes_keystone"
+   ],
+   "champs": [
+    [
+     "cursus_requests.payload.matricule",
+     "demandes_keystone.emp_id"
+    ],
+    [
+     "cursus_requests.payload.chantier",
+     "demandes_keystone.chantier"
+    ],
+    [
+     "cursus_requests.payload.destination",
+     "demandes_keystone.dest"
+    ],
+    [
+     "cursus_requests.payload.depart / retour",
+     "demandes_keystone.depart / retour"
+    ],
+    [
+     "réponse id",
+     "cursus_requests.cursus_ref"
+    ]
+   ],
+   "note": "La demande est supprimée côté Cursus une fois traitée par les RH ; elle devient un voyage (voyages.origine = keystone)."
+  },
+  {
+   "id": "F03",
+   "nom": "Événements RH : heures validées, absences, décisions",
+   "de": "cursus",
+   "vers": "keystone",
+   "mode": "Webhook (écriture)",
+   "statut": "simule",
+   "point": "POST {KEYSTONE_URL}/events",
+   "auth": "Jeton (non défini)",
+   "source": [
+    "feuilles",
+    "absences",
+    "demandes_keystone"
+   ],
+   "cible": [
+    "hours_lines",
+    "leave_entries"
+   ],
+   "champs": [
+    [
+     "feuilles.lignes (heures par code projet)",
+     "heures.validees → projets{code: heures}"
+    ],
+    [
+     "absences.du / au / type",
+     "absence.validee → {matricule, du, au, nature}"
+    ],
+    [
+     "décision RH",
+     "demande.decision → {demandeId, decision}"
+    ]
+   ],
+   "note": "Cursus écrit seulement une ligne dans journal. Keystone n'a pas de point d'entrée /events. Les tables cibles sont une proposition."
+  },
+  {
+   "id": "F04",
+   "nom": "Registre des types de document",
+   "de": "codex",
+   "vers": "keystone",
+   "mode": "API REST (lecture)",
+   "statut": "partiel",
+   "point": "GET /api/registry",
+   "auth": "Aucune (public, ETag, cache 60 s)",
+   "source": [
+    "families",
+    "doc_types",
+    "functions"
+   ],
+   "cible": [
+    "document_types",
+    "document_type_circuit_steps"
+   ],
+   "champs": [
+    [
+     "doc_types.code / label_fr / label_en",
+     "document_types.code / libellés"
+    ],
+    [
+     "doc_types.circuit + functions.scope",
+     "document_type_circuit_steps"
+    ],
+    [
+     "doc_types.retention_*",
+     "retention {years, trigger, disposition}"
+    ],
+    [
+     "doc_types.conf_allowed / conf_default",
+     "confAllowed / confDefault"
+    ]
+   ],
+   "note": "Codex expose le registre ; Keystone ne le lit pas encore et garde sa propre table document_types (28 types contre 69 dans Codex)."
+  },
+  {
+   "id": "F05",
+   "nom": "Décision sur une demande de modification (ECR)",
+   "de": "vigie",
+   "vers": "codex",
+   "mode": "Webhook (écriture)",
+   "statut": "partiel",
+   "point": "POST /api/integrations/vigie",
+   "auth": "Bearer VIGIE_WEBHOOK_TOKEN",
+   "source": [],
+   "cible": [
+    "change_requests",
+    "revisions",
+    "documents",
+    "workflows",
+    "audit_log"
+   ],
+   "champs": [
+    [
+     "requestId",
+     "change_requests.id"
+    ],
+    [
+     "accepted",
+     "change_requests.status"
+    ],
+    [
+     "ecoRef",
+     "change_requests.eco_ref, revisions.change_ref"
+    ],
+    [
+     "modifierId",
+     "change_requests.modifier_id, revisions.modifier_id"
+    ],
+    [
+     "note",
+     "change_requests.decision_note"
+    ]
+   ],
+   "note": "Codex reçoit la décision, mais Vigie n'a aucune table ECR/ECO et n'émet rien. Codex simule la décision tant que VIGIE_API_URL n'est pas défini."
+  },
+  {
+   "id": "F06",
+   "nom": "Envoi d'une demande de modification",
+   "de": "codex",
+   "vers": "vigie",
+   "mode": "API REST (écriture)",
+   "statut": "simule",
+   "point": "POST {VIGIE_API_URL}/change-requests",
+   "auth": "À définir",
+   "source": [
+    "change_requests",
+    "documents"
+   ],
+   "cible": [],
+   "champs": [
+    [
+     "change_requests.id (ECR-AAAA-NNN)",
+     "référence de la demande"
+    ],
+    [
+     "change_requests.kind / reason / description",
+     "contenu de la demande"
+    ],
+    [
+     "change_requests.doc_id",
+     "document concerné"
+    ]
+   ],
+   "note": "La demande est créée localement dans Codex (source = codex). Vigie n'a pas de table pour la recevoir."
+  },
+  {
+   "id": "F07",
+   "nom": "Ordres de modification technique (ECO)",
+   "de": "vigie",
+   "vers": "keystone",
+   "mode": "API REST (lecture)",
+   "statut": "propose",
+   "point": "GET /api/ecos?source=keystone",
+   "auth": "Aucune",
+   "source": [],
+   "cible": [
+    "vigie_ecos",
+    "vigie_eco_approvals",
+    "vigie_eco_parts",
+    "vigie_eco_projects",
+    "vigie_eco_effectivity"
+   ],
+   "champs": [
+    [
+     "number, title, type, status",
+     "vigie_ecos.number / title / eco_type / status"
+    ],
+    [
+     "fromRevision, toRevision, costEur, scheduleDays",
+     "vigie_ecos.*"
+    ],
+    [
+     "parts[]",
+     "vigie_eco_parts.part_ref"
+    ],
+    [
+     "projects[] (codes Keystone)",
+     "vigie_eco_projects.project_code"
+    ],
+    [
+     "approvals[]",
+     "vigie_eco_approvals"
+    ],
+    [
+     "effectivity[]",
+     "vigie_eco_effectivity"
+    ]
+   ],
+   "note": "Contrat rédigé par Keystone (questions V-2, V-3). Vigie n'a ni le point d'API ni les données ECO. Keystone fonctionne sur un connecteur fictif."
+  },
+  {
+   "id": "F08",
+   "nom": "Avancement ECO et non-conformités",
+   "de": "keystone",
+   "vers": "vigie",
+   "mode": "API REST (écriture)",
+   "statut": "propose",
+   "point": "POST /api/ecos/:number/progress · POST /api/ncrs/:project/:number/progress",
+   "auth": "Aucune",
+   "source": [
+    "vigie_eco_progress",
+    "vigie_ncr_progress"
+   ],
+   "cible": [
+    "actions",
+    "events"
+   ],
+   "champs": [
+    [
+     "kind, decision, targetStatus, comment",
+     "décision d'étape"
+    ],
+    [
+     "actor {name, role}",
+     "auteur"
+    ],
+    [
+     "réponse id",
+     "vigie_eco_progress.vigie_ref"
+    ]
+   ],
+   "note": "File d'attente (outbox) côté Keystone. Côté Vigie, rien n'est construit."
+  },
+  {
+   "id": "F09",
+   "nom": "Non-conformités et éléments HSE par projet",
+   "de": "vigie",
+   "vers": "keystone",
+   "mode": "API REST (lecture)",
+   "statut": "propose",
+   "point": "GET /api/ncrs?source=keystone · GET /api/hse?source=keystone",
+   "auth": "Aucune",
+   "source": [
+    "events",
+    "prevention_plans",
+    "permits"
+   ],
+   "cible": [
+    "vigie_ncrs",
+    "vigie_hse_items"
+   ],
+   "champs": [
+    [
+     "events.id (type NC)",
+     "vigie_ncrs.vigie_ref"
+    ],
+    [
+     "events.title / severity / step",
+     "vigie_ncrs.title / severity / status"
+    ],
+    [
+     "events.keystone_project",
+     "vigie_ncrs.project_code"
+    ],
+    [
+     "events.nc_origin",
+     "vigie_ncrs.source"
+    ],
+    [
+     "prevention_plans / permits",
+     "vigie_hse_items (kind, title, status)"
+    ]
+   ],
+   "note": "Les tables sources sont celles où Vigie stocke aujourd'hui l'information correspondante. Le contrat n'est pas implémenté côté Vigie."
+  },
+  {
+   "id": "F10",
+   "nom": "Projets Keystone recopiés dans Codex",
+   "de": "keystone",
+   "vers": "codex",
+   "mode": "Copie (jeu de démo)",
+   "statut": "copie",
+   "point": "src/lib/keystone.ts (corps à remplacer par un appel d'API)",
+   "auth": "—",
+   "source": [
+    "projects",
+    "clients",
+    "persons"
+   ],
+   "cible": [
+    "projects",
+    "project_expected",
+    "project_events"
+   ],
+   "champs": [
+    [
+     "projects.code",
+     "projects.code"
+    ],
+    [
+     "projects.name",
+     "projects.name"
+    ],
+    [
+     "clients.name",
+     "projects.client (texte)"
+    ],
+    [
+     "projects.stage",
+     "projects.stage"
+    ],
+    [
+     "projects.pm_person_id → persons",
+     "projects.manager_id → users"
+    ]
+   ],
+   "note": "Trois projets recopiés. Le chef de projet est relié à un utilisateur Codex sans clé commune avec persons."
+  },
+  {
+   "id": "F11",
+   "nom": "Projets Keystone recopiés dans Vigie",
+   "de": "keystone",
+   "vers": "vigie",
+   "mode": "Copie (jeu de démo)",
+   "statut": "copie",
+   "point": "src/db/seed.ts",
+   "auth": "—",
+   "source": [
+    "projects",
+    "clients"
+   ],
+   "cible": [
+    "keystone_projects",
+    "events",
+    "prevention_plans",
+    "permits",
+    "site_activities"
+   ],
+   "champs": [
+    [
+     "projects.code",
+     "keystone_projects.id (format K-2025-042)"
+    ],
+    [
+     "clients.name",
+     "keystone_projects.client"
+    ],
+    [
+     "projects.name",
+     "keystone_projects.title"
+    ],
+    [
+     "« id · client »",
+     "events.keystone_project (texte libre)"
+    ]
+   ],
+   "note": "Le format d'identifiant diffère de Keystone (HLT-026). Le projet est stocké en texte libre dans 4 tables, sans clé étrangère."
+  },
+  {
+   "id": "F12",
+   "nom": "Affectations du planning dans Vigie",
+   "de": "keystone",
+   "vers": "vigie",
+   "mode": "Copie (jeu de démo)",
+   "statut": "copie",
+   "point": "src/db/seed.ts",
+   "auth": "—",
+   "source": [
+    "activity_assignments",
+    "allocations",
+    "persons"
+   ],
+   "cible": [
+    "keystone_assignments"
+   ],
+   "champs": [
+    [
+     "persons → people.id (slug)",
+     "keystone_assignments.person_id"
+    ],
+    [
+     "projects.code · client",
+     "keystone_assignments.project"
+    ],
+    [
+     "activities.name",
+     "keystone_assignments.activity"
+    ],
+    [
+     "dates d'affectation",
+     "keystone_assignments.start_on / end_on"
+    ]
+   ],
+   "note": "Sert aux alertes d'habilitation avant une affectation."
+  },
+  {
+   "id": "F13",
+   "nom": "Chantiers, missions et tâches dans Cursus",
+   "de": "keystone",
+   "vers": "cursus",
+   "mode": "Copie (jeu de démo)",
+   "statut": "copie",
+   "point": "server/src/seed.ts",
+   "auth": "—",
+   "source": [
+    "projects",
+    "site_sheets",
+    "tasks",
+    "allocations"
+   ],
+   "cible": [
+    "chantiers",
+    "projets",
+    "missions",
+    "taches"
+   ],
+   "champs": [
+    [
+     "projects.code",
+     "chantiers.id / projets.code (format K-2614)"
+    ],
+    [
+     "site_sheets.site_name / country",
+     "chantiers.lieu / pays"
+    ],
+    [
+     "tasks + heures prévues",
+     "taches.tache / heures"
+    ],
+    [
+     "allocations",
+     "missions"
+    ]
+   ],
+   "note": "Aucune route n'alimente ces tables. Elles pré-remplissent les feuilles de temps (taches) et les alertes de congés (missions)."
+  },
+  {
+   "id": "F14",
+   "nom": "Personnel et heures travaillées dans Vigie",
+   "de": "cursus",
+   "vers": "vigie",
+   "mode": "Connecteur",
+   "statut": "prevu",
+   "point": "Bouton « Connecteur Cursus · à venir »",
+   "auth": "À définir",
+   "source": [
+    "employes",
+    "feuilles",
+    "certifications",
+    "hab_titres"
+   ],
+   "cible": [
+    "people",
+    "hours_worked",
+    "qualifications"
+   ],
+   "champs": [
+    [
+     "employes.nom / poste",
+     "people.name / job"
+    ],
+    [
+     "somme des feuilles validées",
+     "hours_worked.hours (calcul TF1 / TG)"
+    ],
+    [
+     "certifications / hab_titres",
+     "qualifications"
+    ]
+   ],
+   "note": "Aujourd'hui, le personnel est saisi à la main dans Vigie."
+  },
+  {
+   "id": "F15",
+   "nom": "Index documentaire et dépôts",
+   "de": "keystone",
+   "vers": "codex",
+   "mode": "Synchronisation",
+   "statut": "simule",
+   "point": "syncCodexIndex · depositInCodex",
+   "auth": "—",
+   "source": [
+    "documents",
+    "document_deposits",
+    "document_revisions"
+   ],
+   "cible": [
+    "documents",
+    "revisions",
+    "working_versions"
+   ],
+   "champs": [
+    [
+     "documents.number",
+     "documents.id"
+    ],
+    [
+     "documents.codex_id / codex_url",
+     "jamais renseignés"
+    ]
+   ],
+   "note": "Keystone tient un index local de 42 documents « Codex ». Aucun échange réel n'a lieu."
+  },
+  {
+   "id": "F16",
+   "nom": "Besoins machines d'un CAPEX",
+   "de": "arche",
+   "vers": "keystone",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "arche.pub_besoins_machines (serveur commun, lue par keystone_app)",
+   "auth": "Rôle keystone_app, convention de partage (partage/90-droits.sql)",
+   "source": [
+    "machine_needs",
+    "capex"
+   ],
+   "cible": [],
+   "champs": [
+    [
+     "machine_needs : référence <code CAPEX>/B01, fiche du catalogue et version, quantité, options, capacité, date de besoin",
+     "besoin à qualifier dans Keystone (R-187)"
+    ]
+   ],
+   "note": "Arche, docs/CONTRATS.md § 3. Keystone répond par F17."
+  },
+  {
+   "id": "F17",
+   "nom": "Catalogue machines et réponses aux besoins",
+   "de": "keystone",
+   "vers": "arche",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "keystone.pub_catalogue_machines, pub_reponses_besoins (R-186, R-187, à créer dans Keystone)",
+   "auth": "Rôle arche_app, convention de partage",
+   "source": [],
+   "cible": [
+    "machine_needs"
+   ],
+   "champs": [
+    [
+     "pub_catalogue_machines : code, version, type, options, capacité, prix indicatif",
+     "choix du besoin"
+    ],
+    [
+     "pub_reponses_besoins : qualification, fourchette E50 / E30 / E10, délai, projet créé",
+     "réponse affichée sur le besoin"
+    ]
+   ],
+   "note": "Arche, docs/CONTRATS.md § 2.2 ; Arche garde des miroirs keystone_* avec synced_at."
+  },
+  {
+   "id": "F18",
+   "nom": "Projets EPC2i liés à un CAPEX : jalons, avancement, avenants, réserves",
+   "de": "keystone",
+   "vers": "arche",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "keystone.pub_projets, pub_livrables, pub_parc_machines (existent) ; pub_jalons_projets, pub_avancement_projets, pub_avenants, pub_reserves, pub_pack_ingenierie (R-189 à R-191, à créer)",
+   "auth": "Rôle arche_app, convention de partage",
+   "source": [],
+   "cible": [
+    "capex_lots",
+    "machine_needs",
+    "production_lines"
+   ],
+   "champs": [
+    [
+     "pub_projets.capex_code, besoin_ref (K-05, colonnes à ajouter)",
+     "rattachement du projet au CAPEX"
+    ],
+    [
+     "pub_avancement_projets : % physique, SPI, prix de vente, avenants, facturé (ni coût ni marge, AC-2)",
+     "lot machines du CAPEX"
+    ]
+   ],
+   "note": "Arche, docs/CONTRATS.md § 2 ; demandes K-01 à K-08 d'Arche à Keystone."
+  },
+  {
+   "id": "F19",
+   "nom": "CAPEX et montée en cadence vus de Keystone",
+   "de": "arche",
+   "vers": "keystone",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "arche.pub_capex, arche.pub_rampup",
+   "auth": "Rôle keystone_app, convention de partage",
+   "source": [
+    "capex",
+    "gates",
+    "production_lines",
+    "rampup_days"
+   ],
+   "cible": [],
+   "champs": [
+    [
+     "pub_capex : code, filiale, phase, typologie, jalons",
+     "fiche projet EPC2i (lien vers le CAPEX)"
+    ],
+    [
+     "pub_rampup : TRS et production par ligne",
+     "garantie et SAV des machines"
+    ]
+   ],
+   "note": "Arche, docs/CONTRATS.md § 3."
+  },
+  {
+   "id": "F20",
+   "nom": "Jalons HSE d'un CAPEX",
+   "de": "vigie",
+   "vers": "arche",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "prevu",
+   "point": "vue des études de sécurité de Vigie (HazID, HazOp, AMDEC, PSSR), à définir (AC-3, M-6)",
+   "auth": "Rôle arche_app, convention de partage",
+   "source": [],
+   "cible": [
+    "hs_statuses"
+   ],
+   "champs": [
+    [
+     "statut et preuve des jalons HS2 à HS6 et PSSR",
+     "hs_statuses (source vigie ; déclaratif en attendant, N-13)"
+    ]
+   ],
+   "note": "Rien n'existe encore dans Vigie."
+  },
+  {
+   "id": "F21",
+   "nom": "Références de documents d'un dossier CAPEX",
+   "de": "codex",
+   "vers": "arche",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "prevu",
+   "point": "codex.pub_documents, pub_revisions_document",
+   "auth": "Rôle arche_app (droit à poser quand Arche les lira)",
+   "source": [
+    "documents",
+    "revisions"
+   ],
+   "cible": [
+    "dossier_attachments",
+    "authorizations",
+    "pack_items"
+   ],
+   "champs": [
+    [
+     "identifiant et révision Codex",
+     "codex_ref, revision (Arche ne stocke aucun fichier, N-17)"
+    ]
+   ],
+   "note": "Arche, décisions C-12 et N-17. Le droit de lecture n'est pas encore posé (demande à confirmer)."
+  },
+  {
+   "id": "F22",
+   "nom": "Projets et jalons pour la planification des essais",
+   "de": "keystone",
+   "vers": "crucible",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "keystone.pub_projets (existe) ; pub_jalons (K-2 de Crucible, à créer dans Keystone)",
+   "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
+   "source": [
+    "projects"
+   ],
+   "cible": [
+    "projects"
+   ],
+   "champs": [
+    [
+     "pub_projets : code, nom, client, statut",
+     "projets de Crucible (projects.code ; saisis dans Crucible en attendant)"
+    ],
+    [
+     "pub_jalons : jalon, mois prévu, statut, fin de l'activité liée",
+     "rétro-planification des essais (livraison L3)"
+    ]
+   ],
+   "note": "Crucible, docs/DEMANDES-MATRIX.md M-4 et docs/DEMANDES-KEYSTONE.md K-2 (décision S-2)."
+  },
+  {
+   "id": "F23",
+   "nom": "Opérateurs, habilitations et absences",
+   "de": "cursus",
+   "vers": "crucible",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "cursus.pub_salaries, pub_titres, pub_titres_detenus (existent) ; pub_absences sans motif (CU-1 de Crucible, à créer dans Cursus)",
+   "auth": "Rôle crucible_app, convention de partage",
+   "source": [
+    "employes",
+    "hab_titres",
+    "habilitations",
+    "absences"
+   ],
+   "cible": [],
+   "champs": [
+    [
+     "matricule, nom, habilitations détenues et leur échéance",
+     "opérateurs qualifiés d'un moyen d'essai"
+    ],
+    [
+     "absences validées ou demandées (du, au, demi-journées), sans motif",
+     "ne pas planifier un opérateur absent (livraison L4)"
+    ]
+   ],
+   "note": "Crucible, M-4 et docs/DEMANDES-CURSUS.md CU-1 (décision S-3)."
+  },
+  {
+   "id": "F24",
+   "nom": "Moyens d'essais et réservations confirmées",
+   "de": "crucible",
+   "vers": "keystone",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "crucible.pub_moyens, pub_reservations (livraison L3 de Crucible)",
+   "auth": "Rôle keystone_app, convention de partage (droits posés d'avance par partage/90-droits.sql)",
+   "source": [
+    "facilities",
+    "projects"
+   ],
+   "cible": [],
+   "champs": [
+    [
+     "pub_reservations : moyen, projet, début, fin, statut",
+     "essais planifiés dans le planning d'un projet (K-4 de Crucible, facultatif)"
+    ]
+   ],
+   "note": "Crucible, décision S-5."
+  },
+  {
+   "id": "F25",
+   "nom": "Réservations pour la coactivité",
+   "de": "crucible",
+   "vers": "vigie",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "propose",
+   "point": "crucible.pub_reservations, pub_moyens (livraison L3 de Crucible)",
+   "auth": "Rôle vigie_app, convention de partage (droits posés d'avance par partage/90-droits.sql)",
+   "source": [
+    "facilities",
+    "facility_partners"
+   ],
+   "cible": [
+    "prevention_plans"
+   ],
+   "champs": [
+    [
+     "réservations d'un moyen partagé (laboratoire 67 et EPC France) : moyen, entité, début, fin",
+     "détection de la coactivité et plans de prévention"
+    ]
+   ],
+   "note": "Crucible, docs/DEMANDES-VIGIE.md V-3 (décision R-7). Le plan de prévention reste dans Vigie."
+  },
+  {
+   "id": "F26",
+   "nom": "Références documentaires des essais",
+   "de": "codex",
+   "vers": "crucible",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "prevu",
+   "point": "codex.pub_documents, pub_revisions_document",
+   "auth": "Rôle crucible_app, convention de partage",
+   "source": [
+    "documents",
+    "revisions"
+   ],
+   "cible": [],
+   "champs": [
+    [
+     "identifiant et révision Codex",
+     "références d'un moyen ou d'un essai (Crucible ne stocke aucun fichier)"
+    ]
+   ],
+   "note": "Crucible, M-4 (livraison L3)."
+  },
+  {
+   "id": "F27",
+   "nom": "Contrôles périodiques et interventions qui suspendent les essais",
+   "de": "vigie",
+   "vers": "crucible",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "prevu",
+   "point": "vigie.pub_controles, pub_suspensions_essais (demandes V-1 et V-2 de Crucible, à créer dans Vigie)",
+   "auth": "Rôle crucible_app, convention de partage (partage/90-droits.sql)",
+   "source": [
+    "controls",
+    "control_records",
+    "site_activities"
+   ],
+   "cible": [
+    "unavailabilities"
+   ],
+   "champs": [
+    [
+     "controls.next_on, reserves, equipement_code (colonne nouvelle)",
+     "unavailabilities (origine Vigie : contrôle échu, R-6)"
+    ],
+    [
+     "activités de coactivité : zone, du, au",
+     "unavailabilities (intervention extérieure, R-7)"
+    ]
+   ],
+   "note": "Crucible, docs/DEMANDES-VIGIE.md ; D23, option A (22/10/2026) : Vigie fait foi."
+  },
+  {
+   "id": "F28",
+   "nom": "Études de sécurité des procédés et jalons de sécurité des CAPEX",
+   "de": "vigie",
+   "vers": "arche",
+   "mode": "Vue pub_ (lecture)",
+   "statut": "prevu",
+   "point": "vigie.pub_etudes_securite (M-15 d'Arche ; vue définie dans Matrix, M-18, quand Vigie tiendra les études : demande VG-01 à VG-05 d'Arche à Vigie)",
+   "auth": "Rôle arche_app, lien autorisé du registre matrix.liens",
+   "source": [],
+   "cible": [],
+   "champs": [
+    [
+     "études : jalon (HS2, HS3, HS4, PSSR, HS6), type, statut, conclusion",
+     "statut des jalons de sécurité d'un CAPEX (G1, G2, K3, G3)"
+    ],
+    [
+     "recommandations ouvertes et en retard, réserves bloquantes",
+     "alerte sur le CAPEX"
+    ]
+   ],
+   "note": "AR-033 (01/11/2026) : les études sont tenues dans Vigie. Contrat : data/contrats/vigie.pub_etudes_securite.json. Arche lit déjà la vue quand elle existe (Yhumiii27/Arche#43)."
+  }
+ ],
+ "externes": [
+  {
+   "id": "sage",
+   "nom": "Sage Paie",
+   "app": "cursus",
+   "sens": "sortie",
+   "statut": "simule",
+   "tables": [
+    "feuilles",
+    "settings"
+   ],
+   "note": "Variables de paie (HN, HS25…) depuis les feuilles validées."
+  },
+  {
+   "id": "sharepoint",
+   "nom": "SharePoint",
+   "app": "codex",
+   "sens": "sortie",
+   "statut": "partiel",
+   "tables": [
+    "working_versions"
+   ],
+   "note": "Stockage des fichiers uniquement ; les métadonnées restent dans Codex."
+  },
+  {
+   "id": "lucca",
+   "nom": "Lucca",
+   "app": "keystone",
+   "sens": "entrée",
+   "statut": "simule",
+   "tables": [
+    "hours_imports",
+    "hours_lines",
+    "connectors"
+   ],
+   "note": "Import des heures."
+  },
+  {
+   "id": "x3",
+   "nom": "Sage X3",
+   "app": "keystone",
+   "sens": "double",
+   "statut": "simule",
+   "tables": [
+    "stock_positions",
+    "stock_movements",
+    "x3_sync_runs"
+   ],
+   "note": "Stock et code analytique."
+  },
+  {
+   "id": "trackdechets",
+   "nom": "Trackdéchets",
+   "app": "vigie",
+   "sens": "sortie",
+   "statut": "prevu",
+   "tables": [
+    "waste_entries"
+   ],
+   "note": "Bordereaux de suivi de déchets."
+  }
+ ],
+ "alertes": [
+  {
+   "gravite": "critique",
+   "app": "toutes",
+   "titre": "Bases embarquées non partagées",
+   "detail": "Keystone, Codex et Vigie utilisent PGlite et Cursus utilise SQLite, chacun dans le volume de son conteneur. Ces moteurs n'acceptent qu'un seul processus : un outil tiers ne peut pas s'y connecter pendant que l'application tourne."
+  },
+  {
+   "gravite": "critique",
+   "app": "cursus",
+   "titre": "Données de santé non isolées",
+   "detail": "employes.visite, vaccinations et le contenu des entretiens (entretiens.cr) sont dans les mêmes tables que les données courantes. Matrix doit les masquer par défaut."
+  },
+  {
+   "gravite": "majeur",
+   "app": "cursus",
+   "titre": "Aucune clé étrangère déclarée",
+   "detail": "37 liens sont appliqués uniquement par le code. Renommer une équipe met à jour 4 tables à la main (equipes.nom sert de clé)."
+  },
+  {
+   "gravite": "majeur",
+   "app": "vigie",
+   "titre": "Projet Keystone en texte libre",
+   "detail": "events, prevention_plans, permits et site_activities stockent « id · client » au lieu d'une clé."
+  },
+  {
+   "gravite": "majeur",
+   "app": "vigie",
+   "titre": "Lien polymorphe",
+   "detail": "attachments.entity_type + entity_id pointent vers 5 tables sans contrôle d'intégrité."
+  },
+  {
+   "gravite": "mineur",
+   "app": "codex",
+   "titre": "Journal sans clé étrangère",
+   "detail": "audit_log.doc_id est réécrit par le code quand un document change d'identifiant."
+  },
+  {
+   "gravite": "mineur",
+   "app": "keystone",
+   "titre": "Aucun index secondaire",
+   "detail": "Seules les clés primaires et les contraintes d'unicité sont indexées, sur 203 tables."
+  },
+  {
+   "gravite": "mineur",
+   "app": "keystone",
+   "titre": "Champs de liaison jamais remplis",
+   "detail": "documents.codex_id, documents.codex_url et site_sheets.cursus_chantier_id sont vides."
+  }
+ ]
 }

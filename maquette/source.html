@@ -207,6 +207,8 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .chip:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
 .canvas-wrap { flex: 1; position: relative; min-height: 0; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-surface) 70%, transparent), var(--color-bg) 70%); }
 #cy { position: absolute; inset: 0; }
+/* Écran Publications : la fiche s'ouvre au-dessus de la liste, sans que le navigateur garde la ligne cliquée à l'écran. */
+#s-publications { overflow-anchor: none; }
 .legend { position: absolute; left: 14px; bottom: 12px; padding: 6px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-bg) 85%, transparent); box-shadow: var(--shadow-sm); font-size: 11px; }
 .legend summary { cursor: pointer; color: var(--color-neutral-500); list-style: none; user-select: none; }
 .legend summary::before { content: '▸ '; } .legend[open] summary::before { content: '▾ '; }
@@ -319,6 +321,7 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
       <section class="screen pad" id="s-qualite" data-title="Qualité des schémas" hidden></section>
       <section class="screen pad" id="s-sante" data-title="Santé des tables et des liens" hidden></section>
       <section class="screen pad" id="s-liens" data-title="Liens entre outils" hidden></section>
+      <section class="screen pad" id="s-publications" data-title="Publications des outils" hidden></section>
       <section class="screen pad" id="s-journal" data-title="Journal unifié des outils" hidden></section>
       <section class="screen pad" id="s-rex" data-title="Retours d’expérience" hidden></section>
       <section class="screen pad" id="s-correspondances" data-title="Correspondances d’identifiants" hidden></section>
@@ -491,6 +494,7 @@ const NAV = [
   ['qualite', 'Qualité des schémas', 'pulse'],
   ['sante', 'Santé des données', 'pulse'],
   ['liens', 'Liens entre outils', 'ref'],
+  ['publications', 'Publications', 'table'],
   ['journal', 'Journal unifié', 'list'],
   ['rex', 'Retours d’expérience', 'eye'],
   ['correspondances', 'Correspondances', 'key'],
@@ -1618,7 +1622,13 @@ RENDER.liens = () => {
     let motif = null;
     if (statut === 'refuse') { motif = prompt(`Motif du refus : ${lecteur} ne lira pas ${vue}`); if (!motif) return; }
     else if (statut === 'autorise') motif = prompt(`Autoriser ${lecteur} à lire ${vue}. Motif (facultatif) :`) ?? null;
-    try { const j = await poster('/api/liens', { vue, lecteur, statut, motif }); SANTE.liens = j.liens; toast(statut === 'autorise' ? 'Lien autorisé : droit posé au prochain passage de 90-droits.sql (15 minutes au plus)' : statut === 'refuse' ? 'Lien refusé : droit retiré au prochain passage de 90-droits.sql (15 minutes au plus)' : 'Demande enregistrée'); draw(); navLiens(); }
+    try {
+      const j = await poster('/api/liens', { vue, lecteur, statut, motif }); SANTE.liens = j.liens;
+      // M-18 : appliqué tout de suite par Matrix (vue reprise, rôle matrix_gestion), sinon par 90-droits.sql.
+      const tout = j.lien?.application?.applique;
+      toast(statut === 'demande' ? 'Demande enregistrée' : `Lien ${statut === 'autorise' ? 'autorisé' : 'refusé'} : droit ${statut === 'autorise' ? 'posé' : 'retiré'} ${tout ? 'tout de suite' : 'au prochain passage de 90-droits.sql (15 minutes au plus)'}`);
+      draw(); navLiens(); rendered.publications = false;
+    }
     catch (e) { toast(e.message); }
   };
   const draw = () => {
@@ -1668,6 +1678,166 @@ RENDER.liens = () => {
   draw();
 };
 navLiens();
+
+// ── Publications (décision M-18, lot P3) : ce que chaque outil publie, défini et appliqué par Matrix ──
+const ETATS_PUB = { appliquee: ['Appliquée', 'tag-neutral'], brouillon: ['Brouillon', 'tag-outline'], erreur: ['Erreur', 'tag-accent'], retiree: ['Retirée', 'tag-ghost'] };
+const etatPub = e => `<span class="tag ${(ETATS_PUB[e] || ETATS_PUB.brouillon)[1]}">${(ETATS_PUB[e] || [e])[0]}</span>`;
+RENDER.publications = () => {
+  const root = $('s-publications');
+  if (!SERVEUR || !SERVEUR_COMMUN) { root.innerHTML = `<div class="wrap">${SANS_SERVEUR_COMMUN('Le registre des publications (vues pub_ des outils, décision M-18)')}</div>`; return; }
+  const st = { outil: '', etat: 'toutes', liste: null, nonReprises: [], gestion: false, erreur: null, sel: null, fiche: null, brouillon: null };
+  const enHaut = () => { root.scrollIntoView({ block: 'start' }); document.querySelector('.app-main')?.scrollTo?.(0, 0); };
+  const charger = async () => {
+    try { const j = await lireApi('/api/publications'); Object.assign(st, { liste: j.publications, nonReprises: j.nonReprises, gestion: j.gestion, erreur: null }); }
+    catch (e) { st.erreur = e.message; }
+    draw();
+  };
+  const ouvrir = async vue => {
+    st.sel = vue; st.fiche = null; st.brouillon = null; draw(); enHaut();
+    try {
+      const { publication: p } = await lireApi(`/api/publications/${encodeURIComponent(vue)}`);
+      st.fiche = p;
+      st.brouillon = { mode: p.mode, source: p.source || '', colonnes: p.colonnes || [], filtre: p.filtre || '', definition: p.definition || '', description: p.description || '' };
+    } catch (e) { toast(e.message); st.sel = null; }
+    draw();
+  };
+  const nouvelle = () => {
+    const outil = prompt(`Outil qui publie (${APP_IDS.join(', ')}) :`, st.outil || 'keystone'); if (!outil) return;
+    if (!APP_IDS.includes(outil.trim())) return toast('Outil inconnu');
+    const nom = prompt('Nom de la vue (après « pub_ », minuscules, chiffres et _) :'); if (!nom) return;
+    const vue = `${outil.trim()}.pub_${nom.trim().replace(/^pub_/, '')}`;
+    if (!/^[a-z]+\.pub_[a-z0-9_]+$/.test(vue)) return toast('Nom invalide : minuscules, chiffres et _ seulement');
+    if ((st.liste || []).some(p => p.vue === vue)) return ouvrir(vue);
+    st.sel = vue; st.fiche = { vue, outil: outil.trim(), etat: 'nouvelle', nouvelle: true, contrat: null, liens: [], journal: [] };
+    st.brouillon = { mode: 'colonnes', source: '', colonnes: [], filtre: '', definition: '', description: '' };
+    draw(); enHaut();
+  };
+  // Lecture des champs de la fiche vers le brouillon (avant un enregistrement ou un changement de mode).
+  const lireFiche = () => {
+    const b = st.brouillon; if (!b) return;
+    b.description = $('pub-description')?.value ?? b.description;
+    if (b.mode === 'sql') { b.definition = $('pub-definition')?.value ?? b.definition; return; }
+    b.source = $('pub-source')?.value ?? b.source;
+    b.filtre = $('pub-filtre')?.value ?? b.filtre;
+    const coches = [...root.querySelectorAll('[data-pub-col]')].filter(c => c.checked).map(c => c.dataset.pubCol);
+    const ordre = [...root.querySelectorAll('[data-pub-col]')].map(c => c.dataset.pubCol);
+    b.colonnes = ordre.filter(c => coches.includes(c)).map(c => ({ colonne: c, nom: (root.querySelector(`[data-pub-nom="${c}"]`)?.value || c).trim() }));
+  };
+  const enregistrer = async () => {
+    lireFiche();
+    const b = st.brouillon;
+    const corps = b.mode === 'sql' ? { mode: 'sql', definition: b.definition, description: b.description } : { mode: 'colonnes', source: b.source, colonnes: b.colonnes, filtre: b.filtre, description: b.description };
+    const r = await fetch(`/api/publications/${encodeURIComponent(st.sel)}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps) });
+    const j = await r.json().catch(() => ({ erreur: 'réponse illisible du serveur' }));
+    if (!r.ok) throw new Error(j.erreur || `erreur ${r.status}`);
+    return j.publication;
+  };
+  const action = async (quoi, bouton) => {
+    if (bouton) bouton.disabled = true;
+    try {
+      if (quoi === 'enregistrer') { await enregistrer(); toast('Brouillon enregistré : rien n’a changé sur le serveur'); }
+      else if (quoi === 'appliquer') {
+        if (!confirm(`Appliquer ${st.sel} sur le serveur commun ? Les outils qui la lisent verront aussitôt la nouvelle définition.`)) return;
+        await enregistrer();
+        const j = await poster(`/api/publications/${encodeURIComponent(st.sel)}/appliquer`);
+        toast(`Publication appliquée : ${j.resultat.contrat.length} colonne(s), ${j.resultat.lecteurs.length} lecteur(s)`);
+        rendered.liens = rendered.sante = false;
+      } else if (quoi === 'retirer') {
+        const motif = prompt(`Motif du retrait de ${st.sel} (la vue sera supprimée du serveur) :`); if (!motif) return;
+        await poster(`/api/publications/${encodeURIComponent(st.sel)}/retirer`, { motif });
+        toast('Publication retirée'); rendered.liens = rendered.sante = false;
+      }
+    } catch (e) { toast(e.message); }
+    finally { if (bouton) bouton.disabled = false; }
+    await charger(); if (st.sel) await ouvrir(st.sel);
+  };
+
+  const fiche = () => {
+    const p = st.fiche, b = st.brouillon, outil = st.sel.split('.')[0];
+    if (!p || !b) return `<div class="card"><p class="text-muted">Chargement de ${esc(st.sel)}…</p></div>`;
+    const tables = tablesOf(outil).slice().sort((x, y) => x.name.localeCompare(y.name));
+    const t = T.get(b.source);
+    const sensibles = new Set(t?.sensitive || []);
+    const choisies = new Map((b.colonnes || []).map(c => [c.colonne, c.nom]));
+    const contrat = new Map((p.contrat || []).map((c, i) => [c.nom, i]));
+    // Colonnes déjà choisies d'abord, dans leur ordre (le contrat garde l'ordre), puis les autres colonnes de la table.
+    const cols = t ? [...(b.colonnes || []).map(c => t.columns.find(x => x.name === c.colonne)).filter(Boolean), ...t.columns.filter(c => !choisies.has(c.name))] : [];
+    const lecteurs = (p.liens || []).filter(l => l.statut === 'autorise').map(l => l.lecteur);
+    return `<div class="card">
+      <div class="quick-head"><div><div class="quick-title mono">${esc(st.sel)}</div>
+        <div class="tags" style="margin-top:6px">${appMark(outil, 16)} ${esc(APPS[outil]?.nom || outil)} ${p.nouvelle ? '<span class="tag tag-outline">Nouvelle</span>' : etatPub(p.etat)}${p.origine === 'reprise' ? ' <span class="tag tag-ghost">reprise d’une migration</span>' : ''}${p.existe === false && !p.nouvelle ? ' <span class="tag tag-ghost">absente du serveur</span>' : ''}</div></div>
+        <button class="btn btn-ghost btn-icon" id="pub-fermer" aria-label="Fermer">${icon('close', 14)}</button></div>
+      ${p.erreur ? `<p class="note" style="margin:10px 0;box-shadow:inset 0 0 0 1px var(--color-accent)">${esc(p.erreur)}</p>` : ''}
+      <div style="display:flex;gap:10px;align-items:center;margin:12px 0">${seg('pmode', [['colonnes', 'Choisir des colonnes'], ['sql', 'Requête SQL']], b.mode)}
+        <span class="sub text-muted">${b.mode === 'colonnes' ? 'Une table de l’outil, les colonnes publiées et leur nom, un filtre.' : 'Pour une jointure ou un agrégat : une requête SELECT sur les tables de l’outil, noms qualifiés par le schéma.'}</span></div>
+      ${b.mode === 'colonnes' ? `
+        <div class="field"><label class="field-label" for="pub-source">Table source</label>
+          <select class="input" id="pub-source"><option value="">— choisir une table de ${esc(APPS[outil]?.nom || outil)} —</option>${tables.map(x => `<option value="${esc(x.key)}" ${x.key === b.source ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+        ${t ? `<div class="table-wrap" style="margin:10px 0"><table class="table"><thead><tr><th></th><th>Colonne</th><th>Type</th><th>Nom publié</th><th></th></tr></thead><tbody>
+          ${cols.map(c => { const sens = sensibles.has(c.name), pris = choisies.has(c.name), fige = contrat.has(choisies.get(c.name) ?? c.name) && pris;
+            return `<tr><td><input type="checkbox" data-pub-col="${esc(c.name)}" ${pris ? 'checked' : ''} ${sens || fige ? 'disabled' : ''} ${fige ? 'title="Colonne déjà publiée : elle fait partie du contrat"' : ''} aria-label="Publier ${esc(c.name)}"></td>
+              <td class="mono">${esc(c.name)}</td><td class="mono sub text-muted">${esc(c.type || '')}</td>
+              <td><input class="input mono" data-pub-nom="${esc(c.name)}" value="${esc(choisies.get(c.name) || c.name)}" ${sens ? 'disabled' : ''} ${fige ? 'readonly title="Colonne déjà publiée : son nom fait partie du contrat"' : ''}></td>
+              <td class="sub">${sens ? `${icon('lock', 12)} sensible, jamais publiée` : fige ? '<span class="text-muted">publiée</span>' : ''}</td></tr>`; }).join('')}</tbody></table></div>
+          <div class="field"><label class="field-label" for="pub-filtre">Filtre (facultatif)</label><input class="input mono" id="pub-filtre" value="${esc(b.filtre || '')}" placeholder="ex. status <> 'draft'"></div>` : '<p class="text-muted sub">Choisissez la table dont les colonnes seront publiées.</p>'}`
+        : `<div class="field"><label class="field-label" for="pub-definition">Requête</label><textarea class="input mono" id="pub-definition" rows="14" spellcheck="false" style="font-family:var(--font-mono, ui-monospace, Menlo, monospace);font-size:12px">${esc(b.definition || '')}</textarea></div>`}
+      <div class="field"><label class="field-label" for="pub-description">Description (commentaire de la vue, lu par les outils)</label><input class="input" id="pub-description" maxlength="2000" value="${esc(b.description || '')}"></div>
+      <div class="actions" style="margin-top:12px">
+        <button class="btn btn-secondary" data-pub-action="enregistrer">${icon('pen', 13)} Enregistrer le brouillon</button>
+        <button class="btn btn-primary" data-pub-action="appliquer" ${st.gestion ? '' : 'disabled title="MATRIX_GESTION_DATABASE_URL absent"'}>${icon('tick', 13)} Appliquer sur le serveur</button>
+        ${!p.nouvelle && p.etat !== 'retiree' ? `<button class="btn btn-ghost" data-pub-action="retirer" ${st.gestion ? '' : 'disabled'}>Retirer</button>` : ''}</div>
+      <div class="block-title" style="margin-top:20px">Contrat publié <span>${(p.contrat || []).length} colonne(s)</span></div>
+      ${(p.contrat || []).length ? `<p class="sub text-muted">Lu par d’autres outils : une colonne ne s’y retire, ne s’y renomme ni ne change de type ; on n’en ajoute qu’en fin. Pour un changement incompatible, publiez une vue <span class="mono">${esc(st.sel)}_v2</span>.</p>
+        <div class="tags">${p.contrat.map(c => `<span class="tag tag-ghost mono" title="${esc(c.type)}">${esc(c.nom)}</span>`).join('')}</div>` : '<p class="text-muted sub">Pas encore appliquée.</p>'}
+      <div class="block-title" style="margin-top:20px">Lecteurs <span>${lecteurs.length}</span></div>
+      <p class="sub">${lecteurs.length ? lecteurs.map(l => APPS[l.replace(/_app$/, '')]?.nom || 'Matrix').join(', ') : '<span class="text-muted">Aucun outil autorisé.</span>'} <button class="link-btn" data-go="liens">Gérer les liens</button></p>
+      ${p.definition && b.mode === 'colonnes' ? `<details style="margin-top:14px"><summary class="sub text-muted">Requête enregistrée</summary><pre class="mono sub" style="white-space:pre-wrap;margin-top:6px">${esc(p.definition)}</pre></details>` : ''}
+      <div class="block-title" style="margin-top:20px">Journal <span>${(p.journal || []).length}</span></div>
+      ${(p.journal || []).length ? `<div class="table-wrap"><table class="table"><tbody>${p.journal.map(j => `<tr><td class="tabnum text-muted nowrap">${quand(j.le)}</td><td>${esc(j.par || '')}</td><td>${esc({ reprise: 'Reprise', creation: 'Création', modification: 'Modification', application: 'Application', erreur: 'Erreur', retrait: 'Retrait' }[j.action] || j.action)}</td><td class="sub text-muted">${esc(j.detail || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-muted sub">Aucune entrée.</p>'}
+    </div>`;
+  };
+
+  const draw = () => {
+    if (st.erreur) { root.innerHTML = `<div class="wrap"><p class="note">${esc(st.erreur)}</p></div>`; return; }
+    if (!st.liste) { root.innerHTML = '<div class="wrap"><p class="text-muted">Lecture du registre des publications…</p></div>'; return; }
+    const L = st.liste.filter(p => (!st.outil || p.outil === st.outil) && (st.etat === 'toutes' || p.etat === st.etat));
+    const nb = e => st.liste.filter(p => (!st.outil || p.outil === st.outil) && p.etat === e).length;
+    root.innerHTML = `<div class="wrap">
+      <div class="top"><div><p class="text-muted prose">Ce que chaque outil donne à lire aux autres : ses vues <span class="mono">pub_</span>. Depuis la décision M-18, Matrix les définit et les applique lui-même (rôle <span class="mono">matrix_gestion</span>) ; les outils n’en écrivent plus dans leurs migrations. Un brouillon ne change rien sur le serveur ; l’application est contrôlée (contrat des colonnes, colonnes sensibles, tables du seul outil) et pose les droits des lecteurs autorisés dans « Liens entre outils ».</p></div>
+        <div class="actions"><button class="btn btn-primary" id="pub-nouvelle">${icon('plus', 14)} Nouvelle publication</button></div></div>
+      ${st.gestion ? '' : `<p class="note" style="margin-bottom:12px">Matrix n’est pas relié en administrateur (<span class="mono">MATRIX_GESTION_DATABASE_URL</span>, rôle <span class="mono">matrix_gestion</span>) : les publications s’enregistrent en brouillon, sans être appliquées.</p>`}
+      ${st.sel ? `<button class="link-btn" id="pub-retour" style="margin-bottom:10px">← Toutes les publications</button>${fiche()}` : ''}
+      ${st.sel ? '' : `<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px">
+        ${seg('poutil', [['', 'Tous les outils'], ...APP_IDS.map(a => [a, APPS[a].nom])], st.outil)}
+        ${seg('petat', [['toutes', 'Toutes', st.liste.filter(p => !st.outil || p.outil === st.outil).length], ['appliquee', 'Appliquées', nb('appliquee')], ['brouillon', 'Brouillons', nb('brouillon')], ['erreur', 'Erreurs', nb('erreur')], ['retiree', 'Retirées', nb('retiree')]], st.etat)}</div>
+      ${L.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Vue publiée</th><th>État</th><th class="num">Colonnes</th><th>Lecteurs</th><th>Modifiée</th></tr></thead><tbody>
+        ${L.map(p => `<tr class="click" data-pub="${esc(p.vue)}" ${p.vue === st.sel ? 'aria-current="true"' : ''}><td class="nowrap">${appMark(p.outil, 16)} <span class="mono">${esc(p.vue)}</span>${p.description ? `<div class="sub text-muted">${esc(p.description).slice(0, 120)}</div>` : ''}</td>
+          <td>${etatPub(p.etat)}${p.erreur && p.etat === 'erreur' ? `<div class="sub text-muted" title="${esc(p.erreur)}">${esc(p.erreur).slice(0, 80)}…</div>` : ''}</td>
+          <td class="num tabnum">${p.colonnes || '—'}</td>
+          <td class="sub">${(p.lecteurs || []).map(l => APPS[l.replace(/_app$/, '')]?.nom || 'Matrix').join(', ') || '<span class="text-muted">—</span>'}</td>
+          <td class="sub text-muted nowrap">${esc(p.modifie_par || '')} · ${quand(p.modifie_le)}</td></tr>`).join('')}</tbody></table></div>`
+        : `<p class="text-muted">${st.liste.length ? 'Aucune publication dans cette sélection.' : 'Registre vide : les vues existantes y entrent par leur reprise (partage/14-reprise-publications.sql), les nouvelles par « Nouvelle publication ».'}</p>`}
+      ${st.nonReprises.length ? `<div class="block-title" style="margin-top:22px">Vues pas encore reprises par Matrix <span>${st.nonReprises.length}</span></div>
+        <p class="sub text-muted">Créées par une migration de l’outil, elles lui appartiennent encore : Matrix les reprend par <span class="mono">partage/14-reprise-publications.sql</span>, une fois que l’outil ne crée plus de vue <span class="mono">pub_</span> dans ses migrations.</p>
+        <div class="tags">${st.nonReprises.filter(v => !st.outil || v.outil === st.outil).map(v => `<span class="tag tag-ghost mono">${esc(v.vue)}</span>`).join('')}</div>` : ''}
+    </div>`}`;
+  };
+
+  root.addEventListener('click', e => {
+    const ligne = e.target.closest('[data-pub]'); if (ligne) return ouvrir(ligne.dataset.pub);
+    const a = e.target.closest('[data-pub-action]'); if (a) return action(a.dataset.pubAction, a);
+    if (e.target.closest('#pub-nouvelle')) return nouvelle();
+    if (e.target.closest('#pub-fermer') || e.target.closest('#pub-retour')) { st.sel = null; st.fiche = null; draw(); return enHaut(); }
+  });
+  root.addEventListener('change', e => {
+    if (e.target.id === 'pub-source') { lireFiche(); st.brouillon.source = e.target.value; st.brouillon.colonnes = []; draw(); }
+  });
+  onSeg(root, 'poutil', v => { st.outil = v; draw(); });
+  onSeg(root, 'petat', v => { st.etat = v; draw(); });
+  onSeg(root, 'pmode', v => { lireFiche(); st.brouillon.mode = v; draw(); });
+  draw(); charger();
+};
+
 
 // ── Journal unifié, REX, correspondances (serveur commun, écart E-11) ───
 const SANS_SERVEUR_COMMUN = quoi => `<div class="card" style="max-width:720px"><div class="card-kicker">Serveur commun</div>

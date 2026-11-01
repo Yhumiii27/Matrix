@@ -96,6 +96,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE matrix_app   IN SCHEMA matrix   GRANT EXECUTE 
 -- colonne de droits.colonnes_sensibles, et droits.verifier() le contrôle). Aucune écriture : ni INSERT, ni UPDATE, ni
 -- DELETE, ni EXECUTE sur les fonctions des outils.
 GRANT USAGE, CREATE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible TO matrix_gestion;
+-- Un lien autorisé donne au lecteur USAGE sur le schéma de la vue : Matrix le transmet (lot P2).
+GRANT USAGE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible TO matrix_gestion WITH GRANT OPTION;
 GRANT SELECT ON ALL TABLES IN SCHEMA keystone, codex, cursus, vigie, arche, crucible TO matrix_gestion;
 ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app IN SCHEMA keystone GRANT SELECT ON TABLES TO matrix_gestion;
 ALTER DEFAULT PRIVILEGES FOR ROLE codex_app    IN SCHEMA codex    GRANT SELECT ON TABLES TO matrix_gestion;
@@ -161,6 +163,8 @@ ALTER TABLE droits.partage_lecteurs ADD CONSTRAINT partage_lecteurs_vue_check
 ALTER TABLE droits.partage_lecteurs DROP CONSTRAINT IF EXISTS partage_lecteurs_lecteur_check;
 ALTER TABLE droits.partage_lecteurs ADD CONSTRAINT partage_lecteurs_lecteur_check
   CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app'));
+-- Matrix y inscrit et en retire les lecteurs des liens qu'il applique lui-même (M-18, lot P2).
+GRANT SELECT, INSERT, DELETE ON droits.partage_lecteurs TO matrix_gestion;
 COMMENT ON TABLE droits.partage_lecteurs IS 'Convention de partage : lecteurs attendus de chaque vue pub_ (schéma.vue, rôle), écrits par partage/90-droits.sql et contrôlés par droits.verifier().';
 
 -- ── 3. Fonctions ─────────────────────────────────────────────────────────
@@ -598,7 +602,9 @@ BEGIN
     AND (has_table_privilege('matrix_gestion', c.oid, p.priv)
          OR (p.priv IN ('INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege('matrix_gestion', c.oid, p.priv)))
     -- Registre des publications (partage/13) : Matrix y enregistre ce qu'il vient d'appliquer.
-    AND NOT (n.nspname = 'matrix' AND c.relname IN ('publications', 'publications_journal') AND p.priv IN ('INSERT', 'UPDATE'));
+    AND NOT (n.nspname = 'matrix' AND c.relname IN ('publications', 'publications_journal') AND p.priv IN ('INSERT', 'UPDATE'))
+    -- Lecteurs attendus des liens que Matrix applique lui-même (lot P2).
+    AND NOT (n.nspname = 'droits' AND c.relname = 'partage_lecteurs' AND p.priv IN ('INSERT', 'DELETE'));
   RETURN QUERY
   SELECT 'erreur', format('matrix_gestion, %I.%I(%s)', n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)),
          'matrix_gestion peut exécuter une fonction d''un outil (une fonction peut écrire)'
@@ -956,6 +962,8 @@ GRANT SELECT ON droits.relations_protegees TO matrix_admin;
 GRANT SELECT ON droits.partage_lecteurs TO matrix_lecture, matrix_admin;
 GRANT INSERT, DELETE ON droits.partage_lecteurs TO matrix_admin;
 GRANT EXECUTE ON FUNCTION droits.verifier() TO matrix_lecture, matrix_admin;
+-- matrix_gestion contrôle chaque publication avant de la valider (M-18, lot P2).
+GRANT EXECUTE ON FUNCTION droits.verifier() TO matrix_gestion;
 GRANT EXECUTE ON FUNCTION droits.appliquer_droits() TO matrix_admin;
 
 -- ── 7. Application immédiate (rejeu : remet les relations existantes en ordre) ──

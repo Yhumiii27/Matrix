@@ -431,6 +431,15 @@ function appliquerDoc(t, d) {
   t.doc = d ?? null;
 }
 for (const [k, d] of Object.entries(EDITION.documentation)) { const t = T.get(k); if (t) appliquerDoc(t, d); }
+
+// ── Recherche plein texte et popularité (E-13) ──────────────────────────
+/*RECHERCHE*/
+// Lectures de chaque table depuis le dernier redémarrage du serveur commun (seq_scan + idx_scan, lus par la sonde).
+for (const s of (DATA.sante?.tables || [])) { const t = T.get(key(s.app, s.table)); if (t) t.lectures = (s.stats?.lecturesSequentielles || 0) + (s.stats?.lecturesIndex || 0); }
+const AVEC_LECTURES = (DATA.sante?.tables || []).length > 0;
+const ficheRecherche = t => ({ cle: t.key, nom: t.name, domaine: t.domain, description: t.description, documentation: t.doc,
+  colonnes: t.columns.map(c => ({ nom: c.name, description: c.description })), flux: t.flux.map(x => `${x.f.id} ${x.f.nom}`), lectures: t.lectures || 0 });
+const fmtLectures = n => n == null ? '—' : n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' M' : n >= 1e4 ? Math.round(n / 1e3) + ' k' : String(n);
 const FUSION = new Set(['doublon', 'miroir', 'chevauchement']);
 const NATURE = { doublon: ['Doublon', 'tag-accent'], miroir: ['Miroir', 'tag-outline'], chevauchement: ['Chevauchement', 'tag-outline'], homonyme: ['Homonyme', 'tag-neutral'], technique: ['Technique', 'tag-neutral'] };
 const natureTag = n => `<span class="tag ${NATURE[n][1]}">${NATURE[n][0]}</span>`;
@@ -713,6 +722,9 @@ RENDER.accueil = () => {
           ${nouvelles.length ? `<table class="table"><tbody>${nouvelles.map(t => `<tr class="click" data-open="${t.key}"><td><span class="mono t-name">${esc(t.name)}</span><div class="sub text-muted">${new Date(t.nouvelle.le).toLocaleDateString('fr-FR')} · ${esc(t.nouvelle.source)}</div></td><td>${appTag(t.app)}</td><td>${(t.doublonsPossibles || []).length ? `<span class="tag tag-outline" title="${esc(t.doublonsPossibles.map(d => d.app + '.' + d.table).join(', '))}">doublon possible</span>` : '<span class="tag tag-neutral">à documenter</span>'}</td></tr>`).join('')}</tbody></table>`
             : `<p class="text-muted">Aucune nouvelle table depuis la collecte du ${new Date(CAT.generatedAt).toLocaleDateString('fr-FR')}. Quand un outil crée une table, il la déclare à Matrix au démarrage : elle apparaît ici, à documenter, avec les doublons possibles.</p>`}
         </div>
+        ${AVEC_LECTURES ? `<div><div class="sec-head"><h6 class="sec-title">Tables les plus lues</h6><button class="sec-link" data-go="bibliotheque">Bibliothèque</button></div>
+          <table class="table"><tbody>${[...T.values()].filter(t => t.lectures).sort((a, b) => b.lectures - a.lectures).slice(0, 6).map(t => `<tr class="click" data-open="${t.key}"><td><span class="mono t-name">${esc(t.name)}</span></td><td>${appTag(t.app)}</td><td class="num tabnum">${fmtLectures(t.lectures)} lectures</td></tr>`).join('')}</tbody></table>
+        </div>` : ''}
         <div><div class="sec-head"><h6 class="sec-title">Tables les plus reliées</h6><button class="sec-link" data-go="graphe">Graphe</button></div>
           <table class="table"><tbody>${[...T.values()].sort((a, b) => linkCount(b) - linkCount(a)).slice(0, 6).map(t => `<tr class="click" data-open="${t.key}"><td><span class="mono t-name">${esc(t.name)}</span></td><td>${appTag(t.app)}</td><td class="num">${linkCount(t)} liens</td></tr>`).join('')}</tbody></table>
         </div>
@@ -724,8 +736,8 @@ RENDER.accueil = () => {
 
 // ── Bibliothèque ────────────────────────────────────────────────────────
 const Library = (() => {
-  const st = { app: null, domain: null, filtre: 'toutes', q: '', sel: null, tab: 'colonnes', open: new Set() };
-  let root;
+  const st = { app: null, domain: null, filtre: 'toutes', q: '', sel: null, tab: 'colonnes', open: new Set(), tri: 'catalogue' };
+  let root, trouves = null;
   const FILTRES = {
     toutes: ['Toutes', () => true],
     echangees: ['Échangées', t => t.flux.length > 0],
@@ -738,10 +750,7 @@ const Library = (() => {
     if (st.app && t.app !== st.app) return false;
     if (st.domain && t.domain !== st.domain) return false;
     if (!FILTRES[st.filtre][1](t)) return false;
-    if (st.q) {
-      const q = st.q.toLowerCase();
-      return t.name.includes(q) || (t.description || '').toLowerCase().includes(q) || t.columns.some(c => c.name.includes(q)) || t.domain.toLowerCase().includes(q);
-    }
+    if (st.q) return trouves.has(t.key);
     return true;
   }
   function render() {
@@ -751,10 +760,12 @@ const Library = (() => {
       <div class="list">
         <div class="list-head">
           <div class="crumb" id="lib-crumb"></div>
-          <div class="search" style="width:220px"><span>${icon('search', 14)}</span><input class="input" id="lib-q" type="search" placeholder="Filtrer : table, colonne…" aria-label="Filtrer les tables"></div>
+          <div class="search" style="width:220px"><span>${icon('search', 14)}</span><input class="input" id="lib-q" type="search" placeholder="Chercher : table, colonne, description…" aria-label="Chercher dans les tables"></div>
           <div id="lib-filtres"></div>
+          ${AVEC_LECTURES ? `<div id="lib-tri"></div>` : ''}
         </div>
-        <div class="list-body table-wrap"><table class="table"><thead><tr><th>Table</th><th>Domaine</th><th class="num">Colonnes</th><th class="num">Liens</th><th class="num">Écrans</th><th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
+        <div id="lib-aussi"></div>
+        <div class="list-body table-wrap"><table class="table"><thead><tr><th>Table</th><th>Domaine</th><th class="num">Colonnes</th><th class="num">Liens</th><th class="num">Écrans</th>${AVEC_LECTURES ? '<th class="num" title="Lectures de la table sur le serveur commun depuis son dernier redémarrage (parcours séquentiels et par index)">Lectures</th>' : ''}<th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
         <div class="list-foot" id="lib-foot"></div>
       </div>
       <aside class="quick" id="lib-quick"></aside>
@@ -775,6 +786,7 @@ const Library = (() => {
     root.addEventListener('dblclick', e => { const row = e.target.closest('tr[data-sel]'); if (row) Graph.focusTable(row.dataset.sel); });
     root.addEventListener('keydown', e => { const row = e.target.closest('tr[data-sel]'); if (row && e.key === 'Enter') { st.sel = row.dataset.sel; update(); } });
     onSeg(root, 'filtre', v => { st.filtre = v; update(); });
+    onSeg(root, 'tri', v => { st.tri = v; update(); });
     onSeg(root, 'tab', v => { st.tab = v; renderQuick(); });
     update();
   }
@@ -792,12 +804,25 @@ const Library = (() => {
     const base = [...T.values()].filter(t => (!st.app || t.app === st.app) && (!st.domain || t.domain === st.domain));
     $('lib-crumb').innerHTML = `<div class="sub">Toutes les bases${st.app ? ' › ' + APPS[st.app].nom : ''}${st.domain ? ' › ' + esc(st.domain) : ''}</div><div class="crumb-title">${st.domain ? esc(st.domain) : st.app ? APPS[st.app].nom + ' <span class="text-muted sub">· ' + esc(APPS[st.app].role) + '</span>' : 'Toutes les bases'}</div>`;
     $('lib-filtres').innerHTML = seg('filtre', Object.entries(FILTRES).map(([k, [l, fn]]) => [k, l, base.filter(fn).length]), st.filtre);
+    if ($('lib-tri')) $('lib-tri').innerHTML = seg('tri', [['catalogue', st.q ? 'Pertinence' : 'Catalogue'], ['lectures', 'Plus lues']], st.tri);
     // Lignes
-    const rows = [...T.values()].filter(matches).sort((a, b) => APP_IDS.indexOf(a.app) - APP_IDS.indexOf(b.app) || a.domain.localeCompare(b.domain, 'fr') || a.name.localeCompare(b.name));
+    trouves = st.q ? new Map(chercher([...T.values()].map(ficheRecherche), st.q).map(r => [r.cle, r])) : null;
+    const ordreCatalogue = (a, b) => APP_IDS.indexOf(a.app) - APP_IDS.indexOf(b.app) || a.domain.localeCompare(b.domain, 'fr') || a.name.localeCompare(b.name);
+    const rows = [...T.values()].filter(matches).sort(st.tri === 'lectures' ? (a, b) => (b.lectures || 0) - (a.lectures || 0) || ordreCatalogue(a, b)
+      : trouves ? (a, b) => trouves.get(b.key).score - trouves.get(a.key).score || (b.lectures || 0) - (a.lectures || 0) || ordreCatalogue(a, b) : ordreCatalogue);
+    // Aussi trouvés : flux et groupes de doublons dont le texte contient tous les termes.
+    const liste = st.q ? termes(st.q) : [];
+    const contient = s => { const n = normaliser(s); return liste.every(t => n.includes(t)); };
+    const fluxTrouves = liste.length ? FLUX.flux.filter(f => contient([f.id, f.nom, f.point, f.note, ...(f.champs || [])].join(' '))) : [];
+    const doublonsTrouves = liste.length ? DOUBLONS.filter(g => contient([g.id, g.objet, g.contenu].join(' '))) : [];
+    $('lib-aussi').innerHTML = fluxTrouves.length || doublonsTrouves.length ? `<div class="sub" style="padding:6px 12px">Aussi trouvé : ${[
+      ...fluxTrouves.slice(0, 6).map(f => `<button class="link-btn" data-flux="${f.id}">${esc(f.id)} · ${esc(f.nom)}</button>`),
+      ...doublonsTrouves.slice(0, 6).map(g => `<button class="link-btn" data-doublon="${g.id}">${esc(g.id)} · ${esc(g.objet)}</button>`)].join(' · ')}</div>` : '';
     $('lib-rows').innerHTML = rows.length ? rows.map(t => `<tr class="click" data-sel="${t.key}" tabindex="0" aria-selected="${st.sel === t.key}">
-      <td style="min-width:220px"><div style="display:flex;gap:8px;align-items:flex-start"><span class="dot" style="background:${APPS[t.app].couleur};margin-top:6px" title="${APPS[t.app].nom}"></span><div style="min-width:0"><div class="mono t-name">${esc(t.name)}</div>${t.description ? `<div class="sub text-muted ellipsis" style="max-width:340px">${esc(t.description)}</div>` : ''}</div></div></td>
+      <td style="min-width:220px"><div style="display:flex;gap:8px;align-items:flex-start"><span class="dot" style="background:${APPS[t.app].couleur};margin-top:6px" title="${APPS[t.app].nom}"></span><div style="min-width:0"><div class="mono t-name">${esc(t.name)}</div>${t.description ? `<div class="sub text-muted ellipsis" style="max-width:340px">${esc(t.description)}</div>` : ''}${trouves ? `<div class="sub" style="color:var(--color-accent)">trouvée par : ${esc(trouves.get(t.key).raisons.join(', '))}</div>` : ''}</div></div></td>
       <td class="text-muted nowrap">${esc(t.domain)}</td>
       <td class="num">${t.columns.length}</td><td class="num">${linkCount(t)}</td><td class="num">${new Set([...t.lit, ...t.ecrit]).size || '<span class="text-muted">—</span>'}</td>
+      ${AVEC_LECTURES ? `<td class="num tabnum">${fmtLectures(t.lectures)}</td>` : ''}
       <td class="nowrap">${t.flux.length ? `<span class="tag tag-accent" title="Lue ou alimentée par un autre logiciel">${icon('flux', 10)} ${t.flux.length}</span> ` : ''}${t.refs.some(g => FUSION.has(g.nature)) ? `<span class="tag tag-outline" title="${esc(t.refs.map(g => g.id + ' ' + g.objet).join(' · '))}">double</span> ` : t.refs.some(g => g.nature === 'homonyme') ? '<span class="tag tag-ghost" title="Même nom qu’une table d’un autre outil, objet différent">homonyme</span> ' : ''}${t.nouvelle ? '<span class="tag tag-outline" title="Table apparue depuis la dernière collecte">nouvelle</span> ' : ''}${t.sensitive ? `<span class="tag tag-outline" title="Contient des données sensibles">${icon('lock', 10)}</span>` : ''}</td>
     </tr>`).join('') : `<tr><td colspan="6" class="empty">Aucune table ne correspond à ces critères. Effacez le filtre ou choisissez une autre base.</td></tr>`;
     $('lib-foot').textContent = `${rows.length} table${rows.length > 1 ? 's' : ''} · ${fmt(rows.reduce((n, t) => n + t.columns.length, 0))} colonnes`;

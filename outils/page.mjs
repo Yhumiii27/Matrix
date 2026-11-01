@@ -48,7 +48,9 @@ export function donnees({ dataDir = join(RACINE, 'data'), serveur = false, serve
 
 export function construirePage({ forme = 'fragment', dataDir, serveurCommun = false } = {}) {
   const json = JSON.stringify(donnees({ dataDir, serveur: forme === 'document', serveurCommun })).replace(/</g, '\\u003c');
-  const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json);
+  // Recherche plein texte (E-13) : outils/recherche.mjs recopié tel quel dans la page, sans ses « export ».
+  const recherche = readFileSync(join(RACINE, 'outils/recherche.mjs'), 'utf8').replace(/^export /gm, '');
+  const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json).replace('/*RECHERCHE*/', () => recherche);
   if (forme === 'fragment') return source;
   const fin = source.indexOf('</style>') + '</style>'.length;
   const tete = source.slice(0, fin);

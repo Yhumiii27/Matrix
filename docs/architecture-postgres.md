@@ -682,6 +682,9 @@ mortes).
 
 ## 8 sexies. Accès entre outils décidés par Matrix (M-17)
 
+> **Modifié par M-18 (01/11/2026, § 8 septies)** : les vues `pub_` sont définies et appliquées par Matrix, plus par les
+> migrations des outils (règle R3 remplacée) ; Matrix pose les droits lui-même (M-15 tranchée).
+
 Question du 30/10/2026 : « nous créons de plus en plus de vues pub pour que les outils communiquent entre eux, le but
 d'avoir un postgre commun n'était-il pas d'avoir une base partagée dans laquelle les outils lisent et écrivent, sous
 contrôle de Matrix ? » Décision M-17 : oui, sous la forme ci-dessous. Matrix décide de chaque accès d'un outil aux données
@@ -747,6 +750,69 @@ le lot correspondant n'est pas livré.
 Relevé du 30/10/2026 (`git grep` des requêtes SQL sur `main` de chaque outil) : toutes les lectures entre outils passent
 déjà par des vues `pub_` ; aucun outil n'écrit dans le schéma d'un autre. M-17 ne demande donc aucune correction urgente,
 seulement le changement de méthode ci-dessus.
+
+## 8 septies. Matrix administre les publications, les liens et les écritures (M-18)
+
+Décision du 01/11/2026 : Matrix est le seul outil qui administre le serveur commun. Il définit ce que chaque outil publie
+(vues `pub_`), qui le lit (liens) et qui écrit chez qui (fonctions `pub_`), et l'applique lui-même. Elle remplace la règle
+R3 du § 8 sexies (vues définies dans les migrations du propriétaire) et tranche M-15 (Matrix pose les droits).
+
+### Rôle `matrix_gestion`
+
+Connexion de Matrix pour l'administration, distincte de `matrix_app` (lecture, registre) :
+
+| Droit | Pourquoi |
+|---|---|
+| `USAGE, CREATE` sur les schémas `keystone`, `codex`, `cursus`, `vigie`, `arche`, `crucible` | créer et remplacer les vues `pub_` dans le schéma de l'outil, à l'adresse que lisent déjà les autres outils |
+| `SELECT` sur toutes leurs tables, présentes et futures (`ALTER DEFAULT PRIVILEGES`), colonnes sensibles comprises | une vue lit avec les droits de son propriétaire ; un filtre peut porter sur une colonne sensible (type d'événement de santé) sans la publier |
+| propriétaire des vues `pub_` des outils | `CREATE OR REPLACE VIEW`, `GRANT` et `REVOKE` des liens |
+| `EXECUTE … WITH GRANT OPTION` sur les fonctions `pub_` des outils (privilèges par défaut) | accorder et retirer l'exécution d'une fonction d'écriture |
+| rien d'autre : ni superutilisateur, ni `INSERT` / `UPDATE` / `DELETE`, ni `CREATE ROLE` | une erreur ou une compromission de Matrix ne modifie aucune donnée des outils |
+
+Vérifié sur PostgreSQL 16 (01/11/2026) : un changement de propriétaire garde les droits déjà posés (leur auteur devient le
+nouveau propriétaire) ; `CREATE OR REPLACE VIEW` refuse de lui-même un retrait, un renommage ou un changement de type de
+colonne (`cannot drop columns from view`) et accepte une colonne ajoutée en fin : le contrat d'une vue `pub_` est tenu par
+PostgreSQL ; un `REVOKE` de `matrix_gestion` retire bien le droit.
+
+### Registre des publications
+
+`matrix.publications` (schéma `matrix`, écrit par l'écran) : une ligne par vue `pub_` — outil, nom, mode (`colonnes` :
+table source, colonnes choisies et leur nom publié, filtre ; `sql` : requête complète, pour les vues à jointures ou
+agrégats), définition appliquée, contrat (colonnes, types, ordre), état (`brouillon`, `appliquee`, `erreur`, `retiree`),
+auteur et date. `matrix.publications_journal` garde chaque version, en ajout seul.
+
+Application, dans une transaction, par `matrix_gestion` :
+1. `CREATE OR REPLACE VIEW` de la définition (jamais `DROP` : PostgreSQL refuse ce qui casserait le contrat ; un
+   changement incompatible se fait par une nouvelle vue `…_v2`) ;
+2. refus si la vue publie une colonne de `droits.colonnes_sensibles` ;
+3. commentaire, `GRANT SELECT` aux lecteurs autorisés du registre des liens, `REVOKE` des autres ;
+4. enregistrement de la définition, du contrat et du journal ; tout ou rien.
+
+Une décision sur un lien (`matrix.liens`) est appliquée de même, tout de suite. `90-droits.sql` et `appliquer-liens.sh`
+restent : rattrapage (serveur restauré, Matrix arrêté) et contrôle (`droits.verifier()`).
+
+### Reprise des vues existantes
+
+1. `partage/14-reprise-publications.sql` (superutilisateur, une fois) : `ALTER VIEW … OWNER TO matrix_gestion` pour
+   chaque vue `pub_` des six schémas des outils.
+2. Matrix importe leur définition (`pg_get_viewdef`) dans le registre, en mode `sql`, origine « reprise ».
+3. Chaque outil retire la création de ses vues `pub_` de ses migrations futures (les migrations déjà appliquées ne sont
+   pas rejouées) et demande une nouvelle publication à Matrix (écran, ou demande dans `REQUESTS.md` de Matrix).
+4. Les fichiers `partage/30` à `80` ne gardent que les contrôles de prérequis.
+
+Une migration d'outil qui modifie une colonne lue par une vue `pub_` échoue (dépendance) : l'outil demande d'abord à
+Matrix de faire évoluer la publication. Un `DROP … CASCADE` supprimerait la vue : la sonde le signale (objet du registre
+absent, erreur) et Matrix la recrée.
+
+### Lots
+
+| Lot | Contenu | Effort |
+|---|---|---|
+| P1 | Rôle `matrix_gestion` (init 01 et 03, `droits.verifier()` l'admet), registre `matrix.publications` (`partage/13`), reprise (`partage/14`) | M |
+| P2 | Moteur (`outils/publications.mjs`) : génération, application, contrat, colonnes sensibles, import ; liens appliqués tout de suite ; API | M |
+| P3 | Écran « Publications » : liste par outil, fiche, édition (colonnes ou SQL), aperçu des colonnes, journal | M |
+| P4 | Écritures : liens de nature `execution` sur les fonctions `pub_` (lot M17-1) | M |
+| P5 | Demandes aux six outils (après validation) : plus de vue `pub_` dans les migrations, fonctions `pub_` pour les écritures reçues, règles dans leur `CLAUDE.md` | S par outil |
 
 ## 9. Heures validées : D06, option A, réversible
 

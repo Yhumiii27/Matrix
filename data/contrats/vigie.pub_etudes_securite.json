@@ -1,0 +1,121 @@
+{
+ "vue": "vigie.pub_etudes_securite",
+ "titre": "Études de sécurité des procédés (HAZID, HAZOP, AMDEC, PSSR…), une ligne par étude",
+ "demande": "M-15 d'Arche (REQUESTS.md, 01/11/2026), AR-033 ; contrat détaillé : docs/CONTRATS.md §2.5 du dépôt Arche",
+ "proprietaire": "vigie",
+ "lecteurs": [
+  "arche_app",
+  "matrix_app"
+ ],
+ "lecteursPossibles": [
+  "keystone_app (R-192, « PSSR obtenu »)"
+ ],
+ "etat": "en attente des tables de Vigie (demande VG-01 à VG-05 d'Arche à Vigie) ; la vue sera définie dans l'écran Publications de Matrix (M-18)",
+ "regles": [
+  "une ligne par étude",
+  "aucune donnée de santé",
+  "colonnes jamais retirées ni renommées, ajouts en fin"
+ ],
+ "colonnes": [
+  {
+   "nom": "etude_ref",
+   "type": "text",
+   "cle": true
+  },
+  {
+   "nom": "capex_code",
+   "type": "text"
+  },
+  {
+   "nom": "projet_code",
+   "type": "text"
+  },
+  {
+   "nom": "jalon",
+   "type": "text",
+   "valeurs": [
+    "HS2",
+    "HS3",
+    "HS4",
+    "PSSR",
+    "HS6"
+   ]
+  },
+  {
+   "nom": "type",
+   "type": "text",
+   "valeurs": [
+    "hazid",
+    "hazop",
+    "amdec",
+    "controle_chantier",
+    "pssr",
+    "rspdi",
+    "aspd"
+   ]
+  },
+  {
+   "nom": "statut",
+   "type": "text",
+   "valeurs": [
+    "planifiee",
+    "realisee",
+    "validee",
+    "annulee"
+   ]
+  },
+  {
+   "nom": "seance_le",
+   "type": "date"
+  },
+  {
+   "nom": "conclue_le",
+   "type": "date"
+  },
+  {
+   "nom": "conclusion",
+   "type": "text",
+   "valeurs": [
+    "favorable",
+    "reserves",
+    "defavorable",
+    null
+   ]
+  },
+  {
+   "nom": "animateur",
+   "type": "text",
+   "description": "nom affiché"
+  },
+  {
+   "nom": "rapport_ref",
+   "type": "text",
+   "description": "référence Codex"
+  },
+  {
+   "nom": "recommandations",
+   "type": "integer"
+  },
+  {
+   "nom": "recommandations_ouvertes",
+   "type": "integer"
+  },
+  {
+   "nom": "recommandations_en_retard",
+   "type": "integer"
+  },
+  {
+   "nom": "reserves_bloquantes",
+   "type": "integer"
+  },
+  {
+   "nom": "lien",
+   "type": "text",
+   "description": "lien profond vers l'étude dans Vigie"
+  },
+  {
+   "nom": "maj_le",
+   "type": "timestamptz"
+  }
+ ]
+}

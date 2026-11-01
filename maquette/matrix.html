@@ -67,6 +67,7 @@ a { color: var(--color-accent); text-underline-offset: 3px; }
 select.input { appearance: none; width: auto; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
 select.input option { background: var(--color-surface); color: var(--color-text); }
 .search { position: relative; }
+.menu-export { position: relative; } .menu-export > summary { list-style: none; cursor: pointer; } .menu-export > summary::-webkit-details-marker { display: none; }
 .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: .6; pointer-events: none; }
 .search .input { padding-left: 32px; }
 .seg { display: inline-flex; overflow-x: auto; scrollbar-width: none; border: 1px solid var(--color-divider); border-radius: var(--radius-md); flex: none; max-width: 100%; }
@@ -844,6 +845,7 @@ const Library = (() => {
           <div class="search" style="width:220px"><span>${icon('search', 14)}</span><input class="input" id="lib-q" type="search" placeholder="Chercher : table, colonne, description…" aria-label="Chercher dans les tables"></div>
           <div id="lib-filtres"></div>
           ${AVEC_LECTURES ? `<div id="lib-tri"></div>` : ''}
+          ${SERVEUR ? `<details class="menu-export" id="lib-export"></details>` : ''}
         </div>
         <div id="lib-aussi"></div>
         <div class="list-body table-wrap"><table class="table"><thead><tr><th>Table</th><th>Domaine</th><th class="num">Colonnes</th><th class="num">Liens</th><th class="num">Écrans</th>${AVEC_LECTURES ? '<th class="num" title="Lectures de la table sur le serveur commun depuis son dernier redémarrage (parcours séquentiels et par index)">Lectures</th>' : ''}<th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
@@ -883,11 +885,23 @@ const Library = (() => {
       }).join('');
     // En-tête
     const base = [...T.values()].filter(t => (!st.app || t.app === st.app) && (!st.domain || t.domain === st.domain));
+    trouves = st.q ? new Map(chercher([...T.values()].map(ficheRecherche), st.q).map(r => [r.cle, r])) : null;
     $('lib-crumb').innerHTML = `<div class="sub">Toutes les bases${st.app ? ' › ' + APPS[st.app].nom : ''}${st.domain ? ' › ' + esc(st.domain) : ''}</div><div class="crumb-title">${st.domain ? esc(st.domain) : st.app ? APPS[st.app].nom + ' <span class="text-muted sub">· ' + esc(APPS[st.app].role) + '</span>' : 'Toutes les bases'}</div>`;
     $('lib-filtres').innerHTML = seg('filtre', Object.entries(FILTRES).map(([k, [l, fn]]) => [k, l, base.filter(fn).length]), st.filtre);
+    // Exports (E-12) de la sélection en cours : outil, domaine, recherche.
+    if ($('lib-export')) {
+      const p = new URLSearchParams(Object.entries({ outil: st.app, domaine: st.domain, q: st.q }).filter(([, v]) => v)).toString();
+      const lien = (chemin, libelle, aide, nouvelOnglet) => `<a class="link-btn" href="/api/export/${chemin}${p ? '?' + p : ''}" ${nouvelOnglet ? 'target="_blank" rel="noopener"' : 'download'} title="${esc(aide)}">${libelle}</a>`;
+      $('lib-export').innerHTML = `<summary class="btn btn-secondary btn-sm">${icon('copy', 13)} Exporter</summary><div class="card" style="position:absolute;right:0;z-index:20;display:flex;flex-direction:column;gap:6px;min-width:260px;padding:10px">
+        <div class="sub text-muted">${st.app || st.domain || st.q ? 'Sélection en cours' : 'Tout le catalogue'} : ${base.filter(matches).length} table(s)</div>
+        ${lien('tables.csv', 'Tables (CSV)', 'Une ligne par table, pour Excel')}
+        ${lien('colonnes.csv', 'Colonnes (CSV)', 'Une ligne par colonne, pour Excel')}
+        ${lien('dictionnaire.html', 'Dictionnaire de données', 'Page imprimable (Fichier › Imprimer › PDF)', true)}
+        ${lien('schema.mmd', 'Diagramme des tables (Mermaid)', 'Schéma entité-relation, à coller dans GitHub ou mermaid.live')}
+        <div class="sub text-muted">API : <span class="mono">GET /api/catalogue/tables${p ? '?' + esc(p) : ''}</span></div></div>`;
+    }
     if ($('lib-tri')) $('lib-tri').innerHTML = seg('tri', [['catalogue', st.q ? 'Pertinence' : 'Catalogue'], ['lectures', 'Plus lues']], st.tri);
     // Lignes
-    trouves = st.q ? new Map(chercher([...T.values()].map(ficheRecherche), st.q).map(r => [r.cle, r])) : null;
     const ordreCatalogue = (a, b) => APP_IDS.indexOf(a.app) - APP_IDS.indexOf(b.app) || a.domain.localeCompare(b.domain, 'fr') || a.name.localeCompare(b.name);
     const rows = [...T.values()].filter(matches).sort(st.tri === 'lectures' ? (a, b) => (b.lectures || 0) - (a.lectures || 0) || ordreCatalogue(a, b)
       : trouves ? (a, b) => trouves.get(b.key).score - trouves.get(a.key).score || (b.lectures || 0) - (a.lectures || 0) || ordreCatalogue(a, b) : ordreCatalogue);

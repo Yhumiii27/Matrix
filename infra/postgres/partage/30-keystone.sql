@@ -9,8 +9,9 @@
 -- (colonnes ajoutées en fin de pub_parc_machines), 0046_catalogue_share.sql (pub_catalogue_machines),
 -- 0050_capex_needs_share.sql (pub_reponses_besoins), 0052_internal_client_share.sql (colonnes ajoutées en fin de
 -- pub_projets), 0054_matrix_rex_clients_share.sql (pub_rex ; colonne ajoutée en fin de pub_clients),
--- 0060_engineering_pack_share.sql (pub_pack_ingenierie) et 0064_shipments_share.sql (pub_expeditions ; pub_jalons_projets,
--- dernière définition, après celle de 0057_capex_milestone_share). Leurs colonnes,
+-- 0060_engineering_pack_share.sql (pub_pack_ingenierie), 0064_shipments_share.sql (pub_expeditions ; pub_jalons_projets,
+-- dernière définition, après celle de 0057_capex_milestone_share) et 0071_project_category_share.sql (categorie en fin
+-- de pub_projets). Leurs colonnes,
 -- tables et index prérequis viennent de 0034_share_prerequisites.sql (persons.matricule : 0024),
 -- 0037_share_followup_columns, 0045_machine_catalogue, 0049_capex_needs, 0051_internal_clients et
 -- 0053_matrix_subsidiaries, 0055_capex_milestone_code, 0058_engineering_pack, 0061_shipments et 0063_shipments_reception ;
@@ -63,11 +64,13 @@ BEGIN
                ('machine_type_pack_families', 'machine_type_code'), ('document_types', 'pack_family'),
                -- 0061_shipments et 0063_shipments_reception (pub_expeditions, pub_jalons_projets)
                ('shipments', 'received_on'), ('contracts', 'incoterm_id'), ('incoterms', 'code'),
-               ('shipment_punch_items', 'shipment_id')) AS x(t, c)
+               ('shipment_punch_items', 'shipment_id'),
+               -- 0070_project_category_task_recurrence (pub_projets, colonne categorie de 0071)
+               ('projects', 'category')) AS x(t, c)
   WHERE NOT EXISTS (SELECT FROM information_schema.columns ic
                     WHERE ic.table_schema = 'keystone' AND ic.table_name = x.t AND ic.column_name = x.c);
   IF v_manque IS NOT NULL THEN
-    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites à 0064_shipments_share), puis rejouez ce fichier.', v_manque;
+    RAISE EXCEPTION 'Colonnes absentes du schéma keystone (%) : lancez npm run db:migrate de Keystone (migrations 0034_share_prerequisites à 0071_project_category_share), puis rejouez ce fichier.', v_manque;
   END IF;
   -- 0046_catalogue_share : une version publiée du catalogue est figée par ce déclencheur (R-186), condition du contrat
   -- de pub_catalogue_machines.
@@ -131,13 +134,14 @@ SELECT p.code,                                   -- tous : clé (codex.projects.
        p.capex_code,                             -- Arche (K-05, R-190) : CAPEX du projet (CPX-XXX-AAAA-nn)
        p.besoin_ref,                             -- Arche (K-05, R-190) : besoin machine du CAPEX (CPX-…/Bnn)
        coalesce(c.is_internal, false) AS client_interne,  -- Arche (K-05, R-190) : client = filiale du groupe ; jamais nul
-       c.subsidiary_code    AS filiale_code      -- Arche, Matrix (D21) : matrix.pub_filiales.code de ce client interne
+       c.subsidiary_code    AS filiale_code,     -- Arche, Matrix (D21) : matrix.pub_filiales.code de ce client interne
+       p.category           AS categorie         -- Crucible (K-3, R-196) : client (défaut) ou rd ; jamais nulle (0070, 0071)
 FROM keystone.projects p
 LEFT JOIN keystone.clients c           ON c.id = p.client_id
 LEFT JOIN keystone.persons pm          ON pm.id = p.pm_person_id
 LEFT JOIN keystone.lifecycle_stages ls ON ls.code = p.stage
 LEFT JOIN keystone.project_sites ps    ON ps.project_id = p.id;
-COMMENT ON VIEW keystone.pub_projets IS 'Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) + client_interne, filiale_code (R-190, client interne = filiale du groupe) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app.';
+COMMENT ON VIEW keystone.pub_projets IS 'Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) + client_interne, filiale_code (R-190, client interne = filiale du groupe) + categorie (R-196 : client | rd, projet R&D pour Crucible) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app.';
 
 -- D03 · Fiches chantier ──────────────────────────────────────────────────
 CREATE OR REPLACE VIEW keystone.pub_chantiers WITH (security_barrier) AS

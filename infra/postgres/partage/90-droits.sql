@@ -141,12 +141,15 @@ BEGIN
     WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix')
       AND v.relkind = 'v' AND v.relname LIKE 'pub\_%' AND t.relnamespace <> v.relnamespace
     ORDER BY 1);
-  -- Propriétaire différent de celui du schéma (une vue d'un superutilisateur lirait tout), ou security_invoker.
+  -- Propriétaire autre que celui du schéma ou, pour les six outils, que matrix_gestion qui les reprend (M-18, partage/14)
+  -- (une vue d'un superutilisateur lirait tout), ou security_invoker.
   v_fautes := v_fautes || ARRAY(
-    SELECT format('%s.%s appartient à %s au lieu de %s', n.nspname, c.relname, pg_get_userbyid(c.relowner), pg_get_userbyid(n.nspowner))
+    SELECT format('%s.%s appartient à %s au lieu de %s', n.nspname, c.relname, pg_get_userbyid(c.relowner),
+                  CASE WHEN n.nspname = 'matrix' THEN pg_get_userbyid(n.nspowner) ELSE pg_get_userbyid(n.nspowner) || ' ou matrix_gestion' END)
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
       AND c.relname LIKE 'pub\_%' AND c.relowner <> n.nspowner
+      AND NOT (n.nspname <> 'matrix' AND pg_get_userbyid(c.relowner) = 'matrix_gestion')
     ORDER BY 1);
   v_fautes := v_fautes || ARRAY(
     SELECT format('%s.%s s''exécute avec security_invoker', n.nspname, c.relname)
@@ -174,6 +177,7 @@ DECLARE
   v_oid oid;
   v_schema text;
   v_proprio text;
+  v_proprio_schema text;
   v_lecteurs text;
   v_absentes text[] := '{}';
   v_nb integer := 0;
@@ -296,12 +300,14 @@ BEGIN
       v_absentes := v_absentes || r.vue;
       CONTINUE;
     END IF;
-    SELECT n.nspname, pg_get_userbyid(c.relowner) INTO v_schema, v_proprio
+    -- USAGE par le propriétaire du schéma, SELECT par celui de la vue (matrix_gestion pour une vue reprise, M-18).
+    SELECT n.nspname, pg_get_userbyid(c.relowner), pg_get_userbyid(n.nspowner) INTO v_schema, v_proprio, v_proprio_schema
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE c.oid = v_oid;
     SELECT string_agg(quote_ident(l), ', ' ORDER BY l) INTO v_lecteurs FROM unnest(r.lecteurs) AS l;
-    EXECUTE format('SET ROLE %I', v_proprio);
+    EXECUTE format('SET ROLE %I', v_proprio_schema);
     EXECUTE format('GRANT USAGE ON SCHEMA %I TO %s', v_schema, v_lecteurs);
+    EXECUTE format('SET ROLE %I', v_proprio);
     EXECUTE format('GRANT SELECT ON TABLE %s TO %s', v_oid::regclass, v_lecteurs);
     EXECUTE 'RESET ROLE';
     -- Lecteurs attendus, contrôlés ensuite par droits.verifier() (perte d'un droit après une restauration).

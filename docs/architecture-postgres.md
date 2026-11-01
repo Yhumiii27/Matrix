@@ -808,7 +808,7 @@ absent, erreur) et Matrix la recrée.
 
 | Lot | Contenu | Effort |
 |---|---|---|
-| P1 | Rôle `matrix_gestion` (init 01 et 03, `droits.verifier()` l'admet), registre `matrix.publications` (`partage/13`), reprise (`partage/14`) | M |
+| P1 | Rôle `matrix_gestion` (init 01 et 03, `droits.verifier()` l'admet), registre `matrix.publications` (`partage/13`), reprise (`partage/14`). *Fait le 01/11/2026 : reprise éprouvée sur les 30 vues de Keystone et Codex (vraies migrations), lecteurs conservés, lien refusé puis rétabli par `90-droits.sql`, aucune erreur de `droits.verifier()` ; CI du socle (`scripts/ci-socle.sh`) étendue.* | M |
 | P2 | Moteur (`outils/publications.mjs`) : génération, application, contrat, colonnes sensibles, import ; liens appliqués tout de suite ; API | M |
 | P3 | Écran « Publications » : liste par outil, fiche, édition (colonnes ou SQL), aperçu des colonnes, journal | M |
 | P4 | Écritures : liens de nature `execution` sur les fonctions `pub_` (lot M17-1) | M |

@@ -6,7 +6,9 @@
 --
 -- Ce que fait le script :
 --   1. matrix_lecture : USAGE sur keystone, codex, cursus, vigie, arche, crucible ; SELECT sur les tables futures par
---      ALTER DEFAULT PRIVILEGES ; matrix_admin : tous les droits sur les sept schémas.
+--      ALTER DEFAULT PRIVILEGES ; matrix_admin : tous les droits sur les sept schémas ; matrix_gestion (M-18) : USAGE et
+--      CREATE sur les six schémas des outils, SELECT sur toutes leurs tables (présentes et futures), lecture de
+--      droits.colonnes_sensibles, et rien d'autre.
 --   2. Schéma droits (propriétaire : le superutilisateur), avec :
 --        droits.colonnes_sensibles   la liste des colonnes interdites à matrix_lecture ;
 --        droits.appliquer_droits()   remet les droits de toutes les relations à l'état voulu ;
@@ -88,6 +90,20 @@ ALTER DEFAULT PRIVILEGES FOR ROLE arche_app    IN SCHEMA arche    GRANT EXECUTE 
 ALTER DEFAULT PRIVILEGES FOR ROLE crucible_app IN SCHEMA crucible GRANT EXECUTE ON ROUTINES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE matrix_app   IN SCHEMA matrix   GRANT EXECUTE ON ROUTINES TO matrix_admin;
 
+-- matrix_gestion (décision M-18) : Matrix crée et gère les vues pub_ dans le schéma de chaque outil, à l'adresse que
+-- lisent déjà les autres outils. Une vue lit avec les droits de son propriétaire : matrix_gestion lit toutes les
+-- colonnes des tables (un filtre peut porter sur une colonne sensible sans la publier ; Matrix refuse de publier une
+-- colonne de droits.colonnes_sensibles, et droits.verifier() le contrôle). Aucune écriture : ni INSERT, ni UPDATE, ni
+-- DELETE, ni EXECUTE sur les fonctions des outils.
+GRANT USAGE, CREATE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible TO matrix_gestion;
+GRANT SELECT ON ALL TABLES IN SCHEMA keystone, codex, cursus, vigie, arche, crucible TO matrix_gestion;
+ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app IN SCHEMA keystone GRANT SELECT ON TABLES TO matrix_gestion;
+ALTER DEFAULT PRIVILEGES FOR ROLE codex_app    IN SCHEMA codex    GRANT SELECT ON TABLES TO matrix_gestion;
+ALTER DEFAULT PRIVILEGES FOR ROLE cursus_app   IN SCHEMA cursus   GRANT SELECT ON TABLES TO matrix_gestion;
+ALTER DEFAULT PRIVILEGES FOR ROLE vigie_app    IN SCHEMA vigie    GRANT SELECT ON TABLES TO matrix_gestion;
+ALTER DEFAULT PRIVILEGES FOR ROLE arche_app    IN SCHEMA arche    GRANT SELECT ON TABLES TO matrix_gestion;
+ALTER DEFAULT PRIVILEGES FOR ROLE crucible_app IN SCHEMA crucible GRANT SELECT ON TABLES TO matrix_gestion;
+
 -- Une fonction SECURITY DEFINER d'un outil, exécutable par PUBLIC, contournerait les droits par colonne.
 ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, matrix_app
   REVOKE EXECUTE ON ROUTINES FROM PUBLIC;
@@ -95,7 +111,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app, codex_app, cursus_app, vigie_app
 -- ── 2. Schéma droits ─────────────────────────────────────────────────────
 CREATE SCHEMA IF NOT EXISTS droits AUTHORIZATION CURRENT_USER;
 REVOKE ALL ON SCHEMA droits FROM PUBLIC;
-GRANT USAGE ON SCHEMA droits TO matrix_lecture, matrix_admin;
+GRANT USAGE ON SCHEMA droits TO matrix_lecture, matrix_admin, matrix_gestion;
 COMMENT ON SCHEMA droits IS 'Droits du serveur EPC2I : colonnes sensibles et contrôle des droits de matrix_lecture. Propriété du superutilisateur. Voir infra/postgres/init/03-droits.sql dans Matrix.';
 
 CREATE TABLE IF NOT EXISTS droits.colonnes_sensibles (
@@ -114,6 +130,7 @@ CREATE TABLE IF NOT EXISTS droits.colonnes_sensibles (
 ALTER TABLE droits.colonnes_sensibles DROP CONSTRAINT IF EXISTS colonnes_sensibles_schema_ck;
 ALTER TABLE droits.colonnes_sensibles ADD CONSTRAINT colonnes_sensibles_schema_ck
   CHECK (schema_nom IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'));
+GRANT SELECT ON droits.colonnes_sensibles TO matrix_gestion;
 COMMENT ON TABLE droits.colonnes_sensibles IS 'Colonnes que matrix_lecture ne lit jamais ; colonne_nom = ''*'' ferme la table entière. origine : convention (décision du 15/10/2026 et données de santé de Vigie, retirée par un superutilisateur seulement), proposition (à confirmer), ajout.';
 
 -- Tables protégées, repérées par leur OID : un renommage de table est détecté et la table reste fermée.
@@ -544,17 +561,53 @@ BEGIN
   WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND v.relkind = 'v'
     AND (v.relname LIKE 'pub\_%' OR (nv.nspname = 'cursus' AND v.relname LIKE '%\_v1'))
     AND t.relnamespace <> v.relnamespace;
+  -- Propriétaire (M-18) : les vues pub_ des six outils appartiennent à matrix_gestion, qui les gère ; une vue pub_
+  -- encore au propriétaire du schéma (créée par une migration de l'outil) attend sa reprise par Matrix ; les vues
+  -- *_v1 de cursus et les vues pub_ de matrix restent au propriétaire du schéma.
   RETURN QUERY
-  SELECT 'erreur', format('%I.%I', n.nspname, c.relname),
-         CASE WHEN c.relowner <> n.nspowner
-              THEN format('vue publiée qui appartient à %s au lieu de %s', pg_get_userbyid(c.relowner), pg_get_userbyid(n.nspowner))
-              ELSE 'vue publiée qui s''exécute avec security_invoker' END
+  SELECT CASE WHEN c.relowner = n.nspowner AND c.relname LIKE 'pub\_%' AND n.nspname <> 'matrix'
+                    AND NOT EXISTS (SELECT FROM unnest(c.reloptions) AS o(opt)
+                                    WHERE lower(o.opt) IN ('security_invoker=true', 'security_invoker=on', 'security_invoker=1', 'security_invoker=yes'))
+              THEN 'attention' ELSE 'erreur' END,
+         format('%I.%I', n.nspname, c.relname),
+         CASE WHEN EXISTS (SELECT FROM unnest(c.reloptions) AS o(opt)
+                           WHERE lower(o.opt) IN ('security_invoker=true', 'security_invoker=on', 'security_invoker=1', 'security_invoker=yes'))
+              THEN 'vue publiée qui s''exécute avec security_invoker'
+              WHEN c.relowner = n.nspowner
+              THEN 'vue pub_ pas encore reprise par Matrix (M-18) : rejouer partage/14-reprise-publications.sql'
+              ELSE format('vue publiée qui appartient à %s au lieu de %s', pg_get_userbyid(c.relowner),
+                          CASE WHEN c.relname LIKE 'pub\_%' AND n.nspname <> 'matrix' THEN 'matrix_gestion' ELSE pg_get_userbyid(n.nspowner) END) END
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
     AND (c.relname LIKE 'pub\_%' OR (n.nspname = 'cursus' AND c.relname LIKE '%\_v1'))
-    AND (c.relowner <> n.nspowner
+    AND (c.relowner <> CASE WHEN c.relname LIKE 'pub\_%' AND n.nspname <> 'matrix' THEN (SELECT oid FROM pg_roles WHERE rolname = 'matrix_gestion') ELSE n.nspowner END
          OR EXISTS (SELECT FROM unnest(c.reloptions) AS o(opt)
                     WHERE lower(o.opt) IN ('security_invoker=true', 'security_invoker=on', 'security_invoker=1', 'security_invoker=yes')));
+  -- matrix_gestion ne possède que des vues pub_ et n'écrit dans aucune table.
+  RETURN QUERY
+  SELECT 'erreur', format('%I.%I', n.nspname, c.relname), 'objet de matrix_gestion autre qu''une vue pub_ d''un outil'
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE c.relowner = (SELECT oid FROM pg_roles WHERE rolname = 'matrix_gestion')
+    AND NOT (c.relkind = 'v' AND c.relname LIKE 'pub\_%' AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'));
+  RETURN QUERY
+  SELECT 'erreur', format('%I.%I', n.nspname, c.relname), format('matrix_gestion a le droit %s', p.priv)
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits') AND c.relkind IN ('r', 'p', 'm', 'f')
+    AND (has_table_privilege('matrix_gestion', c.oid, p.priv)
+         OR (p.priv IN ('INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege('matrix_gestion', c.oid, p.priv)))
+    -- Registre des publications (partage/13) : Matrix y enregistre ce qu'il vient d'appliquer.
+    AND NOT (n.nspname = 'matrix' AND c.relname IN ('publications', 'publications_journal') AND p.priv IN ('INSERT', 'UPDATE'));
+  RETURN QUERY
+  SELECT 'erreur', format('matrix_gestion, %I.%I(%s)', n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)),
+         'matrix_gestion peut exécuter une fonction d''un outil (une fonction peut écrire)'
+  FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible')
+    AND has_schema_privilege('matrix_gestion', n.oid, 'USAGE')
+    AND has_function_privilege('matrix_gestion', f.oid, 'EXECUTE');
+  -- Une vue pub_ ne publie jamais de colonne sensible : contrôlé plus haut (droits._vue_sensible), quel que soit son
+  -- propriétaire.
 
   -- Droits croisés des outils : dans le schéma d'un autre, seulement SELECT sur des vues pub_. Tout autre droit est
   -- une erreur : table, colonne, vue non publiée, vue *_v1 de cursus, écriture, séquence, fonction.
@@ -703,6 +756,7 @@ BEGIN
                ('crucible_app', ARRAY['crucible'], ARRAY['crucible'], true),
                ('matrix_app', ARRAY['matrix', 'keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'droits'], ARRAY['matrix'], false),
                ('matrix_lecture', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'droits'], ARRAY[]::text[], false),
+               ('matrix_gestion', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits'], ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'], false),
                ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits'], ARRAY[]::text[], false),
                ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false)
        ) AS r(nom, usage_ok, create_ok, lecteur)
@@ -721,12 +775,12 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'droit CREATE sur la base (il permettrait de créer un schéma)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde')
     AND has_database_privilege(r.oid, v_db, 'CREATE');
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'attribut d''administration (SUPERUSER, CREATEROLE, CREATEDB, REPLICATION ou BYPASSRLS)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde')
     AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls);
 
   -- Appartenances attendues.
@@ -763,6 +817,16 @@ BEGIN
                     CROSS JOIN LATERAL aclexplode(d.defaclacl) a
                     WHERE x.rolname = r.nom AND n.nspname = r.nsp AND d.defaclobjtype = 'r'
                       AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'matrix_lecture') AND a.privilege_type = 'SELECT');
+  RETURN QUERY
+  SELECT 'attention', format('%s, schéma %s', r.nom, r.nsp), 'privilège par défaut SELECT pour matrix_gestion absent : une nouvelle table ne pourrait pas être publiée (rejouer init/03-droits.sql)'
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible')) AS r(nom, nsp)
+  WHERE EXISTS (SELECT FROM pg_roles WHERE rolname = 'matrix_gestion')
+    AND NOT EXISTS (SELECT FROM pg_default_acl d
+                    JOIN pg_roles x ON x.oid = d.defaclrole
+                    JOIN pg_namespace n ON n.oid = d.defaclnamespace
+                    CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+                    WHERE x.rolname = r.nom AND n.nspname = r.nsp AND d.defaclobjtype = 'r'
+                      AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'matrix_gestion') AND a.privilege_type = 'SELECT');
 END $$;
 COMMENT ON FUNCTION droits.verifier() IS 'Écarts entre les droits réels et la convention (gravité erreur, attention, info), convention de partage comprise (USAGE et SELECT sur les seules vues pub_ pour les outils ; vues publiées sans colonne sensible). Aucune ligne erreur attendue.';
 

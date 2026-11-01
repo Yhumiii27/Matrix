@@ -543,7 +543,7 @@ const Decisions = (() => {
     get: id => d[id] || officielle(id)?.option || null,
     officielle,
     async set(id, v) {
-      if (SERVEUR) { await envoyer('/api/decisions', { id, option: v }); if (v) d[id] = v; else delete d[id]; }
+      if (SERVEUR) { await envoyer('/api/decisions', { id, option: v, avant: d[id] ?? null }); if (v) d[id] = v; else delete d[id]; }
       else {
         if (v && v !== officielle(id)?.option) d[id] = v; else delete d[id];
         try { localStorage.setItem('matrix.decisions', JSON.stringify(d)); } catch { /* stockage indisponible */ }
@@ -740,7 +740,8 @@ const Documentation = {
       ev.preventDefault();
       const v = id => conteneur.querySelector(id).value;
       try {
-        const d = await envoyer('/api/documentation', { app: t.app, table: t.name, description: v('#doc-description'), domaine: v('#doc-domaine'), responsable: v('#doc-responsable'), note: v('#doc-note') });
+        // E-04 : version affichée (majLe de la fiche) ; refusée si quelqu'un a documenté la table entre-temps.
+        const d = await envoyer('/api/documentation', { app: t.app, table: t.name, description: v('#doc-description'), domaine: v('#doc-domaine'), responsable: v('#doc-responsable'), note: v('#doc-note'), version: t.doc?.majLe ?? null });
         appliquerDoc(t, d); rafraichir(); toast(`${t.name} : documentation enregistrée`);
       } catch (err) { const p = conteneur.querySelector('#doc-erreur'); p.textContent = err.message; p.hidden = false; }
     });

@@ -82,3 +82,21 @@ test('décisions et documentation : objets inconnus refusés', t => {
   const fiche = documenter(d, catalogue, { app: 'keystone', table: 'projects', description: '  Projets  ' }, 'claire');
   assert.equal(fiche.description, 'Projets');
 });
+
+test('verrouillage (E-04) : documentation ou décision préparée sur une version dépassée, refusée', t => {
+  const d = dossier(); t.after(() => rmSync(d, { recursive: true }));
+  const catalogue = { apps: [{ id: 'keystone', tables: [{ name: 'projects' }] }] };
+  // Claire et Marc ouvrent la fiche vierge (version null) ; Claire enregistre d'abord.
+  const c = documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Projets', version: null }, 'claire');
+  assert.throws(() => documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Autre', version: null }, 'marc'),
+    e => e.code === 'conflit' && /documentée entre-temps par claire/.test(e.message));
+  // Avec la version enregistrée, Marc passe ; sans version (ancien client), rien n'est contrôlé.
+  const m = documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Projets EPC2I', version: c.majLe }, 'marc');
+  assert.equal(m.majPar, 'marc');
+  assert.equal(documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Sans version' }, 'zoe').description, 'Sans version');
+  // Décision : l'option vue avant le choix doit être celle enregistrée.
+  decider(d, { id: 'D01', option: 'A', avant: null }, 'claire');
+  assert.throws(() => decider(d, { id: 'D01', option: 'B', avant: null }, 'marc'), e => e.code === 'conflit' && /D01 a changé entre-temps/.test(e.message));
+  assert.equal(decider(d, { id: 'D01', option: 'B', avant: 'A' }, 'marc').option, 'B');
+  assert.equal(chargerEdition(d).journal.filter(j => j.objet === 'D01').length, 2);
+});

@@ -16,8 +16,11 @@
 //        (docs/spec/02-objets.md, livraison 0), marquées « prévu »
 //      - Crucible : migrations Drizzle + commentaires de src/server/db/schema/*.ts (tables crucible.table(…))
 //
-// À chaque passage, le collecteur compare le résultat à la collecte précédente :
-//   - une table ou une colonne apparue ou disparue est ajoutée à data/historique.json ;
+// À chaque passage, le collecteur compare le résultat à la collecte précédente (écart E-06 : différence lisible) :
+//   - une table ou une colonne apparue ou disparue, une colonne dont le type, la nullité ou le défaut change, une clé
+//     primaire, une unicité ou une clé étrangère ajoutée ou retirée vont dans data/historique.json, avec avant et après ;
+//   - quand la source d'un outil change (code des dépôts → serveur commun, par exemple), les écritures diffèrent (varchar
+//     / character varying…) : un seul événement « source_changee », sans détail de colonne ;
 //   - une nouvelle table est marquée « à documenter » et comparée aux tables des autres outils (doublon possible).
 //
 // Usage : node outils/collecteur.mjs [dossier contenant keystone/ codex/ cursus/ vigie/ arche/ crucible/]
@@ -407,6 +410,37 @@ export function similarTables(t, others) {
   return res.sort((x, y) => y.score - x.score).slice(0, 5);
 }
 
+// ── Différence entre deux états d'une table ──────────────────────────────
+
+// Genre de source, pour ne comparer que ce qui est comparable (voir l'en-tête).
+export const genreSource = source => /^serveur commun/.test(source ?? '') ? 'serveur' : /^déclaration/.test(source ?? '') ? 'declaration' : 'code';
+const etatColonne = c => ({ type: c.type ?? null, nullable: c.nullable ?? null, default: c.default ?? null });
+const cleFk = f => `${f.columns.join(',')}→${f.schema ? f.schema + '.' : ''}${f.table}(${(f.refColumns ?? []).join(',')})`;
+
+/** Événements qui décrivent le passage de la table p (avant) à t (après), colonnes ajoutées et retirées comprises. */
+export function differenceTable(app, p, t, date) {
+  const ev = [], base = { date, app, table: t.name };
+  const avant = new Map(p.columns.map(c => [c.name, c])), apres = new Map(t.columns.map(c => [c.name, c]));
+  for (const [n, c] of apres) {
+    if (!avant.has(n)) { ev.push({ ...base, type: 'colonne_ajoutee', colonne: n, apres: etatColonne(c) }); continue; }
+    const a = etatColonne(avant.get(n)), b = etatColonne(c);
+    const champs = Object.keys(b).filter(k => a[k] !== b[k]);
+    if (champs.length) ev.push({ ...base, type: 'colonne_modifiee', colonne: n, champs, avant: a, apres: b });
+  }
+  for (const [n, c] of avant) if (!apres.has(n)) ev.push({ ...base, type: 'colonne_supprimee', colonne: n, avant: etatColonne(c) });
+  if ((p.pk ?? []).join(',') !== (t.pk ?? []).join(','))
+    ev.push({ ...base, type: 'cle_modifiee', avant: p.pk ?? [], apres: t.pk ?? [] });
+  const ensemble = (l, f) => new Set((l ?? []).map(f));
+  const ua = ensemble(p.uniques, u => u.join(',')), ub = ensemble(t.uniques, u => u.join(','));
+  for (const u of ub) if (!ua.has(u)) ev.push({ ...base, type: 'unicite_ajoutee', colonnes: u.split(',') });
+  for (const u of ua) if (!ub.has(u)) ev.push({ ...base, type: 'unicite_retiree', colonnes: u.split(',') });
+  // Liens déclarés seulement : les liens logiques sont la connaissance de Matrix, pas le schéma de l'outil.
+  const fa = ensemble((p.fks ?? []).filter(f => f.declared !== false), cleFk), fb = ensemble((t.fks ?? []).filter(f => f.declared !== false), cleFk);
+  for (const f of fb) if (!fa.has(f)) ev.push({ ...base, type: 'lien_ajoute', lien: f });
+  for (const f of fa) if (!fb.has(f)) ev.push({ ...base, type: 'lien_retire', lien: f });
+  return ev;
+}
+
 // ── Assemblage, comparaison à la collecte précédente ─────────────────────
 
 // fallback : catalogue de secours (celui embarqué dans l'image Docker) pour un outil qui n'a ni déclaration ni dépôt
@@ -418,6 +452,7 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
   const previous = existsSync(previousFile) ? JSON.parse(readFileSync(previousFile, 'utf8')) : fallback;
   const fallbackApps = Object.fromEntries((fallback?.apps ?? []).map(a => [a.id, a]));
   const prevApps = Object.fromEntries((previous?.apps ?? []).map(a => [a.id, new Map(a.tables.map(t => [t.name, t]))]));
+  const prevSources = Object.fromEntries((previous?.apps ?? []).map(a => [a.id, a.source]));
   const date = now.toISOString();
   const events = [];
 
@@ -429,14 +464,15 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
     const known = new Map([...(fb?.tables ?? []), ...(prevApps[id]?.values() ?? [])].map(t => [t.name, t]));
     const tables = enrich(id, base.tables, repo?.comments ?? {}, known);
     const prev = prevApps[id];
+    const source = decl ? (decl.origine === 'serveur' ? `serveur commun lu le ${decl.declareLe}` : `déclaration du ${decl.declareLe}`) : repo ? repo.source : fb.source ?? 'catalogue embarqué';
+    const sourceChangee = prev && genreSource(prevSources[id]) !== genreSource(source);
+    if (sourceChangee) events.push({ date, app: id, type: 'source_changee', avant: prevSources[id], apres: source });
     for (const t of tables) {
       const p = prev?.get(t.name);
       if (p) {
         t.vueLe = p.vueLe ?? previous.generatedAt;
         if (p.nouvelle) t.nouvelle = p.nouvelle;
-        const before = new Set(p.columns.map(c => c.name)), after = new Set(t.columns.map(c => c.name));
-        for (const c of after) if (!before.has(c)) events.push({ date, app: id, type: 'colonne_ajoutee', table: t.name, colonne: c });
-        for (const c of before) if (!after.has(c)) events.push({ date, app: id, type: 'colonne_supprimee', table: t.name, colonne: c });
+        if (!sourceChangee) events.push(...differenceTable(id, p, t, date));
       } else {
         t.vueLe = date;
         if (prev) { t.nouvelle = { le: date, source: decl ? (decl.origine === 'serveur' ? 'serveur commun' : 'déclaration') : 'dépôt' }; events.push({ date, app: id, type: 'table_ajoutee', table: t.name, source: t.nouvelle.source }); }
@@ -445,7 +481,7 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
     if (prev) for (const name of prev.keys()) if (!tables.some(t => t.name === name)) events.push({ date, app: id, type: 'table_supprimee', table: name });
     apps.push({
       id, tables: tables.sort((a, b) => a.name.localeCompare(b.name)),
-      source: decl ? (decl.origine === 'serveur' ? `serveur commun lu le ${decl.declareLe}` : `déclaration du ${decl.declareLe}`) : repo ? repo.source : fb.source ?? 'catalogue embarqué',
+      source,
       ...(decl ? { empreinte: decl.empreinte, version: decl.version } : {}),
       ...(!decl && repo?.tables.avertissements?.length ? { avertissements: repo.tables.avertissements } : {}),
     });

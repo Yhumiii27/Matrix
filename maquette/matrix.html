@@ -512,6 +512,26 @@ function copy(text) {
 }
 const seg = (name, options, value) => `<div class="seg" role="group" data-seg="${name}">${options.map(([v, l, n]) => `<button type="button" data-v="${esc(v)}" aria-pressed="${v === value}">${l}${n != null ? ` <span class="n">${n}</span>` : ''}</button>`).join('')}</div>`;
 
+// ── Historique des schémas : libellés et détail avant / après (E-06) ────
+const TYPES_HIST = { table_ajoutee: 'Table ajoutée', table_supprimee: 'Table supprimée', colonne_ajoutee: 'Colonne ajoutée', colonne_supprimee: 'Colonne supprimée',
+  colonne_modifiee: 'Colonne modifiée', cle_modifiee: 'Clé primaire modifiée', unicite_ajoutee: 'Unicité ajoutée', unicite_retiree: 'Unicité retirée',
+  lien_ajoute: 'Clé étrangère ajoutée', lien_retire: 'Clé étrangère retirée', source_changee: 'Source changée',
+  migrations_appliquees: 'Migrations appliquées', hors_migration: 'Changement hors migration' };
+const etatCol = e => e ? `${e.type ?? '?'}${e.nullable === false ? ' · obligatoire' : e.nullable ? ' · facultative' : ''}${e.default != null ? ' · défaut ' + e.default : ''}` : '';
+function detailHist(e) {
+  const av = (a, b) => `<span class="text-muted">${esc(a)}</span> → <b>${esc(b)}</b>`;
+  if (e.type === 'colonne_modifiee') return (e.champs || ['type', 'nullable', 'default']).map(k => k === 'type' ? `type : ${av(e.avant.type ?? '—', e.apres.type ?? '—')}` : k === 'nullable' ? av(e.avant.nullable ? 'facultative' : 'obligatoire', e.apres.nullable ? 'facultative' : 'obligatoire') : `défaut : ${av(e.avant.default ?? 'aucun', e.apres.default ?? 'aucun')}`).join(' · ');
+  if (e.type === 'colonne_ajoutee' && e.apres) return esc(etatCol(e.apres));
+  if (e.type === 'colonne_supprimee' && e.avant) return `<span class="text-muted">${esc(etatCol(e.avant))}</span>`;
+  if (e.type === 'cle_modifiee') return av((e.avant || []).join(', ') || 'aucune', (e.apres || []).join(', ') || 'aucune');
+  if (e.type === 'unicite_ajoutee' || e.type === 'unicite_retiree') return `<span class="mono">${esc((e.colonnes || []).join(' + '))}</span>`;
+  if (e.type === 'lien_ajoute' || e.type === 'lien_retire') return `<span class="mono">${esc(e.lien)}</span>`;
+  if (e.type === 'source_changee') return `${av(e.avant || '—', e.apres || '—')} <span class="text-muted">(colonnes non comparées)</span>`;
+  if (e.type === 'migrations_appliquees') return `${e.avant} → <b>${e.apres}</b> migration(s)${e.derniere ? ' · dernière le ' + quand(e.derniere) : ''}`;
+  if (e.type === 'hors_migration') return `structure changée, toujours ${e.migrations} migration(s) appliquée(s)`;
+  return '';
+}
+
 // ── Fiche d'une table (bibliothèque et graphe) ──────────────────────────
 function tableSheet(t, tab = 'colonnes', opts = {}) {
   const sens = new Set(t.sensitive || []);
@@ -536,6 +556,10 @@ function tableSheet(t, tab = 'colonnes', opts = {}) {
       <div><div class="block-title">Référencée par <span>${t.in.length}</span></div>${inn || '<p class="text-muted sub">Aucune table ne pointe vers celle-ci.</p>'}</div>
       ${refs ? `<div><div class="block-title">Doublons relevés</div>${refs}</div>` : ''}
       ${sim ? `<div><div class="block-title">Doublons possibles (détection automatique)</div>${sim}</div>` : ''}`;
+  } else if (tab === 'historique') {
+    const ev = HIST.filter(e => e.app === t.app && e.table === t.name).slice().reverse();
+    body = ev.length ? `<div class="cols-list">${ev.map(e => `<div class="col-row" style="flex-wrap:wrap"><span class="tabnum text-muted sub">${new Date(e.date).toLocaleDateString('fr-FR')}</span><span>${TYPES_HIST[e.type] || esc(e.type)}${e.colonne ? ` <span class="mono">${esc(e.colonne)}</span>` : ''}</span><div class="sub" style="width:100%">${detailHist(e)}</div></div>`).join('')}</div>`
+      : `<p class="text-muted sub">Aucun changement relevé depuis que Matrix suit cette table${t.vueLe ? ` (${new Date(t.vueLe).toLocaleDateString('fr-FR')})` : ''}.</p>`;
   } else {
     const fx = t.flux.map(({ f, sens }) => {
       const other = sens === 'source' ? f.vers : f.de;
@@ -558,7 +582,7 @@ function tableSheet(t, tab = 'colonnes', opts = {}) {
     ${SERVEUR ? `<div><button class="btn btn-secondary btn-sm" data-documenter="${esc(t.key)}">${icon('pen', 13)} Documenter</button></div>` : ''}
     <div class="mini-kpis"><div><b>${t.columns.length}</b><span>colonnes</span></div><div><b>${linkCount(t)}</b><span>liens</span></div><div><b>${screens.size + t.flux.length}</b><span>usages</span></div></div>
     <dl class="dl"><dt>Clé</dt><dd class="mono">${esc(t.pk.join(', ') || '—')}</dd>${t.uniques.length ? `<dt>Unicité</dt><dd class="mono">${t.uniques.map(u => esc(u.join(' + '))).join(' · ')}</dd>` : ''}<dt>Base</dt><dd>${esc(APPS[t.app].moteur)}</dd></dl>
-    ${seg('tab', [['colonnes', 'Colonnes', t.columns.length], ['liens', 'Liens', linkCount(t)], ['usages', 'Usages', screens.size + t.flux.length]], tab)}
+    ${seg('tab', [['colonnes', 'Colonnes', t.columns.length], ['liens', 'Liens', linkCount(t)], ['usages', 'Usages', screens.size + t.flux.length], ['historique', 'Historique', HIST.filter(e => e.app === t.app && e.table === t.name).length]], tab)}
     <div style="display:flex;flex-direction:column;gap:14px">${body}</div>
     ${opts.actions !== false ? `<div class="actions"><button class="btn btn-primary" data-graph="${esc(t.key)}">${icon('graph', 14)} Voir dans le graphe</button><button class="btn btn-secondary" data-copy="${esc(t.name)}">${icon('copy', 14)} Copier le nom</button></div>` : ''}`;
 }
@@ -1361,6 +1385,13 @@ RENDER.sante = () => {
         <div class="table-wrap"><table class="table"><thead><tr><th>Réf.</th><th>Référence</th><th>De → vers</th><th>État</th><th class="num">Valeurs</th><th class="num">Orphelines</th><th>Exemples</th></tr></thead><tbody>
         ${S.references.map(r => `<tr><td class="mono">${esc(r.id)}</td><td>${esc(r.libelle)} <span class="text-muted sub">· ${esc(r.decision)}</span></td><td class="mono sub">${esc(r.de)} → ${esc(r.vers)}</td>
           <td>${r.etat === 'non_controlable' ? `<span class="text-muted" title="${esc(r.detail)}">Non contrôlable</span>` : etatTag(r.gravite)}</td><td class="num">${r.valeurs ?? '—'}</td><td class="num">${r.orphelines ?? '—'}</td><td class="mono sub">${esc((r.exemples || []).join(', '))}${r.etat === 'non_controlable' ? `<span class="text-muted">${esc(r.detail)}</span>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
+    } else if (st.vue === 'migrations') {
+      const M = S.migrations || [], EM = S.etatsMigrations || {};
+      body = `<p class="sub text-muted" style="margin-bottom:10px">Journal des migrations de chaque outil (<span class="mono">__drizzle_migrations</span> ou <span class="mono">schema_migrations</span> de son schéma). Une structure qui change d’une lecture à l’autre sans nouvelle migration appliquée signale un changement passé à la main : il manquera au prochain déploiement de l’outil.</p>
+        ${M.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Outil</th><th>État</th><th>Journal</th><th class="num">Migrations</th><th>Dernière</th><th>Hors migration depuis</th></tr></thead><tbody>
+        ${M.map(m => `<tr><td class="nowrap">${appMark(m.app, 16)} ${APPS[m.app]?.nom || esc(m.app)}</td><td>${etatTag(m.gravite)} <span class="sub">${esc(EM[m.etat]?.libelle || m.etat)}</span></td><td class="mono sub">${esc(m.journal || '—')}${m.erreur ? `<div class="text-muted">${esc(m.erreur)}</div>` : ''}</td>
+          <td class="num">${m.nombre ?? '—'}</td><td class="tabnum text-muted nowrap">${quand(m.derniere)}</td><td class="tabnum nowrap">${m.horsMigration ? quand(m.horsMigration.le) : '—'}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="text-muted">Aucun outil lu sur le serveur.</p>'}`;
     } else {
       body = S.socle.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Gravité</th><th>Objet</th><th>Constat</th></tr></thead><tbody>${S.socle.map(v => `<tr><td>${etatTag(v.gravite)}</td><td class="mono">${esc(v.objet)}</td><td>${esc(v.constat)}</td></tr>`).join('')}</tbody></table></div>`
         : `<p class="text-muted">Contrôle des droits du socle (<span class="mono">droits.verifier()</span>) : aucune erreur ni attention.</p>`;
@@ -1369,7 +1400,7 @@ RENDER.sante = () => {
       <div class="top"><div><p class="text-muted">État global ${etatTag(S.etat)} · serveur commun lu le ${quand(S.luLe)}</p></div>
         ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary" id="sante-relire">${icon('pulse', 14)} Relire le serveur</button><button class="btn btn-secondary" data-go="liens">${icon('ref', 14)} Liens entre outils</button></div>` : ''}</div>
       <div class="kpis">${apps.map(a => { const p = S.parOutil[a]; return `<button class="card kpi" data-sapp="${a}"><span class="card-kicker">${appMark(a, 14)} ${APPS[a]?.nom || a}</span><span class="kpi-value">${p.tables}</span><span class="card-meta">${etatTag(p.etat)} ${p.erreur ? p.erreur + ' en erreur · ' : ''}${p.attention} à surveiller · ${fmt(p.lignes)} lignes · ${octets(p.taille)}</span></button>`; }).join('')}</div>
-      <div style="margin-bottom:14px">${seg('svue', [['tables', 'Tables', S.tables.length], ['references', 'Références entre outils', S.references.length], ['socle', 'Contrôle des droits', S.socle.length]], st.vue)}</div>
+      <div style="margin-bottom:14px">${seg('svue', [['tables', 'Tables', S.tables.length], ['references', 'Références entre outils', S.references.length], ['migrations', 'Migrations', (S.migrations || []).filter(m => m.gravite !== 'ok').length], ['socle', 'Contrôle des droits', S.socle.length]], st.vue)}</div>
       ${body}</div>`;
   };
   root.addEventListener('click', e => {
@@ -1590,7 +1621,7 @@ RENDER.administration = () => {
       <tr><td class="nowrap">${icon('matrix', 16)} Matrix</td><td class="text-muted">—</td><td>Schéma <span class="mono">matrix</span></td><td class="mono">matrix_app</td><td class="text-muted">catalogue, correspondances, historique</td></tr></tbody></table></div>
       <p class="note" style="margin-top:14px">Serveur PostgreSQL commun avec un schéma par outil : validé le 15 octobre 2026. Chaque outil reste seul propriétaire de son schéma et ne voit pas ceux des autres. Matrix lit tout en lecture seule, sans les colonnes sensibles. En développement et dans l’application Mac, chaque outil garde sa base embarquée.</p>`;
     else if (tab === 'collecte') {
-      const TYPES = { table_ajoutee: 'Table ajoutée', table_supprimee: 'Table supprimée', colonne_ajoutee: 'Colonne ajoutée', colonne_supprimee: 'Colonne supprimée' };
+      const TYPES = TYPES_HIST;
       body = `<div class="table-wrap"><table class="table"><thead><tr><th>Base</th><th>Source du schéma</th><th class="num">Tables</th><th class="num">À documenter</th></tr></thead><tbody>
         ${CAT.apps.map(a => `<tr><td class="nowrap">${appMark(a.id)} ${APPS[a.id].nom}</td><td>${esc(a.source.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/, d => new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })))}</td><td class="num">${a.tables.length}</td><td class="num">${a.tables.filter(t => t.nouvelle).length}</td></tr>${(a.avertissements || []).length ? `<tr><td></td><td colspan="3" class="sub text-muted">${a.avertissements.length} instruction(s) de migration non reconnue(s) : ${esc(a.avertissements.slice(0, 3).join(' · '))}${a.avertissements.length > 3 ? '…' : ''}</td></tr>` : ''}`).join('')}</tbody></table></div>
         <div class="block-title" style="margin-top:22px">Déclaration des nouvelles tables</div>
@@ -1604,7 +1635,7 @@ RENDER.administration = () => {
         ${(DATA.declarations || []).length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Outil</th><th>Origine</th><th>Reçue le</th><th>Version</th><th class="num">Tables</th></tr></thead><tbody>${DATA.declarations.map(d => `<tr><td class="nowrap">${appMark(d.app)} ${APPS[d.app].nom}</td><td>${d.origine === 'serveur' ? 'Serveur commun (fait foi)' : 'Déclaration de l’outil'}</td><td class="tabnum">${new Date(d.declareLe).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td class="mono text-muted">${esc(d.version || '—')}</td><td class="num">${d.tables}</td></tr>`).join('')}</tbody></table></div>`
           : `<p class="text-muted">Aucun outil n’a encore déclaré son schéma. Les déclarations arrivent quand le module de déclaration est installé dans l’outil et que MATRIX_URL et MATRIX_TOKEN y sont définis.</p>`}
         <div class="block-title" style="margin-top:22px">Historique des schémas <span>${HIST.length}</span></div>
-        ${HIST.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Base</th><th>Changement</th><th>Objet</th></tr></thead><tbody>${HIST.slice().reverse().map(e => `<tr><td class="tabnum text-muted nowrap">${new Date(e.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td>${APPS[e.app].nom}</td><td>${TYPES[e.type]}${e.doublonsPossibles ? ` <span class="tag tag-outline">doublon possible : ${esc(e.doublonsPossibles.join(', '))}</span>` : ''}</td><td class="mono">${esc(e.table)}${e.colonne ? '.' + esc(e.colonne) : ''}</td></tr>`).join('')}</tbody></table></div>`
+        ${HIST.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Base</th><th>Changement</th><th>Objet</th><th>Détail</th></tr></thead><tbody>${HIST.slice().reverse().slice(0, 1000).map(e => `<tr><td class="tabnum text-muted nowrap">${new Date(e.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td><td>${APPS[e.app].nom}</td><td>${TYPES[e.type] || esc(e.type)}${e.doublonsPossibles ? ` <span class="tag tag-outline">doublon possible : ${esc(e.doublonsPossibles.join(', '))}</span>` : ''}</td><td class="mono">${esc(e.table || '—')}${e.colonne ? '.' + esc(e.colonne) : ''}</td><td class="sub">${detailHist(e)}</td></tr>`).join('')}</tbody></table></div>`
           : `<p class="text-muted">Aucun changement depuis la première collecte du ${new Date(CAT.generatedAt).toLocaleDateString('fr-FR')}.</p>`}
         <div class="block-title" style="margin-top:22px">Commandes</div><div class="code">npm start                                # serveur Matrix (page + réception des déclarations)
 node outils/collecteur.mjs ..            # relire les schémas dans les dépôts et comparer

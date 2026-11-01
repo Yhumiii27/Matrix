@@ -6,7 +6,7 @@ La convention :
 
 - L'outil qui fait foi publie des vues `pub_<objet>` dans son propre schéma. **Depuis la décision M-18 (01/11/2026), c'est Matrix qui les définit et les applique** (rôle `matrix_gestion`, propriétaire des vues `pub_` des six outils, registre `matrix.publications`) ; l'outil n'en écrit plus dans ses migrations.
 - Le lecteur reçoit `USAGE` sur ce schéma et `SELECT` sur ces vues, rien d'autre.
-- Les écritures d'un outil chez un autre passent par une API, jamais par SQL.
+- Les écritures d'un outil chez un autre passent par une API, ou par une fonction `pub_<verbe>_<objet>` que le propriétaire fournit (`SECURITY DEFINER`, `search_path` fixé, `REVOKE EXECUTE … FROM PUBLIC`), jamais par `INSERT` / `UPDATE` direct. Le droit de l'exécuter est un lien « écriture » du registre (M-18, lot P4).
 - Il n'y a pas de clé étrangère entre schémas. Une référence croisée est une colonne texte. L'application la contrôle à la saisie, puis Matrix contrôle les orphelins.
 - Une vue `pub_` est un contrat. On n'en retire ni ne renomme de colonne : un changement de ce type passe par une nouvelle vue `_v2`. On peut seulement ajouter des colonnes en fin de liste.
 - Aucune donnée de santé ni colonne sensible dans une vue `pub_` (liste `droits.colonnes_sensibles`, tables fermées en entier comprises).

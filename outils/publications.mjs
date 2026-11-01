@@ -201,7 +201,9 @@ async function retirerDroit(db, vue, lecteur) {
   // posé par 90-droits.sql, l'est au passage suivant de appliquer-liens.sh).
   const { rows: [r] } = await db.query(
     `SELECT EXISTS (SELECT FROM pg_class v JOIN pg_namespace n ON n.oid = v.relnamespace
-                     WHERE n.nspname = $1 AND v.relkind = 'v' AND v.relname LIKE 'pub\\_%' AND has_table_privilege($2, v.oid, 'SELECT')) AS lit`,
+                     WHERE n.nspname = $1 AND v.relkind = 'v' AND v.relname LIKE 'pub\\_%' AND has_table_privilege($2, v.oid, 'SELECT'))
+         OR EXISTS (SELECT FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace CROSS JOIN LATERAL aclexplode(f.proacl) a
+                     WHERE n.nspname = $1 AND f.proname LIKE 'pub\\_%' AND a.privilege_type = 'EXECUTE' AND a.grantee = to_regrole($2)) AS lit`,
     [schema, lecteur]);
   if (!r.lit) await db.query(`REVOKE USAGE ON SCHEMA ${ident(schema)} FROM ${ident(lecteur)}`);
 }
@@ -275,6 +277,8 @@ export async function appliquerLien(db, { vue, lecteur }) {
   vue = texte(vue); lecteur = texte(lecteur);
   if (!/^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$/.test(vue) || !LECTEURS.includes(lecteur)) throw new Error('lien invalide');
   return enTransaction(db, async () => {
+    const { rows: [lien] } = await db.query(`SELECT coalesce(to_jsonb(l) ->> 'nature', 'lecture') AS nature FROM matrix.liens l WHERE vue = $1 AND lecteur = $2`, [vue, lecteur]);
+    if (lien?.nature === 'execution') return appliquerExecution(db, vue, lecteur);
     const { rows: [v] } = await db.query('SELECT pg_get_userbyid(relowner) AS proprietaire FROM pg_class WHERE oid = to_regclass($1)', [vue]);
     if (!v) return { applique: false, raison: 'vue absente du serveur' };
     if (v.proprietaire !== 'matrix_gestion') return { applique: false, raison: `vue de ${v.proprietaire}, pas encore reprise par Matrix : appliqué par 90-droits.sql dans les 15 minutes` };
@@ -289,4 +293,28 @@ export async function appliquerLien(db, { vue, lecteur }) {
     await retirerDroit(db, vue, lecteur);
     return { applique: true, droit: 'retiré' };
   });
+}
+
+/**
+ * Lien d'exécution (M-18, lot P4) : un outil écrit chez un autre par une fonction pub_ du propriétaire. matrix_gestion ne
+ * reçoit jamais EXECUTE lui-même : droits.accorder_execution (init/03-droits.sql, superutilisateur) pose ou retire le droit
+ * au nom du propriétaire, et seulement d'après le registre. USAGE sur le schéma : comme pour une vue.
+ */
+async function appliquerExecution(db, fonction, lecteur) {
+  const [schema] = fonction.split('.');
+  if (!OUTILS.includes(schema)) return { applique: false, raison: 'Matrix ne publie pas de fonction d’écriture' };
+  const { rows: [l] } = await db.query('SELECT statut FROM matrix.liens WHERE vue = $1 AND lecteur = $2', [fonction, lecteur]);
+  if (l?.statut === 'autorise') await db.query(`GRANT USAGE ON SCHEMA ${ident(schema)} TO ${ident(lecteur)}`);
+  const { rows: [r] } = await db.query('SELECT droits.accorder_execution($1, $2) AS resultat', [fonction, lecteur]);
+  if (r.resultat === 'absente') return { applique: false, raison: 'fonction absente du serveur : l’outil propriétaire ne la fournit pas encore' };
+  if (r.resultat === 'retire') {
+    const { rows: [u] } = await db.query(
+      `SELECT EXISTS (SELECT FROM pg_class v JOIN pg_namespace n ON n.oid = v.relnamespace
+                       WHERE n.nspname = $1 AND v.relkind = 'v' AND v.relname LIKE 'pub\\_%' AND has_table_privilege($2, v.oid, 'SELECT'))
+           OR EXISTS (SELECT FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace CROSS JOIN LATERAL aclexplode(f.proacl) a
+                       WHERE n.nspname = $1 AND f.proname LIKE 'pub\\_%' AND a.privilege_type = 'EXECUTE' AND a.grantee = to_regrole($2)) AS garde`,
+      [schema, lecteur]);
+    if (!u.garde) await db.query(`REVOKE USAGE ON SCHEMA ${ident(schema)} FROM ${ident(lecteur)}`);
+  }
+  return { applique: true, droit: r.resultat === 'accorde' ? 'accordé' : 'retiré' };
 }

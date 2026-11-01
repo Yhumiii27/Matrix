@@ -24,6 +24,7 @@ export const ETATS_LIEN = {
   en_attente: { gravite: 'info', libelle: 'Demande en attente de décision' },
   outil_absent: { gravite: 'info', libelle: 'Autorisé, outil pas encore migré sur le serveur' },
   vue_absente: { gravite: 'attention', libelle: 'Autorisé, vue pas encore publiée par l’outil' },
+  fonction_absente: { gravite: 'attention', libelle: 'Autorisé, fonction d’écriture pas encore fournie par l’outil' },
   a_appliquer: { gravite: 'attention', libelle: 'Autorisé, droit pas encore posé (rejouer 90-droits.sql)' },
   a_retirer: { gravite: 'erreur', libelle: 'Droit posé alors que le lien n’est pas autorisé (rejouer 90-droits.sql)' },
   hors_registre: { gravite: 'erreur', libelle: 'Droit posé hors du registre de Matrix (rejouer 90-droits.sql)' },
@@ -76,8 +77,14 @@ export function calculerSante(lecture, { catalogue = null, edition = null, horsM
   }
 
   // Liens entre outils : registre de Matrix face aux droits réellement posés sur les vues pub_.
-  const vues = new Map(lecture.vues.map(v => [v.vue, v]));
-  const poses = new Set(lecture.vues.flatMap(v => v.lecteurs.filter(l => LECTEURS.includes(l) && `${v.vue.split('.')[0]}_app` !== l).map(l => `${v.vue}|${l}`)));
+  // Objets d'un lien : vues pub_ (lecture) et fonctions pub_ (exécution, M-18 lot P4).
+  const fonctions = lecture.fonctions ?? [];
+  const vues = new Map([...lecture.vues.map(v => [v.vue, v]), ...fonctions.map(f => [f.fonction, f])]);
+  const poses = new Set([
+    ...lecture.vues.flatMap(v => v.lecteurs.filter(l => LECTEURS.includes(l) && `${v.vue.split('.')[0]}_app` !== l).map(l => `${v.vue}|${l}`)),
+    ...fonctions.flatMap(f => f.executeurs.filter(l => LECTEURS.includes(l) && `${f.fonction.split('.')[0]}_app` !== l).map(l => `${f.fonction}|${l}`)),
+  ]);
+  const natureDe = new Map(fonctions.map(f => [f.fonction, 'execution']));
   const registreLu = !lecture.liens.erreur;
   const outilsPresents = new Set([...Object.keys(lecture.outils), 'matrix']);
   const liens = [];
@@ -86,14 +93,15 @@ export function calculerSante(lecture, { catalogue = null, edition = null, horsM
     const k = `${r.vue}|${r.lecteur}`; vus.add(k);
     const pose = poses.has(k);
     let etat;
-    if (r.statut === 'autorise') etat = !vues.has(r.vue) ? (outilsPresents.has(r.vue.split('.')[0]) ? 'vue_absente' : 'outil_absent') : pose ? 'applique' : 'a_appliquer';
+    const nature = r.nature ?? 'lecture';
+    if (r.statut === 'autorise') etat = !vues.has(r.vue) ? (outilsPresents.has(r.vue.split('.')[0]) ? (nature === 'execution' ? 'fonction_absente' : 'vue_absente') : 'outil_absent') : pose ? 'applique' : 'a_appliquer';
     else if (pose) etat = 'a_retirer';
     else etat = r.statut === 'refuse' ? 'refuse' : 'en_attente';
-    liens.push({ ...r, pose, vueExiste: vues.has(r.vue), etat, gravite: ETATS_LIEN[etat].gravite });
+    liens.push({ ...r, nature, pose, vueExiste: vues.has(r.vue), etat, gravite: ETATS_LIEN[etat].gravite });
   }
   if (registreLu) for (const k of poses) if (!vus.has(k)) {
     const [vue, lecteur] = k.split('|');
-    liens.push({ vue, lecteur, statut: null, origine: null, pose: true, vueExiste: true, etat: 'hors_registre', gravite: ETATS_LIEN.hors_registre.gravite });
+    liens.push({ vue, lecteur, statut: null, origine: null, nature: natureDe.get(vue) ?? 'lecture', pose: true, vueExiste: true, etat: 'hors_registre', gravite: ETATS_LIEN.hors_registre.gravite });
   }
   liens.sort((a, b) => a.vue.localeCompare(b.vue) || a.lecteur.localeCompare(b.lecteur));
 
@@ -133,6 +141,7 @@ export function calculerSante(lecture, { catalogue = null, edition = null, horsM
     },
     parOutil, tables, liens, references, socle, migrations,
     vues: lecture.vues.map(v => ({ vue: v.vue, lecteurs: v.lecteurs, description: v.description, sources: v.sources ?? [], lignage: v.lignage ?? null })),
+    fonctions,
     journalLiens: lecture.liens.journal,
     regles: REGLES, etatsLien: ETATS_LIEN, etatsMigrations: ETATS_MIGRATIONS,
   };

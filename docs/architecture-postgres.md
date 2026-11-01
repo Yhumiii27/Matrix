@@ -814,6 +814,7 @@ absent, erreur) et Matrix la recrée.
 | P3 | Écran « Publications » : liste par outil, fiche, édition (colonnes ou SQL), aperçu des colonnes, journal | M |
 |  | *Fait le 01/11/2026 : écran « Publications » (liste, fiche, nouvelle publication, brouillon, application, retrait, contrat, lecteurs, journal, vues non reprises) ; éprouvé dans Chromium sur les vues réelles de Keystone et Codex (création par colonnes, refus d'une colonne retirée affiché dans la fiche).* | |
 | P4 | Écritures : liens de nature `execution` sur les fonctions `pub_` (lot M17-1) | M |
+|  | *Fait le 01/11/2026 : `matrix.liens.nature` (lecture / execution) ; `droits.accorder_execution` (superutilisateur, appelée par `matrix_gestion`, qui ne reçoit jamais EXECUTE) ; `90-droits.sql` et `appliquer-liens.sh` posent et retirent EXECUTE d'après le registre ; `droits.verifier()` : EXECUTE croisé admis sur une fonction `pub_`, erreur si exécutable par PUBLIC, attention si ni SECURITY DEFINER ni search_path fixé ; sonde, état de santé et écran « Liens entre outils » (liens d'écriture). Éprouvé sur PostgreSQL 16 (test en CI) : exécution accordée puis retirée, écriture directe dans la table refusée, fonction mal protégée refusée.* | |
 | P5 | Demandes aux six outils (après validation) : plus de vue `pub_` dans les migrations, fonctions `pub_` pour les écritures reçues, règles dans leur `CLAUDE.md` | S par outil |
 
 ## 9. Heures validées : D06, option A, réversible

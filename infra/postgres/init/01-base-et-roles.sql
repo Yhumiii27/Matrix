@@ -9,13 +9,16 @@
 -- Rejouable : le script crée ce qui manque, puis remet les attributs, les appartenances et les mots de passe
 -- aux valeurs ci-dessous. Les mots de passe sont lus dans l'environnement, et aucun ne peut être vide :
 --   KEYSTONE_APP_PASSWORD  CODEX_APP_PASSWORD  CURSUS_APP_PASSWORD  VIGIE_APP_PASSWORD  ARCHE_APP_PASSWORD
---   CRUCIBLE_APP_PASSWORD  MATRIX_APP_PASSWORD  EPC2I_SAUVEGARDE_PASSWORD
+--   CRUCIBLE_APP_PASSWORD  MATRIX_APP_PASSWORD  MATRIX_GESTION_PASSWORD  EPC2I_SAUVEGARDE_PASSWORD
 --
 -- Rôles créés :
 --   keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app
 --                                                   connexion d'un outil, propriétaire de son seul schéma
 --   matrix_app                                      connexion de Matrix, propriétaire du schéma matrix,
 --                                                   membre de matrix_lecture
+--   matrix_gestion                                  connexion de Matrix pour l'administration (M-18) : crée et gère les
+--                                                   vues pub_ des outils, pose et retire les liens ; ni superutilisateur,
+--                                                   ni écriture dans les tables (droits : init/03-droits.sql)
 --   matrix_lecture  (groupe)                        SELECT sur les 6 schémas des outils, colonnes sensibles exclues
 --   matrix_admin    (groupe)                        tous les droits ; attribué nominativement (droits.declarer_admin)
 --   epc2i_sauvegarde                                connexion des sauvegardes, membre de pg_read_all_data
@@ -39,6 +42,7 @@ END $$;
 \getenv mdp_arche_app ARCHE_APP_PASSWORD
 \getenv mdp_crucible_app CRUCIBLE_APP_PASSWORD
 \getenv mdp_matrix_app MATRIX_APP_PASSWORD
+\getenv mdp_matrix_gestion MATRIX_GESTION_PASSWORD
 \getenv mdp_epc2i_sauvegarde EPC2I_SAUVEGARDE_PASSWORD
 \if :{?mdp_keystone_app}
 \else
@@ -68,6 +72,10 @@ END $$;
 \else
   \set mdp_matrix_app ''
 \endif
+\if :{?mdp_matrix_gestion}
+\else
+  \set mdp_matrix_gestion ''
+\endif
 \if :{?mdp_epc2i_sauvegarde}
 \else
   \set mdp_epc2i_sauvegarde ''
@@ -77,7 +85,8 @@ SELECT string_agg(variable, ', ' ORDER BY variable) AS mdp_manquants
 FROM (VALUES ('KEYSTONE_APP_PASSWORD', :'mdp_keystone_app'), ('CODEX_APP_PASSWORD', :'mdp_codex_app'),
              ('CURSUS_APP_PASSWORD', :'mdp_cursus_app'), ('VIGIE_APP_PASSWORD', :'mdp_vigie_app'),
              ('ARCHE_APP_PASSWORD', :'mdp_arche_app'), ('CRUCIBLE_APP_PASSWORD', :'mdp_crucible_app'),
-             ('MATRIX_APP_PASSWORD', :'mdp_matrix_app'), ('EPC2I_SAUVEGARDE_PASSWORD', :'mdp_epc2i_sauvegarde')) AS v(variable, mdp)
+             ('MATRIX_APP_PASSWORD', :'mdp_matrix_app'), ('MATRIX_GESTION_PASSWORD', :'mdp_matrix_gestion'),
+             ('EPC2I_SAUVEGARDE_PASSWORD', :'mdp_epc2i_sauvegarde')) AS v(variable, mdp)
 WHERE mdp = '' \gset
 \if :{?mdp_manquants}
   \echo 'Variables d''environnement absentes ou vides :' :mdp_manquants
@@ -88,7 +97,8 @@ SELECT string_agg(variable, ', ' ORDER BY variable) AS mdp_courts
 FROM (VALUES ('KEYSTONE_APP_PASSWORD', :'mdp_keystone_app'), ('CODEX_APP_PASSWORD', :'mdp_codex_app'),
              ('CURSUS_APP_PASSWORD', :'mdp_cursus_app'), ('VIGIE_APP_PASSWORD', :'mdp_vigie_app'),
              ('ARCHE_APP_PASSWORD', :'mdp_arche_app'), ('CRUCIBLE_APP_PASSWORD', :'mdp_crucible_app'),
-             ('MATRIX_APP_PASSWORD', :'mdp_matrix_app'), ('EPC2I_SAUVEGARDE_PASSWORD', :'mdp_epc2i_sauvegarde')) AS v(variable, mdp)
+             ('MATRIX_APP_PASSWORD', :'mdp_matrix_app'), ('MATRIX_GESTION_PASSWORD', :'mdp_matrix_gestion'),
+             ('EPC2I_SAUVEGARDE_PASSWORD', :'mdp_epc2i_sauvegarde')) AS v(variable, mdp)
 WHERE length(mdp) < 16 \gset
 \if :{?mdp_courts}
   \echo 'Attention : mots de passe de moins de 16 caractères :' :mdp_courts
@@ -123,7 +133,7 @@ BEGIN;
 
 SELECT format('CREATE ROLE %I', nom)
 FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app',
-                  'crucible_app', 'matrix_app', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde']) AS nom
+                  'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde']) AS nom
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = nom) \gexec
 
 -- Rôles de groupe : pas de connexion directe.
@@ -136,7 +146,8 @@ SELECT format('ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NORE
 FROM (VALUES ('keystone_app', :'mdp_keystone_app'), ('codex_app', :'mdp_codex_app'),
              ('cursus_app', :'mdp_cursus_app'), ('vigie_app', :'mdp_vigie_app'), ('arche_app', :'mdp_arche_app'),
              ('crucible_app', :'mdp_crucible_app'),
-             ('matrix_app', :'mdp_matrix_app'), ('epc2i_sauvegarde', :'mdp_epc2i_sauvegarde')) AS v(nom, mdp) \gexec
+             ('matrix_app', :'mdp_matrix_app'), ('matrix_gestion', :'mdp_matrix_gestion'),
+             ('epc2i_sauvegarde', :'mdp_epc2i_sauvegarde')) AS v(nom, mdp) \gexec
 
 -- Matrix lit les schémas des outils par le groupe matrix_lecture.
 GRANT matrix_lecture TO matrix_app;
@@ -144,7 +155,7 @@ GRANT matrix_lecture TO matrix_app;
 GRANT pg_read_all_data TO epc2i_sauvegarde;
 -- Administration : un membre de matrix_admin peut prendre le rôle d'un outil (SET ROLE) pour une opération de
 -- structure exceptionnelle, sans en hériter les droits au quotidien. Ses requêtes sont journalisées.
-GRANT keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, matrix_app TO matrix_admin WITH INHERIT FALSE, SET TRUE;
+GRANT keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, matrix_app, matrix_gestion TO matrix_admin WITH INHERIT FALSE, SET TRUE;
 
 COMMENT ON ROLE keystone_app IS 'Connexion de Keystone : propriétaire du schéma keystone ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE codex_app IS 'Connexion de Codex : propriétaire du schéma codex ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
@@ -153,6 +164,7 @@ COMMENT ON ROLE vigie_app IS 'Connexion de Vigie : propriétaire du schéma vigi
 COMMENT ON ROLE arche_app IS 'Connexion d''Arche (CAPEX des filiales) : propriétaire du schéma arche ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE crucible_app IS 'Connexion de Crucible (moyens d''essais R&D partagés) : propriétaire du schéma crucible ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE matrix_app IS 'Connexion de Matrix : propriétaire du schéma matrix, lit les outils par matrix_lecture.';
+COMMENT ON ROLE matrix_gestion IS 'Connexion de Matrix pour l''administration (décision M-18) : propriétaire des vues pub_ des outils, USAGE et CREATE sur leurs schémas, SELECT sur leurs tables, GRANT et REVOKE des liens ; aucune écriture dans les tables, aucun attribut d''administration.';
 COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, sauf les colonnes de droits.colonnes_sensibles.';
 COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les sept schémas. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';
 COMMENT ON ROLE epc2i_sauvegarde IS 'Connexion des sauvegardes (pg_dump) : membre de pg_read_all_data.';
@@ -161,7 +173,7 @@ COMMENT ON ROLE epc2i_sauvegarde IS 'Connexion des sauvegardes (pg_dump) : membr
 -- Personne ne se connecte à epc2i sans droit explicite ; aucun rôle (hors superutilisateur) n'y crée de schéma.
 REVOKE ALL ON DATABASE epc2i FROM PUBLIC;
 GRANT CONNECT ON DATABASE epc2i
-  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, matrix_app, matrix_lecture, matrix_admin, epc2i_sauvegarde;
+  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, epc2i_sauvegarde;
 
 COMMIT;
 

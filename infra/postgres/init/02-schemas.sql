@@ -79,6 +79,13 @@ ALTER ROLE arche_app    IN DATABASE epc2i SET idle_in_transaction_session_timeou
 ALTER ROLE crucible_app IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE matrix_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 
+-- matrix_gestion (M-18) : sans search_path, chaque nom de table d'une vue pub_ s'écrit avec son schéma (une définition
+-- ne dépend jamais du réglage de la session) ; un verrou attendu plus de 5 s abandonne la publication plutôt que de
+-- bloquer les outils qui lisent ou écrivent la table.
+ALTER ROLE matrix_gestion IN DATABASE epc2i SET search_path TO '';
+ALTER ROLE matrix_gestion IN DATABASE epc2i SET lock_timeout TO '5s';
+ALTER ROLE matrix_gestion IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
+
 -- Extensions demandées par les outils (voir l'en-tête) : pg_trgm pour Codex. Rejeu : le schéma garde son
 -- propriétaire et ses droits, l'extension n'est créée que si elle manque (une restauration de codex.dump la suppose).
 CREATE SCHEMA IF NOT EXISTS extensions AUTHORIZATION CURRENT_USER;

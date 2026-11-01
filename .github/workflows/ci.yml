@@ -40,6 +40,7 @@ jobs:
       ARCHE_APP_PASSWORD: ci-arche
       CRUCIBLE_APP_PASSWORD: ci-crucible
       MATRIX_APP_PASSWORD: ci-matrix
+      MATRIX_GESTION_PASSWORD: ci-gestion
       EPC2I_SAUVEGARDE_PASSWORD: ci-sauvegarde
       PGHOST: 127.0.0.1
       PGPORT: 5432
@@ -51,7 +52,7 @@ jobs:
         run: |
           docker run -d --name epc2i-postgres -p 127.0.0.1:5432:5432 \
             -e POSTGRES_PASSWORD -e KEYSTONE_APP_PASSWORD -e CODEX_APP_PASSWORD -e CURSUS_APP_PASSWORD -e VIGIE_APP_PASSWORD \
-            -e ARCHE_APP_PASSWORD -e CRUCIBLE_APP_PASSWORD -e MATRIX_APP_PASSWORD -e EPC2I_SAUVEGARDE_PASSWORD \
+            -e ARCHE_APP_PASSWORD -e CRUCIBLE_APP_PASSWORD -e MATRIX_APP_PASSWORD -e MATRIX_GESTION_PASSWORD -e EPC2I_SAUVEGARDE_PASSWORD \
             epc2i-postgres
           for i in $(seq 1 60); do
             docker exec epc2i-postgres pg_isready -h 127.0.0.1 -U postgres -d epc2i -q && exit 0

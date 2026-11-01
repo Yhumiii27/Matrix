@@ -4,13 +4,13 @@ Ce dossier crée les vues `pub_*` que chaque outil publie, les référentiels de
 
 La convention :
 
-- L'outil qui fait foi publie des vues `pub_<objet>` dans son propre schéma.
+- L'outil qui fait foi publie des vues `pub_<objet>` dans son propre schéma. **Depuis la décision M-18 (01/11/2026), c'est Matrix qui les définit et les applique** (rôle `matrix_gestion`, propriétaire des vues `pub_` des six outils, registre `matrix.publications`) ; l'outil n'en écrit plus dans ses migrations.
 - Le lecteur reçoit `USAGE` sur ce schéma et `SELECT` sur ces vues, rien d'autre.
 - Les écritures d'un outil chez un autre passent par une API, jamais par SQL.
 - Il n'y a pas de clé étrangère entre schémas. Une référence croisée est une colonne texte. L'application la contrôle à la saisie, puis Matrix contrôle les orphelins.
 - Une vue `pub_` est un contrat. On n'en retire ni ne renomme de colonne : un changement de ce type passe par une nouvelle vue `_v2`. On peut seulement ajouter des colonnes en fin de liste.
 - Aucune donnée de santé ni colonne sensible dans une vue `pub_` (liste `droits.colonnes_sensibles`, tables fermées en entier comprises).
-- Les vues `pub_` sont créées par les migrations de l'outil (décision P-02 du 18/10/2026 : Keystone `0035_share`, Codex `0001_partage`, Vigie `0009_partage`). Le fichier de partage de Matrix en est la copie qualifiée : il les recrée à l'identique et ne crée plus de colonne prérequise.
+- Les vues `pub_` sont créées par les migrations de l'outil (décision P-02 du 18/10/2026 : Keystone `0035_share`, Codex `0001_partage`, Vigie `0009_partage`). Le fichier de partage de Matrix en est la copie qualifiée : il les recrée à l'identique et ne crée plus de colonne prérequise. **Décision M-17 (30/10/2026)** : ces copies seront retirées au lot M17-3, quand la sonde contrôlera le contrat de chaque vue (`docs/architecture-postgres.md` § 8 sexies) ; d'ici là, elles restent tenues à jour. Une nouvelle vue `pub_` ne demande plus de copie : seulement un lien du registre.
 
 ## Fichiers et ordre d'exécution
 
@@ -19,6 +19,7 @@ La convention :
 | 0 | `../init/01` à `03`, puis migrations des outils (Keystone `npm run db:migrate` ; Codex et Vigie à leur démarrage), Cursus à son démarrage (`server/migrations-pg/` du dépôt Cursus) | `postgres`, puis le rôle de chaque outil | Socle, tables des outils, colonnes prérequises et vues `pub_` de Keystone, Codex et Vigie |
 | 1 | `10-matrix-referentiels.sql` | `matrix_app` | `matrix.pays`, `sites` (avec coordonnées, M-11 d'Arche), `organigramme`, `zones` (avec cadre géographique, M-12 d'Arche), `filiales` (D21), `correspondances`, amorçage, vues `matrix.pub_*` |
 | 1 | `12-matrix-liens.sql` | `matrix_app` | Registre des liens entre outils administré par Matrix : `matrix.liens` (vue, lecteur, statut autorise / refuse / demande), journal `matrix.liens_journal` en ajout seul |
+| 1 | `13-matrix-publications.sql` | `matrix_app` | Registre des publications (M-18) : `matrix.publications` (une ligne par vue `pub_` : définition, contrat, état), journal `matrix.publications_journal` en ajout seul ; lecture des registres et enregistrement des applications accordés à `matrix_gestion` |
 | 2 | `20-cursus.sql` | `cursus_app` | Copie qualifiée des vues `cursus.pub_*` de la migration `0002_partage` de Cursus (D01, D08, D09, D18, D19) |
 | 2 | `30-keystone.sql` | `keystone_app` | Contrôle des prérequis (migrations `0034` à `0064`, index `maj_le` et déclencheur `machine_catalogue_entries_frozen` compris), copie des 18 vues `keystone.pub_*` : 12 de `0035_share` (D02 à D05, D12, D13, D16, D18), `pub_jalons` (Crucible), `pub_jalons_projets`, `pub_avancement_projets`, `pub_avenants`, `pub_reserves` (Arche K-04) et les colonnes ajoutées en fin de `pub_projets` et `pub_livrables` (`0038_share_followup`), en fin de `pub_parc_machines` (`0040_share_installed_base`, Arche K-07), `pub_catalogue_machines` (`0046_catalogue_share`, Arche K-01), `pub_reponses_besoins` (`0050_capex_needs_share`, Arche K-02), colonnes en fin de `pub_projets` (`0052_internal_client_share`, client interne) et de `pub_clients` (`0054`, D21), `pub_rex` (`0054`, D22), `pub_pack_ingenierie` (`0060`, Arche K-08), `pub_expeditions` (`0064`, R-158) et la dernière définition de `pub_jalons_projets` (`0057` puis `0064`) : 22 vues |
 | 2 | `40-codex.sql` | `codex_app` | Prérequis en `IF NOT EXISTS` (sans effet après `0001_partage`), copie des 8 vues `codex.pub_*` : 7 de `0001_partage` (D10, D11, D18) et `pub_programmes_recherche` de `0002_pub_programmes_recherche` (CX-2 de Crucible) |
@@ -26,6 +27,7 @@ La convention :
 | — | `60-vigie-ecr-eco.sql` | `vigie_app` | **À ne pas jouer tant que le module ECR / ECO n'existe pas dans Vigie** (aucune de ses tables dans Vigie au 18/10/2026). Spécification des tables ECR / ECO (D12) et de leurs vues `pub_`, à reporter dans les migrations de Vigie. |
 | 2 | `70-arche.sql` | `arche_app` | Contrôle des migrations d'Arche (`0000` à `0016`), copie de `arche.pub_journal` (D18), `arche.pub_capex`, `arche.pub_besoins_machines` (M-10 d'Arche), `arche.pub_rampup`, `arche.pub_rex` (v1, plus lue) et `arche.pub_rex_v2` (M-13 d'Arche, contrat commun du REX) |
 | 2 | `80-crucible.sql` | `crucible_app` | Contrôle des migrations de Crucible (`0000` à `0009`), copie de `crucible.pub_journal` (D18), `pub_moyens` et `pub_reservations` (M-7 de Crucible, lues par Keystone, Vigie et Matrix) et `pub_occupation_hebdo` (M-8, lue par Matrix) |
+| 2 bis | `14-reprise-publications.sql` | `postgres`, avec `-v outils=keystone,codex…` ou `-v outils=tous` | Reprise par Matrix des vues `pub_` des outils choisis (M-18) : la vue passe à `matrix_gestion` (ses lecteurs gardent leur droit) et est inscrite au registre avec sa définition et son contrat. **Pour un outil, seulement quand il ne crée plus de vue `pub_` dans ses migrations** (une migration qui recrée une vue reprise échoue). Ensuite, le fichier 20 à 80 de cet outil n'est plus joué : Matrix fait foi pour ses vues. |
 | 3 | `90-droits.sql` | `postgres` ou administrateur membre de `matrix_admin` | Contrôle des vues ; amorçage du registre `matrix.liens` avec la convention ; `GRANT` des liens autorisés, `REVOKE` des droits non autorisés (refusés, demandés ou hors registre) ; contrôle final par `droits.verifier()` |
 | — | `appliquer-liens.sh` | `postgres` (tâche planifiée) | Rejoue `90-droits.sql` quand le registre de Matrix et les droits posés divergent (« Application automatique du registre des liens » ci-dessous) |
 | 4 | `95-matrix-journal-unifie.sql` | `matrix_app` | `matrix.journal_unifie` (D18) |
@@ -46,6 +48,8 @@ psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f part
 ```
 
 Tous les fichiers sont rejouables.
+
+Après la reprise d'un outil (`14-reprise-publications.sql`), son fichier de l'étape 2 n'est plus joué avec le rôle de l'outil, qui n'est plus propriétaire de ses vues `pub_` ; un superutilisateur peut encore le rejouer pour contrôler les prérequis, la vue garde `matrix_gestion` comme propriétaire. Ces fichiers seront retirés quand l'écran « Publications » de Matrix sera en service (lots P2 et P3, `docs/architecture-postgres.md` § 8 septies).
 
 ## Application automatique du registre des liens
 

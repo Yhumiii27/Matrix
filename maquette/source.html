@@ -207,7 +207,11 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .chip:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
 .canvas-wrap { flex: 1; position: relative; min-height: 0; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-surface) 70%, transparent), var(--color-bg) 70%); }
 #cy { position: absolute; inset: 0; }
-.legend { position: absolute; left: 14px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-bg) 85%, transparent); box-shadow: var(--shadow-sm); font-size: 11px; pointer-events: none; }
+.legend { position: absolute; left: 14px; bottom: 12px; padding: 6px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-bg) 85%, transparent); box-shadow: var(--shadow-sm); font-size: 11px; }
+.legend summary { cursor: pointer; color: var(--color-neutral-500); list-style: none; user-select: none; }
+.legend summary::before { content: '▸ '; } .legend[open] summary::before { content: '▾ '; }
+.legend[open] summary { margin-bottom: 4px; }
+#g-legend { display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
 .legend div { display: flex; align-items: center; gap: 8px; }
 .legend i { display: inline-block; width: 22px; height: 0; border-top: 2px solid; }
 .graph-hint { position: absolute; right: 14px; bottom: 12px; font-size: 11px; color: var(--muted); }
@@ -878,7 +882,7 @@ const Graph = (() => {
           <button class="btn btn-secondary btn-icon" id="g-relayout" title="Réorganiser" aria-label="Réorganiser">${icon('refresh', 14)}</button>
         </div>
         <div class="toolbar" id="g-opts2" style="padding-top:8px;padding-bottom:8px"></div>
-        <div class="canvas-wrap"><div id="cy" aria-label="Graphe des liens"></div><div class="legend" id="g-legend"></div><div class="graph-hint">Molette : zoom · glisser : déplacer · clic : détail</div><div class="graph-loading" id="g-loading" hidden></div></div>
+        <div class="canvas-wrap"><div id="cy" aria-label="Graphe des liens"></div><details class="legend" id="g-legend-box"><summary>Légende</summary><div id="g-legend"></div></details><div class="graph-hint">Molette : zoom · glisser : déplacer · clic : détail</div><div class="graph-loading" id="g-loading" hidden></div></div>
       </div>
       <aside class="quick" id="g-quick"></aside>
     </div>`;
@@ -956,7 +960,7 @@ const Graph = (() => {
         for (const e of shown) { if (frontier.has(e.s) && !seen.has(e.t)) next.add(e.t); if (frontier.has(e.t) && !seen.has(e.s)) next.add(e.s); }
         next.forEach(k => seen.add(k)); frontier = next; if (!next.size) break;
       }
-      keys = [...seen];
+      keys = [...seen].filter(k => T.has(k));   // un flux peut citer une table absente du catalogue
     } else if (st.liens === 'inter') {
       const used = new Set(shown.flatMap(e => [e.s, e.t])); keys = keys.filter(k => used.has(k));
     }
@@ -965,8 +969,8 @@ const Graph = (() => {
     const deg = {}; shown.forEach(e => { deg[e.s] = (deg[e.s] || 0) + 1; deg[e.t] = (deg[e.t] || 0) + 1; });
     const apps = new Set(keys.map(k => T.get(k).app));
     return [
-      ...(st.focus ? [] : [...apps].map(a => ({ data: { id: 'app:' + a, label: APPS[a].nom, kind: 'app', color: APPS[a].couleur } }))),
-      ...keys.map(k => { const t = T.get(k); return { data: { id: k, label: t.name, parent: st.focus ? undefined : 'app:' + t.app, kind: 'table', color: APPS[t.app].couleur, size: 10 + Math.min(26, Math.sqrt(deg[k] || 0) * 5), focus: k === st.focus ? 1 : 0 } }; }),
+      ...(st.focus ? [] : [...apps].map(a => ({ data: { id: 'app:' + a, label: APPS[a].nom, kind: 'app', color: APPS[a].couleur, fs: Math.round(16 + Math.sqrt(keys.filter(k => T.get(k).app === a).length) * 3) } }))),
+      ...keys.map(k => { const t = T.get(k); return { data: { id: k, label: t.name, parent: st.focus ? undefined : 'app:' + t.app, kind: 'table', color: APPS[t.app].couleur, size: 10 + Math.min(26, Math.sqrt(deg[k] || 0) * 5), deg: deg[k] || 0, fs: Math.round(8 + Math.min(10, Math.sqrt(deg[k] || 0) * 1.6)), focus: k === st.focus ? 1 : 0 } }; }),
       ...shown.map((e, i) => ({ data: { id: 'e' + i, source: e.s, target: e.t, kind: e.kind, label: e.label, flux: e.flux, color: e.kind === 'flux' ? statColor(e.statut) : '' } })),
     ];
   }
@@ -1010,9 +1014,13 @@ const Graph = (() => {
 
   const STYLE = () => [
     { selector: 'node', style: { 'label': 'data(label)', 'color': C.text, 'font-family': 'Inter, system-ui, sans-serif', 'font-size': 9, 'text-valign': 'bottom', 'text-margin-y': 3, 'min-zoomed-font-size': 7, 'text-outline-color': C.bg, 'text-outline-width': 2 } },
-    { selector: 'node[kind="table"]', style: { 'width': 'data(size)', 'height': 'data(size)', 'background-color': 'data(color)', 'border-width': 0, 'shape': 'round-rectangle', 'font-family': 'JetBrains Mono, ui-monospace, monospace', 'font-size': 8 } },
-    { selector: 'node[kind="table"][focus=1]', style: { 'border-width': 3, 'border-color': C.accent, 'font-size': 11, 'z-index': 10 } },
+    { selector: 'node[kind="table"]', style: { 'width': 'data(size)', 'height': 'data(size)', 'background-color': 'data(color)', 'border-width': 0, 'shape': 'round-rectangle', 'font-family': 'JetBrains Mono, ui-monospace, monospace', 'font-size': 8, 'min-zoomed-font-size': 6 } },
+    // Noms : plus une table est reliée, plus son nom est grand ; un nom n'apparaît qu'une fois lisible à l'écran
+    // (6 px), si bien que la vue d'ensemble montre les tables pivots et que le zoom révèle les autres.
+    { selector: 'node[kind="table"][fs]', style: { 'font-size': 'data(fs)' } },
+    { selector: 'node[kind="table"][focus=1]', style: { 'border-width': 3, 'border-color': C.accent, 'font-size': 13, 'z-index': 10, 'min-zoomed-font-size': 0 } },
     { selector: 'node[kind="app"]', style: { 'background-color': 'data(color)', 'background-opacity': 0.06, 'border-width': 1, 'border-color': 'data(color)', 'border-opacity': 0.5, 'shape': 'round-rectangle', 'text-valign': 'top', 'text-halign': 'center', 'text-margin-y': -6, 'font-size': 14, 'font-weight': 500, 'color': 'data(color)', 'text-wrap': 'wrap', 'padding': 18, 'min-zoomed-font-size': 0 } },
+    { selector: 'node[kind="app"][fs]', style: { 'font-size': 'data(fs)', 'text-margin-y': -8 } },
     { selector: 'node[kind="app"]:childless', style: { 'width': 120, 'height': 60, 'text-valign': 'center', 'text-margin-y': 0, 'background-opacity': 0.15 } },
     { selector: 'node[kind="grp"]', style: { 'background-opacity': 0, 'border-width': 1, 'border-color': C.rule, 'border-style': 'dashed', 'text-valign': 'top', 'text-margin-y': -6, 'color': C.muted, 'font-size': 11, 'shape': 'round-rectangle', 'padding': 14, 'min-zoomed-font-size': 0 } },
     { selector: 'node[kind="hub"]', style: { 'shape': 'diamond', 'width': 22, 'height': 22, 'background-color': C.bg, 'border-width': 2, 'border-color': 'data(color)', 'font-size': 9, 'color': C.text, 'text-valign': 'center', 'text-margin-y': 0, 'text-outline-width': 0, 'min-zoomed-font-size': 0 } },
@@ -1027,8 +1035,13 @@ const Graph = (() => {
     { selector: 'edge[kind="ref"]', style: { 'line-color': C.accent3, 'line-style': 'dotted', 'width': 2, 'opacity': 0.8, 'curve-style': 'bezier' } },
     { selector: 'edge[kind="lit"]', style: { 'line-color': C.n600, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': C.n600, 'arrow-scale': 0.5 } },
     { selector: 'edge[kind="ecrit"]', style: { 'line-color': C.accent, 'width': 1.6, 'opacity': 0.85, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': C.accent, 'arrow-scale': 0.6 } },
+    { selector: 'edge.discret', style: { 'opacity': 0.22 } },
     { selector: '.dim', style: { 'opacity': 0.12 } },
+    { selector: 'node[kind="table"][cote="droite"]', style: { 'text-rotation': 'data(rot)', 'text-halign': 'right', 'text-valign': 'center', 'text-margin-x': 4, 'text-margin-y': 0, 'min-zoomed-font-size': 5 } },
+    { selector: 'node[kind="table"][cote="gauche"]', style: { 'text-rotation': 'data(rot)', 'text-halign': 'left', 'text-valign': 'center', 'text-margin-x': -4, 'text-margin-y': 0, 'min-zoomed-font-size': 5 } },
+    { selector: 'node.voisin', style: { 'text-opacity': 1, 'min-zoomed-font-size': 0, 'z-index': 11, 'text-background-color': C.bg, 'text-background-opacity': 0.85, 'text-background-padding': 2, 'text-background-shape': 'round-rectangle' } },
     { selector: 'edge.hl', style: { 'opacity': 1, 'width': 2.2, 'z-index': 9 } },
+    { selector: 'edge.hl[label]', style: { 'label': 'data(label)', 'font-size': 8, 'color': C.muted, 'text-rotation': 'autorotate', 'text-background-color': C.bg, 'text-background-opacity': 0.9, 'text-background-padding': 1, 'font-family': 'JetBrains Mono, ui-monospace, monospace', 'min-zoomed-font-size': 6 } },
     { selector: 'node:selected', style: { 'border-width': 3, 'border-color': C.accent } },
   ];
 
@@ -1039,9 +1052,11 @@ const Graph = (() => {
       cy = cytoscape({ container: $('cy'), elements: els, style: STYLE(), minZoom: 0.03, maxZoom: 4, boxSelectionEnabled: false });
       cy.on('tap', 'node', e => select(e.target));
       cy.on('tap', 'edge', e => { const d = e.target.data(); if (d.flux) { st.sel = { type: 'flux', id: d.flux }; panel(); } });
-      cy.on('tap', e => { if (e.target === cy) { st.sel = null; cy.elements().removeClass('dim hl'); panel(); } });
+      cy.on('tap', e => { if (e.target === cy) { st.sel = null; cy.elements().removeClass('dim hl voisin'); panel(); } });
       cy.on('mouseover', 'node[kind="table"], node[kind="ecran"], node[kind="hub"]', e => highlight(e.target));
-      cy.on('mouseout', 'node', () => { if (!st.sel) cy.elements().removeClass('dim hl'); else if (st.sel.node) highlight(cy.getElementById(st.sel.node)); });
+      cy.on('mouseout', 'node', () => { if (!st.sel) cy.elements().removeClass('dim hl voisin'); else if (st.sel.node) highlight(cy.getElementById(st.sel.node)); });
+      let attente = null;
+      cy.on('zoom', () => { cancelAnimationFrame(attente); attente = requestAnimationFrame(noms); });
     } else { cy.resize(); cy.elements().remove(); cy.add(els); }
     legend();
     layout(false);
@@ -1050,7 +1065,8 @@ const Graph = (() => {
   function highlight(n) {
     if (!n || !n.length) return;
     const nb = n.closedNeighborhood().add(n.ancestors());
-    cy.elements().addClass('dim'); nb.removeClass('dim'); n.connectedEdges().addClass('hl');
+    cy.elements().removeClass('voisin').addClass('dim'); nb.removeClass('dim'); n.connectedEdges().addClass('hl');
+    if (n.data('kind') === 'table') n.closedNeighborhood('node[kind="table"]').addClass('voisin');
     cy.nodes('[kind="app"], [kind="grp"]').removeClass('dim');
   }
   function select(n) {
@@ -1066,19 +1082,143 @@ const Graph = (() => {
   }
   // Disposition calculée hors écran (instance sans affichage), puis recopiée : évite que la disposition
   // globale, avec les groupes par outil, ne s'étale sur des dizaines de milliers de pixels.
-  function headless(nodes, edges, opts) {
+  // Encombrement d'une table : son carré et son nom (police à chasse fixe de 8 px, environ 4,9 px par caractère).
+  const boite = n => { const t = n.data('size') || 14, f = n.data('fs') || 8; return { w: Math.max(t, (n.data('label') || '').length * f * 0.61) + 12, h: t + f + 8 }; };
+  function headless(nodes, edges, opts, avecNoms = false) {
     const ids = new Set(nodes.map(n => n.id()));
     const tmp = cytoscape({ headless: true, styleEnabled: true,
-      elements: [...nodes.map(n => ({ data: { id: n.id(), size: n.data('size') || 14 } })),
+      elements: [...nodes.map(n => { const b = avecNoms ? boite(n) : { w: n.data('size') || 14, h: n.data('size') || 14 }; return { data: { id: n.id(), w: b.w, h: b.h } }; }),
         ...edges.filter(e => ids.has(e.source().id()) && ids.has(e.target().id()) && e.source().id() !== e.target().id()).map(e => ({ data: { id: 'h' + e.id(), source: e.source().id(), target: e.target().id() } }))],
-      style: [{ selector: 'node', style: { width: 'data(size)', height: 'data(size)' } }] });
+      style: [{ selector: 'node', style: { width: 'data(w)', height: 'data(h)' } }] });
     tmp.layout({ animate: false, randomize: true, fit: false, ...opts }).run();
-    const bb = tmp.elements().boundingBox();
-    const pos = {}; tmp.nodes().forEach(n => { const p = n.position(); pos[n.id()] = { x: p.x - bb.x1, y: p.y - bb.y1 }; });
+    const pos = {}; tmp.nodes().forEach(n => { pos[n.id()] = { ...n.position() }; });
     tmp.destroy();
-    return { pos, w: bb.w, h: bb.h };
+    if (avecNoms) { const bx = Object.fromEntries(nodes.map(n => [n.id(), boite(n)])); dilater(pos, bx); ecarter(pos, bx); }
+    return recadrer(pos, avecNoms ? Object.fromEntries(nodes.map(n => [n.id(), boite(n)])) : null);
+  }
+  // Ramène un bloc à l'origine ; w et h comptent l'encombrement des noms.
+  function recadrer(pos, boites) {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const [id, p] of Object.entries(pos)) { const b = boites?.[id] ?? { w: 0, h: 0 }; x1 = Math.min(x1, p.x - b.w / 2); x2 = Math.max(x2, p.x + b.w / 2); y1 = Math.min(y1, p.y - b.h / 2); y2 = Math.max(y2, p.y + b.h / 2); }
+    if (x1 === Infinity) return { pos, w: 0, h: 0 };
+    for (const p of Object.values(pos)) { p.x -= x1; p.y -= y1; }
+    return { pos, w: x2 - x1, h: y2 - y1 };
+  }
+  // Dilate une disposition trop serrée pour que la place des noms existe avant de les écarter : la forme est gardée,
+  // les tables ne s'alignent pas en colonnes forcées.
+  function dilater(pos, boites, air = 2.4) {
+    const ids = Object.keys(pos); if (ids.length < 2) return;
+    const xs = ids.map(id => pos[id].x), ys = ids.map(id => pos[id].y);
+    const w = Math.max(...xs) - Math.min(...xs) || 1, h = Math.max(...ys) - Math.min(...ys) || 1;
+    const besoin = ids.reduce((n, id) => n + boites[id].w * boites[id].h, 0) * air;
+    const k = Math.sqrt(besoin / (w * h));
+    if (k <= 1) return;
+    const r = Math.pow(ids.reduce((n, id) => n + boites[id].w, 0) / ids.reduce((n, id) => n + boites[id].h, 0), 0.35);
+    const cx = xs.reduce((a, b) => a + b) / ids.length, cy0 = ys.reduce((a, b) => a + b) / ids.length;
+    for (const id of ids) { pos[id].x = cx + (pos[id].x - cx) * k * r; pos[id].y = cy0 + (pos[id].y - cy0) * k / r; }
+  }
+  // Supprime les chevauchements restants (carré et nom) : écarte deux à deux les boîtes qui se recouvrent, selon
+  // l'axe du moindre recouvrement, jusqu'à ce qu'aucune ne se touche (grille de voisinage : rapide même à 200 tables).
+  function ecarter(pos, boites, tours = 80) {
+    const ids = Object.keys(pos), M = 2;
+    for (let k = 0; k < tours; k++) {
+      let bouge = false;
+      const cell = 60, grille = new Map();
+      for (const id of ids) { const c = `${Math.floor(pos[id].x / cell)},${Math.floor(pos[id].y / cell)}`; (grille.get(c) ?? grille.set(c, []).get(c)).push(id); }
+      const portee = Math.ceil(Math.max(...ids.map(id => Math.max(boites[id].w, boites[id].h))) / cell);
+      for (const id of ids) {
+        const a = pos[id], ba = boites[id], cx = Math.floor(a.x / cell), cy0 = Math.floor(a.y / cell);
+        for (let i = -portee; i <= portee; i++) for (let j = -portee; j <= portee; j++) for (const o of grille.get(`${cx + i},${cy0 + j}`) ?? []) {
+          if (o <= id) continue;
+          const b = pos[o], bb = boites[o];
+          const ox = (ba.w + bb.w) / 2 + M - Math.abs(a.x - b.x), oy = (ba.h + bb.h) / 2 + M - Math.abs(a.y - b.y);
+          if (ox <= 0 || oy <= 0) continue;
+          bouge = true;
+          if (ox / (ba.w + bb.w) < oy / (ba.h + bb.h)) { const d = (a.x < b.x ? -1 : 1) * ox / 2; a.x += d; b.x -= d; }
+          else { const d = (a.y < b.y ? -1 : 1) * oy / 2; a.y += d; b.y -= d; }
+        }
+      }
+      if (!bouge) break;
+    }
+  }
+  // Tables sans lien : rangées en grille sous le bloc, par ordre alphabétique, au lieu d'être dispersées.
+  function rangees(nodes, largeur) {
+    const bs = nodes.sort((p, q) => p.data('label').localeCompare(q.data('label'))).map(n => [n.id(), boite(n)]);
+    const pos = {}; let x = 0, y = 0, h = 0, w = 0;
+    for (const [id, b] of bs) { if (x > 0 && x + b.w > largeur) { x = 0; y += h; h = 0; } pos[id] = { x: x + b.w / 2, y: y + b.h / 2 }; x += b.w; h = Math.max(h, b.h); w = Math.max(w, x); }
+    return { pos, w, h: y + h };
+  }
+  // Bloc d'un outil : tables reliées disposées par forces, sans chevauchement, puis tables isolées en grille dessous.
+  function blocOutil(kids) {
+    const reliees = kids.filter(n => n.connectedEdges().length > 0), isolees = kids.filter(n => n.connectedEdges().length === 0);
+    const haut = reliees.length ? headless(reliees, reliees.connectedEdges(), COSE_TABLES, true) : { pos: {}, w: 0, h: 0 };
+    // Bloc plus haut que large : retourné d'un quart de tour (la structure est la même), puis les noms sont réécartés.
+    if (haut.h > haut.w * 1.25) {
+      const bx = Object.fromEntries(reliees.map(n => [n.id(), boite(n)]));
+      for (const p of Object.values(haut.pos)) [p.x, p.y] = [p.y, p.x];
+      ecarter(haut.pos, bx);
+      Object.assign(haut, recadrer(haut.pos, bx));
+    }
+    if (!isolees.length) return haut;
+    const bas = rangees(isolees, Math.max(haut.w, 360));
+    const pos = { ...haut.pos }, dy = haut.h ? haut.h + 24 : 0;
+    for (const [id, p] of Object.entries(bas.pos)) pos[id] = { x: p.x, y: p.y + dy };
+    return { pos, w: Math.max(haut.w, bas.w), h: dy + bas.h };
+  }
+  // Range des blocs en étagères, pour un ensemble à peu près aux proportions de l'écran.
+  function etageres(blocs, ratio, marge = 120) {
+    const aire = blocs.reduce((n, b) => n + (b.w + marge) * (b.h + marge), 0);
+    const largeur = Math.max(Math.sqrt(aire * ratio), ...blocs.map(b => b.w));
+    const out = []; let x = 0, y = 0, h = 0;
+    for (const b of [...blocs].sort((p, q) => q.h - p.h)) {
+      if (x > 0 && x + b.w > largeur) { x = 0; y += h + marge; h = 0; }
+      out.push({ ...b, x, y }); x += b.w + marge; h = Math.max(h, b.h);
+    }
+    return out;
+  }
+  // Noms selon le zoom : vue d'ensemble, seuls les noms des tables les plus reliées ; plus on zoome, plus il y en a.
+  // Vue centrée : la table au milieu, ses voisins en cercles par distance. Premier cercle trié par outil puis par nom ;
+  // cercles suivants rangés sous leur voisin du cercle précédent (moins de croisements). Chaque nom suit son rayon,
+  // tourné vers l'extérieur : deux noms ne se recouvrent jamais, car l'écart angulaire réserve la hauteur d'un nom.
+  function radial() {
+    const centre = cy.getElementById(st.focus), d = {}, parent = {};
+    cy.elements().bfs({ roots: centre, directed: false, visit: (v, e, u, i, depth) => { d[v.id()] = depth; if (u) parent[v.id()] = u.id(); } });
+    const anneaux = [];
+    cy.nodes('[kind="table"]').forEach(n => { const k = d[n.id()] ?? 1; if (k > 0) (anneaux[k] ??= []).push(n); });
+    const pos = { [st.focus]: { x: 0, y: 0 } }, angle = {};
+    centre.data({ rot: 0, cote: 'centre' });
+    let r = 0;
+    // Arc réservé à chaque table : la hauteur de son nom ou son carré, le plus grand des deux.
+    const arc = n => Math.max((n.data('fs') || 8) + 5, (n.data('size') || 12) + 4);
+    const ordreApp = Object.fromEntries(APP_IDS.map((a, i) => [a, i]));
+    for (let k = 1; k < anneaux.length; k++) {
+      const liste = anneaux[k] ?? [];
+      if (!liste.length) continue;
+      if (k === 1) liste.sort((p, q) => (ordreApp[T.get(p.id()).app] - ordreApp[T.get(q.id()).app]) || p.data('label').localeCompare(q.data('label')));
+      else liste.sort((p, q) => (angle[parent[p.id()]] ?? 0) - (angle[parent[q.id()]] ?? 0) || p.data('label').localeCompare(q.data('label')));
+      const long = Math.max(...anneaux.slice(1, k).flat().map(n => n.data('label').length * (n.data('fs') || 8) * 0.61), 0);
+      const total = liste.reduce((t, n) => t + arc(n), 0);
+      r = Math.max(k === 1 ? 90 : r + long + 60, total / (2 * Math.PI));
+      let cumul = 0;
+      liste.forEach(n => {
+        const a = -Math.PI / 2 + (cumul + arc(n) / 2) / total * 2 * Math.PI;
+        cumul += arc(n);
+        angle[n.id()] = a;
+        pos[n.id()] = { x: r * Math.cos(a), y: r * Math.sin(a) };
+        const gauche = Math.cos(a) < 0;
+        n.data({ rot: gauche ? a + Math.PI : a, cote: gauche ? 'gauche' : 'droite' });
+      });
+    }
+    return pos;
+  }
+  // Vue d'ensemble : les liens entre logiciels, nombreux et longs, restent discrets tant qu'on n'a pas zoomé.
+  function noms() {
+    if (!cy || st.vue !== 'tables') return;
+    const discret = !st.focus && cy.zoom() < 0.6;
+    cy.batch(() => cy.edges('[kind="flux"], [kind="ref"]').toggleClass('discret', discret));
   }
   const COSE = { name: 'cose', idealEdgeLength: 50, nodeRepulsion: 4500, gravity: 1, numIter: 1000, componentSpacing: 30, nodeOverlap: 8 };
+  const COSE_TABLES = { name: 'cose', idealEdgeLength: 60, edgeElasticity: 120, nodeRepulsion: 9000, gravity: 0.8, numIter: 1500, componentSpacing: 40, nodeOverlap: 20, nestingFactor: 1 };
   function grid(nodes, cols, dx = 132, dy = 30) {
     const pos = {}; nodes.forEach((n, i) => pos[n.id()] = { x: (i % cols) * dx, y: Math.floor(i / cols) * dy });
     return { pos, w: (Math.min(cols, nodes.length) - 1) * dx, h: (Math.ceil(nodes.length / cols) - 1) * dy };
@@ -1097,18 +1237,12 @@ const Graph = (() => {
       ecr.forEach((e, i) => pos[e.id()] = { x: 0, y: (i + 0.5) * H / ecr.length });
       sorted.forEach((t, i) => pos[t.id()] = { x: 520, y: (i + 0.5) * H / sorted.length });
     } else if (st.vue === 'tables' && st.focus) {
-      const blk = headless(cy.nodes('[kind="table"]'), cy.edges(), cy.nodes().length < 60
-        ? { name: 'concentric', concentric: n => n.id() === st.focus ? 2 : 1, levelWidth: () => 1, minNodeSpacing: 34 }
-        : COSE);
-      place(blk, 0, 0);
+      Object.assign(pos, radial());
     } else if (st.vue === 'tables') {
-      // Un bloc par outil : Keystone à gauche, les autres empilés à droite.
-      const blocks = APP_IDS.map(a => { const kids = cy.getElementById('app:' + a).children(); return kids.length ? { a, ...headless(kids, kids.connectedEdges(), COSE) } : null; }).filter(Boolean);
-      const big = blocks.find(b => b.a === 'keystone'), rest = blocks.filter(b => b !== big);
-      let x = 0;
-      if (big) { place(big, 0, 0); x = big.w + 160; }
-      let y = 0;
-      for (const b of rest) { if (big) { place(b, x, y); y += b.h + 140; } else { place(b, x, 0); x += b.w + 160; } }
+      // Un bloc par outil, rangés en étagères aux proportions de la zone d'affichage.
+      const blocks = APP_IDS.map(a => { const kids = cy.getElementById('app:' + a).children(); return kids.length ? { a, ...blocOutil(kids) } : null; }).filter(Boolean);
+      const ratio = Math.max(0.8, Math.min(2.2, cy.width() / Math.max(1, cy.height())));
+      for (const b of etageres(blocks, ratio)) place(b, b.x, b.y);
     } else {
       // Échanges : un outil par coin, les flux (losanges) entre les deux outils qu'ils relient.
       const blocks = {};
@@ -1138,7 +1272,8 @@ const Graph = (() => {
     }
     cy.layout({ name: 'preset', positions: n => pos[n.id()], fit: true, padding: 40, animate: !!animate, animationDuration: 300 }).run();
     if (cy.zoom() > 1.3) { cy.zoom(1.3); cy.center(); }
-    cy.elements().unselect().removeClass('dim hl');
+    cy.elements().unselect().removeClass('dim hl voisin');
+    if (st.vue === 'tables') noms(); else cy.edges().removeClass('discret');
     if (st.sel?.node) { const n = cy.getElementById(st.sel.node); if (n.length) { n.select(); highlight(n); } }
   }
   function panel() {

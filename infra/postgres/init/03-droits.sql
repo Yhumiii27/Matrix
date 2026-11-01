@@ -648,7 +648,21 @@ BEGIN
   JOIN pg_namespace n ON n.oid = f.pronamespace
   WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits') AND n.nspname <> r.propre
     AND has_schema_privilege(x.oid, n.oid, 'USAGE')
-    AND has_function_privilege(x.oid, f.oid, 'EXECUTE');
+    AND has_function_privilege(x.oid, f.oid, 'EXECUTE')
+    -- Lien d'exécution (M-18, lot P4) : une fonction pub_ d'un outil, accordée d'après le registre.
+    AND NOT (n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible') AND f.proname LIKE 'pub\_%');
+  -- Fonctions pub_ des outils (écritures, M-18) : jamais exécutables par PUBLIC ; SECURITY DEFINER à search_path fixé.
+  RETURN QUERY
+  SELECT CASE WHEN f.proacl IS NULL OR EXISTS (SELECT FROM aclexplode(f.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE')
+              THEN 'erreur' ELSE 'attention' END,
+         format('%I.%I(%s)', n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)),
+         CASE WHEN f.proacl IS NULL OR EXISTS (SELECT FROM aclexplode(f.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE')
+              THEN 'fonction pub_ exécutable par PUBLIC : REVOKE EXECUTE … FROM PUBLIC dans la migration de l''outil (seul le registre des liens l''accorde)'
+              ELSE 'fonction pub_ qui n''est pas SECURITY DEFINER à search_path fixé : Matrix ne l''accordera pas' END
+  FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible') AND f.proname LIKE 'pub\_%'
+    AND (f.proacl IS NULL OR EXISTS (SELECT FROM aclexplode(f.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE')
+         OR NOT f.prosecdef OR NOT EXISTS (SELECT FROM unnest(f.proconfig) AS c(x) WHERE c.x LIKE 'search\_path=%'));
 
   -- Lecteurs attendus (droits.partage_lecteurs, écrits par partage/90-droits.sql) : chacun garde USAGE sur le
   -- schéma et SELECT sur la vue. Une restauration avec --no-privileges ou un DROP … CASCADE les retire sans bruit.
@@ -773,9 +787,11 @@ BEGIN
     AND NOT (n.nspname::text = ANY (CASE WHEN p.priv = 'USAGE' THEN r.usage_ok ELSE r.create_ok END))
     AND has_schema_privilege(x.oid, n.oid, p.priv)
     AND NOT (p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix')
-             AND EXISTS (SELECT FROM pg_class v
-                         WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
-                           AND has_table_privilege(x.oid, v.oid, 'SELECT')));
+             AND (EXISTS (SELECT FROM pg_class v
+                          WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
+                            AND has_table_privilege(x.oid, v.oid, 'SELECT'))
+                  OR EXISTS (SELECT FROM pg_proc f CROSS JOIN LATERAL aclexplode(f.proacl) a
+                             WHERE f.pronamespace = n.oid AND f.proname LIKE 'pub\_%' AND a.privilege_type = 'EXECUTE' AND a.grantee = x.oid)));
 
   -- Droit CREATE sur la base et attributs d'administration.
   RETURN QUERY
@@ -953,6 +969,54 @@ CREATE EVENT TRIGGER droits_suppression ON sql_drop
 COMMENT ON EVENT TRIGGER droits_ddl IS 'Réduit le SELECT de matrix_lecture aux colonnes non sensibles dès la création ou la modification d''une relation (infra/postgres/init/03-droits.sql).';
 COMMENT ON EVENT TRIGGER droits_suppression IS 'Oublie les tables supprimées dans droits.relations_protegees.';
 
+-- ── 5 bis. Liens d'exécution (M-18, lot P4) ─────────────────────────────
+-- Matrix applique tout de suite un lien d'exécution (un outil écrit chez un autre par une fonction pub_ du propriétaire)
+-- sans jamais recevoir lui-même le droit EXECUTE : une fonction d'écriture exécutable par matrix_gestion lui permettrait
+-- d'écrire. Cette fonction, propriété du superutilisateur, pose ou retire le droit au nom du propriétaire de la fonction,
+-- et seulement d'après le registre : un EXECUTE n'est accordé que pour un lien autorisé de nature « execution » de
+-- matrix.liens, sur une fonction pub_ unique d'un outil, SECURITY DEFINER, à search_path fixé.
+CREATE OR REPLACE FUNCTION droits.accorder_execution(p_fonction text, p_lecteur text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+  v_schema text := split_part(p_fonction, '.', 1);
+  v_nom text := split_part(p_fonction, '.', 2);
+  v_oid oid;
+  v_nb bigint;
+  v_autorise boolean;
+BEGIN
+  IF p_fonction !~ '^(keystone|codex|cursus|vigie|arche|crucible)\.pub_[a-z0-9_]+$' THEN
+    RAISE EXCEPTION 'fonction invalide : % (attendu : <outil>.pub_<verbe>_<objet>)', p_fonction;
+  END IF;
+  IF p_lecteur NOT IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')
+     OR p_lecteur = v_schema || '_app' THEN
+    RAISE EXCEPTION 'outil appelant invalide : %', p_lecteur;
+  END IF;
+  SELECT min(p.oid), count(*) INTO v_oid, v_nb
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = v_schema AND p.proname = v_nom;
+  IF v_nb = 0 THEN
+    RETURN 'absente';
+  ELSIF v_nb > 1 THEN
+    RAISE EXCEPTION 'plusieurs fonctions % : une fonction pub_ porte un nom unique (une nouvelle version prend un nouveau nom)', p_fonction;
+  END IF;
+  EXECUTE 'SELECT EXISTS (SELECT FROM matrix.liens l WHERE l.vue = $1 AND l.lecteur = $2 AND l.statut = ''autorise''
+                                 AND coalesce(to_jsonb(l) ->> ''nature'', ''lecture'') = ''execution'')'
+    INTO v_autorise USING p_fonction, p_lecteur;
+  IF v_autorise THEN
+    IF NOT (SELECT p.prosecdef AND EXISTS (SELECT FROM unnest(p.proconfig) AS c(x) WHERE c.x LIKE 'search\_path=%')
+            FROM pg_proc p WHERE p.oid = v_oid) THEN
+      RAISE EXCEPTION '% n''est pas SECURITY DEFINER à search_path fixé : elle ne peut pas être accordée (docs/architecture-postgres.md § 8 sexies)', p_fonction;
+    END IF;
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %I', v_oid::regprocedure, p_lecteur);
+    RETURN 'accorde';
+  END IF;
+  -- Retrait : droits donnés par le propriétaire (ou par ce même chemin, enregistrés au nom du propriétaire).
+  EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM %I', v_oid::regprocedure, p_lecteur);
+  RETURN 'retire';
+END $$;
+COMMENT ON FUNCTION droits.accorder_execution(text, text) IS 'Lien d''exécution (M-18, lot P4) : accorde EXECUTE sur une fonction pub_ d''un outil à un autre outil si matrix.liens l''autorise (nature execution), le retire sinon. Appelée par matrix_gestion, qui ne reçoit jamais EXECUTE lui-même.';
+
 -- ── 6. Droits sur le schéma droits ──────────────────────────────────────
 REVOKE ALL ON ALL TABLES IN SCHEMA droits FROM PUBLIC;
 REVOKE ALL ON ALL ROUTINES IN SCHEMA droits FROM PUBLIC;
@@ -962,8 +1026,9 @@ GRANT SELECT ON droits.relations_protegees TO matrix_admin;
 GRANT SELECT ON droits.partage_lecteurs TO matrix_lecture, matrix_admin;
 GRANT INSERT, DELETE ON droits.partage_lecteurs TO matrix_admin;
 GRANT EXECUTE ON FUNCTION droits.verifier() TO matrix_lecture, matrix_admin;
--- matrix_gestion contrôle chaque publication avant de la valider (M-18, lot P2).
+-- matrix_gestion contrôle chaque publication avant de la valider (M-18, lot P2) et applique les liens d'exécution (P4).
 GRANT EXECUTE ON FUNCTION droits.verifier() TO matrix_gestion;
+GRANT EXECUTE ON FUNCTION droits.accorder_execution(text, text) TO matrix_gestion;
 GRANT EXECUTE ON FUNCTION droits.appliquer_droits() TO matrix_admin;
 
 -- ── 7. Application immédiate (rejeu : remet les relations existantes en ordre) ──

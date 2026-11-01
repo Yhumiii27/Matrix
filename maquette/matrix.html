@@ -1702,9 +1702,10 @@ RENDER.liens = () => {
   const decision = async (vue, lecteur, statut) => {
     let motif = null;
     if (statut === 'refuse') { motif = prompt(`Motif du refus : ${lecteur} ne lira pas ${vue}`); if (!motif) return; }
-    else if (statut === 'autorise') motif = prompt(`Autoriser ${lecteur} à lire ${vue}. Motif (facultatif) :`) ?? null;
+    else if (statut === 'autorise') motif = prompt(`Autoriser ${lecteur} à ${(SANTE.fonctions || []).some(f => f.fonction === vue) ? 'exécuter (écrire par)' : 'lire'} ${vue}. Motif (facultatif) :`) ?? null;
     try {
-      const j = await poster('/api/liens', { vue, lecteur, statut, motif }); SANTE.liens = j.liens;
+      const nature = SANTE.liens.find(l => l.vue === vue && l.lecteur === lecteur)?.nature || ((SANTE.fonctions || []).some(f => f.fonction === vue) ? 'execution' : 'lecture');
+      const j = await poster('/api/liens', { vue, lecteur, statut, motif, nature }); SANTE.liens = j.liens;
       // M-18 : appliqué tout de suite par Matrix (vue reprise, rôle matrix_gestion), sinon par 90-droits.sql.
       const tout = j.lien?.application?.applique;
       toast(statut === 'demande' ? 'Demande enregistrée' : `Lien ${statut === 'autorise' ? 'autorisé' : 'refusé'} : droit ${statut === 'autorise' ? 'posé' : 'retiré'} ${tout ? 'tout de suite' : 'au prochain passage de 90-droits.sql (15 minutes au plus)'}`);
@@ -1719,13 +1720,13 @@ RENDER.liens = () => {
     const nb = (p, l) => L.filter(x => outilDe(x.vue) === p && x.lecteur === l && x.statut === 'autorise').length;
     const vuesExistantes = (SANTE.vues || []).map(v => v.vue).sort();
     root.innerHTML = `<div class="wrap">
-      <div class="top"><div><p class="text-muted prose">Un lien autorise un outil à lire la vue <span class="mono">pub_</span> d’un autre. Matrix tient le registre (<span class="mono">matrix.liens</span>) ; <span class="mono">partage/90-droits.sql</span> l’applique : droit posé pour un lien autorisé, retiré sinon. La tâche planifiée <span class="mono">appliquer-liens.sh</span> le rejoue dans les 15 minutes qui suivent une décision.</p></div>
+      <div class="top"><div><p class="text-muted prose">Un lien autorise un outil à lire la vue <span class="mono">pub_</span> d’un autre, ou à y écrire par une fonction <span class="mono">pub_</span> que le propriétaire fournit (lien d’écriture : la fonction applique les règles et le journal de l’outil propriétaire). Matrix tient le registre (<span class="mono">matrix.liens</span>) ; <span class="mono">partage/90-droits.sql</span> l’applique : droit posé pour un lien autorisé, retiré sinon. La tâche planifiée <span class="mono">appliquer-liens.sh</span> le rejoue dans les 15 minutes qui suivent une décision.</p></div>
         ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary" id="liens-relire">${icon('pulse', 14)} Relire le serveur</button></div>` : ''}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         ${seg('lfiltre', [['traiter', 'À traiter', L.filter(l => LIENS_A_TRAITER.includes(l.etat)).length], ['applique', 'Appliqués', L.filter(l => l.etat === 'applique').length], ['refuse', 'Refusés', L.filter(l => l.etat === 'refuse').length], ['outil_absent', 'Outil absent', L.filter(l => l.etat === 'outil_absent').length], ['tous', 'Tous', L.length]], st.filtre)}
         ${seg('llecteur', [['tous', 'Tous les lecteurs'], ...lecteurs.map(l => [l, APPS[appDe(l)]?.nom || 'Matrix'])], st.lecteur)}</div>
-      ${lignes.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Vue publiée</th><th>Lecteur</th><th>Registre</th><th>État</th><th>Décision</th>${SERVEUR ? '<th></th>' : ''}</tr></thead><tbody>
-        ${lignes.map(l => `<tr><td class="nowrap">${APPS[outilDe(l.vue)] ? appMark(outilDe(l.vue), 16) : icon('matrix', 16)} <span class="mono">${esc(l.vue)}</span></td>
+      ${lignes.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Objet publié</th><th>Outil</th><th>Registre</th><th>État</th><th>Décision</th>${SERVEUR ? '<th></th>' : ''}</tr></thead><tbody>
+        ${lignes.map(l => `<tr><td class="nowrap">${APPS[outilDe(l.vue)] ? appMark(outilDe(l.vue), 16) : icon('matrix', 16)} <span class="mono">${esc(l.vue)}</span>${l.nature === 'execution' ? ' <span class="tag tag-outline" title="Lien d’écriture : exécution d’une fonction pub_">écriture</span>' : ''}</td>
           <td class="nowrap">${APPS[appDe(l.lecteur)] ? appMark(appDe(l.lecteur), 16) + ' ' + APPS[appDe(l.lecteur)].nom : 'Matrix'}</td>
           <td>${l.statut ? esc({ autorise: 'Autorisé', refuse: 'Refusé', demande: 'Demandé' }[l.statut]) : '<span class="text-muted">absent</span>'}${l.origine === 'convention' ? ' <span class="text-muted sub">· convention</span>' : ''}</td>
           <td>${etatTag(l.gravite)} <span class="sub">${esc(E[l.etat]?.libelle || l.etat)}</span></td>
@@ -1734,7 +1735,7 @@ RENDER.liens = () => {
         : `<p class="text-muted">Aucun lien dans cette sélection.</p>`}
       ${SERVEUR ? `<div class="block-title" style="margin-top:22px">Nouvelle demande de lien</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <select class="input" id="ld-vue">${vuesExistantes.map(v => `<option>${esc(v)}</option>`).join('')}</select>
+          <select class="input" id="ld-vue"><optgroup label="Lecture (vues pub_)">${vuesExistantes.map(v => `<option data-nature="lecture">${esc(v)}</option>`).join('')}</optgroup>${(SANTE.fonctions || []).length ? `<optgroup label="Écriture (fonctions pub_)">${SANTE.fonctions.map(f => `<option data-nature="execution" title="${esc(f.fonction)}(${esc(f.arguments)})">${esc(f.fonction)}</option>`).join('')}</optgroup>` : ''}</select>
           <select class="input" id="ld-lecteur">${['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app'].map(l => `<option value="${l}">${APPS[appDe(l)]?.nom || 'Matrix'}</option>`).join('')}</select>
           <input class="input" id="ld-motif" placeholder="Besoin de l’outil lecteur" style="flex:1;min-width:220px">
           <button class="btn btn-primary btn-sm" id="ld-envoyer">Enregistrer la demande</button></div>` : ''}
@@ -1750,8 +1751,9 @@ RENDER.liens = () => {
     if (e.target.closest('#liens-relire')) return relire(e.target.closest('#liens-relire'));
     if (e.target.closest('#ld-envoyer')) {
       const vue = $('ld-vue').value, lecteur = $('ld-lecteur').value, motif = $('ld-motif').value.trim();
+      const nature = $('ld-vue').selectedOptions[0]?.dataset.nature || 'lecture';
       if (!motif) return toast('Indiquez le besoin de l’outil lecteur');
-      poster('/api/liens', { vue, lecteur, statut: 'demande', motif }).then(j => { SANTE.liens = j.liens; st.filtre = 'traiter'; toast('Demande enregistrée'); draw(); navLiens(); }, err => toast(err.message));
+      poster('/api/liens', { vue, lecteur, statut: 'demande', motif, nature }).then(j => { SANTE.liens = j.liens; st.filtre = 'traiter'; toast('Demande enregistrée'); draw(); navLiens(); }, err => toast(err.message));
     }
   });
   onSeg(root, 'lfiltre', v => { st.filtre = v; draw(); });

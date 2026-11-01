@@ -74,6 +74,26 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
                       WHERE l.vue = n.nspname || '.' || c.relname AND l.lecteur = pg_get_userbyid(a.grantee)
                         AND l.statut = 'autorise')
     UNION ALL
+    -- Liens d'exécution (M-18, lot P4) : fonction pub_ autorisée sans EXECUTE, ou EXECUTE posé sans lien autorisé.
+    SELECT true
+    FROM matrix.liens l
+    JOIN pg_namespace n ON n.nspname = split_part(l.vue, '.', 1)
+    JOIN pg_proc p ON p.pronamespace = n.oid AND p.proname = split_part(l.vue, '.', 2)
+    JOIN pg_roles r ON r.rolname = l.lecteur
+    WHERE l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution'
+      AND NOT has_function_privilege(r.oid, p.oid, 'EXECUTE')
+    UNION ALL
+    SELECT false
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL aclexplode(p.proacl) a
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible') AND p.proname LIKE 'pub\_%'
+      AND a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner
+      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')
+      AND NOT EXISTS (SELECT FROM matrix.liens l
+                      WHERE l.vue = n.nspname || '.' || p.proname AND l.lecteur = pg_get_userbyid(a.grantee)
+                        AND l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution')
+    UNION ALL
     -- USAGE restant sur un schéma où l'outil ne lit plus aucune vue pub_ (lien retiré par Matrix, lot P2 de M-18 :
     -- l'USAGE donné par le propriétaire du schéma ne peut être retiré que par lui).
     SELECT false
@@ -85,6 +105,8 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
       AND NOT EXISTS (SELECT FROM pg_class v
                       WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
                         AND has_table_privilege(a.grantee, v.oid, 'SELECT'))
+      AND NOT EXISTS (SELECT FROM pg_proc f CROSS JOIN LATERAL aclexplode(f.proacl) x
+                      WHERE f.pronamespace = n.oid AND f.proname LIKE 'pub\_%' AND x.privilege_type = 'EXECUTE' AND x.grantee = a.grantee)
   ) e
 ) END
 SQL

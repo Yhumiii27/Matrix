@@ -6,14 +6,19 @@ import { validerLien, declarations, lireServeur, client } from '../outils/sonde.
 
 test('validerLien : formes, lecteur, refus motivé, vue inexistante', () => {
   assert.deepEqual(validerLien({ vue: ' keystone.pub_projets ', lecteur: 'codex_app', statut: 'autorise' }),
-    { vue: 'keystone.pub_projets', lecteur: 'codex_app', statut: 'autorise', motif: null });
+    { vue: 'keystone.pub_projets', lecteur: 'codex_app', statut: 'autorise', motif: null, nature: 'lecture' });
   assert.throws(() => validerLien({ vue: 'keystone.projects', lecteur: 'codex_app', statut: 'autorise' }), /vue invalide/);
   assert.throws(() => validerLien({ vue: 'keystone.pub_projets', lecteur: 'postgres', statut: 'autorise' }), /lecteur inconnu/);
-  assert.throws(() => validerLien({ vue: 'keystone.pub_projets', lecteur: 'keystone_app', statut: 'autorise' }), /ses propres vues/);
+  assert.throws(() => validerLien({ vue: 'keystone.pub_projets', lecteur: 'keystone_app', statut: 'autorise' }), /ses propres données/);
   assert.throws(() => validerLien({ vue: 'keystone.pub_projets', lecteur: 'codex_app', statut: 'refuse', motif: '  ' }), /motivé/);
   const connues = new Set(['keystone.pub_projets']);
   assert.throws(() => validerLien({ vue: 'keystone.pub_futur', lecteur: 'codex_app', statut: 'autorise' }, connues), /seule une demande/);
   assert.equal(validerLien({ vue: 'keystone.pub_futur', lecteur: 'codex_app', statut: 'demande' }, connues).statut, 'demande');
+  // Lien d'écriture (M-18, lot P4) : exécution d'une fonction pub_ d'un outil, jamais de Matrix.
+  assert.equal(validerLien({ vue: 'codex.pub_deposer_document', lecteur: 'arche_app', statut: 'demande', nature: 'execution' }).nature, 'execution');
+  assert.throws(() => validerLien({ vue: 'matrix.pub_creer_site', lecteur: 'arche_app', statut: 'autorise', nature: 'execution' }), /Matrix ne publie pas/);
+  assert.throws(() => validerLien({ vue: 'codex.pub_x', lecteur: 'arche_app', statut: 'autorise', nature: 'ecriture' }), /nature/);
+  assert.throws(() => validerLien({ vue: 'codex.pub_absente', lecteur: 'arche_app', statut: 'autorise', nature: 'execution' }, connues), /la fonction .* n'existe pas encore/);
 });
 
 test('declarations : structure seule, empreinte stable, outils seulement', () => {

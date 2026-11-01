@@ -178,6 +178,7 @@ DECLARE
   v_schema text;
   v_proprio text;
   v_proprio_schema text;
+  v_nb_f bigint;
   v_lecteurs text;
   v_absentes text[] := '{}';
   v_nb integer := 0;
@@ -286,7 +287,7 @@ BEGIN
       ON CONFLICT (vue, lecteur) DO NOTHING$q$ USING v_convention;
     EXECUTE $q$SELECT jsonb_agg(jsonb_build_object('vue', vue, 'lecteurs', to_jsonb(lecteurs)))
                FROM (SELECT vue, array_agg(lecteur ORDER BY lecteur) AS lecteurs FROM matrix.liens
-                     WHERE statut = 'autorise' GROUP BY vue) x$q$ INTO v_voulus;
+                     WHERE statut = 'autorise' AND coalesce(to_jsonb(liens) ->> 'nature', 'lecture') = 'lecture' GROUP BY vue) x$q$ INTO v_voulus;
     RAISE NOTICE 'Liens : registre de Matrix (matrix.liens) appliqué.';
   ELSE
     v_voulus := v_convention;
@@ -350,6 +351,44 @@ BEGIN
                  WHERE NOT EXISTS (SELECT FROM jsonb_to_recordset(coalesce($1, '[]')) AS x(vue text, lecteurs text[])
                                    WHERE x.vue = p.vue AND p.lecteur = ANY (x.lecteurs))$q$ USING v_voulus;
     END IF;
+    -- Liens d'exécution (M-18, lot P4) : EXECUTE sur une fonction pub_ d'un outil (écriture par les règles du
+    -- propriétaire) pour un lien autorisé de nature « execution », retiré sinon. Chaque droit est posé par le propriétaire
+    -- de la fonction (USAGE par celui du schéma) et retiré par celui qui l'a donné.
+    FOR r IN EXECUTE $q$SELECT l.vue AS fonction, l.lecteur FROM matrix.liens l
+                        WHERE l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution'$q$
+    LOOP
+      SELECT min(p.oid), count(*), min(pg_get_userbyid(p.proowner)), min(pg_get_userbyid(n.nspowner))
+        INTO v_oid, v_nb_f, v_proprio, v_proprio_schema
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = split_part(r.fonction, '.', 1) AND p.proname = split_part(r.fonction, '.', 2);
+      IF v_nb_f <> 1 THEN
+        v_absentes := v_absentes || (r.fonction || CASE WHEN v_nb_f > 1 THEN ' (plusieurs fonctions de ce nom)' ELSE ' (fonction)' END);
+        CONTINUE;
+      END IF;
+      EXECUTE format('SET ROLE %I', v_proprio_schema);
+      EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', split_part(r.fonction, '.', 1), r.lecteur);
+      EXECUTE format('SET ROLE %I', v_proprio);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %I', v_oid::regprocedure, r.lecteur);
+      EXECUTE 'RESET ROLE';
+    END LOOP;
+    FOR r IN EXECUTE $q$
+      SELECT p.oid::regprocedure::text AS fonction, pg_get_userbyid(a.grantor) AS par, pg_get_userbyid(a.grantee) AS lecteur,
+             n.nspname || '.' || p.proname AS nom
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      CROSS JOIN LATERAL aclexplode(p.proacl) a
+      WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible') AND p.proname LIKE 'pub\_%'
+        AND a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner
+        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')
+        AND NOT EXISTS (SELECT FROM matrix.liens l
+                        WHERE l.vue = n.nspname || '.' || p.proname AND l.lecteur = pg_get_userbyid(a.grantee)
+                          AND l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution')$q$
+    LOOP
+      EXECUTE format('SET ROLE %I', r.par);
+      EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM %I', r.fonction, r.lecteur);
+      EXECUTE 'RESET ROLE';
+      RAISE NOTICE 'Lien retiré (exécution non autorisée dans matrix.liens) : % ne peut plus exécuter %.', r.lecteur, r.nom;
+      v_retires := v_retires + 1;
+    END LOOP;
     FOR r IN
       -- Chaque USAGE est retiré par celui qui l'a donné : le propriétaire du schéma, ou matrix_gestion (lot P2 de M-18).
       SELECT n.nspname AS schema, pg_get_userbyid(a.grantor) AS proprio, pg_get_userbyid(a.grantee) AS lecteur
@@ -361,6 +400,8 @@ BEGIN
         AND NOT EXISTS (SELECT FROM pg_class v
                         WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
                           AND has_table_privilege(a.grantee, v.oid, 'SELECT'))
+        AND NOT EXISTS (SELECT FROM pg_proc f CROSS JOIN LATERAL aclexplode(f.proacl) x
+                        WHERE f.pronamespace = n.oid AND f.proname LIKE 'pub\_%' AND x.privilege_type = 'EXECUTE' AND x.grantee = a.grantee)
     LOOP
       EXECUTE format('SET ROLE %I', r.proprio);
       EXECUTE format('REVOKE USAGE ON SCHEMA %I FROM %I', r.schema, r.lecteur);
@@ -368,7 +409,7 @@ BEGIN
       v_usages := v_usages + 1;
     END LOOP;
     IF v_retires + v_usages > 0 THEN
-      RAISE NOTICE 'Liens retirés : % droit(s) SELECT, % droit(s) USAGE sur un schéma.', v_retires, v_usages;
+      RAISE NOTICE 'Liens retirés : % droit(s) de lecture ou d''exécution, % droit(s) USAGE sur un schéma.', v_retires, v_usages;
     END IF;
   END IF;
 

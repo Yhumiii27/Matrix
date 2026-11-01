@@ -77,6 +77,18 @@ const Q_VUES = `
   WHERE n.nspname = ANY ($1) AND c.relkind = 'v' AND c.relname LIKE 'pub\\_%'
   ORDER BY 1, 2`;
 
+// Fonctions pub_ des outils (écritures, M-18 lot P4) : signature, sécurité et outils qui peuvent les exécuter.
+const Q_FONCTIONS = `
+  SELECT n.nspname AS schema, p.proname AS nom, pg_get_function_identity_arguments(p.oid) AS arguments,
+         pg_get_function_result(p.oid) AS resultat, obj_description(p.oid, 'pg_proc') AS description,
+         p.prosecdef AS definer, EXISTS (SELECT FROM unnest(p.proconfig) AS c(x) WHERE c.x LIKE 'search\\_path=%') AS search_path_fixe,
+         (p.proacl IS NULL OR EXISTS (SELECT FROM aclexplode(p.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE')) AS publique,
+         array(SELECT DISTINCT pg_get_userbyid(a.grantee) FROM aclexplode(p.proacl) a
+               WHERE a.privilege_type = 'EXECUTE' AND a.grantee NOT IN (0, p.proowner) ORDER BY 1)::text[] AS executeurs
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = ANY ($1) AND p.proname LIKE 'pub\\_%'
+  ORDER BY 1, 2`;
+
 // Lignage des vues pub_ (E-07) : colonnes des tables dont chaque vue dépend (pg_depend, sûr) et définition de la vue
 // (pg_get_viewdef), analysée par outils/lignage.mjs. Catalogues lisibles par tout rôle : aucune donnée n'est lue.
 const Q_LIGNAGE = `
@@ -158,8 +170,13 @@ export async function lireServeur(db, { references = [] } = {}) {
   }
   for (const [s, l] of Object.entries(vuesParSchema)) if (outils[s]) outils[s].vues = l;
 
-  const registre = await essayer(db, `SELECT vue, lecteur, statut, origine, motif, demande_par, demande_le, decide_par, decide_le, modifie_le
-                                      FROM matrix.liens ORDER BY vue, lecteur`);
+  const fonctions = (await essayer(db, Q_FONCTIONS, [OUTILS])).lignes.map(f => ({
+    fonction: `${f.schema}.${f.nom}`, arguments: f.arguments, resultat: f.resultat, description: f.description,
+    definer: f.definer, searchPathFixe: f.search_path_fixe, publique: f.publique, executeurs: f.executeurs,
+  }));
+  const registre = await essayer(db, `SELECT vue, lecteur, statut, origine, coalesce(to_jsonb(l) ->> 'nature', 'lecture') AS nature,
+                                             motif, demande_par, demande_le, decide_par, decide_le, modifie_le
+                                      FROM matrix.liens l ORDER BY vue, lecteur`);
   const journal = await essayer(db, `SELECT vue, lecteur, avant, apres, motif, par, le FROM matrix.liens_journal ORDER BY id DESC LIMIT 300`);
   const sensibles = await essayer(db, `SELECT schema_nom AS schema, table_nom AS table, colonne_nom AS colonne, motif, origine
                                        FROM droits.colonnes_sensibles ORDER BY 1, 2, 3`);
@@ -170,6 +187,7 @@ export async function lireServeur(db, { references = [] } = {}) {
     luLe,
     outils,
     vues: Object.values(vuesParSchema).flat(),
+    fonctions,
     liens: { registre: registre.lignes, journal: journal.lignes, ...(registre.erreur ? { erreur: registre.erreur } : {}) },
     sensibles: sensibles.lignes,
     verifier: { lignes: verifier.lignes, ...(verifier.erreur ? { erreur: verifier.erreur } : {}) },
@@ -247,31 +265,34 @@ export function declarations(lecture) {
 const STATUTS = ['autorise', 'refuse', 'demande'];
 
 /** Contrôle une décision sur un lien. Renvoie le lien normalisé ou lève une erreur lisible. */
-export function validerLien({ vue, lecteur, statut, motif }, vuesConnues = null) {
+export function validerLien({ vue, lecteur, statut, motif, nature }, vuesConnues = null) {
   vue = String(vue ?? '').trim(); lecteur = String(lecteur ?? '').trim(); statut = String(statut ?? '').trim();
-  if (!/^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$/.test(vue)) throw new Error(`vue invalide (« ${vue} ») : schéma.pub_nom attendu`);
+  nature = String(nature ?? '').trim() || 'lecture';
+  if (!['lecture', 'execution'].includes(nature)) throw new Error('nature : lecture (vue pub_) ou execution (fonction pub_)');
+  if (!/^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$/.test(vue)) throw new Error(`${nature === 'execution' ? 'fonction' : 'vue'} invalide (« ${vue} ») : schéma.pub_nom attendu`);
+  if (nature === 'execution' && vue.startsWith('matrix.')) throw new Error('Matrix ne publie pas de fonction d’écriture : ses référentiels s’écrivent dans Matrix');
   if (!LECTEURS.includes(lecteur)) throw new Error(`lecteur inconnu : ${lecteur}`);
-  if (`${vue.split('.')[0]}_app` === lecteur) throw new Error('un outil lit ses propres vues sans lien');
+  if (`${vue.split('.')[0]}_app` === lecteur) throw new Error('un outil lit et écrit ses propres données sans lien');
   if (!STATUTS.includes(statut)) throw new Error('statut : autorise, refuse ou demande');
   motif = motif == null ? null : String(motif).trim().slice(0, 500) || null;
   if (statut === 'refuse' && !motif) throw new Error('un refus doit être motivé');
-  if (vuesConnues && !vuesConnues.has(vue) && statut !== 'demande') throw new Error(`la vue ${vue} n'existe pas encore sur le serveur : seule une demande est possible`);
-  return { vue, lecteur, statut, motif };
+  if (vuesConnues && !vuesConnues.has(vue) && statut !== 'demande') throw new Error(`${nature === 'execution' ? 'la fonction' : 'la vue'} ${vue} n'existe pas encore sur le serveur : seule une demande est possible`);
+  return { vue, lecteur, statut, motif, nature };
 }
 
 /** Inscrit une décision (ou une demande) dans matrix.liens. Le journal est tenu par le déclencheur de la table. */
 export async function ecrireLien(db, lien, par) {
   const r = await db.query(
-    `INSERT INTO matrix.liens AS l (vue, lecteur, statut, origine, motif, demande_par, demande_le, decide_par, decide_le)
+    `INSERT INTO matrix.liens AS l (vue, lecteur, statut, origine, motif, demande_par, demande_le, decide_par, decide_le, nature)
      VALUES ($1, $2, $3, 'matrix', $4, CASE WHEN $3 = 'demande' THEN $5 END, CASE WHEN $3 = 'demande' THEN now() END,
-             CASE WHEN $3 <> 'demande' THEN $5 END, CASE WHEN $3 <> 'demande' THEN now() END)
-     ON CONFLICT (vue, lecteur) DO UPDATE SET statut = EXCLUDED.statut, motif = EXCLUDED.motif,
+             CASE WHEN $3 <> 'demande' THEN $5 END, CASE WHEN $3 <> 'demande' THEN now() END, $6)
+     ON CONFLICT (vue, lecteur) DO UPDATE SET statut = EXCLUDED.statut, motif = EXCLUDED.motif, nature = EXCLUDED.nature,
        demande_par = CASE WHEN EXCLUDED.statut = 'demande' THEN EXCLUDED.demande_par ELSE l.demande_par END,
        demande_le = CASE WHEN EXCLUDED.statut = 'demande' THEN EXCLUDED.demande_le ELSE l.demande_le END,
        decide_par = CASE WHEN EXCLUDED.statut <> 'demande' THEN EXCLUDED.decide_par ELSE NULL END,
        decide_le = CASE WHEN EXCLUDED.statut <> 'demande' THEN EXCLUDED.decide_le ELSE NULL END
-     RETURNING vue, lecteur, statut, origine, motif, demande_par, demande_le, decide_par, decide_le, modifie_le`,
-    [lien.vue, lien.lecteur, lien.statut, lien.motif, par]);
+     RETURNING vue, lecteur, statut, origine, nature, motif, demande_par, demande_le, decide_par, decide_le, modifie_le`,
+    [lien.vue, lien.lecteur, lien.statut, lien.motif, par, lien.nature ?? 'lecture']);
   return r.rows[0];
 }
 

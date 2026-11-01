@@ -39,6 +39,12 @@ CREATE TABLE IF NOT EXISTS matrix.liens (
   CONSTRAINT liens_origine_check CHECK (origine IN ('convention', 'matrix')),
   CONSTRAINT liens_decision_check CHECK (statut = 'demande' OR decide_le IS NOT NULL)
 );
+-- Nature d'un lien (M-18, lot P4) : lecture d'une vue pub_, ou exécution d'une fonction pub_ (écriture chez un autre
+-- outil par une fonction que le propriétaire fournit, docs/architecture-postgres.md § 8 sexies, règle R4).
+ALTER TABLE matrix.liens ADD COLUMN IF NOT EXISTS nature text NOT NULL DEFAULT 'lecture';
+ALTER TABLE matrix.liens DROP CONSTRAINT IF EXISTS liens_nature_check;
+ALTER TABLE matrix.liens ADD CONSTRAINT liens_nature_check CHECK (nature IN ('lecture', 'execution'));
+COMMENT ON COLUMN matrix.liens.nature IS 'lecture : SELECT sur la vue pub_ (colonne vue) ; execution : EXECUTE sur la fonction pub_ du même nom (écriture chez l''outil propriétaire, par ses règles).';
 COMMENT ON TABLE matrix.liens IS 'Registre des liens entre outils (lecture d''une vue pub_ par un autre outil), administré par Matrix ; appliqué par partage/90-droits.sql (GRANT des liens autorisés, REVOKE des autres).';
 COMMENT ON COLUMN matrix.liens.origine IS 'convention : lien de la convention de partage, inscrit par 90-droits.sql ; matrix : lien demandé ou décidé dans Matrix.';
 

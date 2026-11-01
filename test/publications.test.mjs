@@ -133,3 +133,60 @@ test('serveur : publier, lier, refuser une rupture de contrat ou une colonne sen
     await Promise.all([app.end(), gestion.end(), admin.end()]);
   }
 });
+
+test('serveur : lien d’écriture, exécution accordée puis retirée, jamais à Matrix',
+  { skip: !(APP && GESTION && ADMIN) && 'MATRIX_TEST_DATABASE_URL, MATRIX_TEST_GESTION_URL ou MATRIX_TEST_ADMIN_URL absent' }, async () => {
+  const n = Date.now().toString(36), table = `p4_essai_${n}`, fn = `keystone.pub_ecrire_p4_${n}`, fnFaible = `keystone.pub_faible_p4_${n}`;
+  const app = client(APP), gestion = client(GESTION), admin = client(ADMIN);
+  await Promise.all([app.connect(), gestion.connect(), admin.connect()]);
+  const comme = async (role, sql) => {
+    await admin.query('BEGIN');
+    try { await admin.query(`SET LOCAL ROLE ${role}`); return (await admin.query(sql)).rows; }
+    catch (e) { return e.code; } finally { await admin.query('ROLLBACK'); }
+  };
+  try {
+    await admin.query(`SET ROLE keystone_app;
+      CREATE TABLE keystone.${table} (id serial PRIMARY KEY, texte text NOT NULL, par text NOT NULL);
+      CREATE FUNCTION ${fn}(p_texte text) RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path = keystone, pg_temp
+        AS $$ INSERT INTO keystone.${table} (texte, par) VALUES (p_texte, session_user) RETURNING id $$;
+      REVOKE EXECUTE ON FUNCTION ${fn}(text) FROM PUBLIC;
+      CREATE FUNCTION ${fnFaible}() RETURNS integer LANGUAGE sql AS $$ SELECT 1 $$;
+      REVOKE EXECUTE ON FUNCTION ${fnFaible}() FROM PUBLIC;
+      RESET ROLE`);
+    const lien = (vue, statut) => app.query(
+      `INSERT INTO matrix.liens (vue, lecteur, statut, nature, motif, decide_par, decide_le) VALUES ($1, 'arche_app', $2, 'execution', 'essai', 'test', now())
+       ON CONFLICT (vue, lecteur) DO UPDATE SET statut = EXCLUDED.statut, motif = 'essai', decide_le = now()`, [vue, statut]);
+
+    // Avant tout lien : ni Arche ni Matrix n'exécutent la fonction.
+    assert.equal(await comme('arche_app', `SELECT ${fn}('x')`), '42501');
+    assert.equal((await gestion.query(`SELECT has_function_privilege('matrix_gestion', '${fn}(text)', 'EXECUTE') AS e`)).rows[0].e, false);
+    // Sans lien autorisé, droits.accorder_execution ne fait que retirer.
+    assert.equal((await gestion.query('SELECT droits.accorder_execution($1, $2) AS r', [fn, 'arche_app'])).rows[0].r, 'retire');
+
+    // Lien autorisé : exécution accordée tout de suite, l'écriture passe par la fonction, jamais par la table.
+    await lien(fn, 'autorise');
+    assert.deepEqual(await appliquerLien(gestion, { vue: fn, lecteur: 'arche_app' }), { applique: true, droit: 'accordé' });
+    assert.equal((await comme('arche_app', `SELECT ${fn}('écrit par Arche') AS id`)).length, 1);
+    assert.equal(await comme('arche_app', `INSERT INTO keystone.${table} (texte, par) VALUES ('direct', 'x')`), '42501');
+    assert.equal((await gestion.query(`SELECT has_function_privilege('matrix_gestion', '${fn}(text)', 'EXECUTE') AS e`)).rows[0].e, false);
+
+    // Fonction sans SECURITY DEFINER ni search_path : jamais accordée.
+    await lien(fnFaible, 'autorise');
+    await assert.rejects(appliquerLien(gestion, { vue: fnFaible, lecteur: 'arche_app' }), /SECURITY DEFINER/);
+
+    // Lien refusé : droit retiré tout de suite.
+    await lien(fn, 'refuse'); await lien(fnFaible, 'refuse');
+    assert.deepEqual(await appliquerLien(gestion, { vue: fn, lecteur: 'arche_app' }), { applique: true, droit: 'retiré' });
+    assert.equal(await comme('arche_app', `SELECT ${fn}('x')`), '42501');
+
+    // Le socle reste conforme, sauf l'avertissement attendu sur la fonction faible.
+    const { rows } = await admin.query(`SELECT * FROM droits.verifier() WHERE gravite = 'erreur'`);
+    assert.deepEqual(rows, []);
+    const { rows: att } = await admin.query(`SELECT constat FROM droits.verifier() WHERE gravite = 'attention' AND objet LIKE $1`, [`%pub_faible_p4_${n}%`]);
+    assert.match(att[0].constat, /SECURITY DEFINER/);
+  } finally {
+    await admin.query('RESET ROLE').catch(() => {});
+    await admin.query(`DROP FUNCTION IF EXISTS ${fn}(text), ${fnFaible}(); DROP TABLE IF EXISTS keystone.${table}`).catch(() => {});
+    await Promise.all([app.end(), gestion.end(), admin.end()]);
+  }
+});

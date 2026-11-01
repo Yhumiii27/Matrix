@@ -194,7 +194,7 @@ async function synchroniser(declencheur) {
     await alignerReferentiels(db, declencheur === 'démarrage');
     const references = lireJson(join(RACINE, 'data', 'references.json')).references;
     const lecture = await lireServeur(db, { references });
-    vuesConnues = new Set(lecture.vues.map(v => v.vue));
+    vuesConnues = new Set([...lecture.vues.map(v => v.vue), ...(lecture.fonctions ?? []).map(f => f.fonction)]);
     const changes = [];
     mkdirSync(DECL, { recursive: true });
     // Lecture du serveur : declarations/<outil>.serveur.json, à côté de la déclaration envoyée par l'outil

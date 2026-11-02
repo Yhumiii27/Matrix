@@ -58,7 +58,8 @@ import { createRequire } from 'node:module';
 import { timingSafeEqual } from 'node:crypto';
 import { collect } from './outils/collecteur.mjs';
 import { construirePage, RACINE } from './outils/page.mjs';
-import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels } from './outils/edition.mjs';
+import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels, remplacerEdition } from './outils/edition.mjs';
+import { editionDisponible, lireEditionPg, reprendreEdition, journaliserPg, documenterPg, deciderPg } from './outils/edition-pg.mjs';
 import { LISTES, lireReferentiels, comparer, ecrireReferentiels } from './outils/referentiels-pg.mjs';
 import { lireJournal, lireRex, lireCorrespondances, deciderCorrespondance } from './outils/consultation.mjs';
 import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, diagrammeMermaid } from './outils/export.mjs';
@@ -130,6 +131,43 @@ async function avecServeur(tache, url = DB_URL) {
 let fileGestion = Promise.resolve();
 const avecGestion = tache => { const p = fileGestion.then(() => avecServeur(tache, GESTION_URL)); fileGestion = p.catch(() => {}); return p; };
 
+// ── Saisies de Matrix sur le serveur commun (E-04) ─────────────────────────
+// Avec partage/15 joué, documentation, décisions et journal vivent dans le schéma matrix (verrou et version : outils/
+// edition-pg.mjs) ; edition.json en est la copie locale, rafraîchie après chaque écriture et à chaque lecture du serveur.
+// Au premier passage, des tables vides reprennent le contenu d'edition.json. Sans serveur, edition.json reste la source.
+let edition = { actif: false, erreur: null, reprisLe: null };
+async function copierEdition(db) { remplacerEdition(DATA, await lireEditionPg(db)); page = null; }
+async function alignerEdition(db, demarrage) {
+  return enSerie(async () => {
+    try {
+      if (!await editionDisponible(db)) {
+        edition = { actif: false, erreur: 'tables absentes : jouez partage/15-matrix-edition.sql (rôle matrix_app) ; saisies dans edition.json', reprisLe: null };
+        return;
+      }
+      if (demarrage) {
+        const n = await reprendreEdition(db, chargerEdition(DATA));
+        if (n !== null) { edition.reprisLe = new Date().toISOString(); console.log(`saisies d'edition.json reprises sur le serveur commun : ${n} ligne(s)`); }
+      }
+      await copierEdition(db);
+      edition = { ...edition, actif: true, erreur: null, copieLe: new Date().toISOString() };
+    } catch (e) {
+      edition = { ...edition, erreur: e.message, erreurLe: new Date().toISOString() };
+      console.error(`saisies sur le serveur commun : ${e.message}`);
+    }
+  });
+}
+// Documentation et décision : en base si possible (verrou, version, journal), sinon dans edition.json.
+async function ecrireSaisie(quoi, corps, auteur) {
+  if (!edition.actif) {
+    return quoi === 'documentation' ? documenter(DATA, lireJson(join(DATA, 'catalogue.json')), corps, auteur) : decider(DATA, corps, auteur);
+  }
+  return enSerie(() => avecServeur(async db => {
+    const r = quoi === 'documentation' ? await documenterPg(db, lireJson(join(DATA, 'catalogue.json')), corps, auteur) : await deciderPg(db, corps, auteur);
+    await copierEdition(db);
+    return r;
+  }));
+}
+
 async function ecrireReferentiel(liste, lignes, auteur) {
   if (!DB_URL) return enregistrerReferentiel(DATA, liste, lignes, auteur);
   return enSerie(async () => {
@@ -139,6 +177,8 @@ async function ecrireReferentiel(liste, lignes, auteur) {
     const b = bilan[liste];
     const r = appliquerReferentiel(DATA, p, auteur, ` · serveur commun : ${b.ecrites} ligne(s) écrite(s)${b.desactivees ? `, ${b.desactivees} désactivée(s)` : ''}`);
     referentiels = { ...referentiels, ecarts: { ...referentiels.ecarts, [liste]: undefined } };
+    // E-04 : le journal est sur le serveur commun ; l'entrée qu'appliquerReferentiel vient d'écrire y est reportée.
+    if (edition.actif) await avecServeur(async db => { await journaliserPg(db, chargerEdition(DATA).journal.at(-1)); await copierEdition(db); }).catch(e => console.error(`journal : ${e.message}`));
     return r;
   });
 }
@@ -166,7 +206,9 @@ async function alignerReferentiels(db, aligner) {
         console.log(`référentiels écrits sur le serveur commun : ${Object.entries(bilan).map(([l, b]) => `${l} ${b.ecrites} écrite(s), ${b.desactivees} désactivée(s)`).join(' · ')}`);
       }
       if (Object.keys(aReprendre).length) {
+        const avant = chargerEdition(DATA).journal.length;
         adopterReferentiels(DATA, aReprendre, 'serveur commun');
+        if (edition.actif) for (const j of chargerEdition(DATA).journal.slice(avant)) await journaliserPg(db, j);
         page = null;
         console.log(`référentiels repris du serveur commun : ${Object.keys(aReprendre).join(', ')}`);
       }
@@ -191,6 +233,7 @@ async function synchroniser(declencheur) {
   const db = client(DB_URL);
   try {
     await db.connect();
+    await alignerEdition(db, declencheur === 'démarrage');
     await alignerReferentiels(db, declencheur === 'démarrage');
     const references = lireJson(join(RACINE, 'data', 'references.json')).references;
     const lecture = await lireServeur(db, { references });
@@ -331,7 +374,7 @@ createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));
     const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays|zones|filiales)$/);
     if (req.method === 'GET' && ref) return json(res, 200, chargerEdition(DATA).referentiels[ref[1]].filter(x => x.actif !== false || url.searchParams.get('tous') === '1'));
-    if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, { sonde, referentiels, sante: lireSante() });
+    if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, { sonde, referentiels, edition, sante: lireSante() });
     if (req.method === 'GET' && url.pathname === '/api/liens') {
       const s = lireSante();
       return json(res, 200, { sonde, liens: s?.liens ?? [], journal: s?.journalLiens ?? [], etats: s?.etatsLien ?? {} });
@@ -430,11 +473,11 @@ createServer((req, res) => {
         try {
           let r;
           if (ref) r = await ecrireReferentiel(ref[1], corps, auteur);
-          else if (url.pathname === '/api/documentation') r = documenter(DATA, lireJson(join(DATA, 'catalogue.json')), corps ?? {}, auteur);
-          else r = decider(DATA, corps ?? {}, auteur);
+          else if (url.pathname === '/api/documentation') r = await ecrireSaisie('documentation', corps ?? {}, auteur);
+          else r = await ecrireSaisie('decision', corps ?? {}, auteur);
           page = null;
           json(res, 200, { ok: true, resultat: r, edition: chargerEdition(DATA) });
-        } catch (e) { json(res, 422, { erreur: e.message }); }
+        } catch (e) { json(res, e.code === 'conflit' ? 409 : 422, { erreur: e.message, ...(e.code === 'conflit' ? { actuel: e.actuel } : {}) }); }
       });
     }
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
@@ -449,6 +492,7 @@ createServer((req, res) => {
       const c = lireJson(join(DATA, 'catalogue.json'));
       return json(res, 200, { ok: true, tables: c.apps.reduce((n, a) => n + a.tables.length, 0), collecteLe: c.generatedAt, declarations: TOKEN ? 'actives' : 'désactivées (MATRIX_TOKEN absent)',
         sonde: DB_URL ? { derniere: sonde.derniere, erreur: sonde.erreur, etat: sonde.etat } : 'désactivée (MATRIX_DATABASE_URL absent)',
+        saisies: edition.actif ? 'serveur commun (matrix.documentation, decisions_doublons, journal)' : `edition.json${edition.erreur ? ` (${edition.erreur})` : ''}`,
         referentiels: DB_URL ? { alignesLe: referentiels.alignesLe, ecarts: Object.keys(referentiels.ecarts).filter(l => referentiels.ecarts[l]), erreur: referentiels.erreur } : 'dans edition.json (MATRIX_DATABASE_URL absent)' });
     }
     if (req.method === 'GET' && url.pathname === '/api/catalogue') return json(res, 200, lireJson(join(DATA, 'catalogue.json')));

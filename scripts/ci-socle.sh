@@ -35,6 +35,7 @@ echo "  liens inscrits : $(matrix -Atc 'SELECT count(*) FROM matrix.liens')"
 
 etape "Publications (M-18) : registre (13), reprise d'une vue pub_ d'essai de Keystone (14), contrat tenu par PostgreSQL"
 matrix -1 -f partage/13-matrix-publications.sql > /dev/null
+matrix -1 -f partage/15-matrix-edition.sql > /dev/null   # saisies de Matrix (E-04), lues par les tests avec base
 outil -1 -c "CREATE TABLE keystone.ci_essai (id int PRIMARY KEY, code text NOT NULL, note text);
              CREATE VIEW keystone.pub_ci_essai AS SELECT id, code FROM keystone.ci_essai;" > /dev/null
 admin -d epc2i -v outils=keystone -1 -f partage/14-reprise-publications.sql > /dev/null

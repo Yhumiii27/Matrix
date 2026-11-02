@@ -57,7 +57,18 @@ const texte = (v, max, champ) => {
 
 // ── Documentation d'une table ────────────────────────────────────────────
 
-export function documenter(dataDir, catalogue, { app, table, description, domaine, responsable, note }, qui) {
+/**
+ * Modification faite sur une version dépassée (E-04) : quelqu'un d'autre a enregistré entre-temps. L'écran envoie la
+ * version qu'il a affichée (majLe de la fiche, option de la décision) ; sans elle (appel d'API ancien), rien n'est
+ * contrôlé.
+ */
+export class Conflit extends Error {
+  constructor(message, actuel) { super(message); this.code = 'conflit'; this.actuel = actuel; }
+}
+const quandLisible = d => d ? new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' }) : '';
+
+/** Contrôle et normalise une documentation saisie ; renvoie { cle, fiche, version }. */
+export function validerDocumentation(catalogue, { app, table, description, domaine, responsable, note, version }) {
   if (!APPS.includes(app)) throw new Error(`outil inconnu : ${app}`);
   if (!catalogue.apps.find(a => a.id === app)?.tables.some(t => t.name === table)) throw new Error(`table inconnue : ${app}.${table}`);
   const fiche = {
@@ -66,8 +77,21 @@ export function documenter(dataDir, catalogue, { app, table, description, domain
     responsable: texte(responsable, 120, 'Le responsable'),
     note: texte(note, 4000, 'La note'),
   };
+  return { cle: `${app}.${table}`, fiche, version };
+}
+/** Refuse une documentation préparée sur une version dépassée (majLe affichée ≠ majLe enregistrée). */
+export function controlerVersionDoc(cle, version, actuelle) {
+  if (version === undefined) return;
+  const enregistree = actuelle?.majLe ? new Date(actuelle.majLe).toISOString() : null;
+  const vue = version ? new Date(version).toISOString() : null;
+  if (enregistree !== vue)
+    throw new Conflit(`${cle} a été documentée entre-temps${actuelle?.majPar ? ` par ${actuelle.majPar}` : ''}${actuelle?.majLe ? ` le ${quandLisible(actuelle.majLe)}` : ''} : rechargez la fiche, puis refaites votre modification.`, actuelle ?? null);
+}
+
+export function documenter(dataDir, catalogue, saisie, qui) {
+  const { cle, fiche, version } = validerDocumentation(catalogue, saisie);
   const ed = chargerEdition(dataDir);
-  const cle = `${app}.${table}`;
+  controlerVersionDoc(cle, version, ed.documentation[cle]);
   const avant = ed.documentation[cle] ?? {};
   const changes = Object.keys(fiche).filter(k => (avant[k] ?? null) !== fiche[k]);
   if (!changes.length) return ed.documentation[cle] ?? null;
@@ -79,15 +103,28 @@ export function documenter(dataDir, catalogue, { app, table, description, domain
 
 // ── Décision sur un groupe de doublons ───────────────────────────────────
 
-export function decider(dataDir, { id, option }, qui) {
+/** Contrôle une décision saisie ; renvoie { id, option, avant, libelle }. */
+export function validerDecision({ id, option, avant }) {
   const { groupes } = lire(join(RACINE, 'data/doublons.json'));
   const g = groupes.find(x => x.id === id);
   if (!g) throw new Error(`groupe de doublons inconnu : ${id}`);
   if (option != null && !g.options.some(o => o.id === option)) throw new Error(`option inconnue pour ${id} : ${option}`);
+  return { id, option: option ?? null, avant, libelle: option ? `option ${option} · ${g.options.find(o => o.id === option).libelle}` : '' };
+}
+/** Refuse une décision prise sur une option dépassée (option affichée ≠ option enregistrée). */
+export function controlerVersionDecision(id, avant, actuelle) {
+  if (avant === undefined) return;
+  if ((actuelle?.option ?? null) !== (avant ?? null))
+    throw new Conflit(`La décision sur ${id} a changé entre-temps${actuelle?.par ? ` (${actuelle.par}${actuelle.le ? `, le ${quandLisible(actuelle.le)}` : ''})` : ''} : rechargez la page, puis refaites votre choix.`, actuelle ?? null);
+}
+
+export function decider(dataDir, saisie, qui) {
+  const { id, option, avant, libelle } = validerDecision(saisie);
   const ed = chargerEdition(dataDir);
+  controlerVersionDecision(id, avant, ed.decisions[id]);
   if (option == null) delete ed.decisions[id];
   else ed.decisions[id] = { option, le: new Date().toISOString(), par: qui };
-  tracer(ed, qui, option == null ? 'Décision retirée' : 'Décision enregistrée', id, option ? `option ${option} · ${g.options.find(o => o.id === option).libelle}` : '');
+  tracer(ed, qui, option == null ? 'Décision retirée' : 'Décision enregistrée', id, libelle);
   enregistrer(dataDir, ed);
   return ed.decisions[id] ?? null;
 }
@@ -300,4 +337,17 @@ export function appliquerReferentiel(dataDir, { liste, lignes, detail }, qui, su
   tracer(ed, qui, 'Référentiel modifié', LIBELLES[liste], detail + suffixe);
   enregistrer(dataDir, ed);
   return lignes;
+}
+
+/**
+ * Copie locale de ce que le serveur commun tient (E-04) : documentation, décisions et journal, lus dans le schéma matrix,
+ * remplacent ceux d'edition.json. Les référentiels et la liste des saisies ne changent pas (ils ont leur propre chemin).
+ */
+export function remplacerEdition(dataDir, { documentation, decisions, journal }) {
+  const ed = chargerEdition(dataDir);
+  ed.documentation = documentation;
+  ed.decisions = decisions;
+  ed.journal = journal.slice(-JOURNAL_MAX);
+  enregistrer(dataDir, ed);
+  return ed;
 }

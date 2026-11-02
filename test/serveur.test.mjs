@@ -58,14 +58,51 @@ test('écritures : JSON exigé, origine étrangère refusée', async () => {
   assert.equal((await put(libre, '/api/referentiels/zones', [], { origin: 'https://ailleurs.example' })).status, 403);
 });
 
-test('mot de passe : 401 sans identifiant, accès avec, /api/sante reste libre', async () => {
-  assert.equal((await fetch(protege + '/')).status, 401);
-  assert.equal((await fetch(protege + '/', { headers: { authorization: 'Basic ' + Buffer.from('claire:faux').toString('base64') } })).status, 401);
-  const ok = await fetch(protege + '/api/edition', { headers: { authorization: 'Basic ' + Buffer.from('claire:secret').toString('base64') } });
-  assert.equal(ok.status, 200);
+test('mot de passe : jamais de fenêtre du navigateur, page de connexion, Basic pour les scripts, /api/sante libre', async () => {
+  const basic = mdp => ({ authorization: 'Basic ' + Buffer.from(`claire:${mdp}`).toString('base64') });
+  // Page demandée sans session : renvoi vers /connexion, jamais WWW-Authenticate (la fenêtre revenait en boucle).
+  const page = await fetch(protege + '/?vue=liens', { redirect: 'manual' });
+  assert.equal(page.status, 303);
+  assert.equal(page.headers.get('location'), '/connexion?suite=%2F%3Fvue%3Dliens');
+  assert.equal(page.headers.get('www-authenticate'), null);
+  const api = await fetch(protege + '/api/edition', { headers: basic('faux') });
+  assert.equal(api.status, 401);
+  assert.equal(api.headers.get('www-authenticate'), null);
+  assert.match((await api.json()).erreur, /connexion/);
+  // Scripts : Basic accepté.
+  assert.equal((await fetch(protege + '/api/edition', { headers: basic('secret') })).status, 200);
   assert.equal((await fetch(protege + '/api/sante')).status, 200);
-  const r = await put(protege, '/api/referentiels/zones', [{ code: 'MAG', libelle: 'Maghreb' }], { authorization: 'Basic ' + Buffer.from('claire:secret').toString('base64') });
+  const r = await put(protege, '/api/referentiels/zones', [{ code: 'MAG', libelle: 'Maghreb' }], basic('secret'));
   assert.equal((await r.json()).edition.journal.at(-1).qui, 'claire');
+});
+
+test('page de connexion : erreur dite, session posée, retour à la page demandée, déconnexion', async () => {
+  const formulaire = corps => fetch(protege + '/connexion', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(corps) });
+  assert.match(await (await fetch(protege + '/connexion?suite=/')).text(), /<form method="post" action="\/connexion">/);
+  const refus = await formulaire({ identifiant: 'claire', mot_de_passe: 'faux', suite: '/' });
+  assert.equal(refus.status, 401);
+  assert.match(await refus.text(), /Mot de passe incorrect/);
+  assert.equal(refus.headers.get('set-cookie'), null);
+  // Retour vers une autre adresse refusé : on revient sur Matrix.
+  assert.equal((await formulaire({ identifiant: 'claire', mot_de_passe: 'secret', suite: '//ailleurs.example/' })).headers.get('location'), '/');
+  const ok = await formulaire({ identifiant: 'Claire Bardet', mot_de_passe: ' secret ', suite: '/?vue=liens' });
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.get('location'), '/?vue=liens');
+  const cookie = ok.headers.get('set-cookie');
+  assert.match(cookie, /^matrix_session=[^;]+; Path=\/; HttpOnly; SameSite=Lax; Max-Age=43200$/);
+  const session = { cookie: cookie.split(';')[0] };
+  assert.equal((await fetch(protege + '/', { headers: session })).status, 200);
+  // Un en-tête Basic étranger (authentification de l'hébergeur placée devant Matrix) ne bloque pas la session.
+  assert.equal((await fetch(protege + '/api/edition', { headers: { ...session, authorization: 'Basic ' + Buffer.from('coolify:autre').toString('base64') } })).status, 200);
+  const r = await put(protege, '/api/referentiels/zones', [{ code: 'MAG', libelle: 'Maghreb' }, { code: 'EUR', libelle: 'Europe' }], session);
+  assert.equal((await r.json()).edition.journal.at(-1).qui, 'Claire Bardet');
+  // Écriture avec la session depuis une autre origine : refusée.
+  assert.equal((await put(protege, '/api/referentiels/zones', [], { ...session, origin: 'https://ailleurs.example' })).status, 403);
+  const sortie = await fetch(protege + '/deconnexion', { redirect: 'manual' });
+  assert.equal(sortie.headers.get('location'), '/connexion');
+  assert.match(sortie.headers.get('set-cookie'), /Max-Age=0/);
+  // Cookie forgé : refusé.
+  assert.equal((await fetch(protege + '/api/edition', { headers: { cookie: 'matrix_session=' + Buffer.from('pirate').toString('base64url') + '.9999999999.xxx' } })).status, 401);
 });
 
 test('journal, REX et correspondances : 409 sans serveur commun', async () => {

@@ -105,7 +105,7 @@ Le `Dockerfile` à la racine installe la dépendance et lance `node serveur.mjs`
   2. la déclaration envoyée par l'outil (`declarations/<outil>.json`, qui ne peut jamais se faire passer pour le serveur) ;
   3. le code des dépôts voisins, lu sans rien exécuter : expressions régulières pour les migrations Drizzle, lecteur de données littérales pour `TABLES` de Cursus. Une instruction de migration non reconnue est signalée dans l'écran Administration ;
   4. le catalogue embarqué.
-  Les colonnes que le serveur ferme à Matrix (`droits.colonnes_sensibles`) sont marquées sensibles.
+  Les colonnes sensibles viennent de la liste du serveur commun (`droits.colonnes_sensibles`, convention du socle et ajouts du service informatique), lue par la sonde et gardée dans `/data/sensibles.json` ; sans serveur commun, de la liste du socle du dépôt (`init/03-droits.sql`). Une liste changée sur le serveur recalcule le catalogue à la lecture suivante (écart E-08, partie technique). Les colonnes que le serveur ferme à Matrix sont aussi marquées sensibles.
 - **Historique des schémas et migrations** (écart E-06). À chaque collecte, l'historique (`data/historique.json`) détaille chaque changement avec avant et après :
   - colonne ajoutée, retirée, ou dont le type, la nullité ou le défaut change ;
   - clé primaire, unicité ou clé étrangère ajoutée ou retirée ;

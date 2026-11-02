@@ -58,7 +58,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, unlin
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { timingSafeEqual } from 'node:crypto';
-import { collect } from './outils/collecteur.mjs';
+import { collect, sensiblesDuServeur } from './outils/collecteur.mjs';
 import { construirePage, RACINE } from './outils/page.mjs';
 import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels, remplacerEdition } from './outils/edition.mjs';
 import { editionDisponible, lireEditionPg, reprendreEdition, journaliserPg, documenterPg, deciderPg } from './outils/edition-pg.mjs';
@@ -95,7 +95,10 @@ const ecrireJson = (f, v) => writeFileSync(f, JSON.stringify(v, null, 1));
 function rafraichir() {
   mkdirSync(DECL, { recursive: true });
   const fallback = lireJson(join(EMBARQUE, 'catalogue.json'));
-  const { catalogue, events } = collect({ root: SOURCES, dataDir: DATA, declDir: DECL, fallback });
+  // Colonnes sensibles : la liste du serveur commun (droits.colonnes_sensibles), gardée par la sonde, fait foi (E-08).
+  const fichierSensibles = join(DATA, 'sensibles.json');
+  const sensibles = existsSync(fichierSensibles) ? lireJson(fichierSensibles).colonnes : null;
+  const { catalogue, events } = collect({ root: SOURCES, dataDir: DATA, declDir: DECL, fallback, sensibles });
   if (DATA !== EMBARQUE || events.length) {
     ecrireJson(join(DATA, 'catalogue.json'), catalogue);
     const histFile = join(DATA, 'historique.json');
@@ -260,7 +263,16 @@ async function synchroniser(declencheur) {
       ecrireJson(file, d);
       if (avant?.empreinte !== d.empreinte && !changes.includes(d.app)) changes.push(d.app);
     }
-    const { events } = changes.length ? rafraichir() : { events: [] };
+    // Colonnes sensibles lues sur le serveur (E-08) : une liste changée recalcule le catalogue.
+    let sensiblesChangees = false;
+    if (!lecture.sensiblesErreur) {
+      const colonnes = sensiblesDuServeur(lecture.sensibles), f = join(DATA, 'sensibles.json');
+      if (!existsSync(f) || JSON.stringify(lireJson(f).colonnes) !== JSON.stringify(colonnes)) {
+        ecrireJson(f, { luLe: lecture.luLe, colonnes });
+        sensiblesChangees = true;
+      }
+    } else console.warn(`colonnes sensibles du serveur illisibles (${lecture.sensiblesErreur}) : liste précédente gardée`);
+    const { events } = changes.length || sensiblesChangees ? rafraichir() : { events: [] };
     if (suivi.length) ajouterHistorique(suivi);
     const horsMigration = Object.fromEntries(declarations(lecture).map(d => {
       const f = join(DECL, `${d.app}.serveur.json`);

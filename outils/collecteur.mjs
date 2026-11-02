@@ -145,6 +145,17 @@ if (existsSync(SOCLE_DROITS)) {
   if (Object.keys(lues).length) { for (const k of Object.keys(SENSITIVE)) delete SENSITIVE[k]; Object.assign(SENSITIVE, lues); }
 }
 
+/**
+ * Liste des colonnes sensibles lue sur le serveur commun (droits.colonnes_sensibles, toutes origines : convention du
+ * socle et ajouts du service informatique), au format { 'outil.table': [colonnes] } ; « * » ferme la table entière.
+ * Quand elle est fournie à collect(), elle fait foi à la place de la liste du dépôt (E-08).
+ */
+export function sensiblesDuServeur(lignes) {
+  const m = {};
+  for (const l of lignes ?? []) if (l?.schema && l?.table && l?.colonne) (m[`${l.schema}.${l.table}`] ??= []).push(l.colonne);
+  return m;
+}
+
 // ── Lecture des migrations Drizzle ───────────────────────────────────────
 
 // Reconnaît ce que drizzle-kit génère pour la structure : tables, colonnes (ajout, retrait, type, nullité, défaut,
@@ -352,7 +363,7 @@ function fromDeclarations(dir) {
 
 // known : fiches déjà connues (collecte précédente ou catalogue embarqué), pour garder domaine et description
 // quand la source (une déclaration, par exemple) ne les porte pas.
-function enrich(app, tables, comments, known = new Map()) {
+function enrich(app, tables, comments, known = new Map(), sensibles = SENSITIVE) {
   return tables.map(t => {
     const c = comments[t.name] ?? {};
     const k = known.get(t.name) ?? {};
@@ -372,8 +383,9 @@ function enrich(app, tables, comments, known = new Map()) {
     // Description : celle du code ou de la connaissance de Matrix, sinon le commentaire lu en base (sonde du serveur commun).
     const out = { ...t, fks, domain: domain ?? k.domain ?? 'Nouvelles tables', description: description ?? k.description ?? t.description ?? null };
     delete out.vueLe; delete out.nouvelle; delete out.doublonsPossibles;
-    // Sensibles : liste du socle (ou de repli) et colonnes que le serveur ferme à Matrix (droits.colonnes_sensibles).
-    const sens = SENSITIVE[`${app}.${t.name}`] ?? [];
+    // Sensibles : liste du serveur commun (droits.colonnes_sensibles, E-08) ou, sans lui, celle du socle du dépôt ; plus
+    // les colonnes que le serveur ferme à Matrix.
+    const sens = sensibles[`${app}.${t.name}`] ?? [];
     const fermees = out.columns.filter(c => c.fermee).map(c => c.name);
     const toutes = sens.includes('*') ? out.columns.map(c => c.name) : [...new Set([...sens, ...fermees])];
     if (toutes.length) out.sensitive = toutes;
@@ -445,7 +457,7 @@ export function differenceTable(app, p, t, date) {
 
 // fallback : catalogue de secours (celui embarqué dans l'image Docker) pour un outil qui n'a ni déclaration ni dépôt
 // lisible ; sans lui, l'outil disparaîtrait du catalogue.
-export function collect({ root, dataDir, declDir, fallback = null, now = new Date() }) {
+export function collect({ root, dataDir, declDir, fallback = null, now = new Date(), sensibles = null }) {
   const repos = root ? fromRepos(root) : {};
   const decls = fromDeclarations(declDir);
   const previousFile = join(dataDir, 'catalogue.json');
@@ -462,7 +474,7 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
     if (!repo && !decl && !fb) continue;
     const base = decl ?? repo ?? fb;
     const known = new Map([...(fb?.tables ?? []), ...(prevApps[id]?.values() ?? [])].map(t => [t.name, t]));
-    const tables = enrich(id, base.tables, repo?.comments ?? {}, known);
+    const tables = enrich(id, base.tables, repo?.comments ?? {}, known, sensibles ?? SENSITIVE);
     const prev = prevApps[id];
     const source = decl ? (decl.origine === 'serveur' ? `serveur commun lu le ${decl.declareLe}` : `déclaration du ${decl.declareLe}`) : repo ? repo.source : fb.source ?? 'catalogue embarqué';
     const sourceChangee = prev && genreSource(prevSources[id]) !== genreSource(source);
@@ -496,7 +508,7 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
     if (ev && t.doublonsPossibles.length) ev.doublonsPossibles = t.doublonsPossibles.map(d => `${d.app}.${d.table}`);
   }
 
-  return { catalogue: { generatedAt: date, apps }, events };
+  return { catalogue: { generatedAt: date, sensibles: sensibles ? 'serveur' : 'depot', apps }, events };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

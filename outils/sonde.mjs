@@ -191,6 +191,7 @@ export async function lireServeur(db, { references = [] } = {}) {
     fonctions,
     liens: { registre: registre.lignes, journal: journal.lignes, ...(registre.erreur ? { erreur: registre.erreur } : {}) },
     sensibles: sensibles.lignes,
+    ...(sensibles.erreur ? { sensiblesErreur: sensibles.erreur } : {}),
     verifier: { lignes: verifier.lignes, ...(verifier.erreur ? { erreur: verifier.erreur } : {}) },
     references: await controlerReferences(db, references, colonnes),
     migrations,

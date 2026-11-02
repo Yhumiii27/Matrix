@@ -5,6 +5,7 @@
 // Les règles et leurs seuils sont ici, et seulement ici ; l'écran « Santé » les affiche telles quelles.
 
 import { LECTEURS } from './sonde.mjs';
+import { graviteResultat } from './qualite.mjs';
 
 export const REGLES = {
   sans_cle: { gravite: 'attention', libelle: 'Table sans clé', aide: 'Ni clé primaire ni contrainte d’unicité sur des colonnes obligatoires : une ligne ne peut pas être désignée sans ambiguïté.' },
@@ -108,6 +109,9 @@ export function calculerSante(lecture, { catalogue = null, edition = null, horsM
   // Références entre outils (valeurs orphelines).
   const references = lecture.references.map(r => ({ ...r, gravite: r.etat === 'orphelins' ? 'attention' : r.etat === 'ok' ? 'ok' : 'info' }));
 
+  // Qualité des données (E-09) : résultats de la lecture, incidents suivis par le serveur de Matrix.
+  const qualite = (lecture.qualite ?? []).map(r => ({ ...r, gravite: graviteResultat(r), graviteRegle: r.gravite }));
+
   // Contrôle du socle (droits.verifier()).
   const socle = lecture.verifier.lignes.map(v => ({ ...v }));
 
@@ -127,7 +131,7 @@ export function calculerSante(lecture, { catalogue = null, edition = null, horsM
   for (const p of Object.values(parOutil)) p.etat = p.erreur ? 'erreur' : p.attention ? 'attention' : 'ok';
 
   const etatGlobal = pire([
-    ...tables.map(t => t.etat), ...liens.map(l => l.gravite), ...references.map(r => r.gravite),
+    ...tables.map(t => t.etat), ...liens.map(l => l.gravite), ...references.map(r => r.gravite), ...qualite.map(q => q.gravite),
     ...socle.map(s => s.gravite), ...migrations.map(m => m.gravite),
   ]);
   return {
@@ -136,10 +140,10 @@ export function calculerSante(lecture, { catalogue = null, edition = null, horsM
     etat: etatGlobal,
     resume: {
       tables: compte(tables.map(t => ({ gravite: t.etat }))),
-      liens: compte(liens), references: compte(references), socle: compte(socle),
+      liens: compte(liens), references: compte(references), qualite: compte(qualite), socle: compte(socle),
       registre: registreLu ? 'lu' : `illisible (${lecture.liens.erreur})`,
     },
-    parOutil, tables, liens, references, socle, migrations,
+    parOutil, tables, liens, references, qualite, socle, migrations,
     vues: lecture.vues.map(v => ({ vue: v.vue, lecteurs: v.lecteurs, description: v.description, sources: v.sources ?? [], lignage: v.lignage ?? null })),
     fonctions,
     journalLiens: lecture.liens.journal,

@@ -68,6 +68,7 @@ import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, di
 import { chercher } from './outils/recherche.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
+import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE } from './outils/acces.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
@@ -239,7 +240,11 @@ async function synchroniser(declencheur) {
     await alignerEdition(db, declencheur === 'démarrage');
     await alignerReferentiels(db, declencheur === 'démarrage');
     const references = lireJson(join(RACINE, 'data', 'references.json')).references;
-    const lecture = await lireServeur(db, { references });
+    // Règles de qualité (E-09) : une liste invalide est signalée et laissée de côté, sans bloquer la lecture.
+    let regles = [];
+    try { regles = chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))); }
+    catch (e) { console.error(`règles de qualité ignorées : ${e.message}`); }
+    const lecture = await lireServeur(db, { references, regles });
     vuesConnues = new Set([...lecture.vues.map(v => v.vue), ...(lecture.fonctions ?? []).map(f => f.fonction)]);
     const changes = [];
     mkdirSync(DECL, { recursive: true });
@@ -267,6 +272,11 @@ async function synchroniser(declencheur) {
       return [d.app, existsSync(f) ? lireJson(f).horsMigration ?? null : null];
     }));
     const sante = calculerSante(lecture, { catalogue: lireJson(join(DATA, 'catalogue.json')), edition: chargerEdition(DATA), horsMigration });
+    // Incidents de qualité : ouverts au premier constat, clos au premier contrôle conforme (data/incidents-qualite.json).
+    const fichierIncidents = join(DATA, 'incidents-qualite.json');
+    const incidents = suivreIncidents(existsSync(fichierIncidents) ? lireJson(fichierIncidents) : null, lecture.qualite ?? [], lecture.luLe);
+    ecrireJson(fichierIncidents, incidents);
+    sante.incidentsQualite = incidents.incidents;
     ecrireJson(join(DATA, 'sante.json'), sante);
     page = null;
     sonde = { ...sonde, derniere: lecture.luLe, erreur: null, declencheur, outils: Object.keys(lecture.outils), schemasModifies: changes, changements: events.length, etat: sante.etat };
@@ -424,6 +434,13 @@ createServer((req, res) => {
     const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays|zones|filiales)$/);
     if (req.method === 'GET' && ref) return json(res, 200, chargerEdition(DATA).referentiels[ref[1]].filter(x => x.actif !== false || url.searchParams.get('tous') === '1'));
     if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, { sonde, referentiels, edition, sante: lireSante() });
+    if (req.method === 'GET' && url.pathname === '/api/qualite') {
+      // Qualité des données (E-09) : règles, derniers résultats, incidents ouverts et clos.
+      const s = lireSante();
+      let regles = [], erreur = null;
+      try { regles = chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))); } catch (e) { erreur = e.message; }
+      return json(res, 200, { regles, erreur, resultats: s?.qualite ?? [], incidents: s?.incidentsQualite ?? [], luLe: s?.luLe ?? null });
+    }
     if (req.method === 'GET' && url.pathname === '/api/liens') {
       const s = lireSante();
       return json(res, 200, { sonde, liens: s?.liens ?? [], journal: s?.journalLiens ?? [], etats: s?.etatsLien ?? {} });

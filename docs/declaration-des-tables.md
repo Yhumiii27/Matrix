@@ -73,11 +73,29 @@ void declarerSchema({ app: 'cursus', tables: introspecterSqlite(db.sql) });
 | `MATRIX_TOKEN` | Jeton partagé avec Matrix (même valeur que `MATRIX_TOKEN` sur le serveur Matrix), envoyé dans l'en-tête `X-Matrix-Token`. |
 | `MATRIX_DECLARATIONS_DIR` | Facultatif : écrit aussi la déclaration dans ce dossier (volume partagé, poste sans réseau). |
 
+## Demander l'accès à la vue d'un autre outil (écart E-10)
+
+Un outil qui veut lire la vue `pub_` d'un autre (ou écrire chez lui par une fonction `pub_`) le demande lui-même à Matrix, avec le même jeton, au lieu de passer par un `REQUESTS.md`. Copier `integration/demander-acces.mjs` à côté de `declarer-schema.mjs` :
+
+```ts
+import { demanderAcces, suivreAcces } from './demander-acces.mjs';
+await demanderAcces({ app: 'arche', vue: 'keystone.pub_projets', motif: 'Rattacher chaque CAPEX à son projet' });
+const { liens } = await suivreAcces({ app: 'arche' });   // statut décidé, droit réellement posé
+```
+
+- La demande arrive dans l'écran « Liens entre outils » de Matrix (filtre « À traiter », compteur du menu), signée « arche (API) », et dans le journal de Matrix. La DSI l'autorise ou la refuse ; le droit est posé tout de suite (rôle `matrix_gestion`) ou au passage suivant d'`appliquer-liens.sh`.
+- Un lien déjà autorisé n'est jamais touché par une demande ; un lien refusé repasse en demande avec le nouveau motif.
+- La vue peut ne pas exister encore : la demande est gardée et s'autorise quand la vue est publiée.
+- Le motif est obligatoire (10 caractères au moins). L'outil demandeur ne peut demander que pour lui-même (`<outil>_app`), et jamais ses propres vues.
+- Pas encore d'e-mail ni de message Teams : canal et destinataires attendent la décision M-14.
+
 ## Côté Matrix
 
 Le serveur de Matrix (`serveur.mjs`, déployé comme les autres outils, voir le README) reçoit les déclarations :
 
 - `POST /api/declarations` : reçoit une déclaration (jeton dans `X-Matrix-Token` ou `Authorization: Bearer`), l'enregistre dans `/data/declarations/<outil>.json` et relance la comparaison. Sans `MATRIX_TOKEN` sur le serveur, la route répond 503.
+- `POST /api/demandes` : demande d'accès d'un outil (jeton ; corps `{ outil, vue, motif, nature }`, `nature` : `lecture` ou `execution`). Réponse 201 (demande enregistrée) ou 200 (lien déjà autorisé, rien changé). 409 sans serveur commun.
+- `GET /api/demandes?outil=<outil>` : les liens de l'outil (vue, statut, nature, motif, dates, vue existante, droit de lecture posé).
 - `GET /api/declarations` : liste les dernières déclarations reçues (date, version, empreinte, nombre de tables).
 - `GET /api/catalogue` : le catalogue à jour.
 

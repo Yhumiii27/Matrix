@@ -297,6 +297,47 @@ export async function ecrireLien(db, lien, par) {
   return r.rows[0];
 }
 
+/** Demande d'accès d'un outil (E-10) : l'outil demandeur, la vue ou fonction pub_ d'un autre outil, un motif. */
+export function validerDemande({ outil, vue, motif, nature } = {}) {
+  outil = String(outil ?? '').trim();
+  if (!OUTILS.includes(outil)) throw new Error(`outil inconnu : « ${outil} » (attendu : ${OUTILS.join(', ')})`);
+  motif = String(motif ?? '').trim();
+  if (motif.length < 10) throw new Error('motif obligatoire (10 caractères au moins) : à quoi servira cet accès ?');
+  return validerLien({ vue, lecteur: `${outil}_app`, statut: 'demande', motif, nature });
+}
+
+/**
+ * Demande d'accès envoyée par un outil avec son jeton (écart E-10). Elle n'est qu'une demande : la décision reste à la
+ * DSI dans « Liens entre outils ». Un lien déjà autorisé n'est jamais rétrogradé ; un lien refusé repasse en demande
+ * avec le nouveau motif (la DSI tranche à nouveau) ; une demande en attente reçoit le nouveau motif. Renvoie la ligne
+ * du registre et `inchange` quand le lien était déjà autorisé.
+ */
+export async function demanderLien(db, lien, par) {
+  const { rows: [r] } = await db.query(
+    `INSERT INTO matrix.liens AS l (vue, lecteur, statut, origine, motif, demande_par, demande_le, nature)
+     VALUES ($1, $2, 'demande', 'matrix', $3, $4, now(), $5)
+     ON CONFLICT (vue, lecteur) DO UPDATE SET statut = 'demande', motif = EXCLUDED.motif, nature = EXCLUDED.nature,
+       demande_par = EXCLUDED.demande_par, demande_le = EXCLUDED.demande_le, decide_par = NULL, decide_le = NULL
+       WHERE l.statut <> 'autorise'
+     RETURNING vue, lecteur, statut, nature, motif, demande_par, demande_le, decide_par, decide_le`,
+    [lien.vue, lien.lecteur, lien.motif, par, lien.nature ?? 'lecture']);
+  if (r) return { ...r, inchange: false };
+  const { rows: [actuel] } = await db.query(
+    'SELECT vue, lecteur, statut, nature, motif, demande_par, demande_le, decide_par, decide_le FROM matrix.liens WHERE vue = $1 AND lecteur = $2',
+    [lien.vue, lien.lecteur]);
+  return { ...actuel, inchange: true };
+}
+
+/** Liens d'un lecteur (demandes, autorisations, refus), avec le droit réellement posé pour une vue (E-10). */
+export async function liensDuLecteur(db, lecteur) {
+  const { rows } = await db.query(
+    `SELECT l.vue, l.statut, l.nature, l.motif, l.demande_le, l.decide_le,
+            to_regclass(l.vue) IS NOT NULL AS existe,
+            CASE WHEN l.nature = 'lecture' AND to_regclass(l.vue) IS NOT NULL THEN has_table_privilege(l.lecteur, l.vue, 'SELECT') END AS droit_pose
+       FROM matrix.liens l WHERE l.lecteur = $1 ORDER BY l.vue`, [lecteur]);
+  return rows;
+}
+
 /**
  * Suivi des migrations d'un outil entre deux lectures du serveur (écart E-06). `avant` et `apres` sont ses déclarations
  * (empreinteStructure, migrations). Renvoie les événements d'historique et l'état « hors migration » à garder :

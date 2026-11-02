@@ -79,6 +79,12 @@ ALTER ROLE arche_app    IN DATABASE epc2i SET idle_in_transaction_session_timeou
 ALTER ROLE crucible_app IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE matrix_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 
+-- bi_reader (Power BI, demande M-14 d'Arche) : toute transaction en lecture seule ; une requête de plus de 2 minutes
+-- est arrêtée, une transaction ouverte et oubliée coupée au bout de 5 minutes.
+ALTER ROLE bi_reader IN DATABASE epc2i SET default_transaction_read_only TO on;
+ALTER ROLE bi_reader IN DATABASE epc2i SET statement_timeout TO '120s';
+ALTER ROLE bi_reader IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
+
 -- matrix_gestion (M-18) : sans search_path, chaque nom de table d'une vue pub_ s'écrit avec son schéma (une définition
 -- ne dépend jamais du réglage de la session) ; un verrou attendu plus de 5 s abandonne la publication plutôt que de
 -- bloquer les outils qui lisent ou écrivent la table.

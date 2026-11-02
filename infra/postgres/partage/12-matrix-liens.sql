@@ -32,13 +32,17 @@ CREATE TABLE IF NOT EXISTS matrix.liens (
   modifie_le   timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT liens_pkey PRIMARY KEY (vue, lecteur),
   CONSTRAINT liens_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$'),
-  CONSTRAINT liens_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')),
+  CONSTRAINT liens_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader')),
   -- Un outil lit ses propres vues sans lien.
   CONSTRAINT liens_autre_outil_check CHECK (split_part(vue, '.', 1) || '_app' <> lecteur),
   CONSTRAINT liens_statut_check CHECK (statut IN ('autorise', 'refuse', 'demande')),
   CONSTRAINT liens_origine_check CHECK (origine IN ('convention', 'matrix')),
   CONSTRAINT liens_decision_check CHECK (statut = 'demande' OR decide_le IS NOT NULL)
 );
+-- Lecteurs admis (rejeu sur un serveur existant) : bi_reader, lecture de Power BI (demande M-14 d'Arche, 02/11/2026).
+ALTER TABLE matrix.liens DROP CONSTRAINT IF EXISTS liens_lecteur_check;
+ALTER TABLE matrix.liens ADD CONSTRAINT liens_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader'));
+
 -- Nature d'un lien (M-18, lot P4) : lecture d'une vue pub_, ou exécution d'une fonction pub_ (écriture chez un autre
 -- outil par une fonction que le propriétaire fournit, docs/architecture-postgres.md § 8 sexies, règle R4).
 ALTER TABLE matrix.liens ADD COLUMN IF NOT EXISTS nature text NOT NULL DEFAULT 'lecture';

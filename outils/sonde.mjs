@@ -19,7 +19,8 @@ import pg from 'pg';
 
 export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 export const SCHEMAS_LIENS = [...OUTILS, 'matrix'];
-export const LECTEURS = OUTILS.map(o => `${o}_app`).concat('matrix_app');
+// bi_reader : Power BI, lecteur des seules vues pub_ que le registre lui accorde (demande M-14 d'Arche).
+export const LECTEURS = OUTILS.map(o => `${o}_app`).concat('matrix_app', 'bi_reader');
 const JOURNAUX_MIGRATIONS = ['__drizzle_migrations', 'schema_migrations'];
 
 const Q_TABLES = `

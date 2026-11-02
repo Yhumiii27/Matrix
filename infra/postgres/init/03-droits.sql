@@ -155,14 +155,14 @@ CREATE TABLE IF NOT EXISTS droits.partage_lecteurs (
   pose_par  text        NOT NULL DEFAULT session_user,
   CONSTRAINT partage_lecteurs_pkey PRIMARY KEY (vue, lecteur),
   CONSTRAINT partage_lecteurs_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$'),
-  CONSTRAINT partage_lecteurs_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app'))
+  CONSTRAINT partage_lecteurs_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader'))
 );
 ALTER TABLE droits.partage_lecteurs DROP CONSTRAINT IF EXISTS partage_lecteurs_vue_check;
 ALTER TABLE droits.partage_lecteurs ADD CONSTRAINT partage_lecteurs_vue_check
   CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$');
 ALTER TABLE droits.partage_lecteurs DROP CONSTRAINT IF EXISTS partage_lecteurs_lecteur_check;
 ALTER TABLE droits.partage_lecteurs ADD CONSTRAINT partage_lecteurs_lecteur_check
-  CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app'));
+  CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader'));
 -- Matrix y inscrit et en retire les lecteurs des liens qu'il applique lui-même (M-18, lot P2).
 GRANT SELECT, INSERT, DELETE ON droits.partage_lecteurs TO matrix_gestion;
 COMMENT ON TABLE droits.partage_lecteurs IS 'Convention de partage : lecteurs attendus de chaque vue pub_ (schéma.vue, rôle), écrits par partage/90-droits.sql et contrôlés par droits.verifier().';
@@ -620,7 +620,7 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', format('%s, %I.%I', r.nom, n.nspname, c.relname),
          format('droit %s croisé : un outil ne reçoit que SELECT sur les vues pub_ d''un autre schéma', p.priv)
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible')) AS r(nom, propre)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('bi_reader', '-')) AS r(nom, propre)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -632,7 +632,7 @@ BEGIN
     AND NOT (p.priv = 'SELECT' AND droits._vue_publiee(c.oid, r.nom));
   RETURN QUERY
   SELECT 'erreur', format('%s, %I.%I', r.nom, n.nspname, c.relname), format('droit %s croisé sur une séquence', p.priv)
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible')) AS r(nom, propre)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('bi_reader', '-')) AS r(nom, propre)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -642,7 +642,7 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', format('%s, %I.%I(%s)', r.nom, n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)),
          'droit EXECUTE croisé sur une fonction'
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible')) AS r(nom, propre)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('bi_reader', '-')) AS r(nom, propre)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_proc f
   JOIN pg_namespace n ON n.oid = f.pronamespace
@@ -777,6 +777,8 @@ BEGIN
                ('matrix_app', ARRAY['matrix', 'keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'droits'], ARRAY['matrix'], false),
                ('matrix_lecture', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'droits'], ARRAY[]::text[], false),
                ('matrix_gestion', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits'], ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'], false),
+               -- Power BI : USAGE seulement là où il lit une vue pub_ (contrôle « lecteur » ci-dessous).
+               ('bi_reader', ARRAY[]::text[], ARRAY[]::text[], true),
                ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits'], ARRAY[]::text[], false),
                ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false)
        ) AS r(nom, usage_ok, create_ok, lecteur)
@@ -797,12 +799,12 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'droit CREATE sur la base (il permettrait de créer un schéma)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader')
     AND has_database_privilege(r.oid, v_db, 'CREATE');
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'attribut d''administration (SUPERUSER, CREATEROLE, CREATEDB, REPLICATION ou BYPASSRLS)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader')
     AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls);
 
   -- Appartenances attendues.
@@ -810,6 +812,17 @@ BEGIN
   SELECT 'erreur', m.membre, format('doit être membre de %s', m.groupe)
   FROM (VALUES ('matrix_app', 'matrix_lecture'), ('epc2i_sauvegarde', 'pg_read_all_data')) AS m(membre, groupe)
   WHERE NOT pg_has_role(m.membre, m.groupe, 'USAGE');
+
+  -- bi_reader (Power BI) n'hérite d'aucun rôle (il lirait ses tables) et ses transactions sont en lecture seule.
+  RETURN QUERY
+  SELECT 'erreur', 'bi_reader', format('bi_reader est membre de %s : il ne doit lire que les vues pub_ que le registre lui accorde', g.rolname)
+  FROM pg_auth_members am JOIN pg_roles g ON g.oid = am.roleid JOIN pg_roles m ON m.oid = am.member
+  WHERE m.rolname = 'bi_reader';
+  RETURN QUERY
+  SELECT 'attention', 'bi_reader', 'default_transaction_read_only absent sur epc2i : rejouer init/02-schemas.sql'
+  WHERE EXISTS (SELECT FROM pg_roles WHERE rolname = 'bi_reader')
+    AND NOT EXISTS (SELECT FROM pg_db_role_setting d JOIN pg_roles x ON x.oid = d.setrole
+                    WHERE x.rolname = 'bi_reader' AND d.setdatabase = v_db AND 'default_transaction_read_only=on' = ANY (d.setconfig));
 
   -- search_path des rôles de connexion.
   RETURN QUERY

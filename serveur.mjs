@@ -24,6 +24,7 @@
 //   GET  /api/catalogue/tables  liste des tables (outil, domaine, q : recherche plein texte), pour les outils et les agents
 //   GET  /api/catalogue/tables/:outil/:table  fiche d'une table : colonnes, liens, documentation, vues qui la publient, santé
 //   GET  /api/export/tables.csv | colonnes.csv | dictionnaire.html | schema.mmd   exports (outil, domaine, q)
+//   GET  /api/publications/depot demandes préparées dans data/publications-depot.json, et leur état face au registre
 //   GET  /api/publications      registre des publications (vues pub_ des outils, M-18) et vues pas encore reprises
 //   GET  /api/publications/:vue fiche d'une publication : définition, contrat, liens, journal
 //   PUT  /api/publications/:vue brouillon  { mode: colonnes|sql, source, colonnes: [{ colonne, nom }], filtre, definition, description }
@@ -66,7 +67,7 @@ import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, di
 import { chercher } from './outils/recherche.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
-import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien } from './outils/publications.mjs';
+import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
 const PORT = +(process.env.PORT ?? 3000);
 const DATA = process.env.MATRIX_DATA_DIR ?? join(RACINE, 'data');
@@ -415,6 +416,13 @@ createServer((req, res) => {
         return res.end(dictionnaireHtml(liste, { titre: `Dictionnaire des données${q.outil ? ' · ' + q.outil : ''}${q.domaine ? ' · ' + q.domaine : ''}` }));
       }
       return json(res, 404, { erreur: 'introuvable' });
+    }
+    // Dépôt des demandes (data/publications-depot.json) : leur état face au registre, pour l'écran Publications.
+    if (req.method === 'GET' && url.pathname === '/api/publications/depot') {
+      const depot = lireJson(join(EMBARQUE, 'publications-depot.json'));
+      if (!DB_URL) return json(res, 200, { serveur: false, ...depot });
+      avecServeur(db => etatDepot(db, depot)).then(r => json(res, 200, { serveur: true, gestion: Boolean(GESTION_URL), ...r }), e => json(res, 502, { erreur: e.message }));
+      return;
     }
     // Publications (M-18) : lecture du registre en matrix_app.
     const publication = url.pathname.match(/^\/api\/publications(?:\/([a-z]+\.pub_[a-z0-9_]+))?(?:\/(appliquer|retirer))?$/);

@@ -37,8 +37,9 @@
 //                      /data dans l'image Docker, à monter sur un volume persistant)
 //   MATRIX_TOKEN       jeton partagé avec les outils ; sans lui, les déclarations sont refusées (503)
 //   MATRIX_SOURCES_DIR dossier contenant les dépôts keystone/, codex/, cursus/, vigie/, arche/, crucible/ (facultatif)
-//   MATRIX_MOT_DE_PASSE mot de passe d'accès à Matrix (identifiant libre, authentification HTTP Basic). Sans lui,
-//                      la consultation reste ouverte et, en production, les modifications sont refusées.
+//   MATRIX_MOT_DE_PASSE mot de passe d'accès à Matrix (identifiant libre) : page /connexion et cookie de session pour le
+//                      navigateur, en-tête Authorization: Basic pour les scripts (outils/acces.mjs). Sans lui, la
+//                      consultation reste ouverte et, en production, les modifications sont refusées.
 //   MATRIX_DATABASE_URL connexion au serveur PostgreSQL commun en matrix_app (postgres://matrix_app:…@hôte:5432/epc2i).
 //                      Avec elle, la sonde (outils/sonde.mjs) lit elle-même les tables, liens, vues pub_ et droits
 //                      de chaque outil, met le registre et les graphes à jour, calcule l'état de santé et tient le
@@ -67,6 +68,7 @@ import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, di
 import { chercher } from './outils/recherche.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
+import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE } from './outils/acces.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
 const PORT = +(process.env.PORT ?? 3000);
@@ -74,7 +76,7 @@ const DATA = process.env.MATRIX_DATA_DIR ?? join(RACINE, 'data');
 const DECL = join(DATA, 'declarations');
 const SOURCES = process.env.MATRIX_SOURCES_DIR ?? null;
 const TOKEN = process.env.MATRIX_TOKEN ?? '';
-const MOT_DE_PASSE = process.env.MATRIX_MOT_DE_PASSE ?? '';
+const { mdp: MOT_DE_PASSE, avertissements: AVERTISSEMENTS_MDP } = lireMotDePasse(process.env.MATRIX_MOT_DE_PASSE);
 const PRODUCTION = process.env.NODE_ENV === 'production';
 const DB_URL = process.env.MATRIX_DATABASE_URL ?? '';
 const GESTION_URL = process.env.MATRIX_GESTION_DATABASE_URL ?? '';
@@ -328,17 +330,56 @@ function recevoir(doc) {
 
 // ── Accès ─────────────────────────────────────────────────────────────────
 
-const egal = (a, b) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
+const connexions = limiteur();
+const adresse = req => String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+const enHttps = req => String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim() === 'https';
 
-// Renvoie l'identifiant de la personne connectée, '' si l'accès est libre, ou null si l'accès est refusé.
+// Renvoie l'identifiant de la personne connectée, '' si l'accès est libre, ou null si l'accès est refusé. Un en-tête
+// Basic valide l'emporte ; sinon (absent, ou celui d'une authentification placée devant Matrix), la session décide.
 function utilisateur(req) {
   if (!MOT_DE_PASSE) return '';
-  const m = String(req.headers.authorization ?? '').match(/^Basic (.+)$/);
-  if (!m) return null;
-  const brut = Buffer.from(m[1], 'base64').toString('utf8');
-  const i = brut.indexOf(':');
-  if (i < 0 || !egal(brut.slice(i + 1), MOT_DE_PASSE)) return null;
-  return brut.slice(0, i).trim() || 'administrateur';
+  return identifiantBasic(req.headers.authorization, MOT_DE_PASSE) ?? lireSession(lireCookie(req.headers.cookie, COOKIE), MOT_DE_PASSE);
+}
+
+// Corps d'un formulaire HTML (application/x-www-form-urlencoded), 16 Ko au plus.
+function lireFormulaire(req, res, suite) {
+  let taille = 0; const morceaux = [];
+  req.on('data', m => { taille += m.length; if (taille > 16384) { res.writeHead(413).end(); req.destroy(); } else morceaux.push(m); });
+  req.on('end', () => { if (!res.writableEnded) suite(new URLSearchParams(Buffer.concat(morceaux).toString('utf8'))); });
+}
+
+const html = (res, code, corps, entetes = {}) => { res.writeHead(code, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...entetes }); res.end(corps); };
+
+// GET /connexion (page), POST /connexion (vérification, cookie), GET /deconnexion.
+function routeConnexion(req, res, url) {
+  if (url.pathname === '/deconnexion') {
+    res.writeHead(303, { ...ENTETES, location: '/connexion', 'set-cookie': enteteCookie('', { secure: enHttps(req), maxAge: 0 }) });
+    return res.end();
+  }
+  if (!MOT_DE_PASSE) { res.writeHead(303, { ...ENTETES, location: '/' }); return res.end(); }
+  if (req.method === 'GET') return html(res, 200, pageConnexion({ suite: url.searchParams.get('suite') ?? '/' }));
+  if (req.method !== 'POST') return json(res, 405, { erreur: 'méthode non autorisée' });
+  const origine = req.headers.origin;
+  if (origine && origine !== 'null' && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
+  lireFormulaire(req, res, f => {
+    const ip = adresse(req);
+    const identifiant = (f.get('identifiant') ?? '').trim().slice(0, 120);
+    const suite = suiteSure(f.get('suite'));
+    if (connexions.bloque(ip)) {
+      console.warn(`[${new Date().toISOString()}] connexion bloquée (trop d'échecs) depuis ${ip}`);
+      return html(res, 429, pageConnexion({ erreur: 'Trop de tentatives : réessayez dans un quart d’heure.', suite, identifiant }));
+    }
+    const mdp = f.get('mot_de_passe') ?? '';
+    if (!identifiant || !motDePasseValide(mdp, MOT_DE_PASSE)) {
+      connexions.echec(ip);
+      console.warn(`[${new Date().toISOString()}] connexion refusée pour « ${identifiant || '(vide)'} » depuis ${ip} : ${identifiant ? 'mot de passe incorrect' : 'identifiant vide'}`);
+      return html(res, 401, pageConnexion({ erreur: identifiant ? 'Mot de passe incorrect.' : 'Indiquez votre identifiant.', suite, identifiant }));
+    }
+    connexions.reussite(ip);
+    console.log(`[${new Date().toISOString()}] connexion de « ${identifiant} » depuis ${ip}`);
+    res.writeHead(303, { ...ENTETES, location: suite, 'set-cookie': enteteCookie(creerSession(identifiant, MOT_DE_PASSE), { secure: enHttps(req) }) });
+    res.end();
+  });
 }
 
 function lireCorps(req, res, suite) {
@@ -366,11 +407,18 @@ const demarrage = rafraichir();
 createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
+    if (url.pathname === '/connexion' || url.pathname === '/deconnexion') return routeConnexion(req, res, url);
     const libre = url.pathname === '/api/sante' || (req.method === 'POST' && url.pathname === '/api/declarations');
     const qui = libre ? '' : utilisateur(req);
     if (qui === null) {
-      res.writeHead(401, { ...ENTETES, 'www-authenticate': 'Basic realm="Matrix", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' });
-      return res.end('Accès réservé : identifiez-vous avec le mot de passe de Matrix.');
+      // Jamais de WWW-Authenticate : le navigateur n'ouvre plus sa fenêtre d'identification (elle revenait en boucle
+      // quand le mot de passe ne correspondait pas). Une page demandée par le navigateur mène à /connexion.
+      if (req.method === 'GET' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/vendor/')) {
+        res.writeHead(303, { ...ENTETES, location: `/connexion?suite=${encodeURIComponent(url.pathname + url.search)}`, 'cache-control': 'no-store' });
+        return res.end();
+      }
+      if (req.headers.authorization) console.warn(`[${new Date().toISOString()}] accès refusé à ${req.method} ${url.pathname} depuis ${adresse(req)} : en-tête Authorization invalide`);
+      return json(res, 401, { erreur: 'Accès réservé : connectez-vous (/connexion) ou envoyez l’en-tête Authorization: Basic avec le mot de passe de Matrix.' });
     }
     if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));
     const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays|zones|filiales)$/);
@@ -535,6 +583,7 @@ createServer((req, res) => {
   const { catalogue, events } = demarrage;
   const n = catalogue.apps.reduce((s, a) => s + a.tables.length, 0);
   console.log(`Matrix écoute sur le port ${PORT} · ${n} tables · données dans ${DATA}${events.length ? ` · ${events.length} changement(s) depuis la dernière collecte` : ''}`);
+  for (const a of AVERTISSEMENTS_MDP) console.warn(a);
   if (!TOKEN) console.warn('MATRIX_TOKEN absent : les outils ne peuvent pas déclarer leurs tables.');
   if (DB_URL) {
     setTimeout(() => synchroniser('démarrage'), 1000).unref();

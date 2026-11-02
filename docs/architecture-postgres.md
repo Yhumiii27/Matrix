@@ -743,6 +743,7 @@ le lot correspondant n'est pas livré.
 | M17-1 | Matrix | Registre : nature `lecture` / `execution` d'un lien ; `90-droits.sql` pose et retire `EXECUTE` sur les fonctions `pub_` comme `SELECT` sur les vues ; `droits.verifier()` contrôle les fonctions (`SECURITY DEFINER`, `search_path`, pas d'`EXECUTE` à `PUBLIC`). | M |
 | M17-2 | Matrix | Contrôle du contrat des vues et fonctions `pub_` par la sonde, constats de l'état de santé. | M |
 | M17-3 | Matrix | Retrait des copies de vues de `partage/30` à `80` (ne restent que les contrôles de prérequis utiles), règle P-02 et procédure de restauration mises à jour (le `pg_dump` d'un schéma contient ses vues). | S |
+|  |  | *Fait le 02/11/2026 : 20 à 80 ne gardent que les contrôles de prérequis ; les vues ECR / ECO de 60 passent au dépôt de publications de Matrix.* | |
 | M17-4 | Matrix | Demande d'un lien par l'outil lui-même : `POST /api/liens` avec le jeton de l'outil, statut `demande` (E-10). | S |
 | M17-5 | Matrix | Fonctions d'écriture des référentiels (`matrix.pub_creer_site`…) quand un outil en a besoin. | S par fonction |
 | M17-6 | Chaque outil | Demande « M-17 » de son `REQUESTS.md` : inventaire de ses lectures et écritures chez les autres, plus de demande de copie de vue, fonctions `pub_` pour les écritures qu'il reçoit, règles reprises dans son `CLAUDE.md`. | S par outil |

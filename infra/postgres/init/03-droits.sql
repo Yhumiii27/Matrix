@@ -678,7 +678,7 @@ BEGIN
     AND NOT (has_schema_privilege(x.oid, c.relnamespace, 'USAGE') AND has_table_privilege(x.oid, c.oid, 'SELECT'));
   RETURN QUERY
   SELECT DISTINCT 'attention', p.vue,
-         'vue pub_ prévue par partage/90-droits.sql absente (schéma restauré, DROP … CASCADE) : rejouer le fichier de partage de l''outil, puis 90-droits.sql et 95 ; ou retirer la vue de droits.partage_lecteurs'
+         'vue pub_ prévue par partage/90-droits.sql absente (schéma restauré, DROP … CASCADE) : réappliquer la publication dans l''écran Publications de Matrix (ou la migration de l''outil avant sa reprise), puis 90-droits.sql et 95 ; ou retirer la vue de droits.partage_lecteurs'
   FROM droits.partage_lecteurs p
   WHERE to_regclass(p.vue) IS NULL;
   RETURN QUERY

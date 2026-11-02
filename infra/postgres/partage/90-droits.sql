@@ -420,7 +420,7 @@ BEGIN
     RAISE WARNING 'droits.partage_lecteurs absente : rejouez init/03-droits.sql, puis ce fichier, pour que droits.verifier() contrôle les lecteurs.';
   END IF;
   IF cardinality(v_absentes) > 0 THEN
-    RAISE WARNING 'Vues absentes, droits non posés (jouez le fichier de l''outil puis relancez celui-ci) : %', array_to_string(v_absentes, ', ');
+    RAISE WARNING 'Vues absentes, droits non posés (migration de l''outil pas encore passée, ou publication à appliquer dans l''écran Publications de Matrix ; puis relancez ce fichier) : %', array_to_string(v_absentes, ', ');
   END IF;
   RAISE NOTICE 'Droits posés sur % vues pub_.', v_nb;
 END $droits$;

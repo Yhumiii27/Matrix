@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { genererDefinition, verifierSql, preparerPublication, ecartContrat, validerVue,
-  enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, lirePublication, listerPublications } from '../outils/publications.mjs';
+  enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, lirePublication, listerPublications, etatDepot } from '../outils/publications.mjs';
 import { client } from '../outils/sonde.mjs';
 
 test('nom de publication : outil et préfixe pub_ obligatoires', () => {
@@ -82,6 +82,18 @@ test('serveur : publier, lier, refuser une rupture de contrat ou une colonne sen
     await app.query(`INSERT INTO matrix.liens (vue, lecteur, statut, decide_par, decide_le) VALUES ($1, 'arche_app', 'autorise', 'test', now())`, [vue]);
     assert.deepEqual(await appliquerLien(gestion, { vue, lecteur: 'arche_app' }), { applique: true, droit: 'accordé' });
     assert.equal((await lit('arche_app', `SELECT * FROM ${vue}`)).length, 2);
+    // Power BI (bi_reader, M-14) : même chemin, transactions en lecture seule.
+    await app.query(`INSERT INTO matrix.liens (vue, lecteur, statut, decide_par, decide_le) VALUES ($1, 'bi_reader', 'autorise', 'test', now())`, [vue]);
+    assert.deepEqual(await appliquerLien(gestion, { vue, lecteur: 'bi_reader' }), { applique: true, droit: 'accordé' });
+    assert.equal((await lit('bi_reader', `SELECT * FROM ${vue}`)).length, 2);
+    assert.equal(await lit('bi_reader', `SELECT * FROM keystone.${table}`), '42501');
+    // Dépôt des demandes : état face au registre.
+    const etat = await etatDepot(app, { publications: [{ vue, mode: 'sql', definition: 'SELECT 1' }, { vue: 'vigie.pub_attendue_essai', attendue: true }],
+      liens: [{ vue, lecteur: 'bi_reader', nature: 'lecture' }, { vue: 'vigie.pub_absente_essai', lecteur: 'arche_app', nature: 'lecture' }] });
+    assert.deepEqual(etat.publications.map(x => x.etat), ['a_mettre_a_jour', 'attendue']);
+    assert.deepEqual(etat.liens.map(x => x.etat), ['autorise', 'a_demander']);
+    await app.query(`UPDATE matrix.liens SET statut = 'refuse', motif = 'essai', decide_par = 'test', decide_le = now() WHERE vue = $1 AND lecteur = 'bi_reader'`, [vue]);
+    await appliquerLien(gestion, { vue, lecteur: 'bi_reader' });
 
     // 3. Colonne ajoutée en fin : acceptée ; les lecteurs gardent leur droit.
     await enregistrerPublication(app, { vue, mode: 'colonnes', source: `keystone.${table}`, colonnes: [{ colonne: 'id' }, { colonne: 'code', nom: 'code_essai' }, { colonne: 'note' }], description: 'Essai P2' }, 'test');

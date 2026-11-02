@@ -240,9 +240,6 @@ BEGIN
       ('vigie.pub_eco_approbations',         ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_eco_effectivite',          ARRAY['keystone_app', 'matrix_app']),
       ('vigie.pub_demandes_modification',    ARRAY['codex_app', 'keystone_app', 'matrix_app']),
-      -- M-15 d'Arche (01/11/2026, AR-033) : études de sécurité des procédés, vue définie dans Matrix (M-18) quand Vigie
-      -- tiendra les études (contrat : data/contrats/vigie.pub_etudes_securite.json) ; absente jusque-là (WARNING).
-      ('vigie.pub_etudes_securite',          ARRAY['arche_app', 'matrix_app']),
       -- Keystone, vues demandées par Arche (R-186 à R-191), absentes tant que Keystone ne les publie pas (WARNING).
       ('keystone.pub_catalogue_machines',    ARRAY['arche_app', 'matrix_app']),
       ('keystone.pub_reponses_besoins',      ARRAY['arche_app', 'matrix_app']),
@@ -334,7 +331,7 @@ BEGIN
       CROSS JOIN LATERAL aclexplode(c.relacl) a
       WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
         AND c.relname LIKE 'pub\_%' AND a.privilege_type = 'SELECT'
-        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')
+        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader')
         AND a.grantee <> c.relowner
         AND NOT EXISTS (SELECT FROM jsonb_to_recordset(coalesce(v_voulus, '[]')) AS x(vue text, lecteurs text[])
                         WHERE x.vue = n.nspname || '.' || c.relname AND pg_get_userbyid(a.grantee) = ANY (x.lecteurs))
@@ -381,7 +378,7 @@ BEGIN
       CROSS JOIN LATERAL aclexplode(p.proacl) a
       WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible') AND p.proname LIKE 'pub\_%'
         AND a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner
-        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')
+        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader')
         AND NOT EXISTS (SELECT FROM matrix.liens l
                         WHERE l.vue = n.nspname || '.' || p.proname AND l.lecteur = pg_get_userbyid(a.grantee)
                           AND l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution')$q$
@@ -420,7 +417,7 @@ BEGIN
     RAISE WARNING 'droits.partage_lecteurs absente : rejouez init/03-droits.sql, puis ce fichier, pour que droits.verifier() contrôle les lecteurs.';
   END IF;
   IF cardinality(v_absentes) > 0 THEN
-    RAISE WARNING 'Vues absentes, droits non posés (jouez le fichier de l''outil puis relancez celui-ci) : %', array_to_string(v_absentes, ', ');
+    RAISE WARNING 'Vues absentes, droits non posés (migration de l''outil pas encore passée, ou publication à appliquer dans l''écran Publications de Matrix ; puis relancez ce fichier) : %', array_to_string(v_absentes, ', ');
   END IF;
   RAISE NOTICE 'Droits posés sur % vues pub_.', v_nb;
 END $droits$;

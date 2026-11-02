@@ -90,6 +90,14 @@ test('publications (M-18) : 409 sans serveur commun, chemin invalide introuvable
   assert.equal((await fetch(libre + '/api/publications/keystone.projets')).status, 404);
 });
 
+test('dépôt des demandes : publications et liens préparés, lisibles sans serveur commun', async () => {
+  const d = await (await fetch(libre + '/api/publications/depot')).json();
+  assert.equal(d.serveur, false);
+  assert.ok(d.publications.some(p => p.vue === 'keystone.pub_projets' && /categorie/.test(p.definition)));
+  assert.ok(d.publications.some(p => p.vue === 'vigie.pub_etudes_securite' && p.attendue));
+  assert.ok(d.liens.some(l => l.lecteur === 'bi_reader' && l.vue === 'arche.pub_capex'));
+});
+
 test('déclaration d’un outil : jeton exigé, jamais prise pour une lecture du serveur', async () => {
   const doc = { schema: 'matrix.schema/1', app: 'vigie', origine: 'serveur', declareLe: '2026-10-31T00:00:00Z',
     tables: [{ name: 'events', pk: ['id'], fks: [], uniques: [], columns: [{ name: 'id', type: 'integer' }] }] };

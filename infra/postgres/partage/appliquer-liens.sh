@@ -69,7 +69,7 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
     CROSS JOIN LATERAL aclexplode(c.relacl) a
     WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
       AND c.relname LIKE 'pub\_%' AND a.privilege_type = 'SELECT' AND a.grantee <> c.relowner
-      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')
+      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader')
       AND NOT EXISTS (SELECT FROM matrix.liens l
                       WHERE l.vue = n.nspname || '.' || c.relname AND l.lecteur = pg_get_userbyid(a.grantee)
                         AND l.statut = 'autorise')
@@ -89,7 +89,7 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
     CROSS JOIN LATERAL aclexplode(p.proacl) a
     WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible') AND p.proname LIKE 'pub\_%'
       AND a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner
-      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app')
+      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader')
       AND NOT EXISTS (SELECT FROM matrix.liens l
                       WHERE l.vue = n.nspname || '.' || p.proname AND l.lecteur = pg_get_userbyid(a.grantee)
                         AND l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution')

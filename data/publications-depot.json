@@ -1,0 +1,159 @@
+{
+ "_lisezmoi": "Dépôt des publications et des liens préparés dans Matrix pour les demandes des outils (M-18). L'écran « Publications » les montre face au registre du serveur commun (matrix.publications, matrix.liens) et les enregistre ou les applique d'un clic ; rien n'est appliqué sans cette action. Une publication « attendue » n'a pas encore de définition (tables de l'outil à venir) : seul son contrat est connu. Ce fichier remplace les copies de vues des fichiers de partage (lot M17-3).",
+ "publications": [
+  {
+   "vue": "keystone.pub_projets",
+   "demande": "Keystone → Matrix, 01/11/2026, point (2) : colonne categorie en fin de vue (R-196, demande K-3 de Crucible)",
+   "mode": "sql",
+   "definition": "SELECT p.code,\n       p.number             AS numero,\n       p.analytic_code      AS code_analytique,\n       p.kind               AS nature,\n       p.name               AS nom,\n       p.client_id,\n       c.name               AS client,\n       c.code3              AS client_code3,\n       p.stage              AS phase_code,\n       ls.label             AS phase,\n       (p.stage NOT IN ('clos', 'annule')) AS imputable,\n       pm.matricule         AS chef_projet_matricule,\n       coalesce(pm.full_name, pm.short_name) AS chef_projet_nom,\n       ps.city              AS ville,\n       ps.country_name      AS pays,\n       (SELECT string_agg(DISTINCT su.name, ' · ' ORDER BY su.name)\n          FROM keystone.purchase_orders po\n          JOIN keystone.suppliers su ON su.id = po.supplier_id\n         WHERE po.project_id = p.id AND po.status NOT IN ('draft', 'cancelled')) AS fournisseurs,\n       p.updated_at         AS maj_le,\n       p.capex_code,\n       p.besoin_ref,\n       coalesce(c.is_internal, false) AS client_interne,\n       c.subsidiary_code    AS filiale_code,\n       p.category           AS categorie\nFROM keystone.projects p\nLEFT JOIN keystone.clients c           ON c.id = p.client_id\nLEFT JOIN keystone.persons pm          ON pm.id = p.pm_person_id\nLEFT JOIN keystone.lifecycle_stages ls ON ls.code = p.stage\nLEFT JOIN keystone.project_sites ps    ON ps.project_id = p.id",
+   "description": "Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) + client_interne, filiale_code (R-190, client interne = filiale du groupe) + categorie (R-196 : client | rd, projet R&D pour Crucible) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app.",
+   "note": "Définition identique à la migration 0071_project_category_share de Keystone. La vue appartient encore à Keystone : elle s'applique après sa reprise par Matrix (partage/14) ; d'ici là, le serveur a déjà categorie par la migration 0071."
+  },
+  {
+   "vue": "vigie.pub_etudes_securite",
+   "demande": "M-15 d'Arche, 01/11/2026 (AR-033)",
+   "attendue": true,
+   "contrat": "data/contrats/vigie.pub_etudes_securite.json",
+   "note": "Contrat connu (17 colonnes) ; la définition s'écrira dans l'écran Publications quand Vigie tiendra les études de sécurité (demande VG-01 à VG-05 d'Arche à Vigie)."
+  },
+  {
+   "vue": "vigie.pub_ordres_modification",
+   "demande": "D12 (ECR / ECO) : spécification de partage/60-vigie-ecr-eco.sql",
+   "mode": "sql",
+   "definition": "SELECT e.id                  AS number,\n       e.title,\n       e.eco_type,\n       e.status,\n       e.interchangeability,\n       e.from_revision,\n       e.to_revision,\n       e.cost_eur,\n       e.schedule_days,\n       e.stock_impact,\n       ARRAY(SELECT d.ref_label FROM vigie.eco_documents d WHERE d.eco_id = e.id ORDER BY d.position) AS document_refs,\n       ARRAY(SELECT d.codex_doc_id FROM vigie.eco_documents d\n             WHERE d.eco_id = e.id AND d.codex_doc_id IS NOT NULL ORDER BY d.position) AS codex_doc_ids,\n       e.requested_by_name,\n       e.requested_by_matricule,\n       e.raised_on,\n       coalesce(f.en_attente, 0)::integer AS pending_dispositions,\n       (coalesce(a.n, 0) = 3 AND a.toutes_ok AND e.status NOT IN ('draft', 'rejected')\n        AND (coalesce(f.en_attente, 0) > 0 OR e.interchangeability IS NULL)) AS locked,\n       ARRAY(SELECT p.part_ref FROM vigie.eco_parts p WHERE p.eco_id = e.id ORDER BY p.position) AS parts,\n       ARRAY(SELECT pr.keystone_project_code FROM vigie.eco_projects pr\n             WHERE pr.eco_id = e.id ORDER BY pr.position) AS projects,\n       e.released_at,\n       e.updated_at          AS vigie_updated_at\nFROM vigie.ecos e\nLEFT JOIN (SELECT eco_id, count(*) AS n, bool_and(decision = 'ok') AS toutes_ok\n           FROM vigie.eco_approvals GROUP BY eco_id) a ON a.eco_id = e.id\nLEFT JOIN (SELECT eco_id, count(*) FILTER (WHERE disposition IS NULL) AS en_attente\n           FROM vigie.eco_effectivity GROUP BY eco_id) f ON f.eco_id = e.id",
+   "description": "Contrat D12 v1 : ordres de modification, avec articles, projets et documents en tableaux. Lecteurs : keystone_app, matrix_app.",
+   "note": "Tables à créer par Vigie (module ECR / ECO, spécification partage/60-vigie-ecr-eco.sql) ; la publication s'applique ensuite."
+  },
+  {
+   "vue": "vigie.pub_eco_approbations",
+   "demande": "D12 (ECR / ECO) : spécification de partage/60-vigie-ecr-eco.sql",
+   "mode": "sql",
+   "definition": "SELECT a.eco_id AS eco_number,\n       a.approval_key,\n       a.decision,\n       a.approver_text,\n       a.decided_by_name,\n       a.decided_by_matricule,\n       a.decided_at\nFROM vigie.eco_approvals a",
+   "description": "Contrat D12 v1 : approbations des ECO. Lecteurs : keystone_app, matrix_app.",
+   "note": "Tables à créer par Vigie (module ECR / ECO, spécification partage/60-vigie-ecr-eco.sql) ; la publication s'applique ensuite."
+  },
+  {
+   "vue": "vigie.pub_eco_effectivite",
+   "demande": "D12 (ECR / ECO) : spécification de partage/60-vigie-ecr-eco.sql",
+   "mode": "sql",
+   "definition": "SELECT t.eco_id AS eco_number,\n       t.target_type,\n       t.target_ref,\n       t.label,\n       t.disposition,\n       t.is_automatic,\n       t.note,\n       t.fitted_part_ref,\n       t.fitted_revision,\n       t.position\nFROM vigie.eco_effectivity t",
+   "description": "Contrat D12 v1 : effectivité des ECO. Lecteurs : keystone_app, matrix_app.",
+   "note": "Tables à créer par Vigie (module ECR / ECO, spécification partage/60-vigie-ecr-eco.sql) ; la publication s'applique ensuite."
+  },
+  {
+   "vue": "vigie.pub_demandes_modification",
+   "demande": "D12 (ECR / ECO) : spécification de partage/60-vigie-ecr-eco.sql",
+   "mode": "sql",
+   "definition": "SELECT r.id,\n       r.kind,\n       r.codex_doc_id        AS doc_id,\n       CASE WHEN r.source = 'codex' THEN r.requester_ref ELSE r.source END AS requester_id,\n       r.requester_name,\n       r.requester_matricule,\n       r.reason,\n       r.description,\n       r.status,\n       r.eco_id              AS eco_ref,\n       r.modifier_ref        AS modifier_id,\n       r.decision_note,\n       r.source,\n       r.subject,\n       r.keystone_project_code AS project_code,\n       r.part_ref,\n       r.event_id,\n       r.created_at,\n       r.decided_at,\n       r.implemented_at,\n       r.codex_revision\nFROM vigie.ecrs r",
+   "description": "Contrat D12 v1 : demandes de modification. Codex la lit pour une demande inconnue reçue par webhook (route.ts:48-49) et pour un contrôle de cohérence. Lecteurs : codex_app, keystone_app, matrix_app.",
+   "note": "Tables à créer par Vigie (module ECR / ECO, spécification partage/60-vigie-ecr-eco.sql) ; la publication s'applique ensuite."
+  }
+ ],
+ "liens": [
+  {
+   "vue": "vigie.pub_etudes_securite",
+   "lecteur": "arche_app",
+   "nature": "lecture",
+   "demande": "M-15 d'Arche, 01/11/2026",
+   "motif": "Jalons de sécurité HS2, HS3, HS4, PSSR et HS6 des CAPEX (AR-033) ; contrat data/contrats/vigie.pub_etudes_securite.json"
+  },
+  {
+   "vue": "arche.pub_capex",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "M-14 d'Arche, 31/10/2026 (AR-042)",
+   "motif": "Power BI du contrôle de gestion : tableaux des CAPEX (pas arche.pub_rex, v1)"
+  },
+  {
+   "vue": "arche.pub_besoins_machines",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "M-14 d'Arche, 31/10/2026 (AR-042)",
+   "motif": "Power BI du contrôle de gestion : tableaux des CAPEX (pas arche.pub_rex, v1)"
+  },
+  {
+   "vue": "arche.pub_rampup",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "M-14 d'Arche, 31/10/2026 (AR-042)",
+   "motif": "Power BI du contrôle de gestion : tableaux des CAPEX (pas arche.pub_rex, v1)"
+  },
+  {
+   "vue": "arche.pub_rex_v2",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "M-14 d'Arche, 31/10/2026 (AR-042)",
+   "motif": "Power BI du contrôle de gestion : tableaux des CAPEX (pas arche.pub_rex, v1)"
+  },
+  {
+   "vue": "arche.pub_journal",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "M-14 d'Arche, 31/10/2026 (AR-042)",
+   "motif": "Power BI du contrôle de gestion : tableaux des CAPEX (pas arche.pub_rex, v1)"
+  },
+  {
+   "vue": "keystone.pub_projets",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_avancement_projets",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_jalons_projets",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_avenants",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_reserves",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_livrables",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_catalogue_machines",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_reponses_besoins",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "keystone.pub_expeditions",
+   "lecteur": "bi_reader",
+   "nature": "lecture",
+   "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
+   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  }
+ ]
+}

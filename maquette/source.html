@@ -1644,10 +1644,10 @@ RENDER.liens = () => {
         ${SERVEUR ? `<div class="actions"><button class="btn btn-secondary" id="liens-relire">${icon('pulse', 14)} Relire le serveur</button></div>` : ''}</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         ${seg('lfiltre', [['traiter', 'À traiter', L.filter(l => LIENS_A_TRAITER.includes(l.etat)).length], ['applique', 'Appliqués', L.filter(l => l.etat === 'applique').length], ['refuse', 'Refusés', L.filter(l => l.etat === 'refuse').length], ['outil_absent', 'Outil absent', L.filter(l => l.etat === 'outil_absent').length], ['tous', 'Tous', L.length]], st.filtre)}
-        ${seg('llecteur', [['tous', 'Tous les lecteurs'], ...lecteurs.map(l => [l, APPS[appDe(l)]?.nom || 'Matrix'])], st.lecteur)}</div>
+        ${seg('llecteur', [['tous', 'Tous les lecteurs'], ...lecteurs.map(l => [l, nomLecteur(l)])], st.lecteur)}</div>
       ${lignes.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Objet publié</th><th>Outil</th><th>Registre</th><th>État</th><th>Décision</th>${SERVEUR ? '<th></th>' : ''}</tr></thead><tbody>
         ${lignes.map(l => `<tr><td class="nowrap">${APPS[outilDe(l.vue)] ? appMark(outilDe(l.vue), 16) : icon('matrix', 16)} <span class="mono">${esc(l.vue)}</span>${l.nature === 'execution' ? ' <span class="tag tag-outline" title="Lien d’écriture : exécution d’une fonction pub_">écriture</span>' : ''}</td>
-          <td class="nowrap">${APPS[appDe(l.lecteur)] ? appMark(appDe(l.lecteur), 16) + ' ' + APPS[appDe(l.lecteur)].nom : 'Matrix'}</td>
+          <td class="nowrap">${APPS[appDe(l.lecteur)] ? appMark(appDe(l.lecteur), 16) + ' ' + APPS[appDe(l.lecteur)].nom : nomLecteur(l.lecteur)}</td>
           <td>${l.statut ? esc({ autorise: 'Autorisé', refuse: 'Refusé', demande: 'Demandé' }[l.statut]) : '<span class="text-muted">absent</span>'}${l.origine === 'convention' ? ' <span class="text-muted sub">· convention</span>' : ''}</td>
           <td>${etatTag(l.gravite)} <span class="sub">${esc(E[l.etat]?.libelle || l.etat)}</span></td>
           <td class="sub text-muted">${l.decide_par ? `${esc(l.decide_par)} · ${quand(l.decide_le)}` : l.demande_par ? `demandé par ${esc(l.demande_par)} · ${quand(l.demande_le)}` : '—'}${l.motif ? `<div>${esc(l.motif)}</div>` : ''}</td>
@@ -1656,11 +1656,11 @@ RENDER.liens = () => {
       ${SERVEUR ? `<div class="block-title" style="margin-top:22px">Nouvelle demande de lien</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <select class="input" id="ld-vue"><optgroup label="Lecture (vues pub_)">${vuesExistantes.map(v => `<option data-nature="lecture">${esc(v)}</option>`).join('')}</optgroup>${(SANTE.fonctions || []).length ? `<optgroup label="Écriture (fonctions pub_)">${SANTE.fonctions.map(f => `<option data-nature="execution" title="${esc(f.fonction)}(${esc(f.arguments)})">${esc(f.fonction)}</option>`).join('')}</optgroup>` : ''}</select>
-          <select class="input" id="ld-lecteur">${['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app'].map(l => `<option value="${l}">${APPS[appDe(l)]?.nom || 'Matrix'}</option>`).join('')}</select>
+          <select class="input" id="ld-lecteur">${['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader'].map(l => `<option value="${l}">${nomLecteur(l)}</option>`).join('')}</select>
           <input class="input" id="ld-motif" placeholder="Besoin de l’outil lecteur" style="flex:1;min-width:220px">
           <button class="btn btn-primary btn-sm" id="ld-envoyer">Enregistrer la demande</button></div>` : ''}
       <div class="block-title" style="margin-top:22px">Liens autorisés, par outil <span>publie → lit</span></div>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Outil qui publie</th>${lecteurs.map(l => `<th class="num">${APPS[appDe(l)]?.nom || 'Matrix'}</th>`).join('')}</tr></thead><tbody>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Outil qui publie</th>${lecteurs.map(l => `<th class="num">${nomLecteur(l)}</th>`).join('')}</tr></thead><tbody>
         ${producteurs.map(p => `<tr><td class="nowrap">${APPS[p] ? appMark(p, 16) + ' ' + APPS[p].nom : 'Matrix'}</td>${lecteurs.map(l => `<td class="num">${nb(p, l) || '<span class="text-muted">·</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
       <div class="block-title" style="margin-top:22px">Journal des décisions <span>${(SANTE.journalLiens || []).length}</span></div>
       ${(SANTE.journalLiens || []).length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Quand</th><th>Qui</th><th>Lien</th><th>Changement</th><th>Motif</th></tr></thead><tbody>${SANTE.journalLiens.slice(0, 100).map(j => `<tr><td class="tabnum text-muted nowrap">${quand(j.le)}</td><td>${esc(j.par)}</td><td class="mono sub">${esc(j.lecteur)} → ${esc(j.vue)}</td><td>${esc(j.avant || 'nouveau')} → ${esc(j.apres)}</td><td class="text-muted">${esc(j.motif || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-muted">Aucune décision.</p>'}
@@ -1683,16 +1683,18 @@ RENDER.liens = () => {
 navLiens();
 
 // ── Publications (décision M-18, lot P3) : ce que chaque outil publie, défini et appliqué par Matrix ──
+const nomLecteur = l => l === 'bi_reader' ? 'Power BI' : (APPS[String(l).replace(/_app$/, '')]?.nom || 'Matrix');
 const ETATS_PUB = { appliquee: ['Appliquée', 'tag-neutral'], brouillon: ['Brouillon', 'tag-outline'], erreur: ['Erreur', 'tag-accent'], retiree: ['Retirée', 'tag-ghost'] };
 const etatPub = e => `<span class="tag ${(ETATS_PUB[e] || ETATS_PUB.brouillon)[1]}">${(ETATS_PUB[e] || [e])[0]}</span>`;
 RENDER.publications = () => {
   const root = $('s-publications');
   if (!SERVEUR || !SERVEUR_COMMUN) { root.innerHTML = `<div class="wrap">${SANS_SERVEUR_COMMUN('Le registre des publications (vues pub_ des outils, décision M-18)')}</div>`; return; }
-  const st = { outil: '', etat: 'toutes', liste: null, nonReprises: [], gestion: false, erreur: null, sel: null, fiche: null, brouillon: null };
+  const st = { outil: '', etat: 'toutes', liste: null, nonReprises: [], gestion: false, erreur: null, sel: null, fiche: null, brouillon: null, depot: null };
   const enHaut = () => { root.scrollIntoView({ block: 'start' }); document.querySelector('.app-main')?.scrollTo?.(0, 0); };
   const charger = async () => {
     try { const j = await lireApi('/api/publications'); Object.assign(st, { liste: j.publications, nonReprises: j.nonReprises, gestion: j.gestion, erreur: null }); }
     catch (e) { st.erreur = e.message; }
+    try { st.depot = await lireApi('/api/publications/depot'); } catch { st.depot = null; }
     draw();
   };
   const ouvrir = async vue => {
@@ -1793,13 +1795,57 @@ RENDER.publications = () => {
       ${(p.contrat || []).length ? `<p class="sub text-muted">Lu par d’autres outils : une colonne ne s’y retire, ne s’y renomme ni ne change de type ; on n’en ajoute qu’en fin. Pour un changement incompatible, publiez une vue <span class="mono">${esc(st.sel)}_v2</span>.</p>
         <div class="tags">${p.contrat.map(c => `<span class="tag tag-ghost mono" title="${esc(c.type)}">${esc(c.nom)}</span>`).join('')}</div>` : '<p class="text-muted sub">Pas encore appliquée.</p>'}
       <div class="block-title" style="margin-top:20px">Lecteurs <span>${lecteurs.length}</span></div>
-      <p class="sub">${lecteurs.length ? lecteurs.map(l => APPS[l.replace(/_app$/, '')]?.nom || 'Matrix').join(', ') : '<span class="text-muted">Aucun outil autorisé.</span>'} <button class="link-btn" data-go="liens">Gérer les liens</button></p>
+      <p class="sub">${lecteurs.length ? lecteurs.map(nomLecteur).join(', ') : '<span class="text-muted">Aucun outil autorisé.</span>'} <button class="link-btn" data-go="liens">Gérer les liens</button></p>
       ${p.definition && b.mode === 'colonnes' ? `<details style="margin-top:14px"><summary class="sub text-muted">Requête enregistrée</summary><pre class="mono sub" style="white-space:pre-wrap;margin-top:6px">${esc(p.definition)}</pre></details>` : ''}
       <div class="block-title" style="margin-top:20px">Journal <span>${(p.journal || []).length}</span></div>
       ${(p.journal || []).length ? `<div class="table-wrap"><table class="table"><tbody>${p.journal.map(j => `<tr><td class="tabnum text-muted nowrap">${quand(j.le)}</td><td>${esc(j.par || '')}</td><td>${esc({ reprise: 'Reprise', creation: 'Création', modification: 'Modification', application: 'Application', erreur: 'Erreur', retrait: 'Retrait' }[j.action] || j.action)}</td><td class="sub text-muted">${esc(j.detail || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-muted sub">Aucune entrée.</p>'}
     </div>`;
   };
 
+  // Demandes préparées dans data/publications-depot.json (M-18) : état face au registre et action proposée.
+  const ETATS_DEPOT = { a_enregistrer: ['À enregistrer', 'tag-outline'], a_mettre_a_jour: ['Différente du registre', 'tag-outline'], enregistree: ['Brouillon enregistré', 'tag-neutral'],
+    appliquee: ['Appliquée', 'tag-neutral'], attendue: ['Attendue', 'tag-ghost'], a_autoriser: ['À autoriser', 'tag-outline'], a_demander: ['Vue absente : demande à inscrire', 'tag-outline'],
+    demande: ['Demande inscrite', 'tag-ghost'], autorise: ['Autorisé', 'tag-neutral'] };
+  const etatDepot = e => `<span class="tag ${(ETATS_DEPOT[e] || ['', 'tag-ghost'])[1]}">${(ETATS_DEPOT[e] || [e])[0]}</span>`;
+  const blocDepot = () => {
+    const d = st.depot; if (!d?.publications) return '';
+    const aFaire = [...d.publications.filter(p => !['appliquee'].includes(p.etat)), ...d.liens.filter(l => l.etat !== 'autorise')].length;
+    const pubs = d.publications.map(p => `<tr><td class="nowrap">${appMark(p.vue.split('.')[0], 16)} <span class="mono">${esc(p.vue)}</span><div class="sub text-muted">${esc(p.demande)}</div></td>
+        <td>${etatDepot(p.etat)}${p.existe && !p.reprise && !p.attendue ? '<div class="sub text-muted">vue encore à l’outil : applicable après la reprise</div>' : ''}</td>
+        <td class="sub text-muted">${esc(p.note || '')}</td>
+        <td class="nowrap">${['a_enregistrer', 'a_mettre_a_jour'].includes(p.etat) ? `<button class="btn btn-secondary btn-sm" data-depot-pub="${esc(p.vue)}" data-faire="enregistrer">Enregistrer en brouillon</button>` : ''}
+          ${['a_enregistrer', 'a_mettre_a_jour', 'enregistree'].includes(p.etat) && st.gestion && (p.reprise || !p.existe) ? ` <button class="btn btn-primary btn-sm" data-depot-pub="${esc(p.vue)}" data-faire="appliquer">Appliquer</button>` : ''}
+          ${p.etat !== 'attendue' && p.etat !== 'a_enregistrer' ? ` <button class="link-btn" data-pub="${esc(p.vue)}">Ouvrir</button>` : ''}</td></tr>`).join('');
+    const liens = d.liens.map((l, i) => `<tr><td class="nowrap">${nomLecteur(l.lecteur)} → <span class="mono">${esc(l.vue)}</span><div class="sub text-muted">${esc(l.demande)}</div></td>
+        <td>${etatDepot(l.etat)}</td><td class="sub text-muted">${esc(l.motif)}</td>
+        <td class="nowrap">${l.etat === 'a_autoriser' ? `<button class="btn btn-secondary btn-sm" data-depot-lien="${i}" data-faire="autorise">Autoriser</button>` : l.etat === 'a_demander' ? `<button class="btn btn-ghost btn-sm" data-depot-lien="${i}" data-faire="demande">Inscrire la demande</button>` : ''}</td></tr>`).join('');
+    return `<details class="card" style="margin-bottom:16px" ${aFaire ? 'open' : ''}><summary style="cursor:pointer"><span class="block-title" style="display:inline">Demandes à traiter</span> <span class="tag ${aFaire ? 'tag-accent' : 'tag-neutral'}">${aFaire || 'aucune'}</span></summary>
+      <p class="sub text-muted" style="margin:8px 0">Publications et liens préparés dans Matrix pour les demandes des outils (<span class="mono">data/publications-depot.json</span>), face au registre du serveur commun. Rien n’est appliqué sans votre action.</p>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Publication</th><th>État</th><th>Note</th><th></th></tr></thead><tbody>${pubs}</tbody></table></div>
+      <div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>Lien</th><th>État</th><th>Motif</th><th></th></tr></thead><tbody>${liens}</tbody></table></div></details>`;
+  };
+  const traiterDepot = async (b) => {
+    b.disabled = true;
+    try {
+      if (b.dataset.depotPub) {
+        const p = st.depot.publications.find(x => x.vue === b.dataset.depotPub);
+        const r = await fetch(`/api/publications/${encodeURIComponent(p.vue)}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: p.mode, definition: p.definition, description: p.description }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.erreur || `erreur ${r.status}`);
+        if (b.dataset.faire === 'appliquer') {
+          if (!confirm(`Appliquer ${p.vue} sur le serveur commun ?`)) return;
+          const a = await poster(`/api/publications/${encodeURIComponent(p.vue)}/appliquer`);
+          toast(`${p.vue} appliquée : ${a.resultat.contrat.length} colonne(s)`);
+        } else toast(`${p.vue} : brouillon enregistré`);
+      } else {
+        const l = st.depot.liens[+b.dataset.depotLien];
+        const j = await poster('/api/liens', { vue: l.vue, lecteur: l.lecteur, statut: b.dataset.faire, motif: `${l.demande} : ${l.motif}`, nature: l.nature });
+        if (SANTE) SANTE.liens = j.liens; rendered.liens = false;
+        toast(b.dataset.faire === 'demande' ? 'Demande inscrite au registre' : `Lien autorisé : droit posé ${j.lien?.application?.applique ? 'tout de suite' : 'au prochain passage de 90-droits.sql'}`);
+      }
+    } catch (e) { toast(e.message); }
+    finally { b.disabled = false; }
+    await charger();
+  };
   const draw = () => {
     if (st.erreur) { root.innerHTML = `<div class="wrap"><p class="note">${esc(st.erreur)}</p></div>`; return; }
     if (!st.liste) { root.innerHTML = '<div class="wrap"><p class="text-muted">Lecture du registre des publications…</p></div>'; return; }
@@ -1810,6 +1856,7 @@ RENDER.publications = () => {
         <div class="actions"><button class="btn btn-primary" id="pub-nouvelle">${icon('plus', 14)} Nouvelle publication</button></div></div>
       ${st.gestion ? '' : `<p class="note" style="margin-bottom:12px">Matrix n’est pas relié en administrateur (<span class="mono">MATRIX_GESTION_DATABASE_URL</span>, rôle <span class="mono">matrix_gestion</span>) : les publications s’enregistrent en brouillon, sans être appliquées.</p>`}
       ${st.sel ? `<button class="link-btn" id="pub-retour" style="margin-bottom:10px">← Toutes les publications</button>${fiche()}` : ''}
+      ${st.sel ? '' : blocDepot()}
       ${st.sel ? '' : `<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px">
         ${seg('poutil', [['', 'Tous les outils'], ...APP_IDS.map(a => [a, APPS[a].nom])], st.outil)}
         ${seg('petat', [['toutes', 'Toutes', st.liste.filter(p => !st.outil || p.outil === st.outil).length], ['appliquee', 'Appliquées', nb('appliquee')], ['brouillon', 'Brouillons', nb('brouillon')], ['erreur', 'Erreurs', nb('erreur')], ['retiree', 'Retirées', nb('retiree')]], st.etat)}</div>
@@ -1817,7 +1864,7 @@ RENDER.publications = () => {
         ${L.map(p => `<tr class="click" data-pub="${esc(p.vue)}" ${p.vue === st.sel ? 'aria-current="true"' : ''}><td class="nowrap">${appMark(p.outil, 16)} <span class="mono">${esc(p.vue)}</span>${p.description ? `<div class="sub text-muted">${esc(p.description).slice(0, 120)}</div>` : ''}</td>
           <td>${etatPub(p.etat)}${p.erreur && p.etat === 'erreur' ? `<div class="sub text-muted" title="${esc(p.erreur)}">${esc(p.erreur).slice(0, 80)}…</div>` : ''}</td>
           <td class="num tabnum">${p.colonnes || '—'}</td>
-          <td class="sub">${(p.lecteurs || []).map(l => APPS[l.replace(/_app$/, '')]?.nom || 'Matrix').join(', ') || '<span class="text-muted">—</span>'}</td>
+          <td class="sub">${(p.lecteurs || []).map(nomLecteur).join(', ') || '<span class="text-muted">—</span>'}</td>
           <td class="sub text-muted nowrap">${esc(p.modifie_par || '')} · ${quand(p.modifie_le)}</td></tr>`).join('')}</tbody></table></div>`
         : `<p class="text-muted">${st.liste.length ? 'Aucune publication dans cette sélection.' : 'Registre vide : les vues existantes y entrent par leur reprise (partage/14-reprise-publications.sql), les nouvelles par « Nouvelle publication ».'}</p>`}
       ${st.nonReprises.length ? `<div class="block-title" style="margin-top:22px">Vues pas encore reprises par Matrix <span>${st.nonReprises.length}</span></div>
@@ -1827,6 +1874,7 @@ RENDER.publications = () => {
   };
 
   root.addEventListener('click', e => {
+    const dep = e.target.closest('[data-depot-pub], [data-depot-lien]'); if (dep) return traiterDepot(dep);
     const ligne = e.target.closest('[data-pub]'); if (ligne) return ouvrir(ligne.dataset.pub);
     const a = e.target.closest('[data-pub-action]'); if (a) return action(a.dataset.pubAction, a);
     if (e.target.closest('#pub-nouvelle')) return nouvelle();

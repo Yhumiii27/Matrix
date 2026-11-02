@@ -15,7 +15,7 @@
 export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 const NOM = /^[a-z_][a-z0-9_]*$/;
 const VUE = /^(keystone|codex|cursus|vigie|arche|crucible)\.pub_[a-z0-9_]+$/;
-const LECTEURS = ['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app'];
+const LECTEURS = ['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader'];
 const LONGUEUR_MAX = 20000;
 
 const texte = v => (v == null ? '' : String(v)).trim();
@@ -317,4 +317,35 @@ async function appliquerExecution(db, fonction, lecteur) {
     if (!u.garde) await db.query(`REVOKE USAGE ON SCHEMA ${ident(schema)} FROM ${ident(lecteur)}`);
   }
   return { applique: true, droit: r.resultat === 'accorde' ? 'accordé' : 'retiré' };
+}
+
+// ── Dépôt des demandes (data/publications-depot.json) ────────────────────
+// Publications et liens préparés dans Matrix pour les demandes des outils, montrés dans l'écran « Publications » face
+// au registre du serveur commun. Rien n'est appliqué sans une action dans l'écran (enregistrer, appliquer, autoriser).
+
+const normaliser = sql => String(sql ?? '').replace(/\s+/g, ' ').trim();
+
+/** État de chaque élément du dépôt face au registre (rôle matrix_app). */
+export async function etatDepot(db, depot) {
+  const publications = [];
+  for (const p of depot.publications ?? []) {
+    const { rows: [r] } = await db.query(
+      `SELECT p.etat, p.definition, to_regclass($1) IS NOT NULL AS existe,
+              (SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = to_regclass($1)) AS proprietaire
+         FROM (SELECT 1) x LEFT JOIN matrix.publications p ON p.vue = $1`, [p.vue]);
+    let etat;
+    if (p.attendue) etat = 'attendue';
+    else if (!r.etat) etat = 'a_enregistrer';
+    else if (normaliser(r.definition) !== normaliser(p.definition)) etat = r.etat === 'appliquee' ? 'a_mettre_a_jour' : 'a_enregistrer';
+    else etat = r.etat === 'appliquee' ? 'appliquee' : 'enregistree';
+    publications.push({ ...p, etat, registre: r.etat ?? null, existe: r.existe, proprietaire: r.proprietaire, reprise: r.proprietaire === 'matrix_gestion' });
+  }
+  const liens = [];
+  for (const l of depot.liens ?? []) {
+    const { rows: [r] } = await db.query(
+      `SELECT l.statut, to_regclass($1) IS NOT NULL AS existe FROM (SELECT 1) x
+         LEFT JOIN matrix.liens l ON l.vue = $1 AND l.lecteur = $2`, [l.vue, l.lecteur]);
+    liens.push({ ...l, statut: r.statut ?? null, existe: r.existe, etat: r.statut === 'autorise' ? 'autorise' : r.existe ? 'a_autoriser' : (r.statut === 'demande' ? 'demande' : 'a_demander') });
+  }
+  return { publications, liens };
 }

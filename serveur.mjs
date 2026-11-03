@@ -67,7 +67,7 @@ import { LISTES, lireReferentiels, comparer, ecrireReferentiels } from './outils
 import { lireJournal, lireRex, lireCorrespondances, deciderCorrespondance } from './outils/consultation.mjs';
 import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, diagrammeMermaid } from './outils/export.mjs';
 import { chercher } from './outils/recherche.mjs';
-import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
+import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations, validerDemande, demanderLien, liensDuLecteur } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
 import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE } from './outils/acces.mjs';
@@ -453,7 +453,7 @@ createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/connexion' || url.pathname === '/deconnexion') return routeConnexion(req, res, url);
-    const libre = url.pathname === '/api/sante' || (req.method === 'POST' && url.pathname === '/api/declarations');
+    const libre = url.pathname === '/api/sante' || (req.method === 'POST' && url.pathname === '/api/declarations') || url.pathname === '/api/demandes';
     const qui = libre ? '' : utilisateur(req);
     if (qui === null) {
       // Jamais de WWW-Authenticate : le navigateur n'ouvre plus sa fenêtre d'identification (elle revenait en boucle
@@ -611,6 +611,34 @@ createServer((req, res) => {
         const d = lireJson(join(DECL, f));
         return { app: a, origine: d.origine ?? 'outil', declareLe: d.declareLe, version: d.version, empreinte: d.empreinte, tables: d.tables.length };
       })));
+    }
+    // Demandes d'accès des outils (E-10), avec le jeton MATRIX_TOKEN : POST pour demander, GET pour suivre ses demandes.
+    if (url.pathname === '/api/demandes') {
+      if (!TOKEN) return json(res, 503, { erreur: 'MATRIX_TOKEN n’est pas défini sur le serveur Matrix : les demandes des outils sont désactivées.' });
+      if (!jetonValide(req)) return json(res, 401, { erreur: 'jeton manquant ou invalide' });
+      if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : le registre des liens est sur le serveur commun.' });
+      if (req.method === 'GET') {
+        const outil = url.searchParams.get('outil') ?? '';
+        if (!APPS.includes(outil)) return json(res, 422, { erreur: `outil inconnu : « ${outil} »` });
+        avecServeur(db => liensDuLecteur(db, `${outil}_app`)).then(l => json(res, 200, { outil, liens: l }), e => json(res, 502, { erreur: e.message }));
+        return;
+      }
+      if (req.method !== 'POST') return json(res, 405, { erreur: 'GET ou POST' });
+      if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { erreur: 'contenu JSON attendu' });
+      return lireCorps(req, res, async corps => {
+        let lien;
+        try { lien = validerDemande(corps ?? {}); } catch (e) { return json(res, 422, { erreur: e.message }); }
+        try {
+          const outil = lien.lecteur.replace(/_app$/, '');
+          const r = await avecServeur(db => demanderLien(db, lien, `${outil} (API)`));
+          if (!r.inchange) {
+            console.log(`[${new Date().toISOString()}] demande d'accès de ${outil} : ${lien.vue} (${lien.nature})`);
+            if (edition.actif) await avecServeur(db => journaliserPg(db, { qui: `${outil} (API)`, action: 'Demande d’accès reçue', objet: `${lien.lecteur} → ${lien.vue}`, detail: lien.motif })).catch(() => {});
+            synchroniser('demande d’accès d’un outil').catch(() => {});
+          }
+          json(res, r.inchange ? 200 : 201, { demande: r, message: r.inchange ? 'lien déjà autorisé : rien à demander' : 'demande enregistrée : la DSI la tranche dans Matrix (« Liens entre outils »)' });
+        } catch (e) { json(res, 502, { erreur: e.message }); }
+      });
     }
     if (req.method === 'POST' && url.pathname === '/api/declarations') {
       if (!TOKEN) return json(res, 503, { erreur: 'MATRIX_TOKEN n’est pas défini sur le serveur Matrix : les déclarations sont désactivées.' });

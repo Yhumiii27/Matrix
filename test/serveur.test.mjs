@@ -172,3 +172,15 @@ test('déclarations : refusées sans jeton configuré', async () => {
   const r = await fetch(libre + '/api/declarations', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(r.status, 503);
 });
+
+test('demandes d\'accès des outils (E-10) : jeton exigé, serveur commun exigé', async () => {
+  const demande = (base, entetes = {}) => fetch(base + '/api/demandes', { method: 'POST', headers: { 'content-type': 'application/json', ...entetes }, body: JSON.stringify({ outil: 'arche', vue: 'keystone.pub_projets', motif: 'Rattacher les CAPEX aux projets' }) });
+  assert.equal((await demande(libre)).status, 503);   // sans MATRIX_TOKEN
+  assert.equal((await demande(jeton)).status, 401);
+  assert.equal((await demande(jeton, { 'x-matrix-token': 'faux' })).status, 401);
+  const r = await demande(jeton, { 'x-matrix-token': 'jeton-essai' });
+  assert.equal(r.status, 409);
+  assert.match((await r.json()).erreur, /MATRIX_DATABASE_URL/);
+  // Route libre du mot de passe de l'écran : le jeton suffit (les outils n'ont pas le mot de passe).
+  assert.equal((await fetch(protege + '/api/demandes')).status, 503);
+});

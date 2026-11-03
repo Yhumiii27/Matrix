@@ -62,12 +62,14 @@ import { collect, sensiblesDuServeur } from './outils/collecteur.mjs';
 import { construirePage, RACINE } from './outils/page.mjs';
 import { chargerEdition, documenter, decider, enregistrerReferentiel, preparerReferentiel, appliquerReferentiel, referentielsSaisis, adopterReferentiels, remplacerEdition } from './outils/edition.mjs';
 import { editionDisponible, lireEditionPg, reprendreEdition, journaliserPg, documenterPg, deciderPg } from './outils/edition-pg.mjs';
+import { historiqueDisponible, alignerHistorique } from './outils/historique-pg.mjs';
 import { LISTES, lireReferentiels, comparer, ecrireReferentiels } from './outils/referentiels-pg.mjs';
 import { lireJournal, lireRex, lireCorrespondances, deciderCorrespondance } from './outils/consultation.mjs';
 import { fiches as fichesCatalogue, csvTables, csvColonnes, dictionnaireHtml, diagrammeMermaid } from './outils/export.mjs';
 import { chercher } from './outils/recherche.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
+import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE } from './outils/acces.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
@@ -109,6 +111,27 @@ function rafraichir() {
   }
   page = null;
   return { catalogue, events };
+}
+
+// Historique des schémas sur le serveur commun (E-04, partage/16) : à chaque lecture du serveur, la copie locale
+// historique.json et matrix.historique_schemas sont alignées ; la table fait foi.
+let historique = { actif: false, erreur: null, alignesLe: null, ajoutes: 0 };
+async function alignerHistoriqueServeur(db) {
+  try {
+    if (!await historiqueDisponible(db)) {
+      historique = { ...historique, actif: false, erreur: 'table absente : jouez partage/16-matrix-historique.sql (rôle matrix_app) ; historique dans historique.json' };
+      return;
+    }
+    const histFile = join(DATA, 'historique.json');
+    const copie = existsSync(histFile) ? lireJson(histFile) : { evenements: [] };
+    const r = await alignerHistorique(db, copie);
+    if (JSON.stringify(r.evenements) !== JSON.stringify(copie.evenements)) { ecrireJson(histFile, { ...copie, evenements: r.evenements }); page = null; }
+    if (r.ajoutes) console.log(`historique des schémas : ${r.ajoutes} événement(s) enregistré(s) sur le serveur commun`);
+    historique = { actif: true, erreur: null, alignesLe: new Date().toISOString(), ajoutes: historique.ajoutes + r.ajoutes, evenements: r.evenements.length, ignores: r.ignores };
+  } catch (e) {
+    historique = { ...historique, erreur: e.message, erreurLe: new Date().toISOString() };
+    console.error(`historique sur le serveur commun : ${e.message}`);
+  }
 }
 
 function ajouterHistorique(evenements) {
@@ -242,7 +265,11 @@ async function synchroniser(declencheur) {
     await alignerEdition(db, declencheur === 'démarrage');
     await alignerReferentiels(db, declencheur === 'démarrage');
     const references = lireJson(join(RACINE, 'data', 'references.json')).references;
-    const lecture = await lireServeur(db, { references });
+    // Règles de qualité (E-09) : une liste invalide est signalée et laissée de côté, sans bloquer la lecture.
+    let regles = [];
+    try { regles = chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))); }
+    catch (e) { console.error(`règles de qualité ignorées : ${e.message}`); }
+    const lecture = await lireServeur(db, { references, regles });
     vuesConnues = new Set([...lecture.vues.map(v => v.vue), ...(lecture.fonctions ?? []).map(f => f.fonction)]);
     const changes = [];
     mkdirSync(DECL, { recursive: true });
@@ -274,11 +301,17 @@ async function synchroniser(declencheur) {
     } else console.warn(`colonnes sensibles du serveur illisibles (${lecture.sensiblesErreur}) : liste précédente gardée`);
     const { events } = changes.length || sensiblesChangees ? rafraichir() : { events: [] };
     if (suivi.length) ajouterHistorique(suivi);
+    await alignerHistoriqueServeur(db);
     const horsMigration = Object.fromEntries(declarations(lecture).map(d => {
       const f = join(DECL, `${d.app}.serveur.json`);
       return [d.app, existsSync(f) ? lireJson(f).horsMigration ?? null : null];
     }));
     const sante = calculerSante(lecture, { catalogue: lireJson(join(DATA, 'catalogue.json')), edition: chargerEdition(DATA), horsMigration });
+    // Incidents de qualité : ouverts au premier constat, clos au premier contrôle conforme (data/incidents-qualite.json).
+    const fichierIncidents = join(DATA, 'incidents-qualite.json');
+    const incidents = suivreIncidents(existsSync(fichierIncidents) ? lireJson(fichierIncidents) : null, lecture.qualite ?? [], lecture.luLe);
+    ecrireJson(fichierIncidents, incidents);
+    sante.incidentsQualite = incidents.incidents;
     ecrireJson(join(DATA, 'sante.json'), sante);
     page = null;
     sonde = { ...sonde, derniere: lecture.luLe, erreur: null, declencheur, outils: Object.keys(lecture.outils), schemasModifies: changes, changements: events.length, etat: sante.etat };
@@ -435,7 +468,14 @@ createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));
     const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays|zones|filiales)$/);
     if (req.method === 'GET' && ref) return json(res, 200, chargerEdition(DATA).referentiels[ref[1]].filter(x => x.actif !== false || url.searchParams.get('tous') === '1'));
-    if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, { sonde, referentiels, edition, sante: lireSante() });
+    if (req.method === 'GET' && url.pathname === '/api/etat') return json(res, 200, { sonde, referentiels, edition, historique, sante: lireSante() });
+    if (req.method === 'GET' && url.pathname === '/api/qualite') {
+      // Qualité des données (E-09) : règles, derniers résultats, incidents ouverts et clos.
+      const s = lireSante();
+      let regles = [], erreur = null;
+      try { regles = chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))); } catch (e) { erreur = e.message; }
+      return json(res, 200, { regles, erreur, resultats: s?.qualite ?? [], incidents: s?.incidentsQualite ?? [], luLe: s?.luLe ?? null });
+    }
     if (req.method === 'GET' && url.pathname === '/api/liens') {
       const s = lireSante();
       return json(res, 200, { sonde, liens: s?.liens ?? [], journal: s?.journalLiens ?? [], etats: s?.etatsLien ?? {} });
@@ -560,6 +600,7 @@ createServer((req, res) => {
       const c = lireJson(join(DATA, 'catalogue.json'));
       return json(res, 200, { ok: true, tables: c.apps.reduce((n, a) => n + a.tables.length, 0), collecteLe: c.generatedAt, declarations: TOKEN ? 'actives' : 'désactivées (MATRIX_TOKEN absent)',
         sonde: DB_URL ? { derniere: sonde.derniere, erreur: sonde.erreur, etat: sonde.etat } : 'désactivée (MATRIX_DATABASE_URL absent)',
+        historique: DB_URL ? (historique.actif ? 'serveur commun (matrix.historique_schemas)' : `historique.json${historique.erreur ? ` (${historique.erreur})` : ''}`) : 'historique.json',
         saisies: edition.actif ? 'serveur commun (matrix.documentation, decisions_doublons, journal)' : `edition.json${edition.erreur ? ` (${edition.erreur})` : ''}`,
         referentiels: DB_URL ? { alignesLe: referentiels.alignesLe, ecarts: Object.keys(referentiels.ecarts).filter(l => referentiels.ecarts[l]), erreur: referentiels.erreur } : 'dans edition.json (MATRIX_DATABASE_URL absent)' });
     }

@@ -16,6 +16,7 @@
 import { createHash } from 'node:crypto';
 import { analyserVue, confirmer } from './lignage.mjs';
 import pg from 'pg';
+import { controlerQualite } from './qualite.mjs';
 
 export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 export const SCHEMAS_LIENS = [...OUTILS, 'matrix'];
@@ -118,7 +119,7 @@ async function essayer(db, sql, params = []) {
 }
 
 /** Lit le serveur commun. `db` est un client pg connecté (rôle matrix_app). */
-export async function lireServeur(db, { references = [] } = {}) {
+export async function lireServeur(db, { references = [], regles = [] } = {}) {
   const luLe = new Date().toISOString();
   const [tables, colonnes, contraintes, vues] = await Promise.all([
     db.query(Q_TABLES, [OUTILS, JOURNAUX_MIGRATIONS]).then(r => r.rows),
@@ -193,6 +194,8 @@ export async function lireServeur(db, { references = [] } = {}) {
     sensibles: sensibles.lignes,
     verifier: { lignes: verifier.lignes, ...(verifier.erreur ? { erreur: verifier.erreur } : {}) },
     references: await controlerReferences(db, references, colonnes),
+    // Qualité des données (E-09), après tout le reste : chaque règle dans sa transaction en lecture seule.
+    qualite: await controlerQualite(db, regles, colonnes),
     migrations,
   };
 }

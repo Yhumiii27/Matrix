@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { lireLitteral } from '../outils/litteral.mjs';
-import { collect } from '../outils/collecteur.mjs';
+import { collect, sensiblesDuServeur } from '../outils/collecteur.mjs';
 
 test('lireLitteral : données seulement', () => {
   assert.deepEqual(lireLitteral(`{
@@ -82,4 +82,25 @@ test('priorité : serveur commun, puis déclaration de l’outil, puis dépôt ;
   assert.match(app(catalogue, 'vigie').source, /^serveur commun lu le/, 'le serveur passe avant la déclaration, même plus ancienne');
   assert.deepEqual(table(catalogue, 'vigie', 'events').columns.map(c => c.name), ['id', 'injury']);
   assert.ok(table(catalogue, 'vigie', 'events').sensitive.includes('injury'));
+});
+
+test('colonnes sensibles : la liste du serveur commun fait foi à la place de celle du dépôt (E-08)', t => {
+  const { racine, data, decl } = depot({ 'vigie/drizzle/0000.sql': 'CREATE TABLE "events" (\n\t"id" integer PRIMARY KEY NOT NULL,\n\t"injury" text,\n\t"note" text\n);\n--> statement-breakpoint\nCREATE TABLE "sites" (\n\t"id" integer PRIMARY KEY NOT NULL,\n\t"nom" text\n);' });
+  t.after(() => rmSync(racine, { recursive: true }));
+  // Sans liste du serveur : celle du socle du dépôt (vigie.events.injury en fait partie).
+  let { catalogue } = collect({ root: racine, dataDir: data, declDir: decl });
+  assert.equal(catalogue.sensibles, 'depot');
+  assert.ok(table(catalogue, 'vigie', 'events').sensitive.includes('injury'));
+  // Liste du serveur : un ajout du service informatique compte, une colonne absente de la liste n'est plus sensible ;
+  // « * » ferme toute la table.
+  const sensibles = sensiblesDuServeur([
+    { schema: 'vigie', table: 'events', colonne: 'note', motif: 'ajout DSI', origine: 'dsi' },
+    { schema: 'vigie', table: 'sites', colonne: '*', motif: 'essai', origine: 'dsi' },
+    { schema: 'vigie' },
+  ]);
+  assert.deepEqual(sensibles, { 'vigie.events': ['note'], 'vigie.sites': ['*'] });
+  ({ catalogue } = collect({ root: racine, dataDir: data, declDir: decl, sensibles }));
+  assert.equal(catalogue.sensibles, 'serveur');
+  assert.deepEqual(table(catalogue, 'vigie', 'events').sensitive, ['note']);
+  assert.deepEqual(table(catalogue, 'vigie', 'sites').sensitive, ['id', 'nom']);
 });

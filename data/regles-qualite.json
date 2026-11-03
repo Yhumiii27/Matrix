@@ -1,0 +1,17 @@
+{
+ "_lisezmoi": "Règles de qualité des données (écart E-09), exécutées par la sonde de Matrix sur le serveur commun à chaque lecture, en lecture seule, colonnes nommées, jamais sur une colonne sensible. Types : fraicheur { colonne, maxJours }, non_nul { colonne, seuil }, unicite { colonnes }, plage { colonne, min, max } (min ou max : nombre, date AAAA-MM-JJ ou « aujourd'hui »), valeurs { colonne, liste }. Gravité appliquée quand la règle n'est pas respectée : info, attention ou erreur. Détail : outils/qualite.mjs. Règles de départ proposées par Matrix, à compléter avec chaque outil.",
+ "regles": [
+  { "id": "Q01", "table": "keystone.projects", "type": "unicite", "colonnes": ["code"], "gravite": "erreur", "libelle": "Code projet unique (clé commune D02 lue par Vigie, Codex, Cursus et Arche)" },
+  { "id": "Q02", "table": "keystone.projects", "type": "non_nul", "colonne": "pm_person_id", "seuil": 0.2, "gravite": "attention", "libelle": "Projets avec un chef de projet (au plus 20 % sans)" },
+  { "id": "Q03", "table": "keystone.projects", "type": "plage", "colonne": "budget_keur", "min": 0, "gravite": "attention", "libelle": "Budget de projet positif ou nul" },
+  { "id": "Q04", "table": "keystone.deliverables", "type": "plage", "colonne": "accepted_on", "max": "aujourd'hui", "gravite": "attention", "libelle": "Livrables : pas d'acceptation datée dans le futur" },
+  { "id": "Q05", "table": "codex.revisions", "type": "unicite", "colonnes": ["doc_id", "letter"], "gravite": "erreur", "libelle": "Une seule révision par lettre et par document" },
+  { "id": "Q06", "table": "codex.documents", "type": "fraicheur", "colonne": "issued_at", "maxJours": 90, "gravite": "info", "libelle": "Documents diffusés dans les 90 derniers jours (activité de la GED)" },
+  { "id": "Q07", "table": "vigie.events", "type": "plage", "colonne": "occurred_on", "max": "aujourd'hui", "gravite": "attention", "libelle": "Événements QHSE : pas de date de survenue dans le futur" },
+  { "id": "Q08", "table": "vigie.events", "type": "fraicheur", "colonne": "created_at", "maxJours": 60, "gravite": "info", "libelle": "Événements QHSE déclarés dans les 60 derniers jours (remontées du terrain)" },
+  { "id": "Q09", "table": "vigie.actions", "type": "plage", "colonne": "closed_on", "max": "aujourd'hui", "gravite": "attention", "libelle": "Actions QSE : pas de clôture datée dans le futur" },
+  { "id": "Q10", "table": "cursus.employes", "type": "unicite", "colonnes": ["matricule_paie"], "gravite": "erreur", "libelle": "Matricule de paie unique par salarié" },
+  { "id": "Q11", "table": "arche.capex", "type": "unicite", "colonnes": ["code"], "gravite": "erreur", "libelle": "Code CAPEX unique" },
+  { "id": "Q12", "table": "arche.capex", "type": "non_nul", "colonne": "site_id", "seuil": 0.1, "gravite": "attention", "libelle": "CAPEX rattachés à un site (D14 ; au plus 10 % sans)" }
+ ]
+}

@@ -281,3 +281,31 @@ Format d'une entrée :
 - Justification : décisions du responsable produit du 1er nov. 2026 (cadrage des lots de Keystone, K-203b et K-196). (1) Le contrôle de gestion veut ses tableaux Power BI aussi sur les projets d'EPC2i : sans le droit, Power BI ne voit rien de Keystone. (2) Crucible filtre les projets R&D par cette colonne (sa demande K-3 à Keystone, R-196) ; sans la recopie, un rejeu de la version actuelle de `30-keystone.sql` échouerait (« cannot drop columns from view ») et la copie de référence ne décrirait plus la vue réelle.
 - Détails techniques : source de vérité = dépôt Keystone, contrats colonne par colonne dans `src/server/db/share-contracts.ts`, notes `docs/delivery-9/notes-r196-r201.md`. `categorie` : `client` (défaut) ou `rd`, jamais nulle. Les vues listées ne portent ni coût interne, ni taux, ni marge, ni donnée personnelle hors noms de projet et de client (`pub_avancement_projets` : côté vente seulement). Toutes `WITH (security_barrier)`, colonnes ajoutées en fin seulement. Lecteurs existants de `pub_projets` inchangés.
 - Validé par Guillaume le : 2026-11-01
+
+## [2026-11-04] Vigie → Matrix — Liens de lecture de vigie_app utilisés depuis le 03/11/2026 (M-02, lots 0 et 1)
+- Statut : OUVERTE
+- Demande : confirmer dans le registre matrix.liens les liens de nature lecture, lecteur vigie_app, sur les quatre vues
+  que Vigie lit depuis sa migration 0024 (convention du 15/10/2026, partage/90-droits.sql:199, 212, 214, 216) :
+  1. matrix.pub_sites (code, libelle, ville, pays_iso2, ordre, actif, filiale_code, latitude, longitude) — sites suivis
+     (cache vigie.sites, identifiant = code, décision CV-09 de Vigie) ;
+  2. keystone.pub_projets (contrat D02 v1 + capex_code, besoin_ref, client_interne, filiale_code, categorie) — choix et
+     affichage des projets (lecture directe, plus de table keystone_projects) ;
+  3. keystone.pub_affectations (contrat D04 v1) — cache vigie.keystone_assignments (jointure par matricule) ;
+  4. keystone.pub_fournisseurs (contrat D16 v1) — vigie.contractors.supplier_id.
+  Et prévenir Vigie de toute évolution du contrat de ces quatre publications (Vigie fige leur forme dans
+  test/fixtures/contracts/*.json et en tire ses substituts de démonstration).
+- Justification : décision M-02 (D14, D02, D04, D16) ; lecture par SELECT seulement depuis src/lib/foreign/ de Vigie,
+  aucune écriture (M-17). Sans le lien, Vigie affiche « source indisponible » et refuse la saisie qui en dépend.
+- Détails techniques : vérification en vigie_app : select count(*) from matrix.pub_sites (idem pour les trois vues de
+  Keystone) ; Vigie ne crée jamais de schéma ni de vue hors du schéma vigie sur le serveur commun.
+- Validé par Guillaume le : 2026-11-04
+
+## [2026-11-04] Vigie → Matrix — Publications et liens de lecture pour les personnes (D01) et les présences prévues sur site
+- Statut : OUVERTE
+- Demande :
+  1. Ajouter en fin de `cursus.pub_salaries` (après validation de Cursus) : `categorie` (`salarie` | `interimaire` | `exterieur`), `entreprise` (raison sociale de l'agence ou de l'entreprise extérieure, nulle pour un salarié), `email` (adresse professionnelle vérifiée, ou null).
+  2. Définir une publication `cursus.pub_presences_prevues` : `declaration_ref`, `matricule`, `site_code` (code de `matrix.sites`), `entreprise`, `du` (date), `au` (date), `objet`, `statut` (`validee` | `annulee`), `maj_le` — déclarations validées par les RH seulement ; aucune donnée de santé.
+  3. Liens de lecture de `vigie_app` sur `cursus.pub_salaries` et `cursus.pub_presences_prevues`.
+- Justification : décision CV-10 du 03/11/2026 (personnes de Vigie = celles de Cursus, intérimaires et extérieurs compris, matricule `I` / `E` permanent) ; liste des mouvements à venir pour le poste de garde produite par Vigie (décision du 03/11/2026).
+- Détails techniques : contrat « D01 v2 » (colonnes ajoutées en fin seulement) ; lecture par Vigie en cache rafraîchi par son planificateur (socle du lot 0, `sync_runs`).
+- Validé par Guillaume le : 2026-11-04

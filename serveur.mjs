@@ -70,6 +70,7 @@ import { chercher } from './outils/recherche.mjs';
 import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigrations, validerDemande, demanderLien, liensDuLecteur } from './outils/sonde.mjs';
 import { calculerSante } from './outils/sante.mjs';
 import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
+import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, reglesActives, reprendreRegles, enregistrerRegle } from './outils/saisies-pg.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE } from './outils/acces.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
@@ -132,6 +133,34 @@ async function alignerHistoriqueServeur(db) {
     historique = { ...historique, erreur: e.message, erreurLe: new Date().toISOString() };
     console.error(`historique sur le serveur commun : ${e.message}`);
   }
+}
+
+// Glossaire et règles de qualité saisis par la DSI (M-04, partage/17) : sur le serveur commun quand la table existe ;
+// sinon les règles viennent de data/regles-qualite.json et le glossaire n'est pas disponible.
+let saisies = { actif: false, erreur: null };
+async function alignerSaisies(db) {
+  try {
+    if (!await saisiesDisponibles(db)) {
+      saisies = { actif: false, erreur: 'tables absentes : jouez partage/17-matrix-glossaire-qualite.sql (rôle matrix_app) ; règles lues dans data/regles-qualite.json, glossaire indisponible' };
+      return;
+    }
+    const n = await reprendreRegles(db, lireJson(join(RACINE, 'data', 'regles-qualite.json')));
+    if (n !== null) console.log(`règles de qualité reprises sur le serveur commun : ${n}`);
+    saisies = { actif: true, erreur: null };
+  } catch (e) {
+    saisies = { ...saisies, erreur: e.message };
+    console.error(`glossaire et règles sur le serveur commun : ${e.message}`);
+  }
+}
+// Règles à contrôler : celles du serveur commun (actives) si elles y sont, sinon le fichier du dépôt.
+async function reglesAControler(db) {
+  if (saisies.actif) {
+    const { regles, erreurs } = await reglesActives(db);
+    for (const e of erreurs) console.error(`règle de qualité écartée : ${e}`);
+    return regles;
+  }
+  try { return chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))); }
+  catch (e) { console.error(`règles de qualité ignorées : ${e.message}`); return []; }
 }
 
 function ajouterHistorique(evenements) {
@@ -265,10 +294,9 @@ async function synchroniser(declencheur) {
     await alignerEdition(db, declencheur === 'démarrage');
     await alignerReferentiels(db, declencheur === 'démarrage');
     const references = lireJson(join(RACINE, 'data', 'references.json')).references;
-    // Règles de qualité (E-09) : une liste invalide est signalée et laissée de côté, sans bloquer la lecture.
-    let regles = [];
-    try { regles = chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))); }
-    catch (e) { console.error(`règles de qualité ignorées : ${e.message}`); }
+    // Règles de qualité (E-09) : du serveur commun (M-04) ou du dépôt ; une règle invalide est écartée et signalée.
+    await alignerSaisies(db);
+    const regles = await reglesAControler(db);
     const lecture = await lireServeur(db, { references, regles });
     vuesConnues = new Set([...lecture.vues.map(v => v.vue), ...(lecture.fonctions ?? []).map(f => f.fonction)]);
     const changes = [];
@@ -472,9 +500,19 @@ createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/qualite') {
       // Qualité des données (E-09) : règles, derniers résultats, incidents ouverts et clos.
       const s = lireSante();
-      let regles = [], erreur = null;
-      try { regles = chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))); } catch (e) { erreur = e.message; }
-      return json(res, 200, { regles, erreur, resultats: s?.qualite ?? [], incidents: s?.incidentsQualite ?? [], luLe: s?.luLe ?? null });
+      const reponse = (regles, source, erreur = null) => json(res, 200, { regles, source, erreur, modifiable: source === 'serveur', resultats: s?.qualite ?? [], incidents: s?.incidentsQualite ?? [], luLe: s?.luLe ?? null });
+      if (DB_URL && saisies.actif) {
+        avecServeur(db => lireReglesPg(db)).then(r => reponse(r, 'serveur'), e => json(res, 502, { erreur: e.message }));
+        return;
+      }
+      try { return reponse(chargerRegles(lireJson(join(RACINE, 'data', 'regles-qualite.json'))).map(r => ({ ...r, actif: true })), 'fichier', saisies.erreur); }
+      catch (e) { return reponse([], 'fichier', e.message); }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/glossaire') {
+      // Glossaire métier (E-08) : sur le serveur commun seulement.
+      if (!DB_URL || !saisies.actif) return json(res, 200, { disponible: false, raison: DB_URL ? saisies.erreur ?? 'serveur commun pas encore lu' : 'MATRIX_DATABASE_URL absent : le glossaire est sur le serveur commun.', termes: [] });
+      avecServeur(db => lireGlossaire(db)).then(t => json(res, 200, { disponible: true, termes: t }), e => json(res, 502, { erreur: e.message }));
+      return;
     }
     if (req.method === 'GET' && url.pathname === '/api/liens') {
       const s = lireSante();
@@ -541,7 +579,8 @@ createServer((req, res) => {
       avecServeur(lire).then(r => json(res, 200, r), e => json(res, /date|outil|pagination/.test(e.message) && !e.code ? 422 : 502, { erreur: e.message }));
       return;
     }
-    const ecriture = (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
+    const saisieDsi = req.method === 'PUT' && (url.pathname === '/api/glossaire' || url.pathname === '/api/qualite/regles');
+    const ecriture = saisieDsi || (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
       || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro' || url.pathname === '/api/correspondances' || publication?.[2]));
     if (ecriture) {
       if (PRODUCTION && !MOT_DE_PASSE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE sur le serveur pour autoriser les modifications.' });
@@ -549,6 +588,16 @@ createServer((req, res) => {
       const origine = req.headers.origin;
       if (origine && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
       const auteur = qui || 'anonyme';
+      // Glossaire et règles de qualité (M-04 : la DSI seule, c'est-à-dire les personnes qui ont le mot de passe de Matrix).
+      if (saisieDsi) return lireCorps(req, res, async corps => {
+        try {
+          if (!DB_URL || !saisies.actif) return json(res, 409, { erreur: `Glossaire et règles de qualité sont saisis sur le serveur commun : ${DB_URL ? saisies.erreur ?? 'serveur pas encore lu' : 'MATRIX_DATABASE_URL absent'}.` });
+          if (url.pathname === '/api/glossaire') return json(res, 200, { ok: true, terme: await avecServeur(db => enregistrerTerme(db, lireJson(join(DATA, 'catalogue.json')), corps ?? {}, auteur)) });
+          const regle = await avecServeur(db => enregistrerRegle(db, corps ?? {}, auteur));
+          synchroniser('règle de qualité modifiée').catch(() => {});
+          json(res, 200, { ok: true, regle });
+        } catch (e) { json(res, e.code === 'conflit' ? 409 : 422, { erreur: e.message, ...(e.code === 'conflit' ? { actuel: e.actuel } : {}) }); }
+      });
       if (publication?.[1]) return lireCorps(req, res, async corps => {
         try {
           if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les publications sont sur le serveur commun.' });
@@ -600,6 +649,7 @@ createServer((req, res) => {
       const c = lireJson(join(DATA, 'catalogue.json'));
       return json(res, 200, { ok: true, tables: c.apps.reduce((n, a) => n + a.tables.length, 0), collecteLe: c.generatedAt, declarations: TOKEN ? 'actives' : 'désactivées (MATRIX_TOKEN absent)',
         sonde: DB_URL ? { derniere: sonde.derniere, erreur: sonde.erreur, etat: sonde.etat } : 'désactivée (MATRIX_DATABASE_URL absent)',
+        glossaire: DB_URL ? (saisies.actif ? 'serveur commun (matrix.glossaire, matrix.regles_qualite)' : `indisponible${saisies.erreur ? ` (${saisies.erreur})` : ''}`) : 'indisponible (MATRIX_DATABASE_URL absent)',
         historique: DB_URL ? (historique.actif ? 'serveur commun (matrix.historique_schemas)' : `historique.json${historique.erreur ? ` (${historique.erreur})` : ''}`) : 'historique.json',
         saisies: edition.actif ? 'serveur commun (matrix.documentation, decisions_doublons, journal)' : `edition.json${edition.erreur ? ` (${edition.erreur})` : ''}`,
         referentiels: DB_URL ? { alignesLe: referentiels.alignesLe, ecarts: Object.keys(referentiels.ecarts).filter(l => referentiels.ecarts[l]), erreur: referentiels.erreur } : 'dans edition.json (MATRIX_DATABASE_URL absent)' });

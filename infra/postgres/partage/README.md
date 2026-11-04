@@ -21,6 +21,7 @@ La convention :
 | 1 | `12-matrix-liens.sql` | `matrix_app` | Registre des liens entre outils administré par Matrix : `matrix.liens` (vue, lecteur, statut autorise / refuse / demande), journal `matrix.liens_journal` en ajout seul |
 | 1 | `15-matrix-edition.sql` | `matrix_app` | Saisies de Matrix (E-04) : `matrix.documentation` (fiche par table, version `maj_le`), `matrix.decisions_doublons`, `matrix.journal` (ajout seul). Reprises d'`edition.json` au premier démarrage de Matrix qui les trouve vides. |
 | 1 | `16-matrix-historique.sql` | `matrix_app` | Historique des schémas des outils (E-04, suite) : `matrix.historique_schemas`, un événement par ligne (détail en `jsonb`, empreinte contre les doublons), ajout seul. `historique.json` y est repris à la première lecture du serveur par Matrix, puis reconstitué depuis la table à chaque lecture. |
+| 1 | `17-matrix-glossaire-qualite.sql` | `matrix_app` | Saisies de la DSI (décision M-04) : glossaire métier `matrix.glossaire` (E-08 ; termes reliés aux colonnes des outils) et règles de qualité `matrix.regles_qualite` (E-09 ; reprises de `data/regles-qualite.json` au premier passage de Matrix). Version `maj_le`, rien ne se supprime (retrait : `actif = false`). |
 | 1 | `13-matrix-publications.sql` | `matrix_app` | Registre des publications (M-18) : `matrix.publications` (une ligne par vue `pub_` : définition, contrat, état), journal `matrix.publications_journal` en ajout seul ; lecture des registres et enregistrement des applications accordés à `matrix_gestion` |
 | 2 | `20-cursus.sql` | `cursus_app` | Contrôle des prérequis de Cursus (migration `0002_partage` passée). Plus de copie de vue (M17-3) |
 | 2 | `30-keystone.sql` | `keystone_app` | Contrôle des prérequis de Keystone (colonnes, tables, déclencheur `machine_catalogue_entries_frozen` et index des migrations `0034` à `0071`) et codes ISO des pays (D17). Plus de copie de vue (M17-3) |
@@ -42,7 +43,7 @@ Commandes :
 ```sh
 psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
 psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/12-matrix-liens.sql
-# … 13, 15 et 16 (matrix_app), sur le même modèle
+# … 13, 15, 16 et 17 (matrix_app), sur le même modèle
 psql "postgres://cursus_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/20-cursus.sql
 # … 30 (keystone_app), 40 (codex_app), 50 (vigie_app), 70 (arche_app), 80 (crucible_app), sur le même modèle ; pas 60 (module ECR / ECO absent de Vigie)
 psql -h hôte -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql   # sans -1 : le fichier ouvre sa transaction

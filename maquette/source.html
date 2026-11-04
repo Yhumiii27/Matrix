@@ -314,6 +314,7 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
     <main class="app-main">
       <section class="screen pad" id="s-accueil" data-title="Tableau de bord"></section>
       <section class="screen" id="s-bibliotheque" data-title="Bibliothèque des bases" hidden></section>
+      <section class="screen pad" id="s-glossaire" data-title="Glossaire métier" hidden></section>
       <section class="screen" id="s-graphe" data-title="Graphe des liens" hidden></section>
       <section class="screen" id="s-flux" data-title="Flux entre logiciels" hidden></section>
       <section class="screen" id="s-doublons" data-title="Doublons à trancher" hidden></section>
@@ -487,6 +488,7 @@ const STATS = (() => {
 const NAV = [
   ['accueil', 'Accueil', 'home'],
   ['bibliotheque', 'Bibliothèque', 'db'],
+  ['glossaire', 'Glossaire métier', 'list'],
   ['graphe', 'Graphe des liens', 'graph'],
   ['flux', 'Flux entre logiciels', 'flux'],
   ['doublons', 'Doublons', 'ref'],
@@ -563,6 +565,7 @@ function tableSheet(t, tab = 'colonnes', opts = {}) {
       if (fk) flags.push(`<span class="tag ${fk.declared ? 'tag-outline' : 'tag-ghost'}">→ ${esc(fk.table)}.${esc(fk.refColumns.join(', '))}${fk.declared ? '' : ' · logique'}</span>`);
       if (!c.nullable && !c.pk) flags.push('<span class="tag tag-ghost">obligatoire</span>');
       if (sens.has(c.name)) flags.push('<span class="tag tag-outline">' + icon('lock', 10) + ' sensible</span>');
+      for (const g of termesDe(t.app, t.name, c.name)) flags.push(`<a class="tag tag-ghost" href="#glossaire" title="${esc(g.definition)}">${icon('list', 10)} ${esc(g.terme)}</a>`);
       return `<div class="col-row"><span class="mono">${esc(c.name)}</span><span class="col-type mono">${esc(c.type)}</span>${flags.length ? `<div class="col-flags">${flags.join('')}</div>` : ''}</div>`;
     }).join('')}</div>`;
   } else if (tab === 'liens') {
@@ -1538,6 +1541,154 @@ RENDER.qualite = () => {
   </div>`;
 };
 
+// ── Glossaire métier (E-08 ; M-04 : tenu par la DSI) et règles de qualité saisies dans Matrix (E-09) ──
+async function mettre(chemin, corps) {
+  const r = await fetch(chemin, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps) });
+  const j = await r.json().catch(() => ({ erreur: 'réponse illisible du serveur' }));
+  if (!r.ok) { const e = new Error(j.erreur || `erreur ${r.status}`); e.conflit = r.status === 409 && 'actuel' in j; throw e; }
+  return j;
+}
+const sansAccent = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const GLOSSAIRE = { charge: false, disponible: false, raison: '', termes: [] };
+async function chargerGlossaire() {
+  if (!SERVEUR) { Object.assign(GLOSSAIRE, { charge: true, disponible: false, raison: 'Page en lecture seule : le glossaire se consulte dans Matrix, servi par son serveur.' }); return; }
+  try { Object.assign(GLOSSAIRE, await lireApi('/api/glossaire'), { charge: true }); }
+  catch (e) { Object.assign(GLOSSAIRE, { charge: true, disponible: false, raison: e.message }); }
+}
+if (SERVEUR) chargerGlossaire();   // termes du glossaire dans la fiche des tables
+// Termes du glossaire qui portent une colonne (fiche des tables).
+const termesDe = (app, table, col) => GLOSSAIRE.termes.filter(t => t.actif && t.colonnes.includes(`${app}.${table}.${col}`));
+
+RENDER.glossaire = () => {
+  const root = $('s-glossaire');
+  const st = { q: '', retires: false, edition: null };
+  const champ = (id, label, html) => `<div class="field"><label class="field-label" for="${id}">${label}</label>${html}</div>`;
+  const formulaire = t => `<div class="card" style="margin-bottom:16px;padding:16px">
+      <div class="block-title">${t.id ? 'Modifier « ' + esc(t.terme) + ' »' : 'Nouveau terme'}</div>
+      ${champ('g-terme', 'Terme', `<input class="input" id="g-terme" maxlength="120" value="${esc(t.terme || '')}">`)}
+      ${champ('g-definition', 'Définition', `<textarea class="input" id="g-definition" rows="4" maxlength="4000">${esc(t.definition || '')}</textarea>`)}
+      ${champ('g-synonymes', 'Synonymes (séparés par des virgules)', `<input class="input" id="g-synonymes" value="${esc((t.synonymes || []).join(', '))}">`)}
+      <div style="display:flex;gap:12px;flex-wrap:wrap">${champ('g-domaine', 'Domaine', `<input class="input" id="g-domaine" maxlength="80" value="${esc(t.domaine || '')}">`)}
+      ${champ('g-proprietaire', 'Propriétaire du terme', `<input class="input" id="g-proprietaire" maxlength="120" placeholder="Nom ou fonction" value="${esc(t.proprietaire || '')}">`)}</div>
+      ${champ('g-colonnes', 'Colonnes qui portent ce terme (une par ligne : outil.table.colonne)', `<textarea class="input mono" id="g-colonnes" rows="4" placeholder="keystone.projects.code">${esc((t.colonnes || []).join('\n'))}</textarea>`)}
+      ${t.id ? `<label class="sub" style="display:flex;gap:6px;align-items:center;margin:6px 0"><input type="checkbox" id="g-actif" ${t.actif !== false ? 'checked' : ''}> Terme en usage (décocher pour le retirer du glossaire)</label>` : ''}
+      <div class="actions" style="margin-top:10px"><button class="btn btn-primary btn-sm" id="g-enregistrer">Enregistrer</button><button class="btn btn-ghost btn-sm" id="g-annuler">Annuler</button></div></div>`;
+  const draw = () => {
+    if (!GLOSSAIRE.charge) { root.innerHTML = '<div class="wrap"><p class="text-muted">Lecture du glossaire…</p></div>'; return; }
+    if (!GLOSSAIRE.disponible) { root.innerHTML = `<div class="wrap"><p class="note">${esc(GLOSSAIRE.raison || 'Glossaire indisponible.')}</p></div>`; return; }
+    const q = sansAccent(st.q).trim();
+    const L = GLOSSAIRE.termes.filter(t => (st.retires || t.actif) && (!q || sansAccent([t.terme, t.definition, ...(t.synonymes || []), t.domaine, ...(t.colonnes || [])].join(' ')).includes(q)));
+    root.innerHTML = `<div class="wrap">
+      <div class="top"><div><p class="text-muted prose">Les mots du métier, définis une fois et reliés aux colonnes des outils qui les portent. Tenu par la DSI (décision M-04) ; chaque modification est écrite dans le journal de Matrix.</p></div>
+        <div class="actions"><button class="btn btn-primary" id="g-nouveau">${icon('plus', 14)} Nouveau terme</button></div></div>
+      ${st.edition ? formulaire(st.edition) : ''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center"><input class="input" id="g-q" type="search" placeholder="Chercher un terme, une définition, une colonne…" value="${esc(st.q)}" style="width:320px">
+        <label class="sub" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="g-retires" ${st.retires ? 'checked' : ''}> Afficher les termes retirés</label>
+        <span class="sub text-muted">${L.length} terme(s)</span></div>
+      ${L.length ? L.map(t => `<div class="card" style="margin-bottom:10px;padding:14px 16px${t.actif ? '' : ';opacity:.6'}">
+        <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b>${esc(t.terme)}</b>${t.domaine ? ` <span class="tag tag-ghost">${esc(t.domaine)}</span>` : ''}${t.actif ? '' : ' <span class="tag tag-outline">retiré</span>'}
+          <span class="sub text-muted" style="margin-left:auto">${t.proprietaire ? esc(t.proprietaire) + ' · ' : ''}${esc(t.majPar || '')} · ${quand(t.majLe)}</span>
+          <button class="link-btn" data-g-modifier="${esc(t.id)}">Modifier</button></div>
+        <p style="margin:6px 0">${esc(t.definition)}</p>
+        ${(t.synonymes || []).length ? `<div class="sub text-muted">Synonymes : ${esc(t.synonymes.join(', '))}</div>` : ''}
+        ${(t.colonnes || []).length ? `<div class="tags" style="margin-top:6px">${t.colonnes.map(c => { const [a, tb, col] = c.split('.'); return `<button class="tag tag-ghost mono" data-open="${esc(key(a, tb))}" title="Ouvrir la table">${appMark(a, 12)} ${esc(tb)}.${esc(col)}</button>`; }).join('')}</div>` : ''}
+      </div>`).join('') : `<p class="text-muted">${GLOSSAIRE.termes.length ? 'Aucun terme ne correspond.' : 'Glossaire vide : ajoutez le premier terme.'}</p>`}</div>`;
+    hydrateIcons(root);
+  };
+  root.addEventListener('input', e => { if (e.target.id === 'g-q') { st.q = e.target.value; const pos = e.target.selectionStart; draw(); const i = $('g-q'); i.focus(); i.setSelectionRange(pos, pos); } });
+  root.addEventListener('change', e => { if (e.target.id === 'g-retires') { st.retires = e.target.checked; draw(); } });
+  root.addEventListener('click', async e => {
+    if (e.target.closest('#g-nouveau')) { st.edition = {}; draw(); $('g-terme').focus(); return; }
+    const m = e.target.closest('[data-g-modifier]');
+    if (m) { st.edition = { ...GLOSSAIRE.termes.find(t => t.id === m.dataset.gModifier) }; draw(); window.scrollTo(0, 0); return; }
+    if (e.target.closest('#g-annuler')) { st.edition = null; draw(); return; }
+    const b = e.target.closest('#g-enregistrer'); if (!b) return;
+    const t = st.edition;
+    const corps = { terme: $('g-terme').value, definition: $('g-definition').value, synonymes: $('g-synonymes').value, domaine: $('g-domaine').value,
+      proprietaire: $('g-proprietaire').value, colonnes: $('g-colonnes').value, actif: $('g-actif') ? $('g-actif').checked : true, ...(t.id ? { id: t.id, version: t.majLe } : { version: null }) };
+    b.disabled = true;
+    try {
+      const j = await mettre('/api/glossaire', corps);
+      GLOSSAIRE.termes = [...GLOSSAIRE.termes.filter(x => x.id !== j.terme.id), j.terme].sort((x, y) => x.terme.localeCompare(y.terme, 'fr'));
+      st.edition = null; toast(`« ${j.terme.terme} » enregistré`); draw();
+    } catch (err) {
+      toast(err.message); b.disabled = false;
+      if (err.conflit) { await chargerGlossaire(); draw(); }
+    }
+  });
+  chargerGlossaire().then(draw); draw();
+};
+
+// Règles de qualité : liste et saisie (Santé › Qualité des données), sur le serveur commun quand il est relié.
+const TYPES_QUALITE = { fraicheur: 'Fraîcheur', non_nul: 'Valeurs vides', unicite: 'Unicité', plage: 'Plage', valeurs: 'Valeurs admises' };
+function parametresRegle(r) {
+  if (r.type === 'fraicheur') return `au plus ${r.maxJours} jour(s)`;
+  if (r.type === 'non_nul') return `au plus ${Math.round((r.seuil || 0) * 1000) / 10} % de vides`;
+  if (r.type === 'plage') return [r.min != null ? `≥ ${r.min}` : '', r.max != null ? `≤ ${r.max}` : ''].filter(Boolean).join(' et ');
+  if (r.type === 'valeurs') return (r.liste || []).join(', ');
+  return '';
+}
+function gererRegles(el, apresEnregistrement) {
+  const st = { regles: null, source: '', modifiable: false, erreur: null, edition: null };
+  const nombre = v => v === '' || v == null ? undefined : isNaN(Number(v)) ? v : Number(v);
+  const champ = (id, label, html, largeur = 180) => `<div class="field" style="width:${largeur}px"><label class="field-label" for="${id}">${label}</label>${html}</div>`;
+  const formulaire = r => {
+    const suivant = 'Q' + String(Math.max(0, ...st.regles.map(x => Number(x.id.slice(1)))) + 1).padStart(2, '0');
+    return `<div class="card" style="margin:10px 0 14px;padding:14px 16px">
+      <div class="block-title">${r.id ? 'Modifier la règle ' + esc(r.id) : 'Nouvelle règle'}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${champ('qr-id', 'N°', `<input class="input mono" id="qr-id" value="${esc(r.id || suivant)}" ${r.id ? 'disabled' : ''}>`, 90)}
+        ${champ('qr-table', 'Table (outil.table)', `<input class="input mono" id="qr-table" value="${esc(r.table || '')}" placeholder="keystone.projects">`, 220)}
+        ${champ('qr-type', 'Type', `<select class="input" id="qr-type">${Object.entries(TYPES_QUALITE).map(([k, l]) => `<option value="${k}" ${r.type === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`, 160)}
+        ${champ('qr-colonnes', 'Colonne(s), séparées par des virgules', `<input class="input mono" id="qr-colonnes" value="${esc((r.colonnes || (r.colonne ? [r.colonne] : [])).join(', '))}">`, 240)}
+        ${champ('qr-gravite', 'Gravité si non respectée', `<select class="input" id="qr-gravite">${['info', 'attention', 'erreur'].map(g => `<option ${(r.gravite || 'attention') === g ? 'selected' : ''}>${g}</option>`).join('')}</select>`, 150)}</div>
+      ${champ('qr-libelle', 'Libellé', `<input class="input" id="qr-libelle" maxlength="200" value="${esc(r.libelle || '')}">`, 640)}
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${champ('qr-maxJours', 'Fraîcheur : jours au plus', `<input class="input" id="qr-maxJours" type="number" min="1" value="${esc(r.maxJours ?? '')}">`, 150)}
+        ${champ('qr-seuil', 'Vides : part tolérée (%)', `<input class="input" id="qr-seuil" type="number" min="0" max="99.9" step="0.1" value="${r.seuil != null ? Math.round(r.seuil * 1000) / 10 : ''}">`, 150)}
+        ${champ('qr-min', 'Plage : minimum', `<input class="input" id="qr-min" value="${esc(r.min ?? '')}" placeholder="0, 2020-01-01">`, 150)}
+        ${champ('qr-max', 'Plage : maximum', `<input class="input" id="qr-max" value="${esc(r.max ?? '')}" placeholder="aujourd'hui">`, 150)}
+        ${champ('qr-liste', 'Valeurs admises (virgules)', `<input class="input" id="qr-liste" value="${esc((r.liste || []).join(', '))}">`, 240)}</div>
+      ${r.id ? `<label class="sub" style="display:flex;gap:6px;align-items:center;margin:6px 0"><input type="checkbox" id="qr-actif" ${r.actif !== false ? 'checked' : ''}> Règle contrôlée (décocher pour la retirer)</label>` : ''}
+      <p class="sub text-muted">Seuls les paramètres du type choisi comptent. La règle est contrôlée à la prochaine lecture du serveur commun, relancée tout de suite.</p>
+      <div class="actions"><button class="btn btn-primary btn-sm" id="qr-enregistrer">Enregistrer</button><button class="btn btn-ghost btn-sm" id="qr-annuler">Annuler</button></div></div>`;
+  };
+  const draw = () => {
+    if (st.erreur) { el.innerHTML = `<p class="note">${esc(st.erreur)}</p>`; return; }
+    if (!st.regles) { el.innerHTML = '<p class="text-muted sub">Lecture des règles…</p>'; return; }
+    el.innerHTML = `<div class="block-title" style="margin-top:22px">Règles <span>${st.regles.filter(r => r.actif !== false).length}</span>
+        ${st.modifiable ? `<button class="btn btn-secondary btn-sm" id="qr-nouvelle" style="margin-left:10px">Nouvelle règle</button>` : ''}</div>
+      <p class="sub text-muted">${st.modifiable ? 'Règles tenues par la DSI sur le serveur commun (matrix.regles_qualite, décision M-04) ; chaque modification est journalisée.' : `Règles lues dans data/regles-qualite.json${st.erreurSource ? ` (${esc(st.erreurSource)})` : ''} : elles se modifient dans Matrix une fois partage/17 joué sur le serveur commun.`}</p>
+      ${st.edition ? formulaire(st.edition) : ''}
+      <div class="table-wrap"><table class="table"><thead><tr><th>Règle</th><th>Table</th><th>Type</th><th>Paramètres</th><th>Gravité</th>${st.modifiable ? '<th>Modifiée</th><th></th>' : ''}</tr></thead><tbody>
+      ${st.regles.map(r => `<tr${r.actif === false ? ' style="opacity:.55"' : ''}><td><span class="mono">${esc(r.id)}</span> ${esc(r.libelle)}${r.actif === false ? ' <span class="tag tag-outline">retirée</span>' : ''}</td>
+        <td class="mono sub">${esc(r.table)}.${esc((r.colonnes || [r.colonne]).join(', '))}</td><td class="sub">${esc(TYPES_QUALITE[r.type] || r.type)}</td><td class="sub">${esc(parametresRegle(r))}</td><td>${etatTag(r.gravite || 'attention')}</td>
+        ${st.modifiable ? `<td class="sub text-muted nowrap">${esc(r.majPar || '')} · ${quand(r.majLe)}</td><td><button class="link-btn" data-qr="${esc(r.id)}">Modifier</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+  };
+  const charger = async () => {
+    try { const j = await lireApi('/api/qualite'); Object.assign(st, { regles: j.regles, source: j.source, modifiable: !!j.modifiable && SERVEUR, erreurSource: j.erreur, erreur: null }); }
+    catch (e) { st.erreur = e.message; }
+    draw();
+  };
+  el.addEventListener('click', async e => {
+    if (e.target.closest('#qr-nouvelle')) { st.edition = {}; draw(); return; }
+    const m = e.target.closest('[data-qr]'); if (m) { st.edition = { ...st.regles.find(r => r.id === m.dataset.qr) }; draw(); return; }
+    if (e.target.closest('#qr-annuler')) { st.edition = null; draw(); return; }
+    const b = e.target.closest('#qr-enregistrer'); if (!b) return;
+    const v = id => $(id).value.trim(), type = v('qr-type'), cols = v('qr-colonnes').split(',').map(s => s.trim()).filter(Boolean);
+    const corps = { id: v('qr-id'), table: v('qr-table'), type, libelle: v('qr-libelle'), gravite: v('qr-gravite'), actif: $('qr-actif') ? $('qr-actif').checked : true,
+      version: st.edition.id ? st.edition.majLe : null, ...(type === 'unicite' ? { colonnes: cols } : { colonne: cols[0] }) };
+    if (type === 'fraicheur') corps.maxJours = nombre(v('qr-maxJours'));
+    if (type === 'non_nul') corps.seuil = v('qr-seuil') === '' ? 0 : Number(v('qr-seuil')) / 100;
+    if (type === 'plage') { const mn = nombre(v('qr-min')), mx = nombre(v('qr-max')); if (mn !== undefined) corps.min = mn; if (mx !== undefined) corps.max = mx; }
+    if (type === 'valeurs') corps.liste = v('qr-liste').split(',').map(s => s.trim()).filter(Boolean);
+    b.disabled = true;
+    try { const j = await mettre('/api/qualite/regles', corps); toast(`Règle ${j.regle.id} enregistrée`); st.edition = null; await charger(); apresEnregistrement?.(); }
+    catch (err) { toast(err.message); b.disabled = false; if (err.conflit) await charger(); }
+  });
+  charger();
+}
+
 // ── Santé des tables et des liens (sonde du serveur commun) ─────────────
 let SANTE = DATA.sante || null;
 async function poster(chemin, corps) {
@@ -1588,7 +1739,7 @@ RENDER.sante = () => {
     } else if (st.vue === 'qualite') {
       const Q = S.qualite || [], I = S.incidentsQualite || [], ouverts = I.filter(i => !i.closLe), clos = I.filter(i => i.closLe).slice(0, 20);
       const TYPEQ = { fraicheur: 'Fraîcheur', non_nul: 'Valeurs vides', unicite: 'Unicité', plage: 'Plage', valeurs: 'Valeurs admises' };
-      body = `<p class="sub text-muted" style="margin-bottom:10px">Règles sur le contenu des tables (<span class="mono">data/regles-qualite.json</span>), contrôlées à chaque lecture du serveur commun, en lecture seule, sans jamais lire une colonne sensible. Un incident s’ouvre au premier constat et se clôt au premier contrôle conforme.</p>
+      body = `<p class="sub text-muted" style="margin-bottom:10px">Règles sur le contenu des tables, tenues par la DSI (décision M-04 ; liste plus bas), contrôlées à chaque lecture du serveur commun, en lecture seule, sans jamais lire une colonne sensible. Un incident s’ouvre au premier constat et se clôt au premier contrôle conforme.</p>
         ${ouverts.length ? `<div class="block-title">Incidents ouverts <span>${ouverts.length}</span></div>
         <div class="table-wrap" style="margin-bottom:16px"><table class="table"><thead><tr><th>Règle</th><th>Gravité</th><th>Constat</th><th>Ouvert le</th><th>Vu le</th></tr></thead><tbody>
         ${ouverts.map(i => `<tr><td><span class="mono">${esc(i.regle)}</span> ${esc(i.libelle)}<div class="sub text-muted mono">${esc(i.table)}</div></td><td>${etatTag(i.gravite)}</td><td class="sub">${esc(i.detail || '')}</td><td class="tabnum nowrap">${quand(i.ouvertLe)}</td><td class="tabnum nowrap text-muted">${quand(i.vuLe)}</td></tr>`).join('')}</tbody></table></div>` : ''}
@@ -1596,6 +1747,7 @@ RENDER.sante = () => {
         ${Q.map(q => `<tr><td><span class="mono">${esc(q.id)}</span> ${esc(q.libelle)}</td><td class="nowrap">${appMark(q.table.split('.')[0], 16)} <span class="mono sub">${esc(q.table.split('.')[1])}.${esc(q.colonnes.join(', '))}</span></td><td class="sub">${esc(TYPEQ[q.type] || q.type)}</td>
           <td>${q.etat === 'non_controlable' ? '<span class="text-muted">Non contrôlable</span>' : etatTag(q.gravite)}</td><td class="sub">${esc(q.detail || '')}</td><td class="mono sub">${esc((q.exemples || []).join(', '))}</td></tr>`).join('')}</tbody></table></div>`
         : '<p class="text-muted">Aucune règle de qualité contrôlée.</p>'}
+        <div id="q-regles"></div>
         ${clos.length ? `<div class="block-title" style="margin-top:22px">Incidents clos récemment</div><div class="table-wrap"><table class="table"><tbody>${clos.map(i => `<tr><td><span class="mono">${esc(i.regle)}</span> ${esc(i.libelle)}</td><td class="tabnum nowrap text-muted">${quand(i.ouvertLe)} → ${quand(i.closLe)}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
     } else if (st.vue === 'migrations') {
       const M = S.migrations || [], EM = S.etatsMigrations || {};
@@ -1614,6 +1766,7 @@ RENDER.sante = () => {
       <div class="kpis">${apps.map(a => { const p = S.parOutil[a]; return `<button class="card kpi" data-sapp="${a}"><span class="card-kicker">${appMark(a, 14)} ${APPS[a]?.nom || a}</span><span class="kpi-value">${p.tables}</span><span class="card-meta">${etatTag(p.etat)} ${p.erreur ? p.erreur + ' en erreur · ' : ''}${p.attention} à surveiller · ${fmt(p.lignes)} lignes · ${octets(p.taille)}</span></button>`; }).join('')}</div>
       <div style="margin-bottom:14px">${seg('svue', [['tables', 'Tables', S.tables.length], ['references', 'Références entre outils', S.references.length], ['qualite', 'Qualité des données', (S.incidentsQualite || []).filter(i => !i.closLe).length], ['migrations', 'Migrations', (S.migrations || []).filter(m => m.gravite !== 'ok').length], ['socle', 'Contrôle des droits', S.socle.length]], st.vue)}</div>
       ${body}</div>`;
+    if (st.vue === 'qualite' && $('q-regles')) gererRegles($('q-regles'));
   };
   root.addEventListener('click', e => {
     const b = e.target.closest('[data-sapp]'); if (b) { st.vue = 'tables'; st.app = b.dataset.sapp; draw(); }

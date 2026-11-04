@@ -184,3 +184,18 @@ test('demandes d\'accès des outils (E-10) : jeton exigé, serveur commun exigé
   // Route libre du mot de passe de l'écran : le jeton suffit (les outils n'ont pas le mot de passe).
   assert.equal((await fetch(protege + '/api/demandes')).status, 503);
 });
+
+test('glossaire et règles de qualité (M-04) : sur le serveur commun seulement, règles du fichier en repli', async () => {
+  const g = await (await fetch(libre + '/api/glossaire')).json();
+  assert.deepEqual([g.disponible, g.termes], [false, []]);
+  assert.match(g.raison, /MATRIX_DATABASE_URL/);
+  const r = await put(libre, '/api/glossaire', { terme: 'Code projet', definition: 'x' });
+  assert.equal(r.status, 409);
+  assert.equal((await put(libre, '/api/qualite/regles', { id: 'Q01' })).status, 409);
+  const q = await (await fetch(libre + '/api/qualite')).json();
+  assert.equal(q.source, 'fichier');
+  assert.equal(q.modifiable, false);
+  assert.ok(q.regles.length >= 10 && q.regles.every(x => x.actif));
+  // Écriture : mot de passe exigé comme pour les autres saisies.
+  assert.equal((await put(protege, '/api/glossaire', { terme: 'x', definition: 'y' })).status, 401);
+});

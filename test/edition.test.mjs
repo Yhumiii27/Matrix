@@ -10,6 +10,8 @@ const dossier = () => mkdtempSync(join(tmpdir(), 'matrix-edition-'));
 const fichier = d => JSON.parse(readFileSync(join(d, 'edition.json'), 'utf8'));
 const zone = (code, extra = {}) => ({ code, libelle: code, ordre: 0, actif: true, ...extra });
 const filiale = (code, extra = {}) => ({ code, nom: code, pays_iso2: 'MA', zone_code: null, devise: 'MAD', ordre: 0, actif: true, ...extra });
+// EPC France (SMC) porte le site de Saint-Martin-de-Crau de la liste de départ (M-6) : elle reste dans toute liste saisie.
+const SMC = filiale('SMC', { nom: 'EPC France', pays_iso2: 'FR', devise: 'EUR' });
 
 test('sans saisie : référentiels de départ (data/referentiels.json), aucune liste saisie', t => {
   const d = dossier(); t.after(() => rmSync(d, { recursive: true }));
@@ -38,9 +40,11 @@ test('cadre d\'une zone arrondi à la précision de numeric(6,2)', t => {
 test('une valeur utilisée par une autre liste ne se retire pas', t => {
   const d = dossier(); t.after(() => rmSync(d, { recursive: true }));
   enregistrerReferentiel(d, 'zones', [zone('MAG')], 'essai');
-  enregistrerReferentiel(d, 'filiales', [filiale('APM', { zone_code: 'MAG' })], 'essai');
+  enregistrerReferentiel(d, 'filiales', [SMC, filiale('APM', { zone_code: 'MAG' })], 'essai');
   assert.throws(() => enregistrerReferentiel(d, 'zones', [], 'essai'), /zone MAG est utilisée par la filiale APM/);
-  assert.throws(() => enregistrerReferentiel(d, 'filiales', [filiale('APM', { zone_code: 'EUR' })], 'essai'), /zone EUR absente/);
+  assert.throws(() => enregistrerReferentiel(d, 'filiales', [SMC, filiale('APM', { zone_code: 'EUR' })], 'essai'), /zone EUR absente/);
+  // Retirer EPC France alors que le site smc la porte : refusé.
+  assert.throws(() => enregistrerReferentiel(d, 'filiales', [filiale('APM', { zone_code: 'MAG' })], 'essai'), /filiale SMC est utilisée par le site smc/);
 });
 
 test('journal, listes saisies, liste inchangée sans écriture', t => {

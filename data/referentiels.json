@@ -1,5 +1,5 @@
 {
- "_lisezmoi": "Référentiels publiés par Matrix (décisions D14 sites, D15 organigramme, D17 pays, D21 zones et filiales du groupe ; listes des zones et des filiales vides jusqu'à la liste réelle, question C-5 d'Arche). Valeurs de départ reprises de infra/postgres/partage/10-matrix-referentiels.sql ; en production, les modifications faites dans Matrix sont enregistrées dans /data/edition.json.",
+ "_lisezmoi": "Référentiels publiés par Matrix (décisions D14 sites, D15 organigramme, D17 pays, D21 zones et filiales du groupe ; liste des zones vide jusqu'à la liste réelle, question C-5 d'Arche ; filiale EPC France et son site de Saint-Martin-de-Crau, demande M-6 de Crucible). Valeurs de départ reprises de infra/postgres/partage/10-matrix-referentiels.sql ; en production, les modifications faites dans Matrix sont enregistrées dans /data/edition.json.",
  "sites": [
   {
    "code": "lyon",
@@ -24,6 +24,15 @@
    "pays_iso2": "FR",
    "ordre": 30,
    "actif": true
+  },
+  {
+   "code": "smc",
+   "libelle": "Saint-Martin-de-Crau — EPC France (laboratoire 67, PDE)",
+   "ville": "Saint-Martin-de-Crau",
+   "pays_iso2": "FR",
+   "ordre": 40,
+   "actif": true,
+   "filiale_code": "SMC"
   }
  ],
  "organigramme": [
@@ -371,5 +380,15 @@
   }
  ],
  "zones": [],
- "filiales": []
+ "filiales": [
+  {
+   "code": "SMC",
+   "nom": "EPC France",
+   "pays_iso2": "FR",
+   "zone_code": null,
+   "devise": "EUR",
+   "ordre": 10,
+   "actif": true
+  }
+ ]
 }

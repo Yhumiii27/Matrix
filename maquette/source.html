@@ -128,7 +128,7 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .header .search { flex: 1; max-width: 520px; }
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 /* Rôle Lecture (E-02) : boutons de saisie masqués ; le serveur refuse de toute façon les modifications (403). */
-.lecture-seule #g-nouveau, .lecture-seule [data-g-modifier], .lecture-seule #qr-nouvelle, .lecture-seule [data-qr], .lecture-seule #pub-nouvelle, .lecture-seule .donnees-btn, .lecture-seule [data-screen="donnees"] { display: none !important; }
+.lecture-seule #g-nouveau, .lecture-seule [data-g-modifier], .lecture-seule #qr-nouvelle, .lecture-seule [data-qr], .lecture-seule #pub-nouvelle { display: none !important; }
 .app-main { flex: 1; min-height: 0; position: relative; }
 .screen { position: absolute; inset: 0; overflow: auto; }
 .pad { padding: 22px 24px 32px; }
@@ -1548,7 +1548,7 @@ RENDER.qualite = () => {
   </div>`;
 };
 
-// ── Visionneuse des données : contenu d'une table du serveur commun, page par page (rôle Administrateur) ──
+// ── Visionneuse des données : contenu d'une table du serveur commun, page par page (rôles Administrateur et Lecture) ──
 const Visionneuse = (() => {
   const st = { outil: '', table: '', page: 1, par: 50, tri: '', sens: 'asc', colonne: '', contient: '', resultat: null, erreur: null, charge: false, q: '', edition: null };
   let root = null;
@@ -1624,7 +1624,7 @@ const Visionneuse = (() => {
     if (!SERVEUR_COMMUN) { root.innerHTML = '<div class="wrap"><p class="note">La visionneuse lit les données sur le serveur commun : Matrix n’y est pas relié (MATRIX_DATABASE_URL).</p></div>'; return; }
     const tables = st.outil ? tablesDe(st.outil).filter(n => !st.q || n.includes(st.q.toLowerCase())) : [];
     root.innerHTML = `<div class="wrap">
-      <p class="text-muted prose">Ce que contient une table ou une vue d’un outil, lu sur le serveur commun. Les colonnes sensibles (droits.colonnes_sensibles) ne sont jamais lues : elles apparaissent avec un cadenas. Une table se modifie ici seulement quand son outil fournit la fonction pub_editer_&lt;table&gt; et que le lien d’écriture de Matrix est autorisé : c’est l’outil qui écrit, avec ses règles et son journal. Réservé au rôle Administrateur ; chaque consultation et chaque modification sont journalisées.</p>
+      <p class="text-muted prose">Ce que contient une table ou une vue d’un outil, lu sur le serveur commun. Les colonnes sensibles (droits.colonnes_sensibles) ne sont jamais lues : elles apparaissent avec un cadenas. Une table se modifie ici seulement quand son outil fournit la fonction pub_editer_&lt;table&gt; et que le lien d’écriture de Matrix est autorisé : c’est l’outil qui écrit, avec ses règles et son journal. Consultation ouverte aux rôles Administrateur et Lecture ; modifications réservées au rôle Administrateur. Chaque consultation et chaque modification sont journalisées.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0">
         ${seg('voutil', APP_IDS.map(a => [a, APPS[a].nom]), st.outil)}
         ${st.outil ? `<input class="input" id="v-q" type="search" placeholder="Filtrer les tables…" value="${esc(st.q)}" style="width:200px">

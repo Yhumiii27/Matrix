@@ -57,6 +57,15 @@ export async function etatEdition(db, outil, table) {
 }
 
 /** Contrôle une modification demandée depuis la visionneuse. */
+/**
+ * Réponse de la visionneuse selon le rôle : le rôle Lecture consulte les mêmes données (colonnes ouvertes à Matrix
+ * seulement), mais l'édition lui est toujours fermée (décision du 05/11/2026).
+ */
+export function pourRole(reponse, role) {
+  if (role === 'admin' || !reponse?.edition) return reponse;
+  return { ...reponse, edition: { ...reponse.edition, executable: false, raison: 'consultation seule (rôle Lecture) : les modifications sont réservées au rôle Administrateur' } };
+}
+
 export function validerEdition(e = {}) {
   const { outil, table } = validerDemande(e);
   const action = String(e.action ?? '');

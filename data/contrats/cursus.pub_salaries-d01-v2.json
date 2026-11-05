@@ -1,0 +1,16 @@
+{
+ "vue": "cursus.pub_salaries",
+ "titre": "Contrat D01 v2 : trois colonnes ajoutées en fin de cursus.pub_salaries",
+ "demande": "Vigie → Matrix, REQUESTS.md du 04/11/2026 (personnes D01, décision CV-10 de Vigie) ; à valider par Cursus",
+ "proprietaire": "cursus",
+ "etat": "en attente de Cursus (colonnes à créer, demande déposée chez Cursus par Vigie) ; la nouvelle définition s'écrira dans l'écran Publications (M-18), colonnes ajoutées en fin seulement",
+ "regles": [
+  "colonnes du contrat D01 v1 inchangées, dans le même ordre",
+  "aucune donnée de santé"
+ ],
+ "colonnesAjoutees": [
+  { "nom": "categorie", "type": "text", "valeurs": ["salarie", "interimaire", "exterieur"] },
+  { "nom": "entreprise", "type": "text", "description": "Agence ou entreprise extérieure ; nulle pour un salarié" },
+  { "nom": "email", "type": "text", "description": "Adresse professionnelle vérifiée, ou null" }
+ ]
+}

@@ -283,7 +283,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-01
 
 ## [2026-11-04] Vigie → Matrix — Liens de lecture de vigie_app utilisés depuis le 03/11/2026 (M-02, lots 0 et 1)
-- Statut : OUVERTE
+- Statut : FAITE (05/11/2026, accord de Guillaume dans la session de Matrix. Les quatre liens figurent déjà dans la convention de partage, amorcée au registre `matrix.liens` avec le statut « autorise » : `partage/90-droits.sql`, lignes de `matrix.pub_sites`, `keystone.pub_projets`, `keystone.pub_affectations` et `keystone.pub_fournisseurs` ; droits posés par `90-droits.sql` et `appliquer-liens.sh`, état visible dans « Liens entre outils ». Évolution des contrats : depuis M-18, Matrix définit ces vues dans son registre des publications, qui refuse tout retrait, renommage ou changement de type de colonne (ajouts en fin seulement, `CREATE OR REPLACE VIEW`) ; une rupture passe par une vue `…_v2` et une nouvelle demande. Les vues de Keystone ne passent au registre de Matrix qu'à sa reprise (`partage/14`), une fois la demande M-18 de Keystone FAITE)
 - Demande : confirmer dans le registre matrix.liens les liens de nature lecture, lecteur vigie_app, sur les quatre vues
   que Vigie lit depuis sa migration 0024 (convention du 15/10/2026, partage/90-droits.sql:199, 212, 214, 216) :
   1. matrix.pub_sites (code, libelle, ville, pays_iso2, ordre, actif, filiale_code, latitude, longitude) — sites suivis
@@ -301,7 +301,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-04
 
 ## [2026-11-04] Vigie → Matrix — Publications et liens de lecture pour les personnes (D01) et les présences prévues sur site
-- Statut : OUVERTE
+- Statut : ACCEPTÉE (05/11/2026, accord de Guillaume dans la session de Matrix. Préparé dans `data/publications-depot.json`, bloc « Demandes à traiter » de l'écran Publications : (1) `cursus.pub_salaries` D01 v2, contrat `data/contrats/cursus.pub_salaries-d01-v2.json`, colonnes `categorie`, `entreprise`, `email` ajoutées en fin quand Cursus les aura créées et validées ; (2) `cursus.pub_presences_prevues` « attendue », contrat de 9 colonnes `data/contrats/cursus.pub_presences_prevues.json` ; (3) lien `vigie_app` → `cursus.pub_presences_prevues` (demande inscrite tant que la vue n'existe pas) ; le lien `vigie_app` → `cursus.pub_salaries` existe déjà (convention). Passera à FAITE une fois les deux publications appliquées sur le serveur en service)
 - Demande :
   1. Ajouter en fin de `cursus.pub_salaries` (après validation de Cursus) : `categorie` (`salarie` | `interimaire` | `exterieur`), `entreprise` (raison sociale de l'agence ou de l'entreprise extérieure, nulle pour un salarié), `email` (adresse professionnelle vérifiée, ou null).
   2. Définir une publication `cursus.pub_presences_prevues` : `declaration_ref`, `matricule`, `site_code` (code de `matrix.sites`), `entreprise`, `du` (date), `au` (date), `objet`, `statut` (`validee` | `annulee`), `maj_le` — déclarations validées par les RH seulement ; aucune donnée de santé.

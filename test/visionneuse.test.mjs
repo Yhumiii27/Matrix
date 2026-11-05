@@ -119,3 +119,43 @@ test('serveur : édition par la fonction de l’outil, lien d’écriture exigé
     await Promise.all([admin.end(), db.end(), gestion.end()]);
   }
 });
+
+test('serveur : fonction générique de l’outil pour toutes ses tables, colonne sensible jamais modifiée', { skip: !(BASE && ADMIN && GESTION) && 'bases de test absentes' }, async () => {
+  const admin = client(ADMIN), db = client(BASE), gestion = client(GESTION);
+  await Promise.all([admin.connect(), db.connect(), gestion.connect()]);
+  const t = `gen_essai_${Date.now().toString(36)}`, f = 'crucible.pub_editer';
+  try {
+    await admin.query(`INSERT INTO droits.colonnes_sensibles (schema_nom, table_nom, colonne_nom, motif) VALUES ('crucible', '${t}', 'sante', 'essai RGPD');
+      CREATE TABLE crucible.${t} (id int PRIMARY KEY, libelle text, sante text);
+      ALTER TABLE crucible.${t} OWNER TO crucible_app;
+      INSERT INTO crucible.${t} VALUES (1, 'un', 'secret');
+      CREATE OR REPLACE FUNCTION ${f}(p_table text, p_action text, p_cle jsonb, p_valeurs jsonb, p_par text, p_motif text) RETURNS jsonb
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path = crucible, pg_temp AS $f$
+        DECLARE r jsonb;
+        BEGIN
+          IF p_table <> '${t}' THEN RAISE EXCEPTION 'table % non modifiable', p_table; END IF;
+          IF p_action = 'corriger' THEN
+            UPDATE ${t} SET libelle = coalesce(p_valeurs->>'libelle', libelle), sante = coalesce(p_valeurs->>'sante', sante) WHERE id = (p_cle->>'id')::int;
+          END IF;
+          SELECT to_jsonb(x) - 'sante' INTO r FROM ${t} x WHERE id = (p_cle->>'id')::int;
+          RETURN r;
+        END $f$;
+      ALTER FUNCTION ${f}(text, text, jsonb, jsonb, text, text) OWNER TO crucible_app;
+      REVOKE EXECUTE ON FUNCTION ${f}(text, text, jsonb, jsonb, text, text) FROM PUBLIC;`);
+    // Nom fixe (crucible.pub_editer) : le lien d'essai peut exister d'un passage précédent (le registre ne se vide pas).
+    await db.query(`INSERT INTO matrix.liens (vue, lecteur, statut, nature, motif, decide_par, decide_le) VALUES ($1, 'matrix_app', 'autorise', 'execution', 'essai', 'test', now())
+      ON CONFLICT (vue, lecteur) DO UPDATE SET statut = 'autorise', nature = 'execution', decide_par = 'test', decide_le = now()`, [f]);
+    await gestion.query('SELECT droits.accorder_execution($1, $2)', [f, 'matrix_app']);
+    const etat = await etatEdition(db, 'crucible', t);
+    assert.deepEqual([etat.fonction, etat.generique, etat.executable], [f, true, true]);
+    const ok = await editerLigne(db, { outil: 'crucible', table: t, action: 'corriger', cle: { id: '1' }, valeurs: { libelle: 'un corrigé' }, motif: 'correction' }, 'Claire');
+    assert.equal(ok.resultat.libelle, 'un corrigé');
+    // Colonne déclarée sensible (RGPD) : refusée par Matrix avant tout appel, même si la fonction l'accepterait.
+    await assert.rejects(editerLigne(db, { outil: 'crucible', table: t, action: 'corriger', cle: { id: '1' }, valeurs: { sante: 'x' }, motif: 'essai RGPD' }, 'Claire'), /sensible/);
+    assert.equal((await admin.query(`SELECT sante FROM crucible.${t}`)).rows[0].sante, 'secret');
+  } finally {
+    await db.query(`UPDATE matrix.liens SET statut = 'refuse', motif = 'fin de l’essai', decide_par = 'test', decide_le = now() WHERE vue = $1 AND lecteur = 'matrix_app'`, [f]).catch(() => {});
+    await admin.query(`DROP FUNCTION IF EXISTS ${f}(text, text, jsonb, jsonb, text, text); DROP TABLE IF EXISTS crucible.${t}; DELETE FROM droits.colonnes_sensibles WHERE table_nom = '${t}'`).catch(() => {});
+    await Promise.all([admin.end(), db.end(), gestion.end()]);
+  }
+});

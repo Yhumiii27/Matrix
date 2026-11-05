@@ -4,6 +4,23 @@ Demande du 05/11/2026 : depuis la visionneuse, le gestionnaire de la base (la DS
 
 ## Ce que l'outil fournit
 
+Décision du 05/11/2026 : « pour le moment, l'admin IT peut modifier toutes les données à l'exception des données sensibles RGPD », toujours **par les outils**. L'outil a deux façons de le permettre.
+
+### Une fonction générique pour toutes ses tables (recommandée)
+
+```sql
+CREATE OR REPLACE FUNCTION <outil>.pub_editer(
+  p_table   text,   -- nom de la table de l'outil
+  p_action  text, p_cle jsonb, p_valeurs jsonb, p_par text, p_motif text   -- comme ci-dessous
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = <outil>, pg_temp AS $$ … $$;
+REVOKE EXECUTE ON FUNCTION <outil>.pub_editer(text, text, jsonb, jsonb, text, text) FROM PUBLIC;
+```
+
+La fonction aiguille vers les règles de chaque table. Elle refuse une table qu'elle ne veut pas ouvrir, et une colonne sensible si on lui en envoie une, même si Matrix ne le fait jamais. Elle écrit dans le journal de l'outil.
+
+### Ou une fonction par table
+
 Une fonction par table modifiable depuis Matrix, dans le schéma de l'outil et par une de ses migrations :
 
 ```sql
@@ -49,9 +66,9 @@ REVOKE EXECUTE ON FUNCTION crucible.pub_editer_types_essai(text, jsonb, jsonb, t
 
 ## Ce que fait Matrix
 
-1. **Droit d'exécution.** C'est un lien « écriture » du registre : lecteur `matrix_app`, objet `<outil>.pub_editer_<table>`. On le demande et le décide dans « Liens entre outils ». Matrix le pose aussitôt (`droits.accorder_execution`), et `matrix_gestion` ne reçoit jamais lui-même ce droit.
+1. **Droit d'exécution.** C'est un lien « écriture » du registre : lecteur `matrix_app`, objet `<outil>.pub_editer` (fonction générique) ou `<outil>.pub_editer_<table>`. La fonction propre à une table passe avant la générique. On le demande et le décide dans « Liens entre outils ». Matrix le pose aussitôt (`droits.accorder_execution`), et `matrix_gestion` ne reçoit jamais lui-même ce droit.
 2. **Visionneuse.** Quand la fonction existe, suit la convention (signature, `SECURITY DEFINER`, `search_path` fixé) et que le lien est autorisé, la visionneuse propose « Ajouter une ligne », puis « Corriger » et « Retirer » sur chaque ligne. Il faut une clé primaire lisible par Matrix. Sinon, elle dit pourquoi la table reste en lecture seule.
-3. **Modification.** Le formulaire ne montre que les colonnes ouvertes à Matrix. Une correction n'envoie que les valeurs changées, et le motif est obligatoire.
+3. **Modification.** Le formulaire ne montre que les colonnes ouvertes à Matrix. Une correction n'envoie que les valeurs changées, et le motif est obligatoire. **Données sensibles (RGPD)** : Matrix refuse, avant tout appel, une colonne de `droits.colonnes_sensibles` ou inconnue, même si la fonction de l'outil l'accepterait.
 4. **Appel et journal.** `POST /api/donnees/editer` appelle la fonction avec le nom de la personne connectée. L'appel est réservé au rôle Administrateur. Matrix l'écrit aussi dans son journal (`matrix.journal`) et dans celui du conteneur.
 
 ## Pour qu'un outil s'y mette

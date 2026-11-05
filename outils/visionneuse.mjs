@@ -20,27 +20,40 @@ const ident = s => `"${String(s).replace(/"/g, '""')}"`;
 //   p_action : ajouter | corriger | retirer ; l'outil applique ses règles et son journal (un retrait peut être un
 //   archivage) et refuse par RAISE EXCEPTION, dont le message est montré tel quel.
 // Le droit de l'exécuter est un lien « écriture » du registre (lecteur matrix_app), décidé dans « Liens entre outils ».
+// Une fonction générique par outil couvre toutes ses tables (décision du 05/11/2026 : « l'admin IT peut modifier
+// toutes les données à l'exception des données sensibles RGPD », par les outils) :
+//   <outil>.pub_editer(p_table text, p_action text, p_cle jsonb, p_valeurs jsonb, p_par text, p_motif text) RETURNS jsonb
+// La fonction propre à une table, si elle existe, passe avant la générique.
 export const ACTIONS_EDITION = ['ajouter', 'corriger', 'retirer'];
 export const fonctionEdition = (outil, table) => `${outil}.pub_editer_${table}`;
 const SIGNATURE = ['text', 'jsonb', 'jsonb', 'text', 'text'];
+const SIGNATURE_GENERIQUE = ['text', 'text', 'jsonb', 'jsonb', 'text', 'text'];
 
-/** Fonction d'édition d'une table : { fonction, existe, conforme, executable, raison }. */
+/**
+ * Fonction d'édition d'une table : { fonction, generique, existe, conforme, executable, raison }. Cherche d'abord
+ * <outil>.pub_editer_<table>, puis la fonction générique <outil>.pub_editer.
+ */
 export async function etatEdition(db, outil, table) {
-  const fonction = fonctionEdition(outil, table);
   const { rows } = await db.query(
-    `SELECT p.oid, p.prosecdef AS definer, pg_get_function_identity_arguments(p.oid) AS args,
+    `SELECT p.proname, p.prosecdef AS definer,
             ARRAY(SELECT format_type(t, NULL) FROM unnest(p.proargtypes) t) AS types,
             format_type(p.prorettype, NULL) AS retour,
             EXISTS (SELECT FROM unnest(p.proconfig) AS c(x) WHERE c.x LIKE 'search\\_path=%') AS search_path_fixe,
             has_function_privilege(p.oid, 'EXECUTE') AS executable
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname = $1 AND p.proname = $2`, [outil, `pub_editer_${table}`]);
-  if (!rows.length) return { fonction, existe: false, executable: false, raison: `l’outil ne fournit pas ${fonction}` };
-  const f = rows.find(r => JSON.stringify(r.types) === JSON.stringify(SIGNATURE)) ?? rows[0];
-  const conforme = JSON.stringify(f.types) === JSON.stringify(SIGNATURE) && f.retour === 'jsonb' && f.definer && f.search_path_fixe;
-  const raison = !conforme ? `${fonction} ne suit pas la convention (signature (text, jsonb, jsonb, text, text) → jsonb, SECURITY DEFINER, search_path fixé)`
+      WHERE n.nspname = $1 AND p.proname IN ($2, 'pub_editer')`, [outil, `pub_editer_${table}`]);
+  const meme = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const choisir = (nom, sig) => { const l = rows.filter(r => r.proname === nom); return l.find(r => meme(r.types, sig)) ?? l[0]; };
+  const propre = choisir(`pub_editer_${table}`, SIGNATURE), generique = choisir('pub_editer', SIGNATURE_GENERIQUE);
+  const f = propre ?? generique;
+  if (!f) return { fonction: fonctionEdition(outil, table), generique: false, existe: false, executable: false,
+    raison: `l’outil ne fournit ni ${fonctionEdition(outil, table)} ni ${outil}.pub_editer` };
+  const estGenerique = !propre, fonction = estGenerique ? `${outil}.pub_editer` : fonctionEdition(outil, table);
+  const sig = estGenerique ? SIGNATURE_GENERIQUE : SIGNATURE;
+  const conforme = meme(f.types, sig) && f.retour === 'jsonb' && f.definer && f.search_path_fixe;
+  const raison = !conforme ? `${fonction} ne suit pas la convention (signature (${sig.join(', ')}) → jsonb, SECURITY DEFINER, search_path fixé)`
     : !f.executable ? `lien d’écriture matrix_app → ${fonction} non autorisé (« Liens entre outils »)` : null;
-  return { fonction, existe: true, conforme, executable: conforme && f.executable, raison };
+  return { fonction, generique: estGenerique, existe: true, conforme, executable: conforme && f.executable, raison };
 }
 
 /** Contrôle une modification demandée depuis la visionneuse. */
@@ -64,8 +77,20 @@ export async function editerLigne(db, saisie, par) {
   const e = validerEdition(saisie);
   const etat = await etatEdition(db, e.outil, e.table);
   if (!etat.executable) { const err = new Error(`Modification impossible : ${etat.raison}.`); err.code = 409; throw err; }
-  const { rows: [r] } = await db.query(`SELECT ${ident(e.outil)}.${ident(`pub_editer_${e.table}`)}($1, $2::jsonb, $3::jsonb, $4, $5) AS r`,
-    [e.action, e.cle == null ? null : JSON.stringify(e.cle), e.valeurs == null ? null : JSON.stringify(e.valeurs), par || 'Matrix', e.motif]);
+  // Jamais une donnée sensible (RGPD) depuis Matrix : chaque colonne nommée doit exister et être ouverte à matrix_app
+  // (droits.colonnes_sensibles la ferme), même si la fonction de l'outil l'accepterait.
+  const noms = [...new Set([...Object.keys(e.cle ?? {}), ...Object.keys(e.valeurs ?? {})])];
+  const { rows: cols } = await db.query(
+    `SELECT a.attname AS nom, has_column_privilege(c.oid, a.attnum, 'SELECT') AS lisible
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
+      WHERE n.nspname = $1 AND c.relname = $2 AND a.attnum > 0 AND NOT a.attisdropped AND a.attname = ANY ($3)`, [e.outil, e.table, noms]);
+  const lisibles = new Set(cols.filter(c => c.lisible).map(c => c.nom));
+  const refusees = noms.filter(n => !lisibles.has(n));
+  if (refusees.length) throw new Error(`colonne(s) sensible(s) ou inconnue(s), jamais modifiées depuis Matrix : ${refusees.join(', ')}`);
+  const args = [e.action, e.cle == null ? null : JSON.stringify(e.cle), e.valeurs == null ? null : JSON.stringify(e.valeurs), par || 'Matrix', e.motif];
+  const { rows: [r] } = etat.generique
+    ? await db.query(`SELECT ${ident(e.outil)}.pub_editer($1, $2, $3::jsonb, $4::jsonb, $5, $6) AS r`, [e.table, ...args])
+    : await db.query(`SELECT ${ident(e.outil)}.${ident(`pub_editer_${e.table}`)}($1, $2::jsonb, $3::jsonb, $4, $5) AS r`, args);
   return { ...e, resultat: r.r };
 }
 

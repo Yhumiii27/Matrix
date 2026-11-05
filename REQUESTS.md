@@ -316,3 +316,36 @@ Format d'une entrée :
 - Justification : décision CV-01 du 04/11/2026 (responsable produit) — Vigie consulte les formations et habilitations tenues par Cursus, sans les saisir (lot 2 de la convergence M-02, migration 0025 de Vigie, fusionné le 04/11/2026). Sans le lien, l'écran Habilitations de Vigie affiche « donnée indisponible » sur le serveur commun et n'émet aucune alerte d'habilitation (une seule échéance au QHSE).
 - Détails techniques : lecture par SELECT seulement depuis `src/lib/foreign/cursus.ts` de Vigie, jointure par `people.matricule` (D01) et `titre_id` ; aucune écriture (M-17) ; vérification en `vigie_app` : `select count(*) from cursus.pub_titres_detenus`.
 - Validé par Guillaume le : 2026-11-05
+
+## [2026-11-05] Vigie → Matrix — Lien d'exécution de keystone_app sur vigie.pub_signaler_avancement_nc (D13, CV-08)
+- Statut : OUVERTE
+- Demande : inscrire au registre matrix.liens un lien de nature execution : lecteur keystone_app, objet
+  vigie.pub_signaler_avancement_nc (signature : text, text, text, text, text, text, text, text, text, timestamptz, text,
+  text, text, text ; retour integer), et l'appliquer (droits.accorder_execution). La fonction est créée par la migration
+  0026_convergence_m02_nc_inbox de Vigie : propriétaire vigie_app, SECURITY DEFINER, search_path = vigie, pg_temp, sans SQL
+  dynamique, REVOKE EXECUTE … FROM PUBLIC dans la même migration ; nom unique (une nouvelle version prendra un autre nom).
+- Justification : décisions M-17 (règle R4) et M-18 ; décision CV-08 de Vigie (04/11/2026) : Keystone signale l'avancement
+  d'une NC de projet en déposant une demande, que Vigie traite avec ses règles et son journal. La fonction n'écrit que
+  dans vigie.inbound_requests (appelant contrôlé par session_user, table vigie.inbound_callers).
+- Détails techniques : vérification par select has_function_privilege('keystone_app',
+  'vigie.pub_signaler_avancement_nc(text, text, text, text, text, text, text, text, text, timestamptz, text, text, text, text)',
+  'EXECUTE') ; erreurs de la fonction : SQLSTATE P0V01 (appelant non admis), P0V02 (argument invalide). codex_app (D12)
+  fera l'objet d'une demande distincte avec le lot 5.
+- Validé par Guillaume le : 2026-11-05
+
+## [2026-11-05] Vigie → Matrix — Publication de l'état des demandes reçues (D13, CV-08)
+- Statut : OUVERTE (après le lien d’exécution ci-dessus)
+- Demande : publier, dans le schéma vigie, une vue de l'état des demandes déposées par un outil (nom proposé
+  vigie.pub_demandes_recues, contrat « Demandes reçues v1 »), lecteur keystone_app, d'après la table vigie.inbound_requests,
+  chaque outil ne voyant que ses propres demandes (filtre caller = session_user) :
+  id (integer, numéro rendu par la fonction), id_externe (external_id, text : keystoneId), nature (kind, text :
+  nc_step | nc_verification | nc_references), numero (target_ref, text : EV-…), projet_code (project_code, text),
+  statut (status, text : received | applied | rejected), recu_le (received_at, timestamptz), traite_le (processed_at,
+  timestamptz), code_resultat (result_code, text : stale | refused | not_found | invalid, nul si appliquée), resultat (result,
+  text : message du traitement), vigie_ref (event_id, text : NC rattachée, nulle si introuvable).
+  Ni payload (nom de la personne déclarée par l'outil, commentaire), ni prise en compte du refus par le QHSE
+  (acknowledged_*), ni donnée de santé (le message d'une demande visant un autre élément qu'une NC de projet est
+  toujours « introuvable »).
+- Justification : décision CV-08 (réponse asynchrone, état lu dans une vue) ; Vigie ne crée plus de vue pub_ (M-18). Vigie
+  tient ces colonnes et ne les modifie qu'après évolution de la publication.
+- Validé par Guillaume le : 2026-11-05

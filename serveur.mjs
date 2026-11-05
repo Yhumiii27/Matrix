@@ -75,6 +75,7 @@ import { calculerSante } from './outils/sante.mjs';
 import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, reglesActives, reprendreRegles, enregistrerRegle } from './outils/saisies-pg.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
+import { lireDonnees } from './outils/visionneuse.mjs';
 import { lireConfigEntra, roleDepuisEntra, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
@@ -554,6 +555,18 @@ createServer((req, res) => {
       }
       if (req.headers.authorization) console.warn(`[${new Date().toISOString()}] accès refusé à ${req.method} ${url.pathname} depuis ${adresse(req)} : en-tête Authorization invalide`);
       return json(res, 401, { erreur: 'Accès réservé : connectez-vous (/connexion) ou envoyez l’en-tête Authorization: Basic avec le mot de passe de Matrix.' });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/donnees') {
+      // Visionneuse des données : réservée au rôle Administrateur (la DSI, M-04) ; lecture seule, colonnes ouvertes à
+      // Matrix seulement ; chaque consultation est écrite dans le journal du conteneur.
+      if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les données se lisent sur le serveur commun.' });
+      if (acces.role !== 'admin') return json(res, 403, { erreur: 'La visionneuse des données est réservée au rôle Administrateur de Matrix (DSI).' });
+      const q = Object.fromEntries(url.searchParams);
+      avecServeur(db => lireDonnees(db, q)).then(r => {
+        console.log(`[${new Date().toISOString()}] visionneuse : ${acces.nom || 'anonyme'} lit ${r.outil}.${r.table} (page ${r.page}${r.contient ? `, filtre sur ${r.colonne}` : ''})`);
+        json(res, 200, r);
+      }, e => json(res, e.code === 404 ? 404 : /invalide|inconnu|impossible/.test(e.message) ? 422 : 502, { erreur: e.message }));
+      return;
     }
     if (req.method === 'GET' && url.pathname === '/api/moi') return json(res, 200, { nom: acces.nom, role: acces.role, via: acces.via, entra: ENTRA.active });
     if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));

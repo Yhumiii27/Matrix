@@ -40,6 +40,9 @@
 //   MATRIX_MOT_DE_PASSE mot de passe d'accès à Matrix (identifiant libre) : page /connexion et cookie de session pour le
 //                      navigateur, en-tête Authorization: Basic pour les scripts (outils/acces.mjs). Sans lui, la
 //                      consultation reste ouverte et, en production, les modifications sont refusées.
+//   MATRIX_ENTRA_TENANT_ID, MATRIX_ENTRA_CLIENT_ID, MATRIX_ENTRA_CLIENT_SECRET, MATRIX_PUBLIC_URL, MATRIX_SESSION_SECRET
+//                      connexion nominative par Microsoft Entra ID (M-06, E-02 ; outils/entra.mjs) : rôles applicatifs
+//                      Administrateur (modifications) et Lecture. Avec elles, le mot de passe ne sert plus qu'aux scripts.
 //   MATRIX_DATABASE_URL connexion au serveur PostgreSQL commun en matrix_app (postgres://matrix_app:…@hôte:5432/epc2i).
 //                      Avec elle, la sonde (outils/sonde.mjs) lit elle-même les tables, liens, vues pub_ et droits
 //                      de chaque outil, met le registre et les graphes à jour, calcule l'état de santé et tient le
@@ -71,7 +74,8 @@ import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigra
 import { calculerSante } from './outils/sante.mjs';
 import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, reglesActives, reprendreRegles, enregistrerRegle } from './outils/saisies-pg.mjs';
-import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE } from './outils/acces.mjs';
+import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
+import { lireConfigEntra, roleDepuisEntra, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
 const PORT = +(process.env.PORT ?? 3000);
@@ -80,6 +84,11 @@ const DECL = join(DATA, 'declarations');
 const SOURCES = process.env.MATRIX_SOURCES_DIR ?? null;
 const TOKEN = process.env.MATRIX_TOKEN ?? '';
 const { mdp: MOT_DE_PASSE, avertissements: AVERTISSEMENTS_MDP } = lireMotDePasse(process.env.MATRIX_MOT_DE_PASSE);
+// Connexion nominative par Microsoft Entra ID (M-06, E-02) ; le mot de passe reste pour les scripts (en-tête Basic) et,
+// tant qu'Entra ID n'est pas configuré, pour la page de connexion.
+const ENTRA = lireConfigEntra(process.env);
+const ACCES_RESERVE = Boolean(MOT_DE_PASSE || ENTRA.active);
+const COOKIE_OIDC = 'matrix_oidc';
 const PRODUCTION = process.env.NODE_ENV === 'production';
 const DB_URL = process.env.MATRIX_DATABASE_URL ?? '';
 const GESTION_URL = process.env.MATRIX_GESTION_DATABASE_URL ?? '';
@@ -407,11 +416,61 @@ const connexions = limiteur();
 const adresse = req => String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress || '?';
 const enHttps = req => String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim() === 'https';
 
-// Renvoie l'identifiant de la personne connectée, '' si l'accès est libre, ou null si l'accès est refusé. Un en-tête
-// Basic valide l'emporte ; sinon (absent, ou celui d'une authentification placée devant Matrix), la session décide.
+// Renvoie la personne connectée { nom, role, via }, ou null si l'accès est refusé. Rôles : admin (la DSI, qui modifie,
+// M-04) ou lecture (consultation seule). Sans mot de passe ni Entra ID, l'accès est libre (nom vide, rôle admin ;
+// en production, les modifications restent refusées). Un en-tête Basic valide (scripts) vaut administrateur ; sinon la
+// session décide : celle d'Entra ID quand il est configuré, celle de la page à mot de passe sinon.
 function utilisateur(req) {
-  if (!MOT_DE_PASSE) return '';
-  return identifiantBasic(req.headers.authorization, MOT_DE_PASSE) ?? lireSession(lireCookie(req.headers.cookie, COOKIE), MOT_DE_PASSE);
+  if (!ACCES_RESERVE) return { nom: '', role: 'admin', via: 'libre' };
+  const basic = MOT_DE_PASSE ? identifiantBasic(req.headers.authorization, MOT_DE_PASSE) : null;
+  if (basic) return { nom: basic, role: 'admin', via: 'basic' };
+  const cookie = lireCookie(req.headers.cookie, COOKIE);
+  if (ENTRA.active) {
+    const s = lireJeton(cookie, ENTRA.secret);
+    return s?.n && ['admin', 'lecture'].includes(s.r) ? { nom: s.n, role: s.r, via: 'entra', oid: s.o } : null;
+  }
+  const nom = lireSession(cookie, MOT_DE_PASSE);
+  return nom ? { nom, role: 'admin', via: 'mot de passe' } : null;
+}
+
+// Connexion par Microsoft Entra ID : /auth/entra part chez Microsoft (contrôles gardés 10 minutes dans un cookie signé),
+// /auth/retour contrôle la réponse, lit le rôle applicatif et ouvre la session (cookie signé, 12 heures).
+async function routeEntra(req, res, url) {
+  const secure = enHttps(req) || ENTRA.publicUrl.startsWith('https://');
+  if (url.pathname === '/auth/entra') {
+    try {
+      const { url: vers, controle } = await debutConnexion(ENTRA);
+      res.writeHead(302, { ...ENTETES, location: vers.href, 'cache-control': 'no-store',
+        'set-cookie': enteteCookie(creerJeton({ ...controle, suite: suiteSure(url.searchParams.get('suite')) }, ENTRA.secret, 600), { secure, maxAge: 600, nom: COOKIE_OIDC }) });
+      return res.end();
+    } catch (e) {
+      console.error(`connexion Entra ID : ${e.message}`);
+      return html(res, 502, pageConnexion({ entra: true, erreur: 'Microsoft Entra ID ne répond pas : réessayez dans un instant.' }));
+    }
+  }
+  // Retour de Microsoft.
+  const effacer = enteteCookie('', { secure, maxAge: 0, nom: COOKIE_OIDC });
+  const controle = lireJeton(lireCookie(req.headers.cookie, COOKIE_OIDC), ENTRA.secret);
+  if (url.searchParams.get('error')) {
+    console.warn(`[${new Date().toISOString()}] connexion Entra ID refusée par Microsoft : ${url.searchParams.get('error')} ${url.searchParams.get('error_description') ?? ''}`);
+    return html(res, 403, pageConnexion({ entra: true, erreur: `Microsoft a refusé la connexion (${String(url.searchParams.get('error_description') ?? url.searchParams.get('error')).split(/\r?\n/)[0].slice(0, 200)}).` }), { 'set-cookie': effacer });
+  }
+  if (!controle) return html(res, 400, pageConnexion({ entra: true, erreur: 'La connexion a expiré ou a été ouverte dans un autre onglet : recommencez.' }), { 'set-cookie': effacer });
+  try {
+    const c = await finConnexion(ENTRA, url.search, controle);
+    const p = personneDepuisJeton(c), role = roleDepuisEntra(c.roles, ENTRA);
+    if (!role) {
+      console.warn(`[${new Date().toISOString()}] connexion Entra ID refusée pour « ${p.nom} » (${p.oid}) : aucun rôle Matrix`);
+      return html(res, 403, pageConnexion({ entra: true, refus: true }), { 'set-cookie': effacer });
+    }
+    console.log(`[${new Date().toISOString()}] connexion Entra ID de « ${p.nom} » (${role}) depuis ${adresse(req)}`);
+    res.writeHead(303, { ...ENTETES, location: suiteSure(controle.suite), 'cache-control': 'no-store',
+      'set-cookie': [effacer, enteteCookie(creerJeton({ n: p.nom, r: role, o: p.oid }, ENTRA.secret, DUREE_SESSION_S), { secure })] });
+    return res.end();
+  } catch (e) {
+    console.warn(`[${new Date().toISOString()}] connexion Entra ID en échec : ${e.message}`);
+    return html(res, 401, pageConnexion({ entra: true, erreur: 'La connexion n’a pas pu être vérifiée : recommencez.' }), { 'set-cookie': effacer });
+  }
 }
 
 // Corps d'un formulaire HTML (application/x-www-form-urlencoded), 16 Ko au plus.
@@ -429,7 +488,8 @@ function routeConnexion(req, res, url) {
     res.writeHead(303, { ...ENTETES, location: '/connexion', 'set-cookie': enteteCookie('', { secure: enHttps(req), maxAge: 0 }) });
     return res.end();
   }
-  if (!MOT_DE_PASSE) { res.writeHead(303, { ...ENTETES, location: '/' }); return res.end(); }
+  if (!ACCES_RESERVE) { res.writeHead(303, { ...ENTETES, location: '/' }); return res.end(); }
+  if (ENTRA.active) return req.method === 'GET' ? html(res, 200, pageConnexion({ entra: true, suite: url.searchParams.get('suite') ?? '/' })) : json(res, 405, { erreur: 'connexion par Microsoft Entra ID' });
   if (req.method === 'GET') return html(res, 200, pageConnexion({ suite: url.searchParams.get('suite') ?? '/' }));
   if (req.method !== 'POST') return json(res, 405, { erreur: 'méthode non autorisée' });
   const origine = req.headers.origin;
@@ -481,9 +541,11 @@ createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/connexion' || url.pathname === '/deconnexion') return routeConnexion(req, res, url);
+    if (ENTRA.active && req.method === 'GET' && (url.pathname === '/auth/entra' || url.pathname === CHEMIN_RETOUR)) { routeEntra(req, res, url).catch(e => { console.error(e); if (!res.headersSent) json(res, 500, { erreur: 'erreur interne' }); }); return; }
     const libre = url.pathname === '/api/sante' || (req.method === 'POST' && url.pathname === '/api/declarations') || url.pathname === '/api/demandes';
-    const qui = libre ? '' : utilisateur(req);
-    if (qui === null) {
+    const acces = libre ? { nom: '', role: 'lecture', via: 'libre' } : utilisateur(req);
+    const qui = acces?.nom ?? null;
+    if (acces === null) {
       // Jamais de WWW-Authenticate : le navigateur n'ouvre plus sa fenêtre d'identification (elle revenait en boucle
       // quand le mot de passe ne correspondait pas). Une page demandée par le navigateur mène à /connexion.
       if (req.method === 'GET' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/vendor/')) {
@@ -493,6 +555,7 @@ createServer((req, res) => {
       if (req.headers.authorization) console.warn(`[${new Date().toISOString()}] accès refusé à ${req.method} ${url.pathname} depuis ${adresse(req)} : en-tête Authorization invalide`);
       return json(res, 401, { erreur: 'Accès réservé : connectez-vous (/connexion) ou envoyez l’en-tête Authorization: Basic avec le mot de passe de Matrix.' });
     }
+    if (req.method === 'GET' && url.pathname === '/api/moi') return json(res, 200, { nom: acces.nom, role: acces.role, via: acces.via, entra: ENTRA.active });
     if (req.method === 'GET' && url.pathname === '/api/edition') return json(res, 200, chargerEdition(DATA));
     const ref = url.pathname.match(/^\/api\/referentiels\/(sites|organigramme|pays|zones|filiales)$/);
     if (req.method === 'GET' && ref) return json(res, 200, chargerEdition(DATA).referentiels[ref[1]].filter(x => x.actif !== false || url.searchParams.get('tous') === '1'));
@@ -583,7 +646,8 @@ createServer((req, res) => {
     const ecriture = saisieDsi || (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
       || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro' || url.pathname === '/api/correspondances' || publication?.[2]));
     if (ecriture) {
-      if (PRODUCTION && !MOT_DE_PASSE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE sur le serveur pour autoriser les modifications.' });
+      if (PRODUCTION && !ACCES_RESERVE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE ou Microsoft Entra ID sur le serveur pour autoriser les modifications.' });
+      if (acces.role !== 'admin') return json(res, 403, { erreur: 'Consultation seule : les modifications sont réservées au rôle Administrateur de Matrix (DSI, décision M-04).' });
       if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { erreur: 'contenu JSON attendu' });
       const origine = req.headers.origin;
       if (origine && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
@@ -715,6 +779,8 @@ createServer((req, res) => {
   const n = catalogue.apps.reduce((s, a) => s + a.tables.length, 0);
   console.log(`Matrix écoute sur le port ${PORT} · ${n} tables · données dans ${DATA}${events.length ? ` · ${events.length} changement(s) depuis la dernière collecte` : ''}`);
   for (const a of AVERTISSEMENTS_MDP) console.warn(a);
+  if (ENTRA.active) console.log(`Connexion par Microsoft Entra ID (émetteur ${ENTRA.issuer}, rôles ${ENTRA.roleAdmin} et ${ENTRA.roleLecture}).`);
+  else if (ENTRA.erreurs.length) console.warn(`Microsoft Entra ID non activé, configuration incomplète : ${ENTRA.erreurs.join(' ; ')}.`);
   if (!TOKEN) console.warn('MATRIX_TOKEN absent : les outils ne peuvent pas déclarer leurs tables.');
   if (DB_URL) {
     setTimeout(() => synchroniser('démarrage'), 1000).unref();

@@ -127,6 +127,8 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .header h5 { font-size: 15px; min-width: 190px; }
 .header .search { flex: 1; max-width: 520px; }
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* Rôle Lecture (E-02) : boutons de saisie masqués ; le serveur refuse de toute façon les modifications (403). */
+.lecture-seule #g-nouveau, .lecture-seule [data-g-modifier], .lecture-seule #qr-nouvelle, .lecture-seule [data-qr], .lecture-seule #pub-nouvelle { display: none !important; }
 .app-main { flex: 1; min-height: 0; position: relative; }
 .screen { position: absolute; inset: 0; overflow: auto; }
 .pad { padding: 22px 24px 32px; }
@@ -309,6 +311,7 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
       </form>
       <div class="header-right">
         <span class="tag tag-ghost" id="collect-tag" title="Date de la dernière lecture des schémas"></span>
+        <span class="sub" id="moi" hidden></span>
       </div>
     </header>
     <main class="app-main">
@@ -1637,6 +1640,14 @@ async function chargerGlossaire() {
   catch (e) { Object.assign(GLOSSAIRE, { charge: true, disponible: false, raison: e.message }); }
 }
 if (SERVEUR) chargerGlossaire();   // termes du glossaire dans la fiche des tables
+// Personne connectée (E-02 : Microsoft Entra ID, ou page à mot de passe) : nom, rôle, déconnexion.
+if (SERVEUR) lireApi('/api/moi').then(m => {
+  if (!m.nom) return;
+  const el = $('moi');
+  el.innerHTML = `${esc(m.nom)} <span class="tag ${m.role === 'admin' ? 'tag-neutral' : 'tag-outline'}" title="${m.role === 'admin' ? 'Consultation et modifications (DSI, décision M-04)' : 'Consultation seule'}">${m.role === 'admin' ? 'Administrateur' : 'Lecture'}</span> <a class="link-btn" href="/deconnexion">Se déconnecter</a>`;
+  el.hidden = false;
+  if (m.role !== 'admin') document.body.classList.add('lecture-seule');
+}, () => {});
 // Termes du glossaire qui portent une colonne (fiche des tables).
 const termesDe = (app, table, col) => GLOSSAIRE.termes.filter(t => t.actif && t.colonnes.includes(`${app}.${table}.${col}`));
 

@@ -54,6 +54,24 @@ export function identifiantBasic(entete, mdp) {
 const cle = mdp => createHmac('sha256', 'matrix-session').update(mdp).digest();
 const signature = (mdp, corps) => createHmac('sha256', cle(mdp)).update(corps).digest('base64url');
 
+/**
+ * Jeton signé générique (session Entra ID, contrôles du retour de Microsoft) : données JSON, échéance, signature
+ * HMAC-SHA256 sous la clé donnée (MATRIX_SESSION_SECRET). `lireJeton` renvoie les données, ou null (signature fausse,
+ * échu, illisible).
+ */
+export function creerJeton(donnees, secret, dureeS, maintenantMs = Date.now()) {
+  const corps = `${Buffer.from(JSON.stringify(donnees), 'utf8').toString('base64url')}.${Math.floor(maintenantMs / 1000) + dureeS}`;
+  return `${corps}.${signature(`jeton|${secret}`, corps)}`;
+}
+export function lireJeton(valeur, secret, maintenantMs = Date.now()) {
+  const p = String(valeur ?? '').split('.');
+  if (p.length !== 3 || !secret) return null;
+  const corps = `${p[0]}.${p[1]}`;
+  if (!egal(p[2], signature(`jeton|${secret}`, corps))) return null;
+  if (!(Number(p[1]) * 1000 > maintenantMs)) return null;
+  try { return JSON.parse(Buffer.from(p[0], 'base64url').toString('utf8')); } catch { return null; }
+}
+
 /** Valeur du cookie de session : identifiant, échéance (secondes), signature. */
 export function creerSession(identifiant, mdp, maintenantMs = Date.now()) {
   const corps = `${Buffer.from(identifiant, 'utf8').toString('base64url')}.${Math.floor(maintenantMs / 1000) + DUREE_SESSION_S}`;
@@ -78,8 +96,8 @@ export function lireCookie(entete, nom) {
   return null;
 }
 
-export function enteteCookie(valeur, { secure, maxAge = DUREE_SESSION_S }) {
-  return `${COOKIE}=${valeur}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
+export function enteteCookie(valeur, { secure, maxAge = DUREE_SESSION_S, nom = COOKIE }) {
+  return `${nom}=${valeur}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
 }
 
 /** Page de retour après connexion : un chemin de Matrix seulement (jamais une autre adresse). */
@@ -101,8 +119,11 @@ export function limiteur({ max = ECHECS_MAX, fenetreMs = FENETRE_ECHECS_MS } = {
 
 const echapper = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-/** Page de connexion (HTML autonome, sans script). */
-export function pageConnexion({ erreur = '', suite = '/', identifiant = '' } = {}) {
+/**
+ * Page de connexion (HTML autonome, sans script). `entra` : bouton « Se connecter avec Microsoft » (E-02) à la place du
+ * formulaire à mot de passe ; `refus` : page d'accès refusé (compte sans rôle Matrix).
+ */
+export function pageConnexion({ erreur = '', suite = '/', identifiant = '', entra = false, refus = false } = {}) {
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -121,10 +142,17 @@ export function pageConnexion({ erreur = '', suite = '/', identifiant = '' } = {
   input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   button { font: inherit; font-weight: 600; padding: 10px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
   .erreur { color: var(--erreur); font-size: 14px; }
+  a.bouton { display: block; text-align: center; text-decoration: none; font-weight: 600; padding: 10px; border-radius: 6px; background: var(--accent); color: #fff; }
 </style>
 </head>
 <body>
-<form method="post" action="/connexion">
+${entra ? `<form>
+  <h1>Matrix</h1>
+  ${refus ? `<p>Votre compte Microsoft n’a pas accès à Matrix. Demandez au service informatique de vous attribuer le rôle « Lecture » ou « Administrateur » dans l’application Matrix d’Entra ID.</p>`
+    : `<p>Cartographie des données du groupe EPC2I. Connectez-vous avec votre compte Microsoft de l’entreprise ; votre nom signe vos modifications dans le journal.</p>`}
+  ${erreur ? `<div class="erreur" role="alert">${echapper(erreur)}</div>` : ''}
+  <a class="bouton" href="/auth/entra?suite=${encodeURIComponent(suiteSure(suite))}">${refus ? 'Se connecter avec un autre compte' : 'Se connecter avec Microsoft'}</a>
+</form>` : `<form method="post" action="/connexion">
   <h1>Matrix</h1>
   <p>Cartographie des données du groupe EPC2I. Identifiez-vous avec le mot de passe de Matrix ; votre identifiant signe vos modifications dans le journal.</p>
   ${erreur ? `<div class="erreur" role="alert">${echapper(erreur)}</div>` : ''}
@@ -132,7 +160,7 @@ export function pageConnexion({ erreur = '', suite = '/', identifiant = '' } = {
   <label>Identifiant<input name="identifiant" autocomplete="username" required maxlength="120" value="${echapper(identifiant)}" ${identifiant ? '' : 'autofocus'}></label>
   <label>Mot de passe<input name="mot_de_passe" type="password" autocomplete="current-password" required ${identifiant ? 'autofocus' : ''}></label>
   <button type="submit">Se connecter</button>
-</form>
+</form>`}
 </body>
 </html>`;
 }

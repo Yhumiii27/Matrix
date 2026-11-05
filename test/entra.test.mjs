@@ -109,6 +109,12 @@ test('connexion Microsoft : page, administrateur, lecteur, refus sans rôle, ref
   const refus = await fetch(base + '/api/referentiels/zones', { method: 'PUT', headers: { cookie: l.session, 'content-type': 'application/json' }, body: '[]' });
   assert.equal(refus.status, 403);
   assert.match((await refus.json()).erreur, /Consultation seule/);
+  // Visionneuse ouverte au rôle Lecture (M-20) : pas de 403 (ici 409, faute de serveur commun) ; son éditeur reste fermé.
+  const v = await fetch(base + '/api/donnees?outil=keystone&table=projects', { headers: { cookie: l.session } });
+  assert.equal(v.status, 409);
+  assert.match((await v.json()).erreur, /MATRIX_DATABASE_URL/);
+  const ed = await fetch(base + '/api/donnees/editer', { method: 'POST', headers: { cookie: l.session, 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(ed.status, 403);
 
   // Sans rôle Matrix : page « pas accès », pas de session.
   const s = await connecter('sansRole');

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { client } from '../outils/sonde.mjs';
-import { validerDemande, lireDonnees } from '../outils/visionneuse.mjs';
+import { validerDemande, lireDonnees, pourRole } from '../outils/visionneuse.mjs';
 
 test('demande : outil, table, page, taille, tri et filtre contrôlés', () => {
   assert.deepEqual(validerDemande({ outil: 'keystone', table: 'projects' }),
@@ -158,4 +158,15 @@ test('serveur : fonction générique de l’outil pour toutes ses tables, colonn
     await admin.query(`DROP FUNCTION IF EXISTS ${f}(text, text, jsonb, jsonb, text, text); DROP TABLE IF EXISTS crucible.${t}; DELETE FROM droits.colonnes_sensibles WHERE table_nom = '${t}'`).catch(() => {});
     await Promise.all([admin.end(), db.end(), gestion.end()]);
   }
+});
+
+test('rôle Lecture : mêmes données, édition toujours fermée (M-20)', () => {
+  const r = { outil: 'keystone', table: 'projects', lignes: [['A']], edition: { fonction: 'keystone.pub_editer', existe: true, conforme: true, executable: true, raison: null } };
+  assert.equal(pourRole(r, 'admin'), r);
+  const l = pourRole(r, 'lecture');
+  assert.deepEqual(l.lignes, r.lignes);
+  assert.equal(l.edition.executable, false);
+  assert.match(l.edition.raison, /consultation seule \(rôle Lecture\)/);
+  assert.equal(r.edition.executable, true);
+  assert.equal(pourRole({ lignes: [] }, 'lecture').edition, undefined);
 });

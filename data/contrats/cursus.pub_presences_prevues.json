@@ -1,0 +1,28 @@
+{
+ "vue": "cursus.pub_presences_prevues",
+ "titre": "Présences prévues sur site : déclarations validées par les RH, une ligne par déclaration",
+ "demande": "Vigie → Matrix, REQUESTS.md du 04/11/2026 (personnes D01 et présences prévues) ; décisions CV-10 et du 03/11/2026 de Vigie (poste de garde)",
+ "proprietaire": "cursus",
+ "lecteurs": [
+  "vigie_app",
+  "matrix_app"
+ ],
+ "etat": "en attente des tables de Cursus (déclarations de présence) ; la vue sera définie dans l'écran Publications de Matrix (M-18)",
+ "regles": [
+  "une ligne par déclaration validée ou annulée par les RH",
+  "aucune donnée de santé",
+  "site_code = code de matrix.sites (D14)",
+  "colonnes jamais retirées ni renommées, ajouts en fin"
+ ],
+ "colonnes": [
+  { "nom": "declaration_ref", "type": "text", "cle": true },
+  { "nom": "matricule", "type": "text", "description": "Matricule Cursus, permanent (I pour un intérimaire, E pour un extérieur, CV-10)" },
+  { "nom": "site_code", "type": "text", "description": "Code du site, matrix.sites" },
+  { "nom": "entreprise", "type": "text", "description": "Agence ou entreprise extérieure ; nulle pour un salarié" },
+  { "nom": "du", "type": "date" },
+  { "nom": "au", "type": "date" },
+  { "nom": "objet", "type": "text" },
+  { "nom": "statut", "type": "text", "valeurs": ["validee", "annulee"] },
+  { "nom": "maj_le", "type": "timestamp with time zone" }
+ ]
+}

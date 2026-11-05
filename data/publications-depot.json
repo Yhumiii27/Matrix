@@ -47,6 +47,20 @@
    "definition": "SELECT r.id,\n       r.kind,\n       r.codex_doc_id        AS doc_id,\n       CASE WHEN r.source = 'codex' THEN r.requester_ref ELSE r.source END AS requester_id,\n       r.requester_name,\n       r.requester_matricule,\n       r.reason,\n       r.description,\n       r.status,\n       r.eco_id              AS eco_ref,\n       r.modifier_ref        AS modifier_id,\n       r.decision_note,\n       r.source,\n       r.subject,\n       r.keystone_project_code AS project_code,\n       r.part_ref,\n       r.event_id,\n       r.created_at,\n       r.decided_at,\n       r.implemented_at,\n       r.codex_revision\nFROM vigie.ecrs r",
    "description": "Contrat D12 v1 : demandes de modification. Codex la lit pour une demande inconnue reçue par webhook (route.ts:48-49) et pour un contrôle de cohérence. Lecteurs : codex_app, keystone_app, matrix_app.",
    "note": "Tables à créer par Vigie (module ECR / ECO, spécification partage/60-vigie-ecr-eco.sql) ; la publication s'applique ensuite."
+  },
+  {
+   "vue": "cursus.pub_presences_prevues",
+   "demande": "Vigie, 04/11/2026 (présences prévues sur site, poste de garde)",
+   "attendue": true,
+   "contrat": "data/contrats/cursus.pub_presences_prevues.json",
+   "note": "Contrat connu (9 colonnes) ; la définition s'écrira dans l'écran Publications quand Cursus tiendra les déclarations de présence."
+  },
+  {
+   "vue": "cursus.pub_salaries",
+   "demande": "Vigie, 04/11/2026 (personnes D01 v2 : categorie, entreprise, email en fin)",
+   "attendue": true,
+   "contrat": "data/contrats/cursus.pub_salaries-d01-v2.json",
+   "note": "Vue existante (contrat D01 v1, lue par Vigie, Keystone, Codex, Crucible) : les trois colonnes s'ajoutent en fin dans l'écran Publications quand Cursus les aura créées et validées."
   }
  ],
  "liens": [
@@ -154,6 +168,13 @@
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
    "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+  },
+  {
+   "vue": "cursus.pub_presences_prevues",
+   "lecteur": "vigie_app",
+   "nature": "lecture",
+   "demande": "Vigie, 04/11/2026",
+   "motif": "Liste des mouvements à venir pour le poste de garde (décision de Vigie du 03/11/2026) ; contrat data/contrats/cursus.pub_presences_prevues.json"
   }
  ]
 }

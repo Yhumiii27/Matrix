@@ -309,3 +309,10 @@ Format d'une entrée :
 - Justification : décision CV-10 du 03/11/2026 (personnes de Vigie = celles de Cursus, intérimaires et extérieurs compris, matricule `I` / `E` permanent) ; liste des mouvements à venir pour le poste de garde produite par Vigie (décision du 03/11/2026).
 - Détails techniques : contrat « D01 v2 » (colonnes ajoutées en fin seulement) ; lecture par Vigie en cache rafraîchi par son planificateur (socle du lot 0, `sync_runs`).
 - Validé par Guillaume le : 2026-11-04
+
+## [2026-11-05] Vigie → Matrix — Liens de lecture de vigie_app sur les titres de Cursus (M-02, lot 2 : D08, D09)
+- Statut : OUVERTE
+- Demande : liens de nature `lecture`, lecteur `vigie_app`, sur `cursus.pub_titres` (catalogue des titres) et `cursus.pub_titres_detenus` (titres détenus, avec `utilisable_jusqu_au`, `prerequis_manquant`, `mesure`, `mesure_le`) ; prévenir Vigie de toute évolution du contrat de ces deux publications (Vigie fige leur forme dans `test/fixtures/contracts/cursus.pub_titres.json` et `cursus.pub_titres_detenus.json`).
+- Justification : décision CV-01 du 04/11/2026 (responsable produit) — Vigie consulte les formations et habilitations tenues par Cursus, sans les saisir (lot 2 de la convergence M-02, migration 0025 de Vigie, fusionné le 04/11/2026). Sans le lien, l'écran Habilitations de Vigie affiche « donnée indisponible » sur le serveur commun et n'émet aucune alerte d'habilitation (une seule échéance au QHSE).
+- Détails techniques : lecture par SELECT seulement depuis `src/lib/foreign/cursus.ts` de Vigie, jointure par `people.matricule` (D01) et `titre_id` ; aucune écriture (M-17) ; vérification en `vigie_app` : `select count(*) from cursus.pub_titres_detenus`.
+- Validé par Guillaume le : 2026-11-05

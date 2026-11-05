@@ -349,3 +349,15 @@ Format d'une entrée :
 - Justification : décision CV-08 (réponse asynchrone, état lu dans une vue) ; Vigie ne crée plus de vue pub_ (M-18). Vigie
   tient ces colonnes et ne les modifie qu'après évolution de la publication.
 - Validé par Guillaume le : 2026-11-05
+
+## [2026-11-05] Vigie → Matrix — Liens de lecture de vigie_app sur les quatre vues de Codex (D10, lot 4 livré le 05/11/2026)
+- Statut : OUVERTE
+- Demande : confirmer dans le registre matrix.liens les liens de nature lecture, lecteur vigie_app, sur
+  codex.pub_documents, codex.pub_revisions_document, codex.pub_validations et codex.pub_types_document (convention du
+  15/10/2026, partage/90-droits.sql:225-228, déjà inscrits) ; prévenir Vigie de toute évolution de leur contrat (Vigie en
+  fige la forme dans test/fixtures/contracts/codex.*.json et en tire ses substituts de démonstration).
+- Justification : décision M-02 (D10) et décision CV-05 de Vigie ; lecture par SELECT seulement depuis
+  src/lib/foreign/codex.ts, aucune écriture (M-17). Sans le lien, le registre des documents de Vigie affiche « source
+  indisponible » et refuse les nouveaux rattachements à un document.
+- Détails techniques : vérification en vigie_app : select count(*) from codex.pub_documents (idem pour les trois autres).
+- Validé par Guillaume le : 2026-11-05

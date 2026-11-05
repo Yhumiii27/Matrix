@@ -75,7 +75,7 @@ import { calculerSante } from './outils/sante.mjs';
 import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, reglesActives, reprendreRegles, enregistrerRegle } from './outils/saisies-pg.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
-import { lireDonnees } from './outils/visionneuse.mjs';
+import { lireDonnees, editerLigne } from './outils/visionneuse.mjs';
 import { lireConfigEntra, roleDepuisEntra, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
@@ -656,7 +656,8 @@ createServer((req, res) => {
       return;
     }
     const saisieDsi = req.method === 'PUT' && (url.pathname === '/api/glossaire' || url.pathname === '/api/qualite/regles');
-    const ecriture = saisieDsi || (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
+    const editionDonnees = req.method === 'POST' && url.pathname === '/api/donnees/editer';
+    const ecriture = saisieDsi || editionDonnees || (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
       || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro' || url.pathname === '/api/correspondances' || publication?.[2]));
     if (ecriture) {
       if (PRODUCTION && !ACCES_RESERVE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE ou Microsoft Entra ID sur le serveur pour autoriser les modifications.' });
@@ -666,6 +667,16 @@ createServer((req, res) => {
       if (origine && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
       const auteur = qui || 'anonyme';
       // Glossaire et règles de qualité (M-04 : la DSI seule, c'est-à-dire les personnes qui ont le mot de passe de Matrix).
+      // Édition d'une ligne par la fonction pub_editer_<table> de l'outil propriétaire (jamais d'écriture directe, M-18).
+      if (editionDonnees) return lireCorps(req, res, async corps => {
+        try {
+          if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les données sont sur le serveur commun.' });
+          const r = await avecServeur(db => editerLigne(db, corps ?? {}, auteur));
+          console.log(`[${new Date().toISOString()}] édition : ${auteur} ${r.action} une ligne de ${r.outil}.${r.table} (${r.motif})`);
+          if (edition.actif) await avecServeur(db => journaliserPg(db, { qui: auteur, action: `Ligne ${{ ajouter: 'ajoutée', corriger: 'corrigée', retirer: 'retirée' }[r.action]} par l’outil`, objet: `${r.outil}.${r.table}`, detail: `${r.cle ? JSON.stringify(r.cle) + ' · ' : ''}${r.motif}` })).catch(() => {});
+          json(res, 200, { ok: true, resultat: r.resultat });
+        } catch (e) { json(res, e.code === 409 ? 409 : 422, { erreur: e.message }); }
+      });
       if (saisieDsi) return lireCorps(req, res, async corps => {
         try {
           if (!DB_URL || !saisies.actif) return json(res, 409, { erreur: `Glossaire et règles de qualité sont saisis sur le serveur commun : ${DB_URL ? saisies.erreur ?? 'serveur pas encore lu' : 'MATRIX_DATABASE_URL absent'}.` });

@@ -1550,18 +1550,54 @@ RENDER.qualite = () => {
 
 // ── Visionneuse des données : contenu d'une table du serveur commun, page par page (rôle Administrateur) ──
 const Visionneuse = (() => {
-  const st = { outil: '', table: '', page: 1, par: 50, tri: '', sens: 'asc', colonne: '', contient: '', resultat: null, erreur: null, charge: false, q: '' };
+  const st = { outil: '', table: '', page: 1, par: 50, tri: '', sens: 'asc', colonne: '', contient: '', resultat: null, erreur: null, charge: false, q: '', edition: null };
   let root = null;
   const tablesDe = outil => [...T.values()].filter(t => t.app === outil).map(t => t.name).sort();
   async function charger() {
     if (!st.outil || !st.table) { st.resultat = null; draw(); return; }
-    st.charge = true; st.erreur = null; draw();
+    st.charge = true; st.erreur = null; st.edition = null; draw();
     try { st.resultat = await lireApi('/api/donnees', { outil: st.outil, table: st.table, page: st.page, par: st.par, tri: st.tri, sens: st.sens, colonne: st.colonne, contient: st.contient }); }
     catch (e) { st.erreur = e.message; st.resultat = null; }
     st.charge = false; draw();
   }
+  // Édition par la fonction pub_editer_<table> de l'outil (M-18 : Matrix n'écrit jamais lui-même dans les outils).
+  const cleDe = (r, ligne) => {
+    if (!r.cle?.length) return null;
+    const o = {};
+    for (const k of r.cle) { const i = r.colonnes.findIndex(c => c.nom === k); if (i < 0 || !r.colonnes[i].lisible) return null; o[k] = ligne[i]; }
+    return o;
+  };
+  function formulaire(r) {
+    const e = st.edition, lisibles = r.colonnes.map((c, i) => ({ ...c, i })).filter(c => c.lisible);
+    const ligne = e.ligne ?? [];
+    const titre = { ajouter: 'Ajouter une ligne', corriger: 'Corriger la ligne', retirer: 'Retirer la ligne' }[e.action];
+    return `<div class="card" style="margin:10px 0;padding:14px 16px">
+      <div class="block-title">${titre} — par ${esc(r.edition.fonction)}</div>
+      ${e.action === 'retirer' ? `<p class="sub">Ligne ${esc(JSON.stringify(e.cle))}. L’outil applique ses règles : un retrait peut être un archivage.</p>`
+        : `<div style="display:flex;gap:10px;flex-wrap:wrap">${lisibles.map(c => `<div class="field" style="width:220px"><label class="field-label mono" for="ve-${esc(c.nom)}">${esc(c.nom)} <span class="text-muted">${esc(c.type)}</span></label>
+          <input class="input mono" id="ve-${esc(c.nom)}" data-ve="${esc(c.nom)}" value="${esc(ligne[c.i] ?? '')}" ${e.action === 'corriger' && r.cle.includes(c.nom) ? 'disabled' : ''}></div>`).join('')}</div>
+          <p class="sub text-muted">${e.action === 'corriger' ? 'Seules les valeurs changées sont envoyées.' : 'Les champs vides ne sont pas envoyés.'} Les colonnes fermées à Matrix ne sont ni lues ni modifiables ici.</p>`}
+      <div class="field"><label class="field-label" for="ve-motif">Motif (entre dans le journal de l’outil)</label><input class="input" id="ve-motif" maxlength="500"></div>
+      <div class="actions"><button class="btn btn-primary btn-sm" id="ve-envoyer">${e.action === 'retirer' ? 'Retirer' : 'Enregistrer'}</button><button class="btn btn-ghost btn-sm" id="ve-annuler">Annuler</button></div></div>`;
+  }
+  async function envoyerEdition() {
+    const r = st.resultat, e = st.edition, ligne = e.ligne ?? [];
+    const valeurs = {};
+    if (e.action !== 'retirer') root.querySelectorAll('[data-ve]').forEach(inp => {
+      if (inp.disabled) return;
+      const i = r.colonnes.findIndex(c => c.nom === inp.dataset.ve), avant = ligne[i] ?? '';
+      if (e.action === 'ajouter' ? inp.value !== '' : inp.value !== String(avant)) valeurs[inp.dataset.ve] = inp.value === '' ? null : inp.value;
+    });
+    if (e.action !== 'retirer' && !Object.keys(valeurs).length) { toast('Aucune valeur changée'); return; }
+    try {
+      await poster('/api/donnees/editer', { outil: r.outil, table: r.table, action: e.action, cle: e.cle, valeurs: e.action === 'retirer' ? null : valeurs, motif: $('ve-motif').value });
+      toast({ ajouter: 'Ligne ajoutée', corriger: 'Ligne corrigée', retirer: 'Ligne retirée' }[e.action] + ' par l’outil');
+      st.edition = null; charger();
+    } catch (err) { toast(err.message); }
+  }
   function grille(r) {
     const lisibles = r.colonnes.filter(c => c.lisible);
+    const modifiable = r.edition?.executable;
     const totalTxt = r.total != null ? `${fmt(r.total)} ligne(s)` : r.totalEstime != null ? `environ ${fmt(r.totalEstime)} ligne(s)` : 'nombre de lignes inconnu';
     const debut = (r.page - 1) * r.par + 1, fin = (r.page - 1) * r.par + r.lignes.length;
     return `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0">
@@ -1570,10 +1606,12 @@ const Visionneuse = (() => {
           <select class="input" id="v-colonne" style="width:180px">${lisibles.map(c => `<option ${c.nom === (st.colonne || lisibles[0]?.nom) ? 'selected' : ''}>${esc(c.nom)}</option>`).join('')}</select>
           <input class="input" id="v-contient" placeholder="contient…" value="${esc(st.contient)}" style="width:180px">
           <button class="btn btn-secondary btn-sm" id="v-filtrer">Filtrer</button>${st.contient ? '<button class="btn btn-ghost btn-sm" id="v-effacer">Effacer</button>' : ''}</span></div>
+      <div class="sub text-muted" style="margin-bottom:6px">${modifiable ? `Modifiable par l’outil (${esc(r.edition.fonction)}) : <button class="btn btn-secondary btn-sm" data-ve-action="ajouter">Ajouter une ligne</button>` : `Lecture seule${r.edition?.raison ? ` : ${esc(r.edition.raison)}` : ''}.`}</div>
+      ${st.edition ? formulaire(r) : ''}
       ${r.fermee ? '<p class="note">Toutes les colonnes de cette table sont fermées à Matrix (données sensibles) : rien n’est lu.</p>' : r.lignes.length ? `<div class="table-wrap" style="overflow:auto;max-height:65vh"><table class="table" style="font-size:12px"><thead><tr>${r.colonnes.map(c => c.lisible
         ? `<th class="nowrap"><button class="link-btn mono" data-v-tri="${esc(c.nom)}" title="${esc(c.type)} — trier">${esc(c.nom)}${st.tri === c.nom ? (st.sens === 'asc' ? ' ▲' : ' ▼') : ''}</button></th>`
-        : `<th class="nowrap mono text-muted" title="Colonne sensible ou fermée à Matrix : jamais lue">${icon('lock', 10)} ${esc(c.nom)}</th>`).join('')}</tr></thead><tbody>
-        ${r.lignes.map(l => `<tr>${l.map(v => v && v.ferme ? '<td class="text-muted">—</td>' : v == null ? '<td class="text-muted sub">null</td>' : `<td class="mono" style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v)}">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+        : `<th class="nowrap mono text-muted" title="Colonne sensible ou fermée à Matrix : jamais lue">${icon('lock', 10)} ${esc(c.nom)}</th>`).join('')}${modifiable ? '<th></th>' : ''}</tr></thead><tbody>
+        ${r.lignes.map((l, n) => `<tr>${l.map(v => v && v.ferme ? '<td class="text-muted">—</td>' : v == null ? '<td class="text-muted sub">null</td>' : `<td class="mono" style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v)}">${esc(v)}</td>`).join('')}${modifiable && cleDe(r, l) ? `<td class="nowrap"><button class="link-btn" data-ve-action="corriger" data-ve-ligne="${n}">Corriger</button> · <button class="link-btn" data-ve-action="retirer" data-ve-ligne="${n}">Retirer</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`
         : '<p class="text-muted">Aucune ligne.</p>'}
       <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
         <button class="btn btn-secondary btn-sm" id="v-prec" ${r.page > 1 ? '' : 'disabled'}>← Précédente</button>
@@ -1586,7 +1624,7 @@ const Visionneuse = (() => {
     if (!SERVEUR_COMMUN) { root.innerHTML = '<div class="wrap"><p class="note">La visionneuse lit les données sur le serveur commun : Matrix n’y est pas relié (MATRIX_DATABASE_URL).</p></div>'; return; }
     const tables = st.outil ? tablesDe(st.outil).filter(n => !st.q || n.includes(st.q.toLowerCase())) : [];
     root.innerHTML = `<div class="wrap">
-      <p class="text-muted prose">Ce que contient une table ou une vue d’un outil, lu sur le serveur commun en lecture seule. Les colonnes sensibles (droits.colonnes_sensibles) ne sont jamais lues : elles apparaissent avec un cadenas. Réservé au rôle Administrateur ; chaque consultation est journalisée.</p>
+      <p class="text-muted prose">Ce que contient une table ou une vue d’un outil, lu sur le serveur commun. Les colonnes sensibles (droits.colonnes_sensibles) ne sont jamais lues : elles apparaissent avec un cadenas. Une table se modifie ici seulement quand son outil fournit la fonction pub_editer_&lt;table&gt; et que le lien d’écriture de Matrix est autorisé : c’est l’outil qui écrit, avec ses règles et son journal. Réservé au rôle Administrateur ; chaque consultation et chaque modification sont journalisées.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0">
         ${seg('voutil', APP_IDS.map(a => [a, APPS[a].nom]), st.outil)}
         ${st.outil ? `<input class="input" id="v-q" type="search" placeholder="Filtrer les tables…" value="${esc(st.q)}" style="width:200px">
@@ -1602,7 +1640,11 @@ const Visionneuse = (() => {
       if (e.target.closest('#v-prec')) { st.page--; charger(); return; }
       if (e.target.closest('#v-suiv')) { st.page++; charger(); return; }
       if (e.target.closest('#v-filtrer')) { st.colonne = $('v-colonne').value; st.contient = $('v-contient').value.trim(); st.page = 1; charger(); return; }
-      if (e.target.closest('#v-effacer')) { st.contient = ''; st.colonne = ''; st.page = 1; charger(); }
+      if (e.target.closest('#v-effacer')) { st.contient = ''; st.colonne = ''; st.page = 1; charger(); return; }
+      const va = e.target.closest('[data-ve-action]');
+      if (va) { const r = st.resultat, ligne = va.dataset.veLigne != null ? r.lignes[+va.dataset.veLigne] : null; st.edition = { action: va.dataset.veAction, ligne, cle: ligne ? cleDe(r, ligne) : null }; draw(); return; }
+      if (e.target.closest('#ve-annuler')) { st.edition = null; draw(); return; }
+      if (e.target.closest('#ve-envoyer')) envoyerEdition();
     });
     root.addEventListener('change', e => {
       if (e.target.id === 'v-table') { Object.assign(st, { table: e.target.value, page: 1, tri: '', colonne: '', contient: '' }); charger(); }

@@ -56,3 +56,66 @@ test('serveur : colonnes fermées jamais lues, tri, filtre, pages, binaire, text
     await Promise.all([admin.end(), db.end()]);
   }
 });
+
+import { validerEdition, etatEdition, editerLigne } from '../outils/visionneuse.mjs';
+
+test('édition : action, clé, valeurs et motif contrôlés', () => {
+  assert.deepEqual(validerEdition({ outil: 'crucible', table: 'types', action: 'ajouter', valeurs: { code: 'A' }, motif: 'nouvelle option' }),
+    { outil: 'crucible', table: 'types', action: 'ajouter', cle: null, valeurs: { code: 'A' }, motif: 'nouvelle option' });
+  assert.equal(validerEdition({ outil: 'crucible', table: 'types', action: 'retirer', cle: { code: 'A' }, valeurs: { x: 1 }, motif: 'doublon' }).valeurs, null);
+  for (const [e, re] of [[{ action: 'effacer' }, /action inconnue/], [{ action: 'corriger', valeurs: { a: 1 } }, /clé/], [{ action: 'ajouter' }, /valeurs/],
+    [{ action: 'ajouter', valeurs: { 'a;b': 1 } }, /colonne invalide/], [{ action: 'ajouter', valeurs: { a: 1 }, motif: 'x' }, /motif/]])
+    assert.throws(() => validerEdition({ outil: 'crucible', table: 'types', motif: 'motif valable', ...e }), re);
+});
+
+const GESTION = process.env.MATRIX_TEST_GESTION_URL;
+test('serveur : édition par la fonction de l’outil, lien d’écriture exigé, refus de l’outil transmis', { skip: !(BASE && ADMIN && GESTION) && 'bases de test absentes' }, async () => {
+  const admin = client(ADMIN), db = client(BASE), gestion = client(GESTION);
+  await Promise.all([admin.connect(), db.connect(), gestion.connect()]);
+  const t = `ed_essai_${Date.now().toString(36)}`, f = `crucible.pub_editer_${t}`;
+  try {
+    await admin.query(`CREATE TABLE crucible.${t} (code text PRIMARY KEY, libelle text NOT NULL, actif boolean NOT NULL DEFAULT true, par text, motif text);
+      ALTER TABLE crucible.${t} OWNER TO crucible_app;
+      INSERT INTO crucible.${t} (code, libelle) VALUES ('A', 'Option A');
+      CREATE FUNCTION ${f}(p_action text, p_cle jsonb, p_valeurs jsonb, p_par text, p_motif text) RETURNS jsonb
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path = crucible, pg_temp AS $f$
+        DECLARE r crucible.${t};
+        BEGIN
+          IF p_action = 'ajouter' THEN
+            IF p_valeurs->>'libelle' IS NULL THEN RAISE EXCEPTION 'libellé obligatoire'; END IF;
+            INSERT INTO ${t} (code, libelle, par, motif) VALUES (p_valeurs->>'code', p_valeurs->>'libelle', p_par, p_motif) RETURNING * INTO r;
+          ELSIF p_action = 'corriger' THEN
+            UPDATE ${t} SET libelle = coalesce(p_valeurs->>'libelle', libelle), par = p_par, motif = p_motif WHERE code = p_cle->>'code' RETURNING * INTO r;
+          ELSE
+            UPDATE ${t} SET actif = false, par = p_par, motif = p_motif WHERE code = p_cle->>'code' RETURNING * INTO r;
+          END IF;
+          RETURN to_jsonb(r);
+        END $f$;
+      ALTER FUNCTION ${f}(text, jsonb, jsonb, text, text) OWNER TO crucible_app;
+      REVOKE EXECUTE ON FUNCTION ${f}(text, jsonb, jsonb, text, text) FROM PUBLIC;`);
+    // Sans lien autorisé : lecture seule, modification refusée.
+    const avant = await etatEdition(db, 'crucible', t);
+    assert.deepEqual([avant.existe, avant.conforme, avant.executable], [true, true, false]);
+    assert.match(avant.raison, /lien d’écriture/);
+    await assert.rejects(editerLigne(db, { outil: 'crucible', table: t, action: 'ajouter', valeurs: { code: 'B', libelle: 'B' }, motif: 'essai sans lien' }, 'Claire'), e => e.code === 409);
+    // Lien autorisé dans le registre, droit posé par le socle (matrix_gestion ne reçoit jamais EXECUTE).
+    await db.query(`INSERT INTO matrix.liens (vue, lecteur, statut, nature, motif, decide_par, decide_le) VALUES ($1, 'matrix_app', 'autorise', 'execution', 'essai', 'test', now())`, [f]);
+    await gestion.query('SELECT droits.accorder_execution($1, $2)', [f, 'matrix_app']);
+    assert.equal((await etatEdition(db, 'crucible', t)).executable, true);
+    const r = await lireDonnees(db, { outil: 'crucible', table: t });
+    assert.deepEqual([r.cle, r.edition.executable], [['code'], true]);
+    // Ajouter, corriger, retirer (archivage par l'outil) ; nom et motif transmis à l'outil.
+    assert.equal((await editerLigne(db, { outil: 'crucible', table: t, action: 'ajouter', valeurs: { code: 'B', libelle: 'Option B' }, motif: 'nouvelle option' }, 'Claire')).resultat.code, 'B');
+    const c = await editerLigne(db, { outil: 'crucible', table: t, action: 'corriger', cle: { code: 'A' }, valeurs: { libelle: 'Option A corrigée' }, motif: 'faute de frappe' }, 'Claire');
+    assert.deepEqual([c.resultat.libelle, c.resultat.par, c.resultat.motif], ['Option A corrigée', 'Claire', 'faute de frappe']);
+    assert.equal((await editerLigne(db, { outil: 'crucible', table: t, action: 'retirer', cle: { code: 'B' }, motif: 'doublon de A' }, 'Claire')).resultat.actif, false);
+    // Refus de l'outil : son message est transmis.
+    await assert.rejects(editerLigne(db, { outil: 'crucible', table: t, action: 'ajouter', valeurs: { code: 'C' }, motif: 'sans libellé' }, 'Claire'), /libellé obligatoire/);
+    // Jamais d'écriture directe : matrix_app n'a aucun droit d'écriture sur la table.
+    await assert.rejects(db.query(`UPDATE crucible.${t} SET libelle = 'x'`), /permission denied/);
+  } finally {
+    await db.query('DELETE FROM matrix.liens WHERE vue = $1', [f]).catch(() => {});
+    await admin.query(`DROP FUNCTION IF EXISTS ${f}(text, jsonb, jsonb, text, text); DROP TABLE IF EXISTS crucible.${t}`).catch(() => {});
+    await Promise.all([admin.end(), db.end(), gestion.end()]);
+  }
+});

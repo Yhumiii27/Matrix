@@ -199,3 +199,10 @@ test('glossaire et règles de qualité (M-04) : sur le serveur commun seulement,
   // Écriture : mot de passe exigé comme pour les autres saisies.
   assert.equal((await put(protege, '/api/glossaire', { terme: 'x', definition: 'y' })).status, 401);
 });
+
+test('visionneuse des données : sur le serveur commun seulement, mot de passe exigé', async () => {
+  const r = await fetch(libre + '/api/donnees?outil=keystone&table=projects');
+  assert.equal(r.status, 409);
+  assert.match((await r.json()).erreur, /MATRIX_DATABASE_URL/);
+  assert.equal((await fetch(protege + '/api/donnees?outil=keystone&table=projects')).status, 401);
+});

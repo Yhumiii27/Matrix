@@ -318,7 +318,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-05
 
 ## [2026-11-05] Vigie → Matrix — Lien d'exécution de keystone_app sur vigie.pub_signaler_avancement_nc (D13, CV-08)
-- Statut : OUVERTE
+- Statut : ACCEPTÉE (06/11/2026, accord de Guillaume dans la session de Matrix. Lien `execution` keystone_app → `vigie.pub_signaler_avancement_nc` préparé dans `data/publications-depot.json` : bloc « Demandes à traiter » de l'écran Publications, bouton « Autoriser », qui l'inscrit au registre `matrix.liens` et l'applique par `droits.accorder_execution`. Essayé sur un PostgreSQL 16 avec la migration 0026 de Vigie : keystone_app dépose une demande (appel répété : même numéro), n'écrit jamais dans `vigie.inbound_requests`, et un rôle sans lien est refusé. Passera à FAITE une fois autorisé sur le serveur en service, après la migration 0026)
 - Demande : inscrire au registre matrix.liens un lien de nature execution : lecteur keystone_app, objet
   vigie.pub_signaler_avancement_nc (signature : text, text, text, text, text, text, text, text, text, timestamptz, text,
   text, text, text ; retour integer), et l'appliquer (droits.accorder_execution). La fonction est créée par la migration
@@ -334,7 +334,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-05
 
 ## [2026-11-05] Vigie → Matrix — Publication de l'état des demandes reçues (D13, CV-08)
-- Statut : OUVERTE (après le lien d’exécution ci-dessus)
+- Statut : ACCEPTÉE (06/11/2026, accord de Guillaume dans la session de Matrix. Publication `vigie.pub_demandes_recues` définie dans `data/publications-depot.json` (mode SQL, 11 colonnes du contrat « Demandes reçues v1 », `data/contrats/vigie.pub_demandes_recues.json`, filtre `caller = session_user`, ni payload ni `acknowledged_*`) et lien de lecture keystone_app ; l'écran Publications les enregistre et les applique. Essayé avec la migration 0026 : Keystone ne voit que ses demandes, un autre lecteur autorisé n'en voit aucune. Passera à FAITE une fois appliquée sur le serveur en service, après le lien d'exécution)
 - Demande : publier, dans le schéma vigie, une vue de l'état des demandes déposées par un outil (nom proposé
   vigie.pub_demandes_recues, contrat « Demandes reçues v1 »), lecteur keystone_app, d'après la table vigie.inbound_requests,
   chaque outil ne voyant que ses propres demandes (filtre caller = session_user) :

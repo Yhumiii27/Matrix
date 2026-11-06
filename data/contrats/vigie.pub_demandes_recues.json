@@ -1,0 +1,86 @@
+{
+ "vue": "vigie.pub_demandes_recues",
+ "titre": "Demandes reçues par Vigie d'un autre outil (avancement des NC de projet), une ligne par demande, chaque outil ne voyant que les siennes",
+ "demande": "Vigie → Matrix, REQUESTS.md du 05/11/2026 (D13, décision CV-08 de Vigie)",
+ "proprietaire": "vigie",
+ "source": "vigie.inbound_requests (migration 0026_convergence_m02_nc_inbox de Vigie)",
+ "lecteurs": [
+  "keystone_app"
+ ],
+ "etat": "définie dans le dépôt des publications de Matrix (M-18) ; s'applique une fois la migration 0026 de Vigie passée sur le serveur commun",
+ "regles": [
+  "une ligne par demande déposée par vigie.pub_signaler_avancement_nc",
+  "chaque outil ne voit que ses demandes : filtre caller = session_user (rôle de connexion du lecteur)",
+  "ni payload (personne déclarée, commentaire), ni acknowledged_*, ni donnée de santé",
+  "colonnes jamais retirées ni renommées, ajouts en fin"
+ ],
+ "colonnes": [
+  {
+   "nom": "id",
+   "type": "integer",
+   "cle": true,
+   "description": "Numéro de la demande, rendu par la fonction"
+  },
+  {
+   "nom": "id_externe",
+   "type": "text",
+   "description": "Identifiant de l'outil appelant (keystoneId)"
+  },
+  {
+   "nom": "nature",
+   "type": "text",
+   "valeurs": [
+    "nc_step",
+    "nc_verification",
+    "nc_references"
+   ]
+  },
+  {
+   "nom": "numero",
+   "type": "text",
+   "description": "Référence EV-… de la NC visée"
+  },
+  {
+   "nom": "projet_code",
+   "type": "text"
+  },
+  {
+   "nom": "statut",
+   "type": "text",
+   "valeurs": [
+    "received",
+    "applied",
+    "rejected"
+   ]
+  },
+  {
+   "nom": "recu_le",
+   "type": "timestamp with time zone"
+  },
+  {
+   "nom": "traite_le",
+   "type": "timestamp with time zone"
+  },
+  {
+   "nom": "code_resultat",
+   "type": "text",
+   "valeurs": [
+    "stale",
+    "refused",
+    "not_found",
+    "invalid"
+   ],
+   "description": "Nul si appliquée"
+  },
+  {
+   "nom": "resultat",
+   "type": "text",
+   "description": "Message du traitement"
+  },
+  {
+   "nom": "vigie_ref",
+   "type": "text",
+   "description": "NC rattachée, nulle si introuvable"
+  }
+ ]
+}

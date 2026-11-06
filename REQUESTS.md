@@ -317,7 +317,7 @@ Format d'une entrée :
 - Détails techniques : lecture par SELECT seulement depuis `src/lib/foreign/cursus.ts` de Vigie, jointure par `people.matricule` (D01) et `titre_id` ; aucune écriture (M-17) ; vérification en `vigie_app` : `select count(*) from cursus.pub_titres_detenus`.
 - Validé par Guillaume le : 2026-11-05
 
-## [2026-11-05] Crucible → Matrix — M-19 · Publication `vigie.pub_suspensions_essais` et lien de lecture de `crucible_app` (V-2, R-7)
+## [2026-11-05] Crucible → Matrix — M-21 · Publication `vigie.pub_suspensions_essais` et lien de lecture de `crucible_app` (V-2, R-7)
 - Statut : OUVERTE
 - Demande : (1) définir dans Matrix (décision M-18, écran « Publications ») la publication `vigie.pub_suspensions_essais` sur les activités de coactivité de Vigie (`site_activities`) menées par une équipe extérieure (`team = 'externe'`) dans une zone de type « essais » ou « atex » (`map_zones.kind`), activités annulées exclues (`cancelled_at` nul), avec le contrat ci-dessous ; (2) autoriser le lien `crucible_app` → `vigie.pub_suspensions_essais`, nature `lecture` (registre `matrix.liens` ; le droit figure déjà dans `partage/90-droits.sql`).
 - Justification : au PDE (site `smc`), aucun essai pyrotechnique n'est autorisé pendant une intervention extérieure dans une zone d'essais (pas de coactivité, réponse P-2 du responsable produit à Crucible). Crucible bloquera automatiquement les moyens de la zone sur ces dates (la correspondance zone de Vigie → moyens de Crucible est tenue dans Crucible). Sans la publication et le lien, chaque intervention doit être ressaisie à la main en indisponibilité dans Crucible ; un oubli laisse confirmer un essai pendant qu'une entreprise extérieure occupe la zone (risque de sécurité).

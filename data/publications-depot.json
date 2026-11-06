@@ -61,6 +61,15 @@
    "attendue": true,
    "contrat": "data/contrats/cursus.pub_salaries-d01-v2.json",
    "note": "Vue existante (contrat D01 v1, lue par Vigie, Keystone, Codex, Crucible) : les trois colonnes s'ajoutent en fin dans l'écran Publications quand Cursus les aura créées et validées."
+  },
+  {
+   "vue": "vigie.pub_demandes_recues",
+   "demande": "Vigie → Matrix, 05/11/2026 (D13, CV-08) : état des demandes reçues par vigie.pub_signaler_avancement_nc",
+   "mode": "sql",
+   "definition": "SELECT r.id,\n       r.external_id   AS id_externe,\n       r.kind          AS nature,\n       r.target_ref    AS numero,\n       r.project_code  AS projet_code,\n       r.status        AS statut,\n       r.received_at   AS recu_le,\n       r.processed_at  AS traite_le,\n       r.result_code   AS code_resultat,\n       r.result        AS resultat,\n       r.event_id      AS vigie_ref\n  FROM vigie.inbound_requests r\n WHERE r.caller = session_user",
+   "description": "Contrat « Demandes reçues v1 » : état des demandes déposées par un outil chez Vigie (avancement des NC de projet, D13). Chaque outil ne voit que ses demandes (caller = session_user). Ni payload (personne déclarée, commentaire), ni prise en compte du refus par le QHSE, ni donnée de santé. Lecteur : keystone_app.",
+   "contrat": "data/contrats/vigie.pub_demandes_recues.json",
+   "note": "Table vigie.inbound_requests créée par la migration 0026 de Vigie ; s'applique une fois cette migration passée sur le serveur commun, après le lien d'exécution de keystone_app."
   }
  ],
  "liens": [
@@ -175,6 +184,20 @@
    "nature": "lecture",
    "demande": "Vigie, 04/11/2026",
    "motif": "Liste des mouvements à venir pour le poste de garde (décision de Vigie du 03/11/2026) ; contrat data/contrats/cursus.pub_presences_prevues.json"
+  },
+  {
+   "vue": "vigie.pub_signaler_avancement_nc",
+   "lecteur": "keystone_app",
+   "nature": "execution",
+   "demande": "Vigie → Matrix, 05/11/2026 (D13, CV-08)",
+   "motif": "Keystone signale l'avancement d'une NC de projet de Vigie en déposant une demande (vigie.inbound_requests), que Vigie traite avec ses règles et son journal (M-17 R4, M-18)"
+  },
+  {
+   "vue": "vigie.pub_demandes_recues",
+   "lecteur": "keystone_app",
+   "nature": "lecture",
+   "demande": "Vigie → Matrix, 05/11/2026 (D13, CV-08)",
+   "motif": "Réponse asynchrone : Keystone lit l'état de ses propres demandes (filtre caller = session_user) ; contrat data/contrats/vigie.pub_demandes_recues.json"
   }
  ]
 }

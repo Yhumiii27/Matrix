@@ -349,3 +349,44 @@ Format d'une entrée :
 - Justification : décision CV-08 (réponse asynchrone, état lu dans une vue) ; Vigie ne crée plus de vue pub_ (M-18). Vigie
   tient ces colonnes et ne les modifie qu'après évolution de la publication.
 - Validé par Guillaume le : 2026-11-05
+
+## [2026-11-06] Vigie → Matrix — Liens d'exécution des fonctions de D12 (lot 5 livré le 05/11/2026, CV-06, CV-08)
+- Statut : OUVERTE
+- Demande : inscrire au registre matrix.liens deux liens de nature execution et les appliquer (droits.accorder_execution) :
+  1. lecteur codex_app, objet vigie.pub_creer_demande_modification (signature : text, text, text, text, text, text, text,
+     text, text, timestamptz ; retour text : numéro ECR-AAAA-NNN réservé) — Codex crée une demande de modification d'un de
+     ses documents ;
+  2. lecteur keystone_app, objet vigie.pub_signaler_avancement_eco (signature : text, text, text, text, text, text, text,
+     text, text, timestamptz, text ; retour integer) — Keystone signale l'avancement d'un ordre ou la décision d'une clé.
+  Fonctions créées par la migration 0029_convergence_m02_ecr_eco de Vigie : propriétaire vigie_app, SECURITY DEFINER,
+  search_path = vigie, pg_temp, sans SQL dynamique, REVOKE EXECUTE … FROM PUBLIC ; appelant contrôlé par session_user
+  (vigie.inbound_callers : codex_app pour la première, keystone_app pour la seconde) ; erreurs P0V01 (appelant non admis),
+  P0V02 (argument invalide) ; noms uniques.
+- Justification : décisions M-17 (R4), M-18 ; CV-06 et CV-08 de Vigie. Les fonctions n'écrivent que dans
+  vigie.inbound_requests (et, pour la première, le compteur de numérotation vigie.action_counters).
+- Détails techniques : has_function_privilege('codex_app', 'vigie.pub_creer_demande_modification(text, text, text, text,
+  text, text, text, text, text, timestamptz)', 'EXECUTE') ; has_function_privilege('keystone_app',
+  'vigie.pub_signaler_avancement_eco(text, text, text, text, text, text, text, text, text, timestamptz, text)', 'EXECUTE').
+- Validé par Guillaume le : 2026-11-06
+
+## [2026-11-06] Vigie → Matrix — Appliquer les quatre publications de D12 sur les tables de Vigie (lot 5 livré le 05/11/2026)
+- Statut : OUVERTE (après la migration 0029 de Vigie sur le serveur commun)
+- Demande : appliquer vigie.pub_ordres_modification, pub_eco_approbations, pub_eco_effectivite et pub_demandes_modification
+  (data/publications-depot.json, contrat D12 v1, définitions inchangées) : les tables vigie.ecos, ecrs, eco_approvals,
+  eco_parts, eco_projects, eco_effectivity, eco_documents existent avec exactement les colonnes lues par ces définitions
+  (requêtes de référence exécutées par les tests de Vigie : docs/specs/modifications-techniques.md § 8). Lecteurs de la
+  convention : keystone_app, matrix_app (et codex_app pour pub_demandes_modification). Retirer le bandeau « À NE PAS
+  JOUER » de partage/60-vigie-ecr-eco.sql : vigie.external_progress n'est pas créée (écritures reçues par
+  vigie.inbound_requests, CV-08), et les colonnes propres de Vigie sont en fin de table (jamais publiées).
+- Justification : M-18 (Matrix définit et applique les vues pub_ du schéma vigie) ; D12.
+- Validé par Guillaume le : 2026-11-06
+
+## [2026-11-06] Vigie → Matrix — Liens de lecture de vigie_app sur les vues de Keystone de D12 (lot 5 livré le 05/11/2026)
+- Statut : OUVERTE
+- Demande : confirmer les liens de nature lecture, lecteur vigie_app, sur keystone.pub_articles, keystone.pub_nomenclatures
+  et keystone.pub_parc_machines (convention, partage/90-droits.sql ; déjà demandés en bloc par la deuxième demande de cette
+  liste) ; confirmer leurs contrats (Vigie les a relevés dans les migrations 0035 et 0040 de Keystone :
+  test/fixtures/contracts/keystone.pub_articles.json, pub_nomenclatures.json, pub_parc_machines.json).
+- Justification : effectivité proposée d'un ordre de modification (projets qui emploient un article, machines qui le
+  portent), contrôle des articles saisis ; lecture par SELECT depuis src/lib/foreign/keystone.ts seulement.
+- Validé par Guillaume le : 2026-11-06

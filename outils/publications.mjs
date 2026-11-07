@@ -342,9 +342,13 @@ export async function etatDepot(db, depot) {
   }
   const liens = [];
   for (const l of depot.liens ?? []) {
+    // Un lien d'écriture vise une fonction pub_ (pg_proc), un lien de lecture une vue (pg_class).
     const { rows: [r] } = await db.query(
-      `SELECT l.statut, to_regclass($1) IS NOT NULL AS existe FROM (SELECT 1) x
-         LEFT JOIN matrix.liens l ON l.vue = $1 AND l.lecteur = $2`, [l.vue, l.lecteur]);
+      `SELECT l.statut, CASE WHEN $3 = 'execution'
+                             THEN EXISTS (SELECT FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+                                           WHERE n.nspname = split_part($1, '.', 1) AND f.proname = split_part($1, '.', 2))
+                             ELSE to_regclass($1) IS NOT NULL END AS existe
+         FROM (SELECT 1) x LEFT JOIN matrix.liens l ON l.vue = $1 AND l.lecteur = $2`, [l.vue, l.lecteur, l.nature === 'execution' ? 'execution' : 'lecture']);
     liens.push({ ...l, statut: r.statut ?? null, existe: r.existe, etat: r.statut === 'autorise' ? 'autorise' : r.existe ? 'a_autoriser' : (r.statut === 'demande' ? 'demande' : 'a_demander') });
   }
   return { publications, liens };

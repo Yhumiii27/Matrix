@@ -175,6 +175,10 @@ test('serveur : lien d’écriture, exécution accordée puis retirée, jamais �
     // Sans lien autorisé, droits.accorder_execution ne fait que retirer.
     assert.equal((await gestion.query('SELECT droits.accorder_execution($1, $2) AS r', [fn, 'arche_app'])).rows[0].r, 'retire');
 
+    // Dépôt des demandes : une fonction existante se reconnaît (pg_proc), une fonction absente reste à demander.
+    const depot = await etatDepot(app, { liens: [{ vue: fn, lecteur: 'arche_app', nature: 'execution' }, { vue: `keystone.pub_absente_p4_${n}`, lecteur: 'arche_app', nature: 'execution' }] });
+    assert.deepEqual(depot.liens.map(x => [x.existe, x.etat]), [[true, 'a_autoriser'], [false, 'a_demander']]);
+
     // Lien autorisé : exécution accordée tout de suite, l'écriture passe par la fonction, jamais par la table.
     await lien(fn, 'autorise');
     assert.deepEqual(await appliquerLien(gestion, { vue: fn, lecteur: 'arche_app' }), { applique: true, droit: 'accordé' });

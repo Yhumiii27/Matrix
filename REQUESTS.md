@@ -318,7 +318,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-05
 
 ## [2026-11-05] Vigie → Matrix — Lien d'exécution de keystone_app sur vigie.pub_signaler_avancement_nc (D13, CV-08)
-- Statut : OUVERTE
+- Statut : ACCEPTÉE (06/11/2026, accord de Guillaume dans la session de Matrix. Lien `execution` keystone_app → `vigie.pub_signaler_avancement_nc` préparé dans `data/publications-depot.json` : bloc « Demandes à traiter » de l'écran Publications, bouton « Autoriser », qui l'inscrit au registre `matrix.liens` et l'applique par `droits.accorder_execution`. Essayé sur un PostgreSQL 16 avec la migration 0026 de Vigie : keystone_app dépose une demande (appel répété : même numéro), n'écrit jamais dans `vigie.inbound_requests`, et un rôle sans lien est refusé. Passera à FAITE une fois autorisé sur le serveur en service, après la migration 0026)
 - Demande : inscrire au registre matrix.liens un lien de nature execution : lecteur keystone_app, objet
   vigie.pub_signaler_avancement_nc (signature : text, text, text, text, text, text, text, text, text, timestamptz, text,
   text, text, text ; retour integer), et l'appliquer (droits.accorder_execution). La fonction est créée par la migration
@@ -334,7 +334,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-05
 
 ## [2026-11-05] Vigie → Matrix — Publication de l'état des demandes reçues (D13, CV-08)
-- Statut : OUVERTE (après le lien d’exécution ci-dessus)
+- Statut : ACCEPTÉE (06/11/2026, accord de Guillaume dans la session de Matrix. Publication `vigie.pub_demandes_recues` définie dans `data/publications-depot.json` (mode SQL, 11 colonnes du contrat « Demandes reçues v1 », `data/contrats/vigie.pub_demandes_recues.json`, filtre `caller = session_user`, ni payload ni `acknowledged_*`) et lien de lecture keystone_app ; l'écran Publications les enregistre et les applique. Essayé avec la migration 0026 : Keystone ne voit que ses demandes, un autre lecteur autorisé n'en voit aucune. Passera à FAITE une fois appliquée sur le serveur en service, après le lien d'exécution)
 - Demande : publier, dans le schéma vigie, une vue de l'état des demandes déposées par un outil (nom proposé
   vigie.pub_demandes_recues, contrat « Demandes reçues v1 »), lecteur keystone_app, d'après la table vigie.inbound_requests,
   chaque outil ne voyant que ses propres demandes (filtre caller = session_user) :
@@ -348,6 +348,18 @@ Format d'une entrée :
   toujours « introuvable »).
 - Justification : décision CV-08 (réponse asynchrone, état lu dans une vue) ; Vigie ne crée plus de vue pub_ (M-18). Vigie
   tient ces colonnes et ne les modifie qu'après évolution de la publication.
+- Validé par Guillaume le : 2026-11-05
+
+## [2026-11-05] Vigie → Matrix — Liens de lecture de vigie_app sur les quatre vues de Codex (D10, lot 4 livré le 05/11/2026)
+- Statut : OUVERTE
+- Demande : confirmer dans le registre matrix.liens les liens de nature lecture, lecteur vigie_app, sur
+  codex.pub_documents, codex.pub_revisions_document, codex.pub_validations et codex.pub_types_document (convention du
+  15/10/2026, partage/90-droits.sql:225-228, déjà inscrits) ; prévenir Vigie de toute évolution de leur contrat (Vigie en
+  fige la forme dans test/fixtures/contracts/codex.*.json et en tire ses substituts de démonstration).
+- Justification : décision M-02 (D10) et décision CV-05 de Vigie ; lecture par SELECT seulement depuis
+  src/lib/foreign/codex.ts, aucune écriture (M-17). Sans le lien, le registre des documents de Vigie affiche « source
+  indisponible » et refuse les nouveaux rattachements à un document.
+- Détails techniques : vérification en vigie_app : select count(*) from codex.pub_documents (idem pour les trois autres).
 - Validé par Guillaume le : 2026-11-05
 
 ## [2026-11-06] Vigie → Matrix — Liens d'exécution des fonctions de D12 (lot 5 livré le 05/11/2026, CV-06, CV-08)

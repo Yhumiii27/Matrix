@@ -3,8 +3,10 @@
 // Une publication est une vue pub_ d'un outil. Matrix la définit (registre matrix.publications, écrit par matrix_app) et
 // l'applique lui-même, par le rôle matrix_gestion, propriétaire des vues pub_ des six outils (init/03-droits.sql,
 // partage/13 et 14). Une application se fait en une transaction, tout ou rien :
-//   1. CREATE OR REPLACE VIEW (jamais DROP) : PostgreSQL refuse de lui-même un retrait, un renommage ou un changement de
-//      type de colonne ; le contrat enregistré est aussi comparé (vue recréée après un DROP … CASCADE) ;
+//   1. CREATE OR REPLACE VIEW (jamais DROP), toujours WITH (security_barrier) : les filtres de la vue (un outil ne voit
+//      que ses lignes, par exemple) s'évaluent avant toute fonction posée par le lecteur. PostgreSQL refuse de lui-même
+//      un retrait, un renommage ou un changement de type de colonne ; le contrat enregistré est aussi comparé (vue
+//      recréée après un DROP … CASCADE) ;
 //   2. les contrôles du socle (droits.verifier()) sur la vue : aucune colonne sensible lue, aucune table d'un autre
 //      schéma, propriétaire matrix_gestion ;
 //   3. droits des lecteurs d'après le registre des liens : GRANT pour un lien autorisé, REVOKE sinon ;
@@ -223,7 +225,7 @@ export async function appliquerPublication(db, vue, par) {
       if (v && v.proprietaire !== 'matrix_gestion')
         throw new Error(`${vue} appartient encore à ${v.proprietaire} : elle doit d’abord être reprise par Matrix (partage/14-reprise-publications.sql)`);
       const definition = p.mode === 'colonnes' ? genererDefinition(p) : verifierSql(p.definition);
-      await db.query(`CREATE OR REPLACE VIEW ${qualifie(vue)} AS ${definition}`);
+      await db.query(`CREATE OR REPLACE VIEW ${qualifie(vue)} WITH (security_barrier) AS ${definition}`);
       const contrat = await contratDe(db, vue);
       const ecart = ecartContrat(p.contrat, contrat);
       if (ecart) throw new Error(messageContrat(vue, ecart));

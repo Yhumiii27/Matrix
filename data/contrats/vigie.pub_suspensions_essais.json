@@ -1,0 +1,77 @@
+{
+ "vue": "vigie.pub_suspensions_essais",
+ "titre": "Interventions d'une équipe extérieure dans une zone d'essais ou ATEX, une ligne par activité de coactivité",
+ "demande": "Crucible → Matrix, REQUESTS.md du 05/11/2026 (M-21 ; V-2 et R-7 de Crucible ; décision M-12 / D23)",
+ "proprietaire": "vigie",
+ "source": "vigie.site_activities (team = 'externe', cancelled_at nul), vigie.map_zones (kind essais ou atex), vigie.contractors, vigie.change_log",
+ "lecteurs": [
+  "crucible_app",
+  "matrix_app"
+ ],
+ "regles": [
+  "une ligne par activité ; activités annulées exclues (la ligne disparaît : la suspension est levée)",
+  "seules les activités rattachées à une zone (zone_id) sont publiées",
+  "aucune personne nommée, aucune donnée de santé",
+  "colonnes jamais retirées ni renommées, ajouts en fin"
+ ],
+ "colonnes": [
+  {
+   "nom": "activite_id",
+   "type": "integer",
+   "cle": true,
+   "description": "site_activities.id"
+  },
+  {
+   "nom": "site_code",
+   "type": "text",
+   "description": "Code du site, matrix.sites (identifiant de site de Vigie, CV-09)"
+  },
+  {
+   "nom": "zone_id",
+   "type": "integer",
+   "description": "map_zones.id"
+  },
+  {
+   "nom": "zone_nom",
+   "type": "text"
+  },
+  {
+   "nom": "zone_type",
+   "type": "text",
+   "valeurs": [
+    "essais",
+    "atex"
+   ]
+  },
+  {
+   "nom": "du",
+   "type": "date",
+   "description": "start_on"
+  },
+  {
+   "nom": "au",
+   "type": "date",
+   "description": "end_on"
+  },
+  {
+   "nom": "plage_horaire",
+   "type": "text",
+   "description": "hours, texte libre"
+  },
+  {
+   "nom": "entreprise",
+   "type": "text",
+   "description": "Nom du sous-traitant (contractors), sinon null"
+  },
+  {
+   "nom": "motif",
+   "type": "text",
+   "description": "title de l'activité"
+  },
+  {
+   "nom": "maj_le",
+   "type": "timestamp with time zone",
+   "description": "Création, ou dernière entrée du journal de l'activité"
+  }
+ ]
+}

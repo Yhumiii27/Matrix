@@ -70,6 +70,15 @@
    "description": "Contrat « Demandes reçues v1 » : état des demandes déposées par un outil chez Vigie (avancement des NC de projet, D13). Chaque outil ne voit que ses demandes (caller = session_user). Ni payload (personne déclarée, commentaire), ni prise en compte du refus par le QHSE, ni donnée de santé. Lecteur : keystone_app.",
    "contrat": "data/contrats/vigie.pub_demandes_recues.json",
    "note": "Table vigie.inbound_requests créée par la migration 0026 de Vigie ; s'applique une fois cette migration passée sur le serveur commun, après le lien d'exécution de keystone_app."
+  },
+  {
+   "vue": "vigie.pub_suspensions_essais",
+   "demande": "Crucible → Matrix, M-21 du 05/11/2026 (V-2, R-7 ; décision M-12 / D23)",
+   "mode": "sql",
+   "definition": "SELECT a.id          AS activite_id,\n       a.site_id     AS site_code,\n       z.id          AS zone_id,\n       z.name        AS zone_nom,\n       z.kind        AS zone_type,\n       a.start_on    AS du,\n       a.end_on      AS au,\n       a.hours       AS plage_horaire,\n       c.name        AS entreprise,\n       a.title       AS motif,\n       greatest(a.created_at, j.dernier) AS maj_le\n  FROM vigie.site_activities a\n  JOIN vigie.map_zones z ON z.id = a.zone_id\n  LEFT JOIN vigie.contractors c ON c.id = a.contractor_id\n  LEFT JOIN LATERAL (SELECT max(l.at) AS dernier FROM vigie.change_log l\n                      WHERE l.entity_type = 'site_activity' AND l.entity_id = a.id::text) j ON true\n WHERE a.team = 'externe'\n   AND z.kind IN ('essais', 'atex')\n   AND a.cancelled_at IS NULL",
+   "description": "Contrat Crucible V-2 v1 : interventions d'une équipe extérieure dans une zone d'essais ou ATEX (activités de coactivité de Vigie, annulées exclues), une ligne par activité ; Crucible bloque les moyens de la zone sur ces dates. site_code = code de matrix.sites (CV-09). maj_le = création ou dernière entrée du journal de l'activité. Ni personne nommée ni donnée de santé. Lecteurs : crucible_app, matrix_app.",
+   "contrat": "data/contrats/vigie.pub_suspensions_essais.json",
+   "note": "Lit les tables site_activities, map_zones, contractors et change_log de Vigie (migrations 0000 à 0029, vérifié le 07/11/2026). Seules les activités rattachées à une zone (zone_id) sont publiées : une activité tracée sur la carte sans zone choisie n'y figure pas."
   }
  ],
  "liens": [
@@ -212,6 +221,13 @@
    "nature": "execution",
    "demande": "Vigie → Matrix, 06/11/2026 (D12, CV-06, CV-08)",
    "motif": "Keystone signale l'avancement d'un ordre de modification (ECO) ou la décision d'une clé d'approbation, par une demande déposée dans vigie.inbound_requests et traitée par Vigie (M-17 R4, M-18)"
+  },
+  {
+   "vue": "vigie.pub_suspensions_essais",
+   "lecteur": "crucible_app",
+   "nature": "lecture",
+   "demande": "Crucible → Matrix, M-21 du 05/11/2026",
+   "motif": "Au PDE (site smc), aucun essai pyrotechnique pendant une intervention extérieure dans une zone d'essais (P-2) : Crucible bloque les moyens de la zone ; convention partage/90-droits.sql"
   }
  ]
 }

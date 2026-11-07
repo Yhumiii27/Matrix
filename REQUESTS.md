@@ -363,7 +363,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-05
 
 ## [2026-11-06] Vigie → Matrix — Liens d'exécution des fonctions de D12 (lot 5 livré le 05/11/2026, CV-06, CV-08)
-- Statut : OUVERTE
+- Statut : ACCEPTÉE (07/11/2026, accord de Guillaume dans la session de Matrix. Les deux liens `execution` sont préparés dans `data/publications-depot.json`, bloc « Demandes à traiter » de l'écran Publications : bouton « Autoriser », qui les inscrit au registre `matrix.liens` et les applique par `droits.accorder_execution`. Essayé sur un PostgreSQL 16 avec la chaîne de migrations 0000 à 0029 de Vigie : codex_app obtient le numéro ECR-2026-001, rendu à l'identique si la demande est répétée ; keystone_app dépose un avancement d'ECO ; chaque rôle est refusé sur la fonction de l'autre et sur `vigie.inbound_requests`. Passera à FAITE une fois autorisé sur le serveur en service, après la migration 0029)
 - Demande : inscrire au registre matrix.liens deux liens de nature execution et les appliquer (droits.accorder_execution) :
   1. lecteur codex_app, objet vigie.pub_creer_demande_modification (signature : text, text, text, text, text, text, text,
      text, text, timestamptz ; retour text : numéro ECR-AAAA-NNN réservé) — Codex crée une demande de modification d'un de
@@ -382,7 +382,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-06
 
 ## [2026-11-06] Vigie → Matrix — Appliquer les quatre publications de D12 sur les tables de Vigie (lot 5 livré le 05/11/2026)
-- Statut : OUVERTE (après la migration 0029 de Vigie sur le serveur commun)
+- Statut : ACCEPTÉE (07/11/2026, accord de Guillaume dans la session de Matrix. Les quatre définitions de `data/publications-depot.json` restent inchangées ; elles ont été enregistrées puis appliquées par le code de Matrix sur la chaîne 0000 à 0029 de Vigie, sans erreur : 21, 7, 10 et 21 colonnes, lecteurs de la convention keystone_app et matrix_app, plus codex_app pour `pub_demandes_modification`. Notes du dépôt mises à jour. Le bandeau « À NE PAS JOUER » de `partage/60-vigie-ecr-eco.sql` est remplacé par « NE PLUS JOUER », et non retiré : rejoué après la migration 0029, ce fichier créerait `vigie.external_progress`, inconnue de Vigie ; il reste comme trace de la spécification. Passera à FAITE une fois appliquée sur le serveur en service, après la migration 0029 : « Enregistrer » puis « Appliquer » dans l'écran Publications)
 - Demande : appliquer vigie.pub_ordres_modification, pub_eco_approbations, pub_eco_effectivite et pub_demandes_modification
   (data/publications-depot.json, contrat D12 v1, définitions inchangées) : les tables vigie.ecos, ecrs, eco_approvals,
   eco_parts, eco_projects, eco_effectivity, eco_documents existent avec exactement les colonnes lues par ces définitions
@@ -394,7 +394,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-06
 
 ## [2026-11-06] Vigie → Matrix — Liens de lecture de vigie_app sur les vues de Keystone de D12 (lot 5 livré le 05/11/2026)
-- Statut : OUVERTE
+- Statut : FAITE (07/11/2026, accord de Guillaume dans la session de Matrix. Les trois liens `lecture` vigie_app → `keystone.pub_articles`, `keystone.pub_nomenclatures` et `keystone.pub_parc_machines` figurent dans la convention, `partage/90-droits.sql`, amorcée au registre avec le statut « autorise » ; droits posés par `90-droits.sql` et `appliquer-liens.sh`. Contrats confirmés : les colonnes et leur ordre relevés par Vigie (`test/fixtures/contracts/keystone.*.json`) sont exactement ceux des vues des migrations 0035 et 0040 de Keystone, y compris `type_machine_code`, `livree_le` et `maj_le` en fin de `pub_parc_machines`. Toute évolution de ces contrats passera par le registre des publications de Matrix, après la reprise des vues de Keystone, avec ajouts en fin seulement ; Vigie sera prévenu par son `REQUESTS.md`)
 - Demande : confirmer les liens de nature lecture, lecteur vigie_app, sur keystone.pub_articles, keystone.pub_nomenclatures
   et keystone.pub_parc_machines (convention, partage/90-droits.sql ; déjà demandés en bloc par la deuxième demande de cette
   liste) ; confirmer leurs contrats (Vigie les a relevés dans les migrations 0035 et 0040 de Keystone :

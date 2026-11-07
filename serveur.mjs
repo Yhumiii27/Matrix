@@ -75,7 +75,7 @@ import { calculerSante } from './outils/sante.mjs';
 import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, reglesActives, reprendreRegles, enregistrerRegle } from './outils/saisies-pg.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
-import { lireDonnees } from './outils/visionneuse.mjs';
+import { lireDonnees, editerLigne, pourRole } from './outils/visionneuse.mjs';
 import { lireConfigEntra, roleDepuisEntra, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
@@ -557,14 +557,15 @@ createServer((req, res) => {
       return json(res, 401, { erreur: 'Accès réservé : connectez-vous (/connexion) ou envoyez l’en-tête Authorization: Basic avec le mot de passe de Matrix.' });
     }
     if (req.method === 'GET' && url.pathname === '/api/donnees') {
-      // Visionneuse des données : réservée au rôle Administrateur (la DSI, M-04) ; lecture seule, colonnes ouvertes à
-      // Matrix seulement ; chaque consultation est écrite dans le journal du conteneur.
+      // Visionneuse des données : rôles Administrateur et Lecture (décision du 05/11/2026) ; colonnes ouvertes à Matrix
+      // seulement ; l'édition reste au rôle Administrateur (pourRole) ; chaque consultation est écrite dans le journal
+      // du conteneur.
       if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les données se lisent sur le serveur commun.' });
-      if (acces.role !== 'admin') return json(res, 403, { erreur: 'La visionneuse des données est réservée au rôle Administrateur de Matrix (DSI).' });
+      if (acces.role !== 'admin' && acces.role !== 'lecture') return json(res, 403, { erreur: 'La visionneuse des données est réservée aux rôles Administrateur et Lecture de Matrix.' });
       const q = Object.fromEntries(url.searchParams);
       avecServeur(db => lireDonnees(db, q)).then(r => {
-        console.log(`[${new Date().toISOString()}] visionneuse : ${acces.nom || 'anonyme'} lit ${r.outil}.${r.table} (page ${r.page}${r.contient ? `, filtre sur ${r.colonne}` : ''})`);
-        json(res, 200, r);
+        console.log(`[${new Date().toISOString()}] visionneuse : ${acces.nom || 'anonyme'} (${acces.role}) lit ${r.outil}.${r.table} (page ${r.page}${r.contient ? `, filtre sur ${r.colonne}` : ''})`);
+        json(res, 200, pourRole(r, acces.role));
       }, e => json(res, e.code === 404 ? 404 : /invalide|inconnu|impossible/.test(e.message) ? 422 : 502, { erreur: e.message }));
       return;
     }
@@ -656,7 +657,8 @@ createServer((req, res) => {
       return;
     }
     const saisieDsi = req.method === 'PUT' && (url.pathname === '/api/glossaire' || url.pathname === '/api/qualite/regles');
-    const ecriture = saisieDsi || (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
+    const editionDonnees = req.method === 'POST' && url.pathname === '/api/donnees/editer';
+    const ecriture = saisieDsi || editionDonnees || (req.method === 'PUT' && (ref || url.pathname === '/api/documentation' || url.pathname === '/api/decisions' || (publication?.[1] && !publication[2])))
       || (req.method === 'POST' && (url.pathname === '/api/liens' || url.pathname === '/api/synchro' || url.pathname === '/api/correspondances' || publication?.[2]));
     if (ecriture) {
       if (PRODUCTION && !ACCES_RESERVE) return json(res, 403, { erreur: 'Définissez MATRIX_MOT_DE_PASSE ou Microsoft Entra ID sur le serveur pour autoriser les modifications.' });
@@ -666,6 +668,16 @@ createServer((req, res) => {
       if (origine && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
       const auteur = qui || 'anonyme';
       // Glossaire et règles de qualité (M-04 : la DSI seule, c'est-à-dire les personnes qui ont le mot de passe de Matrix).
+      // Édition d'une ligne par la fonction pub_editer_<table> de l'outil propriétaire (jamais d'écriture directe, M-18).
+      if (editionDonnees) return lireCorps(req, res, async corps => {
+        try {
+          if (!DB_URL) return json(res, 409, { erreur: 'MATRIX_DATABASE_URL n’est pas défini : les données sont sur le serveur commun.' });
+          const r = await avecServeur(db => editerLigne(db, corps ?? {}, auteur));
+          console.log(`[${new Date().toISOString()}] édition : ${auteur} ${r.action} une ligne de ${r.outil}.${r.table} (${r.motif})`);
+          if (edition.actif) await avecServeur(db => journaliserPg(db, { qui: auteur, action: `Ligne ${{ ajouter: 'ajoutée', corriger: 'corrigée', retirer: 'retirée' }[r.action]} par l’outil`, objet: `${r.outil}.${r.table}`, detail: `${r.cle ? JSON.stringify(r.cle) + ' · ' : ''}${r.motif}` })).catch(() => {});
+          json(res, 200, { ok: true, resultat: r.resultat });
+        } catch (e) { json(res, e.code === 409 ? 409 : 422, { erreur: e.message }); }
+      });
       if (saisieDsi) return lireCorps(req, res, async corps => {
         try {
           if (!DB_URL || !saisies.actif) return json(res, 409, { erreur: `Glossaire et règles de qualité sont saisis sur le serveur commun : ${DB_URL ? saisies.erreur ?? 'serveur pas encore lu' : 'MATRIX_DATABASE_URL absent'}.` });

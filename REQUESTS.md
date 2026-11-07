@@ -311,11 +311,55 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-04
 
 ## [2026-11-05] Vigie → Matrix — Liens de lecture de vigie_app sur les titres de Cursus (M-02, lot 2 : D08, D09)
-- Statut : OUVERTE
+- Statut : FAITE (05/11/2026, accord de Guillaume dans la session de Matrix. Les deux liens figurent déjà dans la convention de partage, amorcée au registre `matrix.liens` avec le statut « autorise » : `partage/90-droits.sql`, lignes de `cursus.pub_titres` et `cursus.pub_titres_detenus` (lecteurs keystone_app, vigie_app, crucible_app, matrix_app) ; droits posés par `90-droits.sql` et `appliquer-liens.sh`, état visible dans « Liens entre outils ». Évolution des contrats : depuis M-18, Matrix définit les vues `pub_` dans son registre des publications, qui refuse tout retrait, renommage ou changement de type de colonne (ajouts en fin seulement) ; une rupture passe par une vue `…_v2` et une nouvelle demande. Les vues de Cursus ne passent au registre de Matrix qu'à sa reprise (`partage/14`), une fois la demande M-18 de Cursus FAITE ; d'ici là, les colonnes `utilisable_jusqu_au`, `prerequis_manquant`, `mesure` et `mesure_le` relèvent de la migration de Cursus)
 - Demande : liens de nature `lecture`, lecteur `vigie_app`, sur `cursus.pub_titres` (catalogue des titres) et `cursus.pub_titres_detenus` (titres détenus, avec `utilisable_jusqu_au`, `prerequis_manquant`, `mesure`, `mesure_le`) ; prévenir Vigie de toute évolution du contrat de ces deux publications (Vigie fige leur forme dans `test/fixtures/contracts/cursus.pub_titres.json` et `cursus.pub_titres_detenus.json`).
 - Justification : décision CV-01 du 04/11/2026 (responsable produit) — Vigie consulte les formations et habilitations tenues par Cursus, sans les saisir (lot 2 de la convergence M-02, migration 0025 de Vigie, fusionné le 04/11/2026). Sans le lien, l'écran Habilitations de Vigie affiche « donnée indisponible » sur le serveur commun et n'émet aucune alerte d'habilitation (une seule échéance au QHSE).
 - Détails techniques : lecture par SELECT seulement depuis `src/lib/foreign/cursus.ts` de Vigie, jointure par `people.matricule` (D01) et `titre_id` ; aucune écriture (M-17) ; vérification en `vigie_app` : `select count(*) from cursus.pub_titres_detenus`.
 - Validé par Guillaume le : 2026-11-05
+
+## [2026-11-05] Vigie → Matrix — Lien d'exécution de keystone_app sur vigie.pub_signaler_avancement_nc (D13, CV-08)
+- Statut : ACCEPTÉE (06/11/2026, accord de Guillaume dans la session de Matrix. Lien `execution` keystone_app → `vigie.pub_signaler_avancement_nc` préparé dans `data/publications-depot.json` : bloc « Demandes à traiter » de l'écran Publications, bouton « Autoriser », qui l'inscrit au registre `matrix.liens` et l'applique par `droits.accorder_execution`. Essayé sur un PostgreSQL 16 avec la migration 0026 de Vigie : keystone_app dépose une demande (appel répété : même numéro), n'écrit jamais dans `vigie.inbound_requests`, et un rôle sans lien est refusé. Passera à FAITE une fois autorisé sur le serveur en service, après la migration 0026)
+- Demande : inscrire au registre matrix.liens un lien de nature execution : lecteur keystone_app, objet
+  vigie.pub_signaler_avancement_nc (signature : text, text, text, text, text, text, text, text, text, timestamptz, text,
+  text, text, text ; retour integer), et l'appliquer (droits.accorder_execution). La fonction est créée par la migration
+  0026_convergence_m02_nc_inbox de Vigie : propriétaire vigie_app, SECURITY DEFINER, search_path = vigie, pg_temp, sans SQL
+  dynamique, REVOKE EXECUTE … FROM PUBLIC dans la même migration ; nom unique (une nouvelle version prendra un autre nom).
+- Justification : décisions M-17 (règle R4) et M-18 ; décision CV-08 de Vigie (04/11/2026) : Keystone signale l'avancement
+  d'une NC de projet en déposant une demande, que Vigie traite avec ses règles et son journal. La fonction n'écrit que
+  dans vigie.inbound_requests (appelant contrôlé par session_user, table vigie.inbound_callers).
+- Détails techniques : vérification par select has_function_privilege('keystone_app',
+  'vigie.pub_signaler_avancement_nc(text, text, text, text, text, text, text, text, text, timestamptz, text, text, text, text)',
+  'EXECUTE') ; erreurs de la fonction : SQLSTATE P0V01 (appelant non admis), P0V02 (argument invalide). codex_app (D12)
+  fera l'objet d'une demande distincte avec le lot 5.
+- Validé par Guillaume le : 2026-11-05
+
+## [2026-11-05] Vigie → Matrix — Publication de l'état des demandes reçues (D13, CV-08)
+- Statut : ACCEPTÉE (06/11/2026, accord de Guillaume dans la session de Matrix. Publication `vigie.pub_demandes_recues` définie dans `data/publications-depot.json` (mode SQL, 11 colonnes du contrat « Demandes reçues v1 », `data/contrats/vigie.pub_demandes_recues.json`, filtre `caller = session_user`, ni payload ni `acknowledged_*`) et lien de lecture keystone_app ; l'écran Publications les enregistre et les applique. Essayé avec la migration 0026 : Keystone ne voit que ses demandes, un autre lecteur autorisé n'en voit aucune. Passera à FAITE une fois appliquée sur le serveur en service, après le lien d'exécution)
+- Demande : publier, dans le schéma vigie, une vue de l'état des demandes déposées par un outil (nom proposé
+  vigie.pub_demandes_recues, contrat « Demandes reçues v1 »), lecteur keystone_app, d'après la table vigie.inbound_requests,
+  chaque outil ne voyant que ses propres demandes (filtre caller = session_user) :
+  id (integer, numéro rendu par la fonction), id_externe (external_id, text : keystoneId), nature (kind, text :
+  nc_step | nc_verification | nc_references), numero (target_ref, text : EV-…), projet_code (project_code, text),
+  statut (status, text : received | applied | rejected), recu_le (received_at, timestamptz), traite_le (processed_at,
+  timestamptz), code_resultat (result_code, text : stale | refused | not_found | invalid, nul si appliquée), resultat (result,
+  text : message du traitement), vigie_ref (event_id, text : NC rattachée, nulle si introuvable).
+  Ni payload (nom de la personne déclarée par l'outil, commentaire), ni prise en compte du refus par le QHSE
+  (acknowledged_*), ni donnée de santé (le message d'une demande visant un autre élément qu'une NC de projet est
+  toujours « introuvable »).
+- Justification : décision CV-08 (réponse asynchrone, état lu dans une vue) ; Vigie ne crée plus de vue pub_ (M-18). Vigie
+  tient ces colonnes et ne les modifie qu'après évolution de la publication.
+- Validé par Guillaume le : 2026-11-05
+
+## [2026-11-05] Vigie → Matrix — Liens de lecture de vigie_app sur les quatre vues de Codex (D10, lot 4 livré le 05/11/2026)
+- Statut : OUVERTE
+- Demande : confirmer dans le registre matrix.liens les liens de nature lecture, lecteur vigie_app, sur
+  codex.pub_documents, codex.pub_revisions_document, codex.pub_validations et codex.pub_types_document (convention du
+  15/10/2026, partage/90-droits.sql:225-228, déjà inscrits) ; prévenir Vigie de toute évolution de leur contrat (Vigie en
+  fige la forme dans test/fixtures/contracts/codex.*.json et en tire ses substituts de démonstration).
+- Justification : décision M-02 (D10) et décision CV-05 de Vigie ; lecture par SELECT seulement depuis
+  src/lib/foreign/codex.ts, aucune écriture (M-17). Sans le lien, le registre des documents de Vigie affiche « source
+  indisponible » et refuse les nouveaux rattachements à un document.
+- Détails techniques : vérification en vigie_app : select count(*) from codex.pub_documents (idem pour les trois autres).
 
 ## [2026-11-05] Crucible → Matrix — M-21 · Publication `vigie.pub_suspensions_essais` et lien de lecture de `crucible_app` (V-2, R-7)
 - Statut : OUVERTE

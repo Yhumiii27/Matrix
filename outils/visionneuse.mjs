@@ -12,6 +12,97 @@ const LONGUEUR_MAX = 500;
 
 const ident = s => `"${String(s).replace(/"/g, '""')}"`;
 
+// ── Édition des lignes par l'outil propriétaire (demande du 05/11/2026, choix « par les outils ») ──────────────────
+// Matrix n'écrit jamais lui-même dans les tables des outils (M-18). Un outil qui veut que la DSI corrige une liste
+// d'options depuis Matrix fournit, dans son schéma, une fonction par table (convention docs/edition-par-les-outils.md) :
+//   <outil>.pub_editer_<table>(p_action text, p_cle jsonb, p_valeurs jsonb, p_par text, p_motif text) RETURNS jsonb
+//   SECURITY DEFINER, search_path fixé, EXECUTE retiré à PUBLIC ;
+//   p_action : ajouter | corriger | retirer ; l'outil applique ses règles et son journal (un retrait peut être un
+//   archivage) et refuse par RAISE EXCEPTION, dont le message est montré tel quel.
+// Le droit de l'exécuter est un lien « écriture » du registre (lecteur matrix_app), décidé dans « Liens entre outils ».
+// Une fonction générique par outil couvre toutes ses tables (décision du 05/11/2026 : « l'admin IT peut modifier
+// toutes les données à l'exception des données sensibles RGPD », par les outils) :
+//   <outil>.pub_editer(p_table text, p_action text, p_cle jsonb, p_valeurs jsonb, p_par text, p_motif text) RETURNS jsonb
+// La fonction propre à une table, si elle existe, passe avant la générique.
+export const ACTIONS_EDITION = ['ajouter', 'corriger', 'retirer'];
+export const fonctionEdition = (outil, table) => `${outil}.pub_editer_${table}`;
+const SIGNATURE = ['text', 'jsonb', 'jsonb', 'text', 'text'];
+const SIGNATURE_GENERIQUE = ['text', 'text', 'jsonb', 'jsonb', 'text', 'text'];
+
+/**
+ * Fonction d'édition d'une table : { fonction, generique, existe, conforme, executable, raison }. Cherche d'abord
+ * <outil>.pub_editer_<table>, puis la fonction générique <outil>.pub_editer.
+ */
+export async function etatEdition(db, outil, table) {
+  const { rows } = await db.query(
+    `SELECT p.proname, p.prosecdef AS definer,
+            ARRAY(SELECT format_type(t, NULL) FROM unnest(p.proargtypes) t) AS types,
+            format_type(p.prorettype, NULL) AS retour,
+            EXISTS (SELECT FROM unnest(p.proconfig) AS c(x) WHERE c.x LIKE 'search\\_path=%') AS search_path_fixe,
+            has_function_privilege(p.oid, 'EXECUTE') AS executable
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = $1 AND p.proname IN ($2, 'pub_editer')`, [outil, `pub_editer_${table}`]);
+  const meme = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const choisir = (nom, sig) => { const l = rows.filter(r => r.proname === nom); return l.find(r => meme(r.types, sig)) ?? l[0]; };
+  const propre = choisir(`pub_editer_${table}`, SIGNATURE), generique = choisir('pub_editer', SIGNATURE_GENERIQUE);
+  const f = propre ?? generique;
+  if (!f) return { fonction: fonctionEdition(outil, table), generique: false, existe: false, executable: false,
+    raison: `l’outil ne fournit ni ${fonctionEdition(outil, table)} ni ${outil}.pub_editer` };
+  const estGenerique = !propre, fonction = estGenerique ? `${outil}.pub_editer` : fonctionEdition(outil, table);
+  const sig = estGenerique ? SIGNATURE_GENERIQUE : SIGNATURE;
+  const conforme = meme(f.types, sig) && f.retour === 'jsonb' && f.definer && f.search_path_fixe;
+  const raison = !conforme ? `${fonction} ne suit pas la convention (signature (${sig.join(', ')}) → jsonb, SECURITY DEFINER, search_path fixé)`
+    : !f.executable ? `lien d’écriture matrix_app → ${fonction} non autorisé (« Liens entre outils »)` : null;
+  return { fonction, generique: estGenerique, existe: true, conforme, executable: conforme && f.executable, raison };
+}
+
+/** Contrôle une modification demandée depuis la visionneuse. */
+/**
+ * Réponse de la visionneuse selon le rôle : le rôle Lecture consulte les mêmes données (colonnes ouvertes à Matrix
+ * seulement), mais l'édition lui est toujours fermée (décision du 05/11/2026).
+ */
+export function pourRole(reponse, role) {
+  if (role === 'admin' || !reponse?.edition) return reponse;
+  return { ...reponse, edition: { ...reponse.edition, executable: false, raison: 'consultation seule (rôle Lecture) : les modifications sont réservées au rôle Administrateur' } };
+}
+
+export function validerEdition(e = {}) {
+  const { outil, table } = validerDemande(e);
+  const action = String(e.action ?? '');
+  if (!ACTIONS_EDITION.includes(action)) throw new Error(`action inconnue : « ${action} » (ajouter, corriger ou retirer)`);
+  const objet = v => v && typeof v === 'object' && !Array.isArray(v);
+  const cle = e.cle ?? null, valeurs = e.valeurs ?? null;
+  if (action !== 'ajouter' && !(objet(cle) && Object.keys(cle).length)) throw new Error('clé de la ligne manquante');
+  if (action !== 'retirer' && !(objet(valeurs) && Object.keys(valeurs).length)) throw new Error('valeurs manquantes');
+  for (const k of [...Object.keys(cle ?? {}), ...Object.keys(valeurs ?? {})]) if (!NOM.test(k)) throw new Error(`colonne invalide : « ${k} »`);
+  const motif = String(e.motif ?? '').trim();
+  if (motif.length < 5) throw new Error('motif obligatoire (5 caractères au moins) : il entre dans le journal de l’outil');
+  if (motif.length > 500) throw new Error('motif : 500 caractères au plus');
+  return { outil, table, action, cle: action === 'ajouter' ? null : cle, valeurs: action === 'retirer' ? null : valeurs, motif };
+}
+
+/** Exécute la fonction d'édition de l'outil (rôle matrix_app) ; renvoie ce qu'elle renvoie. */
+export async function editerLigne(db, saisie, par) {
+  const e = validerEdition(saisie);
+  const etat = await etatEdition(db, e.outil, e.table);
+  if (!etat.executable) { const err = new Error(`Modification impossible : ${etat.raison}.`); err.code = 409; throw err; }
+  // Jamais une donnée sensible (RGPD) depuis Matrix : chaque colonne nommée doit exister et être ouverte à matrix_app
+  // (droits.colonnes_sensibles la ferme), même si la fonction de l'outil l'accepterait.
+  const noms = [...new Set([...Object.keys(e.cle ?? {}), ...Object.keys(e.valeurs ?? {})])];
+  const { rows: cols } = await db.query(
+    `SELECT a.attname AS nom, has_column_privilege(c.oid, a.attnum, 'SELECT') AS lisible
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
+      WHERE n.nspname = $1 AND c.relname = $2 AND a.attnum > 0 AND NOT a.attisdropped AND a.attname = ANY ($3)`, [e.outil, e.table, noms]);
+  const lisibles = new Set(cols.filter(c => c.lisible).map(c => c.nom));
+  const refusees = noms.filter(n => !lisibles.has(n));
+  if (refusees.length) throw new Error(`colonne(s) sensible(s) ou inconnue(s), jamais modifiées depuis Matrix : ${refusees.join(', ')}`);
+  const args = [e.action, e.cle == null ? null : JSON.stringify(e.cle), e.valeurs == null ? null : JSON.stringify(e.valeurs), par || 'Matrix', e.motif];
+  const { rows: [r] } = etat.generique
+    ? await db.query(`SELECT ${ident(e.outil)}.pub_editer($1, $2, $3::jsonb, $4::jsonb, $5, $6) AS r`, [e.table, ...args])
+    : await db.query(`SELECT ${ident(e.outil)}.${ident(`pub_editer_${e.table}`)}($1, $2::jsonb, $3::jsonb, $4, $5) AS r`, args);
+  return { ...e, resultat: r.r };
+}
+
 /** Contrôle une demande de lecture ; renvoie la demande normalisée ou lève une erreur lisible. */
 export function validerDemande(q = {}) {
   const outil = String(q.outil ?? ''), table = String(q.table ?? '');
@@ -91,7 +182,13 @@ export async function lireDonnees(db, demande, { delaiMs = 10000, delaiComptageM
         return v != null && v.length > LONGUEUR_MAX ? `${v.slice(0, LONGUEUR_MAX)}…` : v;
       });
     });
-    return { ...base, lignes, total, totalEstime, suivante, tri: d.tri, sens: d.sens, colonne: d.colonne, contient: d.contient };
+    const cle = (await db.query(
+      `SELECT array_agg(a.attname::text ORDER BY k.ord) AS cle FROM pg_constraint ct
+         CROSS JOIN LATERAL unnest(ct.conkey) WITH ORDINALITY AS k(num, ord)
+         JOIN pg_attribute a ON a.attrelid = ct.conrelid AND a.attnum = k.num
+        WHERE ct.contype = 'p' AND ct.conrelid = to_regclass($1)`, [`${d.outil}.${d.table}`])).rows[0]?.cle ?? [];
+    const edition = await etatEdition(db, d.outil, d.table);
+    return { ...base, lignes, total, totalEstime, suivante, tri: d.tri, sens: d.sens, colonne: d.colonne, contient: d.contient, cle, edition };
   } finally {
     await db.query('ROLLBACK').catch(() => {});
   }

@@ -1,12 +1,14 @@
 -- Partage des données EPC2I, fichier 60 : demandes (ECR) et ordres (ECO) de modification, tenus par Vigie (D12).
 --
 -- ╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗
--- ║ À NE PAS JOUER tant que le module ECR / ECO n'existe pas dans Vigie (état au 18/10/2026 : aucune table      ║
--- ║ ecos, ecrs… dans le schéma de Vigie). Ce fichier est la spécification du futur module : ses tables iront dans ║
--- ║ schema.ts et les migrations de Vigie ; ses vues pub_ sont définies par Matrix (M-18, data/publications-      ║
--- ║ depot.json, écran « Publications »). Joué aujourd'hui, il créerait dans vigie des tables                     ║
--- ║ inconnues de Vigie, que sa prochaine migration générée chercherait à supprimer. 90-droits.sql signale les     ║
--- ║ quatre vues absentes (WARNING) sans échouer.                                                                 ║
+-- ║ NE PLUS JOUER. Spécification réalisée par Vigie : sa migration 0029_convergence_m02_ecr_eco (lot 5 de M-02,  ║
+-- ║ livré le 05/11/2026) crée ecos, ecrs, eco_approvals, eco_parts, eco_projects, eco_effectivity, eco_documents ║
+-- ║ et eco_actions avec exactement les colonnes lues par les quatre publications (colonnes propres à Vigie en   ║
+-- ║ fin de table). external_progress n'est pas créée : les écritures reçues passent par vigie.inbound_requests ║
+-- ║ et les fonctions pub_creer_demande_modification et pub_signaler_avancement_eco (décision CV-08 de Vigie). ║
+-- ║ Joué après la migration 0029, ce fichier créerait external_progress, inconnue de Vigie. Les vues pub_ sont ║
+-- ║ définies et appliquées par Matrix (M-18, data/publications-depot.json, écran « Publications »). Gardé comme ║
+-- ║ trace de la spécification de D12.                                                                         ║
 -- ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 --
 -- D12 option A : Vigie numérote, instruit, approuve et libère toutes les demandes et tous les ordres, qu'ils

@@ -75,6 +75,8 @@ test('serveur : publier, lier, refuser une rupture de contrat ou une colonne sen
     assert.deepEqual(r.contrat.map(c => c.nom), ['id', 'code_essai']);
     const p = await lirePublication(app, vue);
     assert.equal(p.etat, 'appliquee'); assert.equal(p.proprietaire, 'matrix_gestion'); assert.equal(p.existe, true);
+    // Toujours security_barrier : les filtres de la vue passent avant les fonctions du lecteur.
+    assert.deepEqual((await app.query('SELECT reloptions FROM pg_class WHERE oid = to_regclass($1)', [vue])).rows[0].reloptions, ['security_barrier=true']);
     assert.ok(p.journal.some(j => j.action === 'application'));
     assert.equal(await lit('arche_app', `SELECT * FROM ${vue}`), '42501');   // aucun lien encore
 

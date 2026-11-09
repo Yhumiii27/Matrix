@@ -242,6 +242,13 @@
    "nature": "execution",
    "demande": "M-19 (05/11/2026), fonction livrée par Codex (migration 0004)",
    "motif": "Éditeur de la visionneuse : l'administrateur IT corrige les lignes des tables de l'outil par sa fonction, avec ses règles et son journal ; jamais une colonne de droits.colonnes_sensibles (décision M-19)"
+  },
+  {
+   "vue": "arche.pub_capex",
+   "lecteur": "codex_app",
+   "nature": "lecture",
+   "demande": "Codex → Matrix, 09/11/2026 (CX-01 d'Arche, D-29 de Codex)",
+   "motif": "Miroir des CAPEX dans Codex (codex.capex, tâche « capex » toutes les 15 minutes) : rattachement d'un document à un CAPEX, identifiant TYPE-<CAPEX>-SEQ. Codex lit code, intitule, filiale_code, filiale, site, statut, phase_code ; le droit porte sur toute la vue (sponsor et chef de projet compris), accepté par Guillaume le 09/11/2026"
   }
  ]
 }

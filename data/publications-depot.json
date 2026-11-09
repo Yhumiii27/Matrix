@@ -228,6 +228,20 @@
    "nature": "lecture",
    "demande": "Crucible → Matrix, M-21 du 05/11/2026",
    "motif": "Au PDE (site smc), aucun essai pyrotechnique pendant une intervention extérieure dans une zone d'essais (P-2) : Crucible bloque les moyens de la zone ; convention partage/90-droits.sql"
+  },
+  {
+   "vue": "vigie.pub_editer",
+   "lecteur": "matrix_app",
+   "nature": "execution",
+   "demande": "M-19 (05/11/2026), fonction livrée par Vigie (migration 0027)",
+   "motif": "Éditeur de la visionneuse : l'administrateur IT corrige les lignes des tables de l'outil par sa fonction, avec ses règles et son journal ; jamais une colonne de droits.colonnes_sensibles (décision M-19)"
+  },
+  {
+   "vue": "codex.pub_editer",
+   "lecteur": "matrix_app",
+   "nature": "execution",
+   "demande": "M-19 (05/11/2026), fonction livrée par Codex (migration 0004)",
+   "motif": "Éditeur de la visionneuse : l'administrateur IT corrige les lignes des tables de l'outil par sa fonction, avec ses règles et son journal ; jamais une colonne de droits.colonnes_sensibles (décision M-19)"
   }
  ]
 }

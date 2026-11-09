@@ -3,7 +3,7 @@
 État au 09/11/2026. Cette fiche met en service, dans l'ordre, ce qui est livré dans les dépôts mais pas encore appliqué sur le serveur `epc2i` :
 
 - le déploiement de Matrix : connexion Entra ID, visionneuse et éditeur, glossaire et règles de qualité, publications en `security_barrier` ;
-- les demandes D13 et D12 de Vigie et M-21 de Crucible ;
+- les demandes D13 et D12 de Vigie, M-21 de Crucible et CX-01 de Codex ;
 - les éditeurs M-19 de Vigie et de Codex.
 
 Chaque étape dit qui la fait, où, et comment vérifier.
@@ -86,7 +86,7 @@ Puis redéployer.
 
 ## 6. Écran Publications : demandes à traiter
 
-Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes à traiter ». Faire les lignes dans l'ordre : chaque lien d'écriture avant la publication qui lit ses demandes.
+Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes à traiter ». Faire les lignes dans l'ordre (6.1 à 6.11) : chaque lien d'écriture avant la publication qui lit ses demandes.
 
 | | Ligne du bloc | Bouton | Demande | Vérification (en `postgres`) |
 |---|---|---|---|---|
@@ -100,6 +100,7 @@ Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes 
 | 6.8 | `vigie.pub_suspensions_essais` → `crucible_app` (lecture) | « Autoriser » (déjà autorisé par la convention : la ligne peut l'afficher) | Crucible M-21 | `has_table_privilege('crucible_app', 'vigie.pub_suspensions_essais', 'SELECT')` renvoie `t` |
 | 6.9 | `vigie.pub_editer` → `matrix_app` (écriture) | « Autoriser » | M-19 | Visionneuse, une table de Vigie : « Modifiable par l'outil (vigie.pub_editer) » |
 | 6.10 | `codex.pub_editer` → `matrix_app` (écriture) | « Autoriser » | M-19 | Visionneuse, une table de Codex : « Modifiable par l'outil (codex.pub_editer) » |
+| 6.11 | `arche.pub_capex` → `codex_app` (lecture) | « Autoriser » | Codex CX-01 | `SELECT has_table_privilege('codex_app', 'arche.pub_capex', 'SELECT');` renvoie `t`, au plus tard 15 minutes après si `pub_capex` n'est pas encore reprise par Matrix (droit posé par `appliquer-liens.sh`) |
 
 Une publication refusée à l'application passe à l'état « erreur », avec le message de PostgreSQL ou du contrôle du serveur. La vue reste alors telle qu'elle était : il suffit de corriger, puis d'appliquer de nouveau. Si la visionneuse affiche « ne suit pas la convention » sur une fonction `pub_editer`, c'est l'outil qui doit la corriger, pas Matrix.
 
@@ -108,16 +109,17 @@ Une publication refusée à l'application passe à l'état « erreur », avec le
 | | Vérification |
 |---|---|
 | 7.1 | `SELECT gravite, objet, constat FROM droits.verifier() WHERE gravite = 'erreur';` renvoie un résultat vide. |
-| 7.2 | `SELECT vue, lecteur, statut, nature FROM matrix.liens WHERE vue LIKE 'vigie.%' OR vue LIKE 'codex.pub_editer' ORDER BY 1, 2;` montre les lignes de l'étape 6 en `autorise`. |
+| 7.2 | `SELECT vue, lecteur, statut, nature FROM matrix.liens WHERE vue LIKE 'vigie.%' OR vue = 'codex.pub_editer' OR (vue, lecteur) = ('arche.pub_capex', 'codex_app') ORDER BY 1, 2;` montre les lignes de l'étape 6 en `autorise`. |
 | 7.3 | Toutes les vues `pub_` reprises ou créées par Matrix ont `security_barrier=true` : `SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'v' AND c.relname LIKE 'pub\_%' AND pg_get_userbyid(c.relowner) = 'matrix_gestion' AND NOT coalesce(c.reloptions @> '{security_barrier=true}', false);` renvoie un résultat vide. Une vue appliquée avant le 08/11/2026 le devient au prochain « Appliquer ». |
 | 7.4 | Écran Santé de Matrix : liens « appliqués », aucun « à appliquer ». |
 
 ## 8. Après la mise en service
 
-Prévenir la session de Matrix : elle passera à FAITE, dans son `REQUESTS.md`, les demandes de Vigie (D13 : lien d'exécution et publication ; D12 : liens d'exécution et publications) et de Crucible (M-21). Les outils lecteurs peuvent alors activer leur lecture :
+Prévenir la session de Matrix : elle passera à FAITE, dans son `REQUESTS.md`, les demandes de Vigie (D13 : lien d'exécution et publication ; D12 : liens d'exécution et publications) de Crucible (M-21) et de Codex (CX-01). Les outils lecteurs peuvent alors activer leur lecture :
 - Keystone : avancement des NC et des ECO, état des demandes ;
 - Codex : création d'une demande de modification ;
-- Crucible : suspensions des moyens d'essai.
+- Crucible : suspensions des moyens d'essai ;
+- Codex : miroir des CAPEX d'Arche (aucun redéploiement, la tâche « capex » lit au passage suivant).
 
 Ce qui reste hors de cette fiche :
 - Cursus doit corriger ses tests `tests/push.test.ts`, qui échouent en CI ; c'est à faire dans le dépôt Cursus.

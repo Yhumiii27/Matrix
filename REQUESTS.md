@@ -410,7 +410,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-06
 
 ## [2026-11-09] Codex → Matrix — Lien de lecture de codex_app sur arche.pub_capex (CX-01 d'Arche, D-29 de Codex)
-- Statut : OUVERTE
+- Statut : ACCEPTÉE (09/11/2026, accord de Guillaume dans la session de Matrix. Lien `lecture` codex_app → `arche.pub_capex` préparé dans `data/publications-depot.json` : bouton « Autoriser » du bloc « Demandes à traiter » de l'écran Publications, ligne 6.11 de `docs/mise-en-service.md`. Les sept colonnes lues par Codex existent dans la vue (migrations 0005 et 0024 d'Arche). Le droit porte sur toute la vue : Codex peut aussi lire `sponsor_nom`, `sponsor_email`, `chef_projet_nom` et `chef_projet_email`, déjà lues par keystone_app, matrix_app et bi_reader et non classées sensibles ; Guillaume l'a accepté le 09/11/2026. Tant qu'Arche n'est pas reprise par Matrix, le droit est posé par `90-droits.sql`, dans les 15 minutes par `appliquer-liens.sh`. Passera à FAITE une fois autorisé sur le serveur en service : `has_table_privilege('codex_app', 'arche.pub_capex', 'SELECT')`)
 - Demande : inscrire au registre matrix.liens un lien de nature lecture, lecteur codex_app, objet arche.pub_capex, et
   l'appliquer (USAGE sur le schéma arche, SELECT sur la seule vue).
 - Justification : demande CX-01 d'Arche (4ᵉ rattachement « capex » des documents, décision D-29 de Codex du 1er novembre

@@ -408,3 +408,19 @@ Format d'une entrée :
 - Justification : effectivité proposée d'un ordre de modification (projets qui emploient un article, machines qui le
   portent), contrôle des articles saisis ; lecture par SELECT depuis src/lib/foreign/keystone.ts seulement.
 - Validé par Guillaume le : 2026-11-06
+
+## [2026-11-09] Codex → Matrix — Lien de lecture de codex_app sur arche.pub_capex (CX-01 d'Arche, D-29 de Codex)
+- Statut : OUVERTE
+- Demande : inscrire au registre matrix.liens un lien de nature lecture, lecteur codex_app, objet arche.pub_capex, et
+  l'appliquer (USAGE sur le schéma arche, SELECT sur la seule vue).
+- Justification : demande CX-01 d'Arche (4ᵉ rattachement « capex » des documents, décision D-29 de Codex du 1er novembre
+  2026). Codex garde un miroir des CAPEX (table codex.capex), rafraîchi toutes les 15 minutes par sa tâche « capex »
+  (CODEX_SCHEDULE_CAPEX), pour rattacher un document à un CAPEX et lui donner l'identifiant TYPE-<CAPEX>-SEQ. Sans ce lien,
+  la synchronisation reste « en attente » (no_source) : un document ne se rattache qu'aux CAPEX déjà présents dans le
+  miroir, et les nouveaux CAPEX d'Arche n'apparaissent pas dans Codex. Codex n'écrit rien chez Arche (M-17).
+- Détails techniques : colonnes lues : code, intitule, filiale_code, filiale, site, statut, phase_code (requête
+  `select code, intitule, filiale_code, filiale, site, statut, phase_code from arche.pub_capex`, src/lib/capex.ts de Codex,
+  après `to_regclass('arche.pub_capex')` et `has_table_privilege(current_user, 'arche.pub_capex', 'select')`) ; contrôle :
+  has_table_privilege('codex_app', 'arche.pub_capex', 'SELECT'). Rien à redéployer chez Codex : la lecture commence au
+  passage suivant de la tâche.
+- Validé par Guillaume le : 2026-11-09

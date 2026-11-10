@@ -77,6 +77,7 @@ import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, regl
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
 import { lireDonnees, editerLigne, pourRole } from './outils/visionneuse.mjs';
 import { lireConfigEntra, roleDepuisEntra, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
+import { lireConfigAlertes, traiterAlertes } from './outils/alertes.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
 const PORT = +(process.env.PORT ?? 3000);
@@ -88,6 +89,19 @@ const { mdp: MOT_DE_PASSE, avertissements: AVERTISSEMENTS_MDP } = lireMotDePasse
 // Connexion nominative par Microsoft Entra ID (M-06, E-02) ; le mot de passe reste pour les scripts (en-tête Basic) et,
 // tant qu'Entra ID n'est pas configuré, pour la page de connexion.
 const ENTRA = lireConfigEntra(process.env);
+// Alertes de la DSI par e-mail (E-05, M-14) : composées à chaque lecture du serveur, envoyées par Microsoft Graph.
+const ALERTES = lireConfigAlertes(process.env);
+let alertes = { active: ALERTES.active, erreurs: ALERTES.erreurs, dernierEnvoi: null, derniereErreur: null, enAttente: 0 };
+async function alerter(entree) {
+  try {
+    const f = join(DATA, 'alertes.json');
+    const r = await traiterAlertes(ALERTES, existsSync(f) ? lireJson(f) : null, entree, { lien: String(process.env.MATRIX_PUBLIC_URL ?? '').trim() });
+    if (ALERTES.active) ecrireJson(f, r.journal);
+    alertes = { ...alertes, dernierEnvoi: r.journal.dernierEnvoi, derniereErreur: r.journal.derniereErreur, enAttente: r.enAttente.length };
+    if (r.envoyees) console.log(`[${new Date().toISOString()}] alertes : ${r.envoyees} envoyée(s) à ${ALERTES.destinataires.join(', ')}`);
+    if (r.erreur) console.warn(`[${new Date().toISOString()}] alertes non envoyées (nouvel essai à la lecture suivante) : ${r.erreur}`);
+  } catch (e) { console.warn(`alertes : ${e.message}`); }
+}
 const ACCES_RESERVE = Boolean(MOT_DE_PASSE || ENTRA.active);
 const COOKIE_OIDC = 'matrix_oidc';
 const PRODUCTION = process.env.NODE_ENV === 'production';
@@ -351,6 +365,7 @@ async function synchroniser(declencheur) {
     ecrireJson(fichierIncidents, incidents);
     sante.incidentsQualite = incidents.incidents;
     ecrireJson(join(DATA, 'sante.json'), sante);
+    await alerter({ evenements: [...events, ...suivi], liens: sante.liens ?? [], incidents: incidents.incidents, vues: lecture.vues ?? [] });
     page = null;
     sonde = { ...sonde, derniere: lecture.luLe, erreur: null, declencheur, outils: Object.keys(lecture.outils), schemasModifies: changes, changements: events.length, etat: sante.etat };
     console.log(`[${lecture.luLe}] sonde (${declencheur}) : ${Object.keys(lecture.outils).join(', ') || 'aucun outil'} · ${events.length} changement(s) · état ${sante.etat}`);
@@ -741,6 +756,8 @@ createServer((req, res) => {
         glossaire: DB_URL ? (saisies.actif ? 'serveur commun (matrix.glossaire, matrix.regles_qualite)' : `indisponible${saisies.erreur ? ` (${saisies.erreur})` : ''}`) : 'indisponible (MATRIX_DATABASE_URL absent)',
         historique: DB_URL ? (historique.actif ? 'serveur commun (matrix.historique_schemas)' : `historique.json${historique.erreur ? ` (${historique.erreur})` : ''}`) : 'historique.json',
         saisies: edition.actif ? 'serveur commun (matrix.documentation, decisions_doublons, journal)' : `edition.json${edition.erreur ? ` (${edition.erreur})` : ''}`,
+        alertes: ALERTES.active ? { destinataires: ALERTES.destinataires.length, dernierEnvoi: alertes.dernierEnvoi, derniereErreur: alertes.derniereErreur, enAttente: alertes.enAttente }
+          : ALERTES.erreurs.length ? `désactivées, configuration incomplète : ${ALERTES.erreurs.join(' ; ')}` : 'désactivées (MATRIX_ALERTES_DESTINATAIRES absent)',
         referentiels: DB_URL ? { alignesLe: referentiels.alignesLe, ecarts: Object.keys(referentiels.ecarts).filter(l => referentiels.ecarts[l]), erreur: referentiels.erreur } : 'dans edition.json (MATRIX_DATABASE_URL absent)' });
     }
     if (req.method === 'GET' && url.pathname === '/api/catalogue') return json(res, 200, lireJson(join(DATA, 'catalogue.json')));
@@ -806,6 +823,8 @@ createServer((req, res) => {
   for (const a of AVERTISSEMENTS_MDP) console.warn(a);
   if (ENTRA.active) console.log(`Connexion par Microsoft Entra ID (émetteur ${ENTRA.issuer}, rôles ${ENTRA.roleAdmin} et ${ENTRA.roleLecture}).`);
   else if (ENTRA.erreurs.length) console.warn(`Microsoft Entra ID non activé, configuration incomplète : ${ENTRA.erreurs.join(' ; ')}.`);
+  if (ALERTES.active) console.log(`Alertes par e-mail actives : ${ALERTES.destinataires.length} destinataire(s), envoi depuis ${ALERTES.expediteur}.`);
+  else if (ALERTES.erreurs.length) console.warn(`Alertes par e-mail non activées, configuration incomplète : ${ALERTES.erreurs.join(' ; ')}.`);
   if (!TOKEN) console.warn('MATRIX_TOKEN absent : les outils ne peuvent pas déclarer leurs tables.');
   if (DB_URL) {
     setTimeout(() => synchroniser('démarrage'), 1000).unref();

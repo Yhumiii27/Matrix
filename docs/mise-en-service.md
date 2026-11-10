@@ -62,6 +62,7 @@ Vérification : `SELECT to_regclass('matrix.historique_schemas'), to_regclass('m
 1. Entra ID › Inscriptions d'applications › Nouvelle inscription « Matrix », comptes de l'annuaire seulement. URI de redirection (Web) : `https://<adresse de Matrix>/auth/retour`.
 2. Rôles d'application `Matrix.Administrateur` et `Matrix.Lecture`. Dans Applications d'entreprise › Matrix : « Affectation requise » à Oui, puis affecter les personnes ou les groupes. La DSI reçoit le rôle Administrateur (M-04).
 3. Certificats et secrets : créer un secret client. Noter l'ID de l'annuaire, l'ID d'application et le secret.
+4. Alertes par e-mail (M-14) : dans Autorisations des API, ajouter Microsoft Graph › permission d'application `Mail.Send`, puis « Accorder le consentement administrateur ». Créer ou choisir la boîte d'envoi (par exemple `matrix@…`). Dans Exchange Online, limiter l'application à cette seule boîte : `New-ApplicationAccessPolicy -AppId <ID d'application> -PolicyScopeGroupId <boîte d'envoi> -AccessRight RestrictAccess -Description "Matrix : alertes"`.
 
 ## 5. Déploiement de Matrix
 
@@ -75,6 +76,8 @@ Variables à poser dans Coolify, sur le service Matrix :
 | `MATRIX_PUBLIC_URL` | `https://<adresse de Matrix>`, sans « / » final |
 | `MATRIX_SESSION_SECRET` | 32 caractères au moins, aléatoire : `openssl rand -base64 48`, sans « $ » ou avec l'option « littéral » de Coolify |
 | `MATRIX_MOT_DE_PASSE` | Gardé pour les scripts (`Authorization: Basic`, rôle administrateur) |
+| `MATRIX_ALERTES_DESTINATAIRES` | Adresses de la DSI, séparées par des virgules : active les alertes par e-mail |
+| `MATRIX_ALERTES_EXPEDITEUR` | La boîte d'envoi de l'étape 4, point 4 |
 
 Puis redéployer.
 
@@ -83,6 +86,7 @@ Puis redéployer.
 | 5.1 | Le journal du conteneur affiche « Connexion par Microsoft Entra ID », sans « configuration Entra incomplète ». |
 | 5.2 | `/connexion` propose « Se connecter avec Microsoft ». Une personne du rôle Administrateur arrive dans Matrix, son nom et son rôle dans l'en-tête. Une personne du rôle Lecture voit la visionneuse sans bouton d'édition. Un compte sans rôle voit « Accès non autorisé ». |
 | 5.3 | `/api/sante` : le champ `historique` indique le serveur commun. Santé › Qualité affiche les 12 règles reprises de `data/regles-qualite.json`. |
+| 5.4 | Le journal du conteneur affiche « Alertes par e-mail actives ». Après la première lecture du serveur, `/api/sante` (champ `alertes`) montre `dernierEnvoi` s'il y avait quelque chose à signaler, sans `derniereErreur`. Une erreur 403 signifie que `Mail.Send` ou la stratégie d'Exchange manque. |
 
 ## 6. Écran Publications : demandes à traiter
 
@@ -123,4 +127,4 @@ Prévenir la session de Matrix : elle passera à FAITE, dans son `REQUESTS.md`, 
 
 Ce qui reste hors de cette fiche :
 - Cursus doit corriger ses tests `tests/push.test.ts`, qui échouent en CI ; c'est à faire dans le dépôt Cursus.
-- Questions ouvertes : M-14 (alertes de changement de schéma), M-16 (IA), M-03 (Lucca et Cursus), P-06 (TLS pour Power BI).
+- Questions ouvertes : M-03 (Lucca et Cursus), P-06 (TLS pour Power BI).

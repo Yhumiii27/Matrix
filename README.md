@@ -17,6 +17,7 @@ Outil du service informatique pour gérer les bases de données de la suite EPC2
 | `docs/doublons-a-trancher.md` | Les 20 groupes de tables en double, avec les options et celle qui est proposée. |
 | `docs/declaration-des-tables.md` | Comment une table créée dans un outil arrive dans la bibliothèque de Matrix. |
 | `docs/architecture-postgres.md` § 8 quinquies | Sonde, état de santé et registre des liens (Matrix « dataverse »). |
+| `docs/delegation-claude.md` | Ce que Claude fait seul sur GitHub, Coolify et le serveur commun, ce qu'il fait après un « validé », ce qu'il ne fait jamais (délégation du 10/11/2026). |
 | `docs/mise-en-service.md` | Fiche de mise en service sur le serveur commun : socle, migrations des outils, partage, Entra ID, déploiement, demandes à traiter dans l'écran Publications, contrôles SQL. |
 | `maquette/matrix.html` | Maquette navigable, à ouvrir dans un navigateur (données réelles des quatre dépôts). |
 

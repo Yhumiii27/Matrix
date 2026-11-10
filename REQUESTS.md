@@ -424,3 +424,22 @@ Format d'une entrée :
   has_table_privilege('codex_app', 'arche.pub_capex', 'SELECT'). Rien à redéployer chez Codex : la lecture commence au
   passage suivant de la tâche.
 - Validé par Guillaume le : 2026-11-09
+
+## [2026-11-10] Cursus → Matrix — Liens de lecture de cursus_app sur codex.pub_types_document et codex.pub_documents (lot 16 de Cursus : documents stockés dans Codex)
+- Statut : OUVERTE
+- Demande : inscrire au registre matrix.liens deux liens de nature lecture, lecteur cursus_app : objet
+  `codex.pub_types_document` et objet `codex.pub_documents`, et les appliquer (USAGE sur le schéma codex, SELECT sur ces
+  deux vues seulement). Rien d'autre : aucune publication nouvelle de Cursus, aucune colonne sensible nouvelle ; le lien
+  codex_app → `cursus.pub_salaries` (D01) est déjà inscrit et suffit à Codex pour la conservation déclenchée par le départ.
+- Justification : décision de Guillaume du 10/11/2026, tous les documents de la suite sont stockés dans Codex ; Cursus y
+  déposera ses pièces justificatives (demande à Codex du même jour). `pub_types_document` : vérifier, avant d'activer le
+  stockage dans Codex, que chaque catégorie de pièce de Cursus existe dans le registre (contrôle de démarrage, écran
+  Paramètres → Pièces justificatives). `pub_documents` : suivre l'état des documents déposés par Cursus (gel juridique,
+  archivage) pour refuser un retrait que Codex refuserait ; les documents « Très confidentiel » n'y figurent pas, Cursus
+  n'en lit que l'identifiant et l'état. Les catégories elles-mêmes relèvent du registre de Codex (Matrix ne tient aucune
+  typologie de documents) : rien à créer dans Matrix.
+- Détails techniques : note dans le dépôt de Cursus, `docs/demandes/matrix-lot16-documents.md`. Lecture par SELECT
+  seulement, après `to_regclass` et `has_table_privilege` (vue absente ou non lisible = « source indisponible », jamais
+  une erreur). Contrôles : `has_table_privilege('cursus_app', 'codex.pub_types_document', 'SELECT')` et
+  `has_table_privilege('cursus_app', 'codex.pub_documents', 'SELECT')`.
+- Validé par Guillaume le : 2026-11-10

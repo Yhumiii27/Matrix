@@ -249,6 +249,20 @@
    "nature": "lecture",
    "demande": "Codex → Matrix, 09/11/2026 (CX-01 d'Arche, D-29 de Codex)",
    "motif": "Miroir des CAPEX dans Codex (codex.capex, tâche « capex » toutes les 15 minutes) : rattachement d'un document à un CAPEX, identifiant TYPE-<CAPEX>-SEQ. Codex lit code, intitule, filiale_code, filiale, site, statut, phase_code ; le droit porte sur toute la vue (sponsor et chef de projet compris), accepté par Guillaume le 09/11/2026"
+  },
+  {
+   "vue": "codex.pub_types_document",
+   "lecteur": "cursus_app",
+   "nature": "lecture",
+   "demande": "Cursus → Matrix, 10/11/2026 (lot 16 : documents stockés dans Codex)",
+   "motif": "Registre des types de documents de Codex : Cursus vérifie, avant d'activer le stockage de ses pièces justificatives dans Codex, que chacune de ses catégories y existe (contrôle de démarrage, Paramètres → Pièces justificatives)"
+  },
+  {
+   "vue": "codex.pub_documents",
+   "lecteur": "cursus_app",
+   "nature": "lecture",
+   "demande": "Cursus → Matrix, 10/11/2026 (lot 16 : documents stockés dans Codex)",
+   "motif": "État des documents que Cursus dépose dans Codex (gel juridique, archivage) : Cursus refuse un retrait que Codex refuserait ; il n'en lit que l'identifiant et l'état, les documents « Très confidentiel » n'y figurent pas"
   }
  ]
 }

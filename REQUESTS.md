@@ -426,7 +426,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-09
 
 ## [2026-11-10] Cursus → Matrix — Liens de lecture de cursus_app sur codex.pub_types_document et codex.pub_documents (lot 16 de Cursus : documents stockés dans Codex)
-- Statut : OUVERTE
+- Statut : ACCEPTÉE (12/11/2026, accord de Guillaume dans la session de Matrix. Les deux liens `lecture` cursus_app → `codex.pub_types_document` et `codex.pub_documents` sont préparés dans `data/publications-depot.json` : bouton « Autoriser » du bloc « Demandes à traiter » de l'écran Publications, lignes 6.12 et 6.13 de `docs/mise-en-service.md`. Ces liens ne figuraient pas dans la convention. Le droit porte sur toute la vue : Cursus peut lire toutes les colonnes de `pub_documents` (titre, propriétaire, mots-clés…), pas seulement l'identifiant et l'état ; les documents « Très confidentiel » n'y figurent pas. Tant que Codex n'est pas repris par Matrix, le droit est posé par `90-droits.sql`, dans les 15 minutes par `appliquer-liens.sh`. Passera à FAITE une fois autorisés sur le serveur en service)
 - Demande : inscrire au registre matrix.liens deux liens de nature lecture, lecteur cursus_app : objet
   `codex.pub_types_document` et objet `codex.pub_documents`, et les appliquer (USAGE sur le schéma codex, SELECT sur ces
   deux vues seulement). Rien d'autre : aucune publication nouvelle de Cursus, aucune colonne sensible nouvelle ; le lien

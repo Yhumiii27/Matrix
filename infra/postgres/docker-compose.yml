@@ -29,6 +29,8 @@ services:
       CRUCIBLE_APP_PASSWORD: ${CRUCIBLE_APP_PASSWORD:?CRUCIBLE_APP_PASSWORD manquant}
       MATRIX_APP_PASSWORD: ${MATRIX_APP_PASSWORD:?MATRIX_APP_PASSWORD manquant}
       MATRIX_GESTION_PASSWORD: ${MATRIX_GESTION_PASSWORD:?MATRIX_GESTION_PASSWORD manquant}
+      # Facultatif : sans lui, le rôle clavis_app existe sans pouvoir se connecter (Clavis non déployé).
+      CLAVIS_APP_PASSWORD: ${CLAVIS_APP_PASSWORD:-}
       # Facultatif : sans lui, le rôle bi_reader (Power BI) existe sans pouvoir se connecter.
       BI_READER_PASSWORD: ${BI_READER_PASSWORD:-}
       EPC2I_SAUVEGARDE_PASSWORD: ${EPC2I_SAUVEGARDE_PASSWORD:?EPC2I_SAUVEGARDE_PASSWORD manquant}

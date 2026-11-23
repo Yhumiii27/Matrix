@@ -1,0 +1,218 @@
+# StarterPack EPC2I — premier déploiement sur le serveur interne : PostgreSQL commun, Matrix, Clavis, Keystone, Codex et un
+# proxy HTTPS (Caddy). Fiche d'exploitation : README.md ; installation : ./installer.sh (qui prépare .env et lance tout).
+#
+# Les sources des outils sont des dossiers voisins du dépôt Matrix (EPC2I_SOURCES, par défaut ../../..) :
+#   <EPC2I_SOURCES>/Matrix  <EPC2I_SOURCES>/Clavis  <EPC2I_SOURCES>/Keystone  <EPC2I_SOURCES>/Codex
+# Aucun secret n'est écrit ici : tout vient de .env (créé par installer.sh, jamais versionné).
+#
+# Jalon A (sandbox) : Keystone et Codex tournent sur leur jeu de démonstration, derrière l'authentification HTTP du proxy,
+# en attendant d'être branchés sur la connexion de Clavis. Clavis tourne sur des données réelles (annuaire importé).
+
+name: epc2i-starterpack
+
+x-db-wait: &db-wait
+  postgres:
+    condition: service_healthy
+
+services:
+  postgres:
+    build: ../postgres
+    restart: unless-stopped
+    shm_size: 256mb
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
+      KEYSTONE_APP_PASSWORD: ${KEYSTONE_APP_PASSWORD:?KEYSTONE_APP_PASSWORD manquant}
+      CODEX_APP_PASSWORD: ${CODEX_APP_PASSWORD:?CODEX_APP_PASSWORD manquant}
+      CURSUS_APP_PASSWORD: ${CURSUS_APP_PASSWORD:?CURSUS_APP_PASSWORD manquant}
+      VIGIE_APP_PASSWORD: ${VIGIE_APP_PASSWORD:?VIGIE_APP_PASSWORD manquant}
+      ARCHE_APP_PASSWORD: ${ARCHE_APP_PASSWORD:?ARCHE_APP_PASSWORD manquant}
+      CRUCIBLE_APP_PASSWORD: ${CRUCIBLE_APP_PASSWORD:?CRUCIBLE_APP_PASSWORD manquant}
+      CLAVIS_APP_PASSWORD: ${CLAVIS_APP_PASSWORD:?CLAVIS_APP_PASSWORD manquant}
+      MATRIX_APP_PASSWORD: ${MATRIX_APP_PASSWORD:?MATRIX_APP_PASSWORD manquant}
+      MATRIX_GESTION_PASSWORD: ${MATRIX_GESTION_PASSWORD:?MATRIX_GESTION_PASSWORD manquant}
+      EPC2I_SAUVEGARDE_PASSWORD: ${EPC2I_SAUVEGARDE_PASSWORD:?EPC2I_SAUVEGARDE_PASSWORD manquant}
+      BI_READER_PASSWORD: ""
+      EPC2I_SAUVEGARDE_DIR: /sauvegardes
+      EPC2I_SAUVEGARDE_JOURS: ${EPC2I_SAUVEGARDE_JOURS:-14}
+      TZ: Europe/Paris
+    command: [postgres, -c, logging_collector=on, -c, log_directory=log, -c, log_filename=postgresql-%Y-%m-%d.log, -c, log_rotation_age=1d,
+              -c, log_rotation_size=0, -c, "log_line_prefix=%m [%p] %q%u@%d/%a ", -c, log_lock_waits=on]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - sauvegardes:/sauvegardes
+    # Administration par tunnel SSH seulement : écoute sur la boucle locale de l'hôte.
+    ports:
+      - "127.0.0.1:${EPC2I_PG_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d epc2i"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  matrix:
+    build: ${EPC2I_SOURCES:-../../..}/Matrix
+    restart: unless-stopped
+    depends_on: *db-wait
+    environment:
+      MATRIX_DATABASE_URL: postgres://matrix_app:${MATRIX_APP_PASSWORD}@postgres:5432/epc2i
+      MATRIX_GESTION_DATABASE_URL: postgres://matrix_gestion:${MATRIX_GESTION_PASSWORD}@postgres:5432/epc2i
+      # Connexion par mot de passe partagé (DSI) tant que Matrix n'est pas branché sur Clavis.
+      MATRIX_MOT_DE_PASSE: ${MATRIX_MOT_DE_PASSE:?MATRIX_MOT_DE_PASSE manquant}
+      MATRIX_PUBLIC_URL: https://${MATRIX_HOST:?MATRIX_HOST manquant}
+      MATRIX_SESSION_SECRET: ${MATRIX_SESSION_SECRET:?MATRIX_SESSION_SECRET manquant}
+      MATRIX_TOKEN: ${MATRIX_TOKEN:?MATRIX_TOKEN manquant}
+    volumes:
+      - matrix_data:/data
+
+  # ── Clavis : annuaire, accès, connexion ─────────────────────────────────────────────────────────────────────────────
+  clavis-migrate:
+    build:
+      context: ${EPC2I_SOURCES:-../../..}/Clavis
+      args:
+        NEXT_PUBLIC_KEYSTONE_URL: https://${KEYSTONE_HOST}
+        NEXT_PUBLIC_CODEX_URL: https://${CODEX_HOST}
+    image: epc2i/clavis:local
+    depends_on: *db-wait
+    command: ["npm", "run", "db:migrate"]
+    environment: &clavis-env
+      NODE_ENV: production
+      DATABASE_URL: postgres://clavis_app:${CLAVIS_APP_PASSWORD}@postgres:5432/epc2i
+      CLAVIS_SEED: production
+      CLAVIS_AUTH: local
+      CLAVIS_PUBLIC_URL: https://${CLAVIS_HOST:?CLAVIS_HOST manquant}
+      CLAVIS_SESSION_SECRET: ${CLAVIS_SESSION_SECRET:?CLAVIS_SESSION_SECRET manquant}
+      CLAVIS_BACKUP_DIR: /backups
+      NEXT_PUBLIC_KEYSTONE_URL: https://${KEYSTONE_HOST}
+      NEXT_PUBLIC_CODEX_URL: https://${CODEX_HOST}
+      MATRIX_URL: http://matrix:3000
+      MATRIX_TOKEN: ${MATRIX_TOKEN}
+    volumes:
+      # Fichiers à importer (annuaire), en lecture seule : ./import/<fichier>.csv sur l'hôte.
+      - ./import:/import:ro
+    restart: "no"
+
+  clavis:
+    image: epc2i/clavis:local
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      clavis-migrate:
+        condition: service_completed_successfully
+    environment: *clavis-env
+    volumes:
+      - clavis_data:/data
+
+  clavis-worker:
+    image: epc2i/clavis:local
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      clavis-migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker"]
+    environment: *clavis-env
+    volumes:
+      - clavis_backups:/backups
+
+  # ── Keystone : projets (jeu de démonstration au jalon A) ──────────────────────────────────────────────────────────
+  keystone-migrate:
+    build:
+      context: ${EPC2I_SOURCES:-../../..}/Keystone
+      args:
+        NEXT_PUBLIC_CODEX_URL: https://${CODEX_HOST}
+    image: epc2i/keystone:local
+    depends_on: *db-wait
+    command: ["npm", "run", "db:migrate"]
+    environment: &keystone-env
+      NODE_ENV: production
+      DATABASE_URL: postgres://keystone_app:${KEYSTONE_APP_PASSWORD}@postgres:5432/epc2i
+      KEYSTONE_SEED: ${KEYSTONE_SEED:-demo}
+      KEYSTONE_AUTH: demo
+      # Pas d'antivirus sur le serveur interne pour le moment (choix du 23/11/2026) : refus explicite, exigé par Keystone.
+      KEYSTONE_FILE_SCAN: "off"
+      KEYSTONE_PUBLIC_URL: https://${KEYSTONE_HOST:?KEYSTONE_HOST manquant}
+      NEXT_PUBLIC_CODEX_URL: https://${CODEX_HOST}
+      # Vigie, Cursus et Arche ne sont pas dans le StarterPack : leurs données restent celles de la démonstration.
+      VIGIE_SOURCE: simulation
+      ARCHE_SOURCE: simulation
+      KEYSTONE_BACKUP_DIR: /backups
+      MATRIX_URL: http://matrix:3000
+      MATRIX_TOKEN: ${MATRIX_TOKEN}
+    restart: "no"
+
+  keystone:
+    image: epc2i/keystone:local
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      keystone-migrate:
+        condition: service_completed_successfully
+    environment: *keystone-env
+    volumes:
+      - keystone_data:/data
+
+  keystone-worker:
+    image: epc2i/keystone:local
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      keystone-migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker"]
+    environment: *keystone-env
+    volumes:
+      - keystone_data:/data
+      - keystone_backups:/backups
+
+  # ── Codex : documents (jeu de démonstration au jalon A ; migrations au démarrage) ─────────────────────────────────
+  codex:
+    build: ${EPC2I_SOURCES:-../../..}/Codex
+    image: epc2i/codex:local
+    restart: unless-stopped
+    depends_on: *db-wait
+    environment:
+      DATABASE_URL: postgres://codex_app:${CODEX_APP_PASSWORD}@postgres:5432/epc2i
+      CODEX_SEED: ${CODEX_SEED:-demo}
+      NEXT_PUBLIC_KEYSTONE_URL: https://${KEYSTONE_HOST}
+      MATRIX_URL: http://matrix:3000
+      MATRIX_TOKEN: ${MATRIX_TOKEN}
+    volumes:
+      - codex_data:/data
+
+  # ── Proxy HTTPS : une adresse par outil ───────────────────────────────────────────────────────────────────────────
+  proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on: [matrix, clavis, keystone, codex]
+    ports:
+      - "${EPC2I_HTTP_PORT:-80}:80"
+      - "${EPC2I_HTTPS_PORT:-443}:443"
+    environment:
+      CLAVIS_HOST: ${CLAVIS_HOST}
+      KEYSTONE_HOST: ${KEYSTONE_HOST}
+      CODEX_HOST: ${CODEX_HOST}
+      MATRIX_HOST: ${MATRIX_HOST}
+      # « internal » : certificats signés par l'autorité locale de Caddy (à installer sur les postes, voir README.md) ;
+      # ou les chemins du certificat et de la clé de l'entreprise, montés dans ./certs : « /certs/fullchain.pem /certs/key.pem ».
+      EPC2I_TLS: ${EPC2I_TLS:-internal}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./generated:/etc/caddy/generated:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  sauvegardes:
+  matrix_data:
+  clavis_data:
+  clavis_backups:
+  keystone_data:
+  keystone_backups:
+  codex_data:
+  caddy_data:
+  caddy_config:

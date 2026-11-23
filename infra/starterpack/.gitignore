@@ -1,6 +1,0 @@
-.env
-generated/
-certs/*
-!certs/.gitkeep
-import/*
-!import/.gitkeep

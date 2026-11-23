@@ -12,6 +12,8 @@ La convention :
 - Aucune donnée de santé ni colonne sensible dans une vue `pub_` (liste `droits.colonnes_sensibles`, tables fermées en entier comprises).
 - **Lot M17-3 (02/11/2026)** : les fichiers 20 à 80 ne recopient plus les vues `pub_` ; ils ne gardent que les contrôles de prérequis (migrations, colonnes, tables, index de chaque outil). Les vues viennent des migrations de l'outil jusqu'à sa reprise par Matrix (`14-reprise-publications.sql`), puis du registre des publications de Matrix (écran « Publications », M-18). Les anciennes copies restent dans l'historique git.
 
+- **Clavis (23/11/2026)** est le septième outil du serveur commun : schéma `clavis`, rôle `clavis_app`, mêmes règles que les six autres (droits du socle, `droits.verifier()`, vues `pub_` définies par Matrix). Il publie l'annuaire et les accès que la DSI y règle : `clavis.pub_personnes` et `clavis.pub_acces` (`data/publications-depot.json`, requêtes de référence dans `src/server/publications/definitions.ts` de Clavis), lues par tous les outils et `matrix_app`. Chaque outil y lit les droits d'une personne à la connexion et pendant la session, sans copier l'annuaire. Les comptes (`clavis.users`), les clients et les codes de la connexion centrale (`oidc_clients`, `oidc_codes`) sont fermés en entier (convention, `init/03-droits.sql`).
+
 ## Fichiers et ordre d'exécution
 
 | Ordre | Fichier | Rôle d'exécution | Contenu |

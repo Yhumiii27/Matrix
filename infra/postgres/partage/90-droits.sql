@@ -45,7 +45,7 @@ BEGIN
     RETURN;
   END IF;
   SELECT string_agg(r, ', ') INTO v_manque
-  FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app']) AS r
+  FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'matrix_app']) AS r
   WHERE NOT pg_has_role(current_user, r, 'SET');
   IF v_manque IS NOT NULL THEN
     RAISE EXCEPTION 'Lancez 90-droits.sql en superutilisateur ou en administrateur membre de matrix_admin : % ne peut pas prendre le rôle %.', current_user, v_manque;
@@ -72,7 +72,8 @@ DECLARE
     'vigie.events.mp_questionnaire_received_on', 'vigie.events.mp_questionnaire_returned_on',
     'vigie.change_log.details', 'vigie.change_log.reason',
     'vigie.benign_accidents.*', 'vigie.access_log.*', 'vigie.attachments.*',
-    'cursus.journal.payload', 'cursus.journal.message', 'cursus.demandes_collab.label'];
+    'cursus.journal.payload', 'cursus.journal.message', 'cursus.demandes_collab.label',
+    'clavis.users.*', 'clavis.oidc_clients.*', 'clavis.oidc_codes.*'];
   v_liste text[];
   v_schema text;
   v_proprio text;
@@ -92,7 +93,7 @@ BEGIN
   FOR v_schema, v_proprio IN
     SELECT n.nspname::text, pg_get_userbyid(n.nspowner)::text
     FROM pg_namespace n
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix')
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'matrix')
     ORDER BY 1
   LOOP
     EXECUTE format('SET ROLE %I', v_proprio);
@@ -138,7 +139,7 @@ BEGIN
                     AND d.refclassid = 'pg_class'::regclass AND d.refobjid <> v.oid
     JOIN pg_class t ON t.oid = d.refobjid AND t.relkind IN ('r', 'p', 'v', 'm', 'f')
     JOIN pg_namespace nt ON nt.oid = t.relnamespace
-    WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix')
+    WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'matrix')
       AND v.relkind = 'v' AND v.relname LIKE 'pub\_%' AND t.relnamespace <> v.relnamespace
     ORDER BY 1);
   -- Propriétaire autre que celui du schéma ou, pour les six outils, que matrix_gestion qui les reprend (M-18, partage/14)
@@ -147,14 +148,14 @@ BEGIN
     SELECT format('%s.%s appartient à %s au lieu de %s', n.nspname, c.relname, pg_get_userbyid(c.relowner),
                   CASE WHEN n.nspname = 'matrix' THEN pg_get_userbyid(n.nspowner) ELSE pg_get_userbyid(n.nspowner) || ' ou matrix_gestion' END)
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'matrix') AND c.relkind = 'v'
       AND c.relname LIKE 'pub\_%' AND c.relowner <> n.nspowner
       AND NOT (n.nspname <> 'matrix' AND pg_get_userbyid(c.relowner) = 'matrix_gestion')
     ORDER BY 1);
   v_fautes := v_fautes || ARRAY(
     SELECT format('%s.%s s''exécute avec security_invoker', n.nspname, c.relname)
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'matrix') AND c.relkind = 'v'
       AND c.relname LIKE 'pub\_%'
       AND EXISTS (SELECT FROM unnest(c.reloptions) AS o(opt) WHERE lower(o.opt) IN ('security_invoker=true', 'security_invoker=on', 'security_invoker=1'))
     ORDER BY 1);
@@ -329,9 +330,9 @@ BEGIN
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
       CROSS JOIN LATERAL aclexplode(c.relacl) a
-      WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v'
+      WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'matrix') AND c.relkind = 'v'
         AND c.relname LIKE 'pub\_%' AND a.privilege_type = 'SELECT'
-        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader')
+        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'matrix_app', 'bi_reader')
         AND a.grantee <> c.relowner
         AND NOT EXISTS (SELECT FROM jsonb_to_recordset(coalesce(v_voulus, '[]')) AS x(vue text, lecteurs text[])
                         WHERE x.vue = n.nspname || '.' || c.relname AND pg_get_userbyid(a.grantee) = ANY (x.lecteurs))
@@ -376,9 +377,9 @@ BEGIN
              n.nspname || '.' || p.proname AS nom
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       CROSS JOIN LATERAL aclexplode(p.proacl) a
-      WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible') AND p.proname LIKE 'pub\_%'
+      WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis') AND p.proname LIKE 'pub\_%'
         AND a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner
-        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader')
+        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'matrix_app', 'bi_reader')
         AND NOT EXISTS (SELECT FROM matrix.liens l
                         WHERE l.vue = n.nspname || '.' || p.proname AND l.lecteur = pg_get_userbyid(a.grantee)
                           AND l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution')$q$
@@ -394,8 +395,8 @@ BEGIN
       SELECT n.nspname AS schema, pg_get_userbyid(a.grantor) AS proprio, pg_get_userbyid(a.grantee) AS lecteur
       FROM pg_namespace n
       CROSS JOIN LATERAL aclexplode(n.nspacl) a
-      WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND a.privilege_type = 'USAGE'
-        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app')
+      WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'matrix') AND a.privilege_type = 'USAGE'
+        AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app')
         AND a.grantee <> n.nspowner
         AND NOT EXISTS (SELECT FROM pg_class v
                         WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
@@ -435,7 +436,7 @@ LEFT JOIN LATERAL (
   FROM aclexplode(c.relacl) a
   WHERE a.grantee NOT IN (c.relowner, (SELECT oid FROM pg_roles WHERE rolname = 'matrix_admin'))
 ) g ON true
-WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix') AND c.relkind = 'v' AND c.relname LIKE 'pub\_%'
+WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'matrix') AND c.relkind = 'v' AND c.relname LIKE 'pub\_%'
 GROUP BY n.nspname, c.relname, c.relowner
 ORDER BY 1;
 

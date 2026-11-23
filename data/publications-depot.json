@@ -79,6 +79,22 @@
    "description": "Contrat Crucible V-2 v1 : interventions d'une équipe extérieure dans une zone d'essais ou ATEX (activités de coactivité de Vigie, annulées exclues), une ligne par activité ; Crucible bloque les moyens de la zone sur ces dates. site_code = code de matrix.sites (CV-09). maj_le = création ou dernière entrée du journal de l'activité. Ni personne nommée ni donnée de santé. Lecteurs : crucible_app, matrix_app.",
    "contrat": "data/contrats/vigie.pub_suspensions_essais.json",
    "note": "Lit les tables site_activities, map_zones, contractors et change_log de Vigie (migrations 0000 à 0029, vérifié le 07/11/2026). Seules les activités rattachées à une zone (zone_id) sont publiées : une activité tracée sur la carte sans zone choisie n'y figure pas."
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "mode": "sql",
+   "definition": "SELECT p.id                               AS personne_id,\n       p.matricule,\n       p.given_name                       AS prenom,\n       p.family_name                      AS nom,\n       p.display_name                     AS nom_affiche,\n       p.email,\n       p.job_title                        AS poste,\n       p.department                       AS departement,\n       p.unit                             AS pole,\n       p.manager_id                       AS responsable_id,\n       (p.enabled AND p.present)          AS dans_annuaire,\n       (p.enabled AND p.present AND p.activated) AS actif,\n       p.updated_at                       AS maj_le\nFROM clavis.people p",
+   "description": "Annuaire de l'entreprise tenu par Clavis (données internes publiques seulement : nom, e-mail professionnel, poste, département, pôle, responsable, matricule). personne_id = identifiant stable de la personne (oid du jeton de connexion). actif : la personne peut ouvrir les applications (présente dans l'annuaire et activée par la DSI). Lecteurs : tous les outils et matrix_app.",
+   "note": "Requête de référence : src/server/publications/definitions.ts de Clavis, exécutée par son test definitions.test.ts. Aucune colonne de clavis.users, oidc_clients, oidc_codes (fermées, convention)."
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "mode": "sql",
+   "definition": "SELECT a.person_id                        AS personne_id,\n       a.app_code                         AS application,\n       a.allowed                          AS autorise,\n       a.level                            AS niveau,\n       a.domain                           AS domaine,\n       a.app_role                         AS role,\n       (a.allowed AND a.app_role IS NOT NULL AND p.enabled AND p.present AND p.activated AND ap.state = 'active') AS ouvert,\n       a.updated_at                       AS maj_le\nFROM clavis.person_access a\nJOIN clavis.people p        ON p.id = a.person_id\nJOIN clavis.applications ap ON ap.code = a.app_code",
+   "description": "Accès de chaque personne à chaque application, réglés par la DSI dans Clavis : niveau commun, domaine, role = rôle propre de l'application (clé que l'application utilise), ouvert = la personne peut ouvrir l'application maintenant (accès accordé, personne active, application ouverte). Chaque outil lit ses lignes (application = son code) à la connexion et pendant la session. Lecteurs : tous les outils et matrix_app.",
+   "note": "Requête de référence : src/server/publications/definitions.ts de Clavis. role est écrit par Clavis avec l'accès (person_access.app_role, src/domain/app-roles.ts)."
   }
  ],
  "liens": [
@@ -263,6 +279,104 @@
    "nature": "lecture",
    "demande": "Cursus → Matrix, 10/11/2026 (lot 16 : documents stockés dans Codex)",
    "motif": "État des documents que Cursus dépose dans Codex (gel juridique, archivage) : Cursus refuse un retrait que Codex refuserait ; il n'en lit que l'identifiant et l'état, les documents « Très confidentiel » n'y figurent pas"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "keystone_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "codex_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "cursus_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "vigie_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "arche_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "crucible_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "matrix_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "keystone_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "codex_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "cursus_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "vigie_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "arche_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "crucible_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "matrix_app",
+   "nature": "lecture",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
   }
  ]
 }

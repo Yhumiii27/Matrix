@@ -14,10 +14,10 @@
 // Un échec annule tout ; la publication passe alors à l'état « erreur » avec le message, la vue reste telle qu'elle était.
 // Une décision sur un lien (écran « Liens entre outils ») est appliquée de même, tout de suite (appliquerLien).
 
-export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis'];
 const NOM = /^[a-z_][a-z0-9_]*$/;
-const VUE = /^(keystone|codex|cursus|vigie|arche|crucible)\.pub_[a-z0-9_]+$/;
-const LECTEURS = ['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'matrix_app', 'bi_reader'];
+const VUE = /^(keystone|codex|cursus|vigie|arche|crucible|clavis)\.pub_[a-z0-9_]+$/;
+const LECTEURS = ['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'matrix_app', 'bi_reader'];
 const LONGUEUR_MAX = 20000;
 
 const texte = v => (v == null ? '' : String(v)).trim();
@@ -277,7 +277,7 @@ export async function retirerPublication(db, vue, par, motif) {
  */
 export async function appliquerLien(db, { vue, lecteur }) {
   vue = texte(vue); lecteur = texte(lecteur);
-  if (!/^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$/.test(vue) || !LECTEURS.includes(lecteur)) throw new Error('lien invalide');
+  if (!/^(keystone|codex|cursus|vigie|arche|crucible|clavis|matrix)\.pub_[a-z0-9_]+$/.test(vue) || !LECTEURS.includes(lecteur)) throw new Error('lien invalide');
   return enTransaction(db, async () => {
     const { rows: [lien] } = await db.query(`SELECT coalesce(to_jsonb(l) ->> 'nature', 'lecture') AS nature FROM matrix.liens l WHERE vue = $1 AND lecteur = $2`, [vue, lecteur]);
     if (lien?.nature === 'execution') return appliquerExecution(db, vue, lecteur);

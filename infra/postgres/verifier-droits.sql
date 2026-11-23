@@ -181,7 +181,16 @@ BEGIN
     (172, 'Crucible : lire une table d''un autre outil', 'crucible_app', 'SELECT id FROM arche.zz_a', 'refusé'),
     (173, 'Crucible : créer une table dans public', 'crucible_app', 'CREATE TABLE public.zz_c (id integer)', 'refusé'),
     (174, 'un autre outil lit une table de Crucible', 'arche_app', 'SELECT 1 FROM crucible.zz_c', 'refusé'),
-    (175, 'Matrix lit une table de Crucible', 'matrix_app', 'SELECT id FROM crucible.zz_c', 'autorisé')
+    (175, 'Matrix lit une table de Crucible', 'matrix_app', 'SELECT id FROM crucible.zz_c', 'autorisé'),
+    -- Clavis (23/11/2026) : de même ; ses comptes (clavis.users) restent fermés à Matrix (convention, table entière).
+    (180, 'Clavis : créer une table dans son schéma', 'clavis_app', 'CREATE TABLE clavis.zz_k (id integer)', 'autorisé'),
+    (181, 'Clavis : créer une table dans le schéma d''un autre outil', 'clavis_app', 'CREATE TABLE arche.zz_k (id integer)', 'refusé'),
+    (182, 'Clavis : lire une table d''un autre outil', 'clavis_app', 'SELECT id FROM arche.zz_a', 'refusé'),
+    (183, 'Clavis : créer une table dans public', 'clavis_app', 'CREATE TABLE public.zz_k (id integer)', 'refusé'),
+    (184, 'un autre outil lit une table de Clavis', 'keystone_app', 'SELECT 1 FROM clavis.zz_k', 'refusé'),
+    (185, 'Matrix lit une table de Clavis', 'matrix_app', 'SELECT id FROM clavis.zz_k', 'autorisé'),
+    (186, 'Clavis : table des comptes (créée si absente)', 'clavis_app', 'CREATE TABLE IF NOT EXISTS clavis.users (id uuid, password_hash text)', 'autorisé'),
+    (187, 'Matrix lit les comptes de Clavis', 'matrix_app', 'SELECT count(*) FROM clavis.users', 'refusé')
   ) AS t(n, cas, role, q, attendu) ORDER BY n LOOP
     INSERT INTO resultats VALUES (c.n, c.cas, c.role, c.attendu, pg_temp.essai(c.role, c.q));
   END LOOP;

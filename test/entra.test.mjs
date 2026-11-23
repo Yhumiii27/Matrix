@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lireConfigEntra, roleDepuisEntra, personneDepuisJeton } from '../outils/entra.mjs';
+import { lireConfigEntra, roleDepuisEntra, roleDepuisAcces, personneDepuisJeton } from '../outils/entra.mjs';
 import { creerJeton, lireJeton } from '../outils/acces.mjs';
 import { demarrerFournisseur } from './oidc-factice.mjs';
 
@@ -35,6 +35,12 @@ test('rôle : le plus élevé des rôles applicatifs, sinon aucun', () => {
   assert.equal(roleDepuisEntra(['Matrix.Lecture'], c), 'lecture');
   assert.equal(roleDepuisEntra(['Vigie.Salarie'], c), null);
   assert.equal(roleDepuisEntra(undefined, c), null);
+  // Connexion par Clavis (MATRIX_ACCES_CLAVIS) : le rôle de clavis.pub_acces, seulement quand l'accès s'ouvre.
+  assert.equal(roleDepuisAcces({ role: 'Matrix.Administrateur', ouvert: true }, c), 'admin');
+  assert.equal(roleDepuisAcces({ role: 'Matrix.Lecture', ouvert: true }, c), 'lecture');
+  assert.equal(roleDepuisAcces({ role: 'Matrix.Administrateur', ouvert: false }, c), null);
+  assert.equal(roleDepuisAcces({ role: 'pm', ouvert: true }, c), null);
+  assert.equal(roleDepuisAcces(null, c), null);
   assert.deepEqual(personneDepuisJeton({ name: ' Claire Bardet ', oid: 'o1', preferred_username: 'c.bardet@epc2i.fr' }), { nom: 'Claire Bardet', oid: 'o1', email: 'c.bardet@epc2i.fr' });
 });
 

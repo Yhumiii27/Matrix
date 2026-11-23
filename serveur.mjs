@@ -43,6 +43,9 @@
 //   MATRIX_ENTRA_TENANT_ID, MATRIX_ENTRA_CLIENT_ID, MATRIX_ENTRA_CLIENT_SECRET, MATRIX_PUBLIC_URL, MATRIX_SESSION_SECRET
 //                      connexion nominative par Microsoft Entra ID (M-06, E-02 ; outils/entra.mjs) : rôles applicatifs
 //                      Administrateur (modifications) et Lecture. Avec elles, le mot de passe ne sert plus qu'aux scripts.
+//   MATRIX_ACCES_CLAVIS on : connexion par Clavis (MATRIX_ENTRA_ISSUER = adresse de Clavis) ; le rôle est lu dans
+//                      clavis.pub_acces du serveur commun (MATRIX_DATABASE_URL) à la connexion puis au plus toutes les
+//                      MATRIX_ACCES_CLAVIS_SECONDES (60 par défaut), jamais dans le jeton ; lecture impossible = refus.
 //   MATRIX_DATABASE_URL connexion au serveur PostgreSQL commun en matrix_app (postgres://matrix_app:…@hôte:5432/epc2i).
 //                      Avec elle, la sonde (outils/sonde.mjs) lit elle-même les tables, liens, vues pub_ et droits
 //                      de chaque outil, met le registre et les graphes à jour, calcule l'état de santé et tient le
@@ -76,7 +79,7 @@ import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, reglesActives, reprendreRegles, enregistrerRegle } from './outils/saisies-pg.mjs';
 import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
 import { lireDonnees, editerLigne, pourRole } from './outils/visionneuse.mjs';
-import { lireConfigEntra, roleDepuisEntra, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
+import { lireConfigEntra, roleDepuisEntra, roleDepuisAcces, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
 import { lireConfigAlertes, traiterAlertes } from './outils/alertes.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
@@ -103,6 +106,25 @@ async function alerter(entree) {
   } catch (e) { console.warn(`alertes : ${e.message}`); }
 }
 const ACCES_RESERVE = Boolean(MOT_DE_PASSE || ENTRA.active);
+// Une seule base (décision du propriétaire, 23/11/2026) : avec la connexion par Clavis, le rôle de la personne est lu dans
+// clavis.pub_acces (lien accordé à matrix_app), à la connexion puis au plus toutes les minutes ; une lecture impossible
+// refuse l'accès. Le rôle du jeton n'est pas utilisé.
+const ACCES_CLAVIS = String(process.env.MATRIX_ACCES_CLAVIS ?? '').trim().toLowerCase() === 'on';
+const DUREE_DROIT_MS = Math.max(0, Number(process.env.MATRIX_ACCES_CLAVIS_SECONDES ?? 60) || 0) * 1000;
+const droitsClavis = new Map();
+async function droitClavis(oid) {
+  let role = null;
+  try {
+    const ligne = await avecServeur(async db => (await db.query(
+      `SELECT to_jsonb(v) AS r FROM clavis.pub_acces v WHERE v.personne_id::text = $1 AND v.application = 'matrix' LIMIT 1`, [oid])).rows[0]?.r ?? null);
+    role = roleDepuisAcces(ligne, ENTRA);
+  } catch (e) {
+    console.warn(`[${new Date().toISOString()}] clavis.pub_acces illisible (accès refusé) : ${e.message}`);
+  }
+  droitsClavis.set(oid, { role, le: Date.now() });
+  if (droitsClavis.size > 5000) droitsClavis.delete(droitsClavis.keys().next().value);
+  return role;
+}
 const COOKIE_OIDC = 'matrix_oidc';
 const PRODUCTION = process.env.NODE_ENV === 'production';
 const DB_URL = process.env.MATRIX_DATABASE_URL ?? '';
@@ -474,7 +496,7 @@ async function routeEntra(req, res, url) {
   if (!controle) return html(res, 400, pageConnexion({ entra: true, erreur: 'La connexion a expiré ou a été ouverte dans un autre onglet : recommencez.' }), { 'set-cookie': effacer });
   try {
     const c = await finConnexion(ENTRA, url.search, controle);
-    const p = personneDepuisJeton(c), role = roleDepuisEntra(c.roles, ENTRA);
+    const p = personneDepuisJeton(c), role = ACCES_CLAVIS ? (p.oid ? await droitClavis(p.oid) : null) : roleDepuisEntra(c.roles, ENTRA);
     if (!role) {
       console.warn(`[${new Date().toISOString()}] connexion Entra ID refusée pour « ${p.nom} » (${p.oid}) : aucun rôle Matrix`);
       return html(res, 403, pageConnexion({ entra: true, refus: true }), { 'set-cookie': effacer });
@@ -553,13 +575,19 @@ const json = (res, code, corps) => { res.writeHead(code, { ...ENTETES, 'content-
 
 const demarrage = rafraichir();
 
-createServer((req, res) => {
+createServer(function traiter(req, res) {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/connexion' || url.pathname === '/deconnexion') return routeConnexion(req, res, url);
     if (ENTRA.active && req.method === 'GET' && (url.pathname === '/auth/entra' || url.pathname === CHEMIN_RETOUR)) { routeEntra(req, res, url).catch(e => { console.error(e); if (!res.headersSent) json(res, 500, { erreur: 'erreur interne' }); }); return; }
     const libre = url.pathname === '/api/sante' || (req.method === 'POST' && url.pathname === '/api/declarations') || url.pathname === '/api/demandes';
-    const acces = libre ? { nom: '', role: 'lecture', via: 'libre' } : utilisateur(req);
+    let acces = libre ? { nom: '', role: 'lecture', via: 'libre' } : utilisateur(req);
+    if (ACCES_CLAVIS && acces?.via === 'entra') {
+      // Droits réglés dans Clavis : relus au plus toutes les minutes, puis la requête reprend.
+      const d = acces.oid ? droitsClavis.get(acces.oid) : { role: null };
+      if (acces.oid && (!d || Date.now() - d.le > DUREE_DROIT_MS)) { droitClavis(acces.oid).then(() => traiter(req, res), () => traiter(req, res)); return; }
+      acces = d.role ? { ...acces, role: d.role } : null;
+    }
     const qui = acces?.nom ?? null;
     if (acces === null) {
       // Jamais de WWW-Authenticate : le navigateur n'ouvre plus sa fenêtre d'identification (elle revenait en boucle

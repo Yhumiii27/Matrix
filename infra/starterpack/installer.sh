@@ -99,7 +99,8 @@ docker compose exec -T postgres sh -c 'for f in /docker-entrypoint-initdb.d/*.sq
 ok "base epc2i, rôles et schémas en place"
 
 etape "6. Migrations des outils"
-docker compose up clavis-migrate keystone-migrate --exit-code-from clavis-migrate >/dev/null 2>&1 || true
+# Attaché : rend la main quand les deux migrations sont terminées (sans --exit-code-from, qui arrêterait l'autre).
+docker compose up clavis-migrate keystone-migrate >/dev/null 2>&1 || true
 for s in clavis-migrate keystone-migrate; do
   code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -aq "$s")")
   [ "$code" = 0 ] || echec "$s a échoué (code $code) : docker compose logs $s"

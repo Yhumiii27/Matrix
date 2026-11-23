@@ -30,7 +30,7 @@ SELECT set_config('matrix.reprise_outils', :'outils', false);
 DO $$
 DECLARE
   v_liste text[] := string_to_array(replace(current_setting('matrix.reprise_outils'), ' ', ''), ',');
-  v_tous constant text[] := ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+  v_tous constant text[] := ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis'];
   v record;
   v_def text;
   v_n int := 0;
@@ -76,7 +76,7 @@ END $$;
 -- Contrôle : plus aucune vue pub_ des outils repris n'appartient à l'outil.
 SELECT n.nspname || '.' || c.relname AS vue_non_reprise
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = ANY (string_to_array(replace(replace(:'outils', ' ', ''), 'tous', 'keystone,codex,cursus,vigie,arche,crucible'), ','))
+WHERE n.nspname = ANY (string_to_array(replace(replace(:'outils', ' ', ''), 'tous', 'keystone,codex,cursus,vigie,arche,crucible,clavis'), ','))
   AND c.relkind = 'v' AND c.relname LIKE 'pub\_%' AND c.relowner = n.nspowner;
 
 \echo 'Reprise des publications terminée : les vues reprises se gèrent dans Matrix (écran Publications).'

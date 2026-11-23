@@ -10,6 +10,9 @@
 //   MATRIX_ENTRA_TENANT_ID, MATRIX_ENTRA_CLIENT_ID, MATRIX_ENTRA_CLIENT_SECRET,
 //   MATRIX_PUBLIC_URL      adresse publique de Matrix (https://…), base de l'URI de retour /auth/retour ;
 //   MATRIX_SESSION_SECRET  clé des cookies de session (32 caractères au moins, aléatoire) ;
+//   MATRIX_ACCES_CLAVIS    on : connexion par Clavis (MATRIX_ENTRA_ISSUER = Clavis) ; le rôle est lu dans
+//                          clavis.pub_acces (serveur commun, MATRIX_DATABASE_URL) à la connexion puis toutes les minutes,
+//                          jamais dans le jeton ; une lecture impossible refuse l'accès.
 //   MATRIX_ENTRA_ISSUER    facultatif : autre émetteur (cloud souverain, fournisseur d'essai ; http:// admis pour
 //                          localhost et 127.0.0.1 seulement).
 
@@ -48,6 +51,15 @@ export function lireConfigEntra(env = process.env) {
 export function roleDepuisEntra(roles, cfg) {
   const r = Array.isArray(roles) ? roles.map(String) : [];
   return r.includes(cfg.roleAdmin) ? 'admin' : r.includes(cfg.roleLecture) ? 'lecture' : null;
+}
+
+/**
+ * Rôle Matrix d'après la ligne de la personne dans clavis.pub_acces (MATRIX_ACCES_CLAVIS=on : une seule base, les droits
+ * réglés par la DSI dans Clavis) : le rôle quand l'accès s'ouvre maintenant (`ouvert`), sinon null.
+ */
+export function roleDepuisAcces(ligne, cfg) {
+  if (!ligne || ligne.ouvert !== true) return null;
+  return ligne.role === cfg.roleAdmin ? 'admin' : ligne.role === cfg.roleLecture ? 'lecture' : null;
 }
 
 /** Nom affiché et identifiant stable tirés des revendications du jeton d'identité. */

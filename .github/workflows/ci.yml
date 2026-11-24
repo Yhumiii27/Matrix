@@ -23,6 +23,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Copie de Norma intacte, dépendances conformes (norma:check)
+        run: npm run -s norma:check
       - run: npm test
       - name: maquette/matrix.html à jour (npm run maquette)
         run: |

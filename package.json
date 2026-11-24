@@ -11,12 +11,13 @@
     "collecter": "node outils/collecteur.mjs ..",
     "maquette": "node outils/construire-maquette.mjs",
     "doublons": "node outils/generer-liste-doublons.mjs",
+    "norma:check": "node norma/outils/norma.mjs verifier",
     "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "cytoscape": "3.33.1",
     "openid-client": "6.8.8",
-    "pg": "8.16.3"
+    "pg": "8.23.0"
   },
   "devDependencies": {
     "jose": "6.1.3"

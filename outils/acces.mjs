@@ -131,18 +131,21 @@ export function pageConnexion({ erreur = '', suite = '/', identifiant = '', entr
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connexion · Matrix</title>
 <style>
-  :root { color-scheme: light dark; --fond: #f4f5f7; --carte: #fff; --texte: #1b1f24; --doux: #5b6470; --bord: #d5d9df; --accent: #3b5bdb; --erreur: #c92a2a; }
-  @media (prefers-color-scheme: dark) { :root { --fond: #0f1216; --carte: #171b21; --texte: #e6e8eb; --doux: #9aa3ad; --bord: #2a313a; --accent: #748ffc; --erreur: #ff8787; } }
+  @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url(/fonts/inter-latin-wght.woff2) format("woff2"); }
+  /* Charte Nocturne (norma/charte/nocturne.css) : sombre par défaut, clair par <html data-theme="light"> (cookie epc2i-theme,
+     posé par serveur.mjs). */
+  :root { color-scheme: dark; --fond: #161826; --carte: #232532; --texte: #e9e9ed; --doux: color-mix(in srgb, #e9e9ed 62%, transparent); --bord: color-mix(in srgb, #e9e9ed 16%, transparent); --accent: #9184d9; --sur-accent: #161826; --erreur: #ff8787; }
+  :root[data-theme="light"] { color-scheme: light; --fond: #f4f5f9; --carte: #ffffff; --texte: #1c1e29; --doux: color-mix(in srgb, #1c1e29 68%, transparent); --bord: color-mix(in srgb, #1c1e29 14%, transparent); --accent: #5f51b8; --sur-accent: #ffffff; --erreur: #c92a2a; }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--fond); color: var(--texte); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 16px; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--fond); color: var(--texte); font: 15px/1.5 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; padding: 16px; }
   form { width: 100%; max-width: 360px; background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 28px 24px; display: grid; gap: 14px; }
   h1 { margin: 0; font-size: 20px; } p { margin: 0; color: var(--doux); font-size: 14px; }
   label { display: grid; gap: 4px; font-size: 13px; color: var(--doux); }
   input { font: inherit; padding: 9px 10px; border-radius: 6px; border: 1px solid var(--bord); background: transparent; color: var(--texte); }
   input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  button { font: inherit; font-weight: 600; padding: 10px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
+  button { font: inherit; font-weight: 600; padding: 10px; border: 0; border-radius: 6px; background: var(--accent); color: var(--sur-accent); cursor: pointer; }
   .erreur { color: var(--erreur); font-size: 14px; }
-  a.bouton { display: block; text-align: center; text-decoration: none; font-weight: 600; padding: 10px; border-radius: 6px; background: var(--accent); color: #fff; }
+  a.bouton { display: block; text-align: center; text-decoration: none; font-weight: 600; padding: 10px; border-radius: 6px; background: var(--accent); color: var(--sur-accent); }
 </style>
 </head>
 <body>

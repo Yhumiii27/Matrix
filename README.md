@@ -60,7 +60,7 @@ maquette/source.html              source de la maquette
 Node 22 ou plus récent. Deux dépendances (`cytoscape` pour le graphe, `pg` pour la sonde du serveur commun) : `npm install`.
 
 ```bash
-npm start                                # serveur Matrix sur http://localhost:3000
+npm start                                # serveur Matrix sur http://localhost:3700 (port du registre de Norma)
 node outils/collecteur.mjs ..            # relire les schémas dans les dépôts voisins et comparer
 node outils/construire-maquette.mjs      # reconstruire maquette/matrix.html
 node outils/generer-liste-doublons.mjs   # régénérer docs/doublons-a-trancher.md

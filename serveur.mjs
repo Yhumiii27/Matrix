@@ -32,7 +32,7 @@
 //   POST /api/publications/:vue/retirer     supprimer la vue (aucun lien autorisé)  { motif }
 //
 // Variables d'environnement :
-//   PORT               port d'écoute (défaut 3000)
+//   PORT               port d'écoute (défaut 3700, port de Matrix au registre de Norma ; 3000 dans l'image Docker)
 //   MATRIX_DATA_DIR    dossier des données vivantes : catalogue, historique, déclarations (défaut ./data ;
 //                      /data dans l'image Docker, à monter sur un volume persistant)
 //   MATRIX_TOKEN       jeton partagé avec les outils ; sans lui, les déclarations sont refusées (503)
@@ -81,9 +81,10 @@ import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireS
 import { lireDonnees, editerLigne, pourRole } from './outils/visionneuse.mjs';
 import { lireConfigEntra, roleDepuisEntra, roleDepuisAcces, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
 import { lireConfigAlertes, traiterAlertes } from './outils/alertes.mjs';
+import { themeDeRequete, avecTheme } from './outils/theme.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
-const PORT = +(process.env.PORT ?? 3000);
+const PORT = +(process.env.PORT ?? 3700);
 const DATA = process.env.MATRIX_DATA_DIR ?? join(RACINE, 'data');
 const DECL = join(DATA, 'declarations');
 const SOURCES = process.env.MATRIX_SOURCES_DIR ?? null;
@@ -518,7 +519,8 @@ function lireFormulaire(req, res, suite) {
   req.on('end', () => { if (!res.writableEnded) suite(new URLSearchParams(Buffer.concat(morceaux).toString('utf8'))); });
 }
 
-const html = (res, code, corps, entetes = {}) => { res.writeHead(code, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...entetes }); res.end(corps); };
+// Affichage sombre / clair (Norma) : data-theme posé sur <html> d'après le cookie epc2i-theme de la requête.
+const html = (res, code, corps, entetes = {}) => { res.writeHead(code, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...entetes }); res.end(avecTheme(corps, themeDeRequete(res.req?.headers.cookie))); };
 
 // GET /connexion (page), POST /connexion (vérification, cookie), GET /deconnexion.
 function routeConnexion(req, res, url) {
@@ -579,6 +581,14 @@ createServer(function traiter(req, res) {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/connexion' || url.pathname === '/deconnexion') return routeConnexion(req, res, url);
+    // Police Inter de la charte (copie de Norma), publique comme la page de connexion qui la demande.
+    const police = req.method === 'GET' && url.pathname.match(/^\/fonts\/(inter-[a-z-]+-wght\.woff2)$/);
+    if (police) {
+      const f = join(RACINE, 'norma/charte/fonts/inter', police[1]);
+      if (!existsSync(f)) return json(res, 404, { erreur: 'police inconnue' });
+      res.writeHead(200, { ...ENTETES, 'content-type': 'font/woff2', 'cache-control': 'public, max-age=604800, immutable' });
+      return res.end(readFileSync(f));
+    }
     if (ENTRA.active && req.method === 'GET' && (url.pathname === '/auth/entra' || url.pathname === CHEMIN_RETOUR)) { routeEntra(req, res, url).catch(e => { console.error(e); if (!res.headersSent) json(res, 500, { erreur: 'erreur interne' }); }); return; }
     const libre = url.pathname === '/api/sante' || (req.method === 'POST' && url.pathname === '/api/declarations') || url.pathname === '/api/demandes';
     let acces = libre ? { nom: '', role: 'lecture', via: 'libre' } : utilisateur(req);
@@ -770,8 +780,8 @@ createServer(function traiter(req, res) {
       });
     }
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-      res.writeHead(200, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
-      return res.end(pageCourante());
+      res.writeHead(200, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', vary: 'Cookie' });
+      return res.end(avecTheme(pageCourante(), themeDeRequete(req.headers.cookie)));
     }
     if (req.method === 'GET' && url.pathname === '/vendor/cytoscape.min.js' && cytoscape) {
       res.writeHead(200, { ...ENTETES, 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'public, max-age=604800, immutable' });

@@ -102,7 +102,7 @@ Le serveur de Matrix (`serveur.mjs`, déployé comme les autres outils, voir le 
 En local :
 
 ```bash
-MATRIX_TOKEN=… npm start                 # http://localhost:3000
+MATRIX_TOKEN=… npm start                 # http://localhost:3700
 node outils/collecteur.mjs ..            # relire les schémas dans les dépôts voisins
 ```
 

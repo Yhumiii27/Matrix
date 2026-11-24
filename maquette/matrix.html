@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Mise en page : coque Codex (barre latérale 224 px + en-tête), écrans en trois volets.
-   Design system Nocturne (sombre uniquement, comme Keystone, Codex et Vigie). */
+   Design system Nocturne : sombre par défaut, clair par <html data-theme="light"> (Norma, bouton « Affichage » de l'en-tête). */
 :root {
   color-scheme: dark;
   --color-bg: #161826;
@@ -27,6 +27,27 @@
   --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0,0,0,0.65);
   --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
   --rule: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+:root[data-theme="light"] {
+  /* Thème clair : valeurs du bloc :root[data-theme="light"] de norma/charte/nocturne.css (Norma 1.0.2). */
+  color-scheme: light;
+  --color-bg: #f4f5f9;
+  --color-surface: #ffffff;
+  --color-text: #1c1e29;
+  --color-accent: #5f51b8;
+  --color-divider: color-mix(in srgb, #1c1e29 14%, transparent);
+  --color-neutral-100: #1f2128; --color-neutral-300: #4a4d5a; --color-neutral-500: #7c8093;
+  --color-neutral-600: #a2a6b8; --color-neutral-700: #c9ccdb; --color-neutral-800: #e2e4ee; --color-neutral-900: #eef0f6;
+  --color-accent-100: #251f4a; --color-accent-300: #4a3f92; --color-accent-400: #5f51b8;
+  --color-accent-700: #cbc5f6; --color-accent-800: #e3e0fb; --color-accent-900: #f1effd;
+  /* Couleurs des applications, assombries pour rester lisibles sur fond blanc (contraste ≥ 4,5:1). */
+  --app-keystone: #3f6fa8; --app-codex: #6a5bc4; --app-cursus: #9a5f2a; --app-vigie: #287a57; --app-arche: #b04a70; --app-crucible: #7d6c1f; --app-externe: #6a6e80;
+  --shadow-sm: 0 0 0 1px #e2e4ee;
+  --shadow-md: 0 0 0 1px #c9ccdb, 0 6px 18px rgba(28, 30, 41, 0.10);
+  --shadow-lg: 0 0 0 1px #a2a6b8, 0 16px 40px rgba(28, 30, 41, 0.16);
+  /* Textes secondaires à 68 % du texte en clair (Norma 1.0.2 : 55 % ne donnait que 3,7:1 sur blanc). */
+  --muted: color-mix(in srgb, var(--color-text) 68%, transparent);
+  --rule: color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 html, body { height: 100%; margin: 0; }
 [hidden] { display: none !important; }
@@ -78,6 +99,7 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .seg button:not([aria-pressed="true"]):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .seg button:focus-visible { outline-offset: -2px; }
 .seg .n { color: var(--muted); font-size: 11px; }
+.seg-icons button { padding: 5px 8px; min-height: 28px; }
 .tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; letter-spacing: .02em; padding: 2px 8px; border-radius: 6px; white-space: nowrap; line-height: 1.5; }
 .tag-accent { background: var(--color-accent-800); color: var(--color-accent-100); }
 .tag-neutral { background: var(--color-neutral-800); color: var(--color-neutral-100); }
@@ -312,6 +334,10 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
       <div class="header-right">
         <span class="tag tag-ghost" id="collect-tag" title="Date de la dernière lecture des schémas"></span>
         <span class="sub" id="moi" hidden></span>
+        <div class="seg seg-icons" id="affichage" role="group" aria-label="Affichage">
+          <button type="button" data-theme-choix="dark" aria-pressed="true" title="Affichage sombre" aria-label="Affichage sombre"><span data-icon="moon" data-size="14"></span></button>
+          <button type="button" data-theme-choix="light" aria-pressed="false" title="Affichage clair" aria-label="Affichage clair"><span data-icon="sun" data-size="14"></span></button>
+        </div>
       </div>
     </header>
     <main class="app-main">
@@ -380,6 +406,8 @@ const ICONS = {
   pen: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
   list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
   plus: 'M12 5v14M5 12h14',
+  moon: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z',
+  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
 };
 const icon = (name, size = 16, sw = 1.6) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 const hydrateIcons = root => root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon, +(el.dataset.size || 16)); el.removeAttribute('data-icon'); });
@@ -399,7 +427,10 @@ const APPS = {
 const APP_IDS = Object.keys(APPS);
 const css = getComputedStyle(document.documentElement);
 const cssv = v => css.getPropertyValue(v).trim();
-APP_IDS.forEach(a => APPS[a].couleur = cssv('--app-' + a));
+// Couleur d'une application : la variable CSS dans le HTML (elle suit le thème sombre / clair), la valeur calculée pour
+// le graphe (cytoscape ne lit pas les variables), relue à chaque dessin.
+APP_IDS.forEach(a => APPS[a].couleur = `var(--app-${a})`);
+const appCouleur = a => cssv('--app-' + a);
 const appMark = (a, size = 18) => `<span class="mark" style="color:${APPS[a].couleur};width:${size}px;height:${size}px">${APPS[a].init}</span>`;
 const appTag = a => `<span class="tag tag-ghost"><span class="dot" style="background:${APPS[a].couleur}"></span>${APPS[a].nom}</span>`;
 
@@ -594,6 +625,21 @@ navBadge();
 $('linked').innerHTML = APP_IDS.map(a => `<div class="linked">${appMark(a)}<span>${APPS[a].nom}</span><span class="sub text-muted" style="margin-left:auto">:${APPS[a].port}</span></div>`).join('');
 $('collect-tag').textContent = 'Schémas lus le ' + new Date(CAT.generatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 hydrateIcons(document);
+
+// ── Affichage sombre / clair (Norma : cookie epc2i-theme, attribut data-theme de <html>, posé par le serveur) ──
+(() => {
+  const groupe = $('affichage');
+  const marquer = t => groupe.querySelectorAll('[data-theme-choix]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoix === t)));
+  marquer(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+  groupe.addEventListener('click', e => {
+    const b = e.target.closest('[data-theme-choix]'); if (!b) return;
+    const t = b.dataset.themeChoix === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+    document.cookie = `epc2i-theme=${t}; path=/; max-age=31536000; samesite=lax`;
+    marquer(t);
+    document.dispatchEvent(new Event('epc2i-theme'));
+  });
+})();
 
 const rendered = {};
 let current = null;
@@ -963,7 +1009,11 @@ $('global-search').addEventListener('submit', e => { e.preventDefault(); Library
 const Graph = (() => {
   const st = { vue: 'tables', apps: new Set(APP_IDS), liens: 'tous', refs: false, focus: null, depth: '1', ecransApp: 'vigie', sel: null };
   let cy = null, root, built = false;
-  const C = { text: cssv('--color-text'), muted: cssv('--color-neutral-500'), rule: cssv('--color-neutral-800'), surface: cssv('--color-surface'), bg: cssv('--color-bg'), accent: cssv('--color-accent'), accent3: cssv('--color-accent-300'), n600: cssv('--color-neutral-600'), n700: cssv('--color-neutral-700'), ext: cssv('--app-externe') };
+  const C = {};
+  // Couleurs du graphe lues dans les variables du thème courant ; relues au changement d'affichage (sombre / clair).
+  const couleurs = () => Object.assign(C, { text: cssv('--color-text'), muted: cssv('--color-neutral-500'), rule: cssv('--color-neutral-800'), surface: cssv('--color-surface'), bg: cssv('--color-bg'), accent: cssv('--color-accent'), accent3: cssv('--color-accent-300'), n600: cssv('--color-neutral-600'), n700: cssv(document.documentElement.dataset.theme === 'light' ? '--color-neutral-600' : '--color-neutral-700'), ext: cssv('--app-externe') }); // en clair, les liens prennent un pas plus soutenu (fond blanc)
+  couleurs();
+  document.addEventListener('epc2i-theme', () => { couleurs(); if (cy) { cy.style(STYLE()); draw(); } });
   const statColor = s => s === 'reel' ? C.accent : s === 'partiel' ? C.accent3 : C.n600;
 
   function render() {
@@ -1065,18 +1115,18 @@ const Graph = (() => {
     const deg = {}; shown.forEach(e => { deg[e.s] = (deg[e.s] || 0) + 1; deg[e.t] = (deg[e.t] || 0) + 1; });
     const apps = new Set(keys.map(k => T.get(k).app));
     return [
-      ...(st.focus ? [] : [...apps].map(a => ({ data: { id: 'app:' + a, label: APPS[a].nom, kind: 'app', color: APPS[a].couleur, fs: Math.round(16 + Math.sqrt(keys.filter(k => T.get(k).app === a).length) * 3) } }))),
-      ...keys.map(k => { const t = T.get(k); return { data: { id: k, label: t.name, parent: st.focus ? undefined : 'app:' + t.app, kind: 'table', color: APPS[t.app].couleur, size: 10 + Math.min(26, Math.sqrt(deg[k] || 0) * 5), deg: deg[k] || 0, fs: Math.round(8 + Math.min(10, Math.sqrt(deg[k] || 0) * 1.6)), focus: k === st.focus ? 1 : 0 } }; }),
+      ...(st.focus ? [] : [...apps].map(a => ({ data: { id: 'app:' + a, label: APPS[a].nom, kind: 'app', color: appCouleur(a), fs: Math.round(16 + Math.sqrt(keys.filter(k => T.get(k).app === a).length) * 3) } }))),
+      ...keys.map(k => { const t = T.get(k); return { data: { id: k, label: t.name, parent: st.focus ? undefined : 'app:' + t.app, kind: 'table', color: appCouleur(t.app), size: 10 + Math.min(26, Math.sqrt(deg[k] || 0) * 5), deg: deg[k] || 0, fs: Math.round(8 + Math.min(10, Math.sqrt(deg[k] || 0) * 1.6)), focus: k === st.focus ? 1 : 0 } }; }),
       ...shown.map((e, i) => ({ data: { id: 'e' + i, source: e.s, target: e.t, kind: e.kind, label: e.label, flux: e.flux, color: e.kind === 'flux' ? statColor(e.statut) : '' } })),
     ];
   }
   function elementsReseau() {
     const els = [], tbl = new Set();
-    for (const a of APP_IDS) els.push({ data: { id: 'app:' + a, label: APPS[a].nom + '\n' + APPS[a].role, kind: 'app', color: APPS[a].couleur } });
+    for (const a of APP_IDS) els.push({ data: { id: 'app:' + a, label: APPS[a].nom + '\n' + APPS[a].role, kind: 'app', color: appCouleur(a) } });
     for (const f of FLUX.flux) {
       const hub = 'flux:' + f.id;
       els.push({ data: { id: hub, label: f.id, kind: 'hub', color: statColor(f.statut), statut: f.statut, flux: f.id } });
-      const addT = (a, n, dir) => { const k = key(a, n); if (!tbl.has(k)) { tbl.add(k); els.push({ data: { id: k, label: n, parent: 'app:' + a, kind: 'table', color: APPS[a].couleur, size: 12 } }); } els.push({ data: { id: hub + dir + k, source: dir === '>' ? k : hub, target: dir === '>' ? hub : k, kind: 'fluxe', color: statColor(f.statut), statut: f.statut, flux: f.id } }); };
+      const addT = (a, n, dir) => { const k = key(a, n); if (!tbl.has(k)) { tbl.add(k); els.push({ data: { id: k, label: n, parent: 'app:' + a, kind: 'table', color: appCouleur(a), size: 12 } }); } els.push({ data: { id: hub + dir + k, source: dir === '>' ? k : hub, target: dir === '>' ? hub : k, kind: 'fluxe', color: statColor(f.statut), statut: f.statut, flux: f.id } }); };
       f.source.forEach(n => addT(f.de, n, '>'));
       f.cible.forEach(n => addT(f.vers, n, '<'));
       if (!f.source.length) els.push({ data: { id: hub + 'src', source: 'app:' + f.de, target: hub, kind: 'fluxe', color: statColor(f.statut), statut: f.statut, flux: f.id } });
@@ -1087,7 +1137,7 @@ const Graph = (() => {
       els.push({ data: { id, label: e.nom, kind: 'ext', color: C.ext, ext: e.id } });
       for (const n of e.tables) {
         const k = key(e.app, n);
-        if (!tbl.has(k)) { tbl.add(k); els.push({ data: { id: k, label: n, parent: 'app:' + e.app, kind: 'table', color: APPS[e.app].couleur, size: 12 } }); }
+        if (!tbl.has(k)) { tbl.add(k); els.push({ data: { id: k, label: n, parent: 'app:' + e.app, kind: 'table', color: appCouleur(e.app), size: 12 } }); }
         els.push({ data: { id: id + '-' + k, source: e.sens === 'entrée' ? id : k, target: e.sens === 'entrée' ? k : id, kind: 'exte', color: C.ext, statut: e.statut } });
       }
     }
@@ -1101,7 +1151,7 @@ const Graph = (() => {
       const rel = new Map(); s.lit.forEach(n => rel.set(n, 'lit')); s.ecrit.forEach(n => rel.set(n, 'ecrit'));
       for (const [n, k] of rel) {
         const tk = key(a, n);
-        if (!tbl.has(tk)) { tbl.add(tk); els.push({ data: { id: tk, label: n, parent: 'grp:tables', kind: 'table', color: APPS[a].couleur, size: 12 } }); }
+        if (!tbl.has(tk)) { tbl.add(tk); els.push({ data: { id: tk, label: n, parent: 'grp:tables', kind: 'table', color: appCouleur(a), size: 12 } }); }
         els.push({ data: { id: sid + '-' + tk, source: sid, target: tk, kind: k } });
       }
     });

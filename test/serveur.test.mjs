@@ -42,6 +42,26 @@ test('page et API de lecture', async () => {
   assert.equal((await fetch(libre + '/api/inconnue')).status, 404);
 });
 
+test('affichage sombre / clair : data-theme d’après le cookie epc2i-theme, bouton dans l’en-tête, police servie localement', async () => {
+  const sombre = await (await fetch(libre + '/')).text();
+  assert.match(sombre, /<html lang="fr" data-theme="dark">/);
+  const clair = await (await fetch(libre + '/', { headers: { cookie: 'epc2i-theme=light' } })).text();
+  assert.match(clair, /<html lang="fr" data-theme="light">/);
+  // Le bouton « Affichage » est dans l'en-tête, à droite (dernier élément de .header-right ; Matrix n'a pas de sélecteur
+  // de langue FR / EN : son interface n'existe qu'en français).
+  const droite = clair.slice(clair.indexOf('<div class="header-right">'), clair.indexOf('</header>'));
+  assert.match(droite, /<div class="seg seg-icons" id="affichage" role="group" aria-label="Affichage">[\s\S]*data-theme-choix="dark"[\s\S]*data-theme-choix="light"/);
+  assert.match(droite, /aria-label="Affichage sombre"/);
+  assert.match(droite, /aria-label="Affichage clair"/);
+  assert.doesNotMatch(clair, /fonts\.googleapis\.com/);
+  const police = await fetch(libre + '/fonts/inter-latin-wght.woff2');
+  assert.equal(police.status, 200);
+  assert.equal(police.headers.get('content-type'), 'font/woff2');
+  assert.equal((await fetch(libre + '/fonts/../serveur.mjs')).status, 404);
+  const connexion = await (await fetch(protege + '/connexion', { headers: { cookie: 'epc2i-theme=light' } })).text();
+  assert.match(connexion, /<html lang="fr" data-theme="light">/);
+});
+
 test('saisie d\'un référentiel : contrôlée, enregistrée, publiée par GET', async () => {
   const mauvais = await put(libre, '/api/referentiels/zones', [{ code: 'm', libelle: 'x' }]);
   assert.equal(mauvais.status, 422);

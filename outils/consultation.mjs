@@ -1,3 +1,4 @@
+import { AUTRES_OUTILS } from './registre.mjs';
 // Consultation, dans l'écran, de ce que le serveur commun réunit pour Matrix (écart E-11, docs/proposition.md § 6) :
 //   - matrix.journal_unifie (D18, partage/95) : les pub_journal des outils, aux colonnes communes ;
 //   - matrix.rex_unifie (D22, partage/96) : les retours d'expérience de Keystone (projets) et d'Arche (CAPEX) ;
@@ -5,7 +6,7 @@
 // Connexion en matrix_app. Les deux vues sont en lecture seule ; une correspondance ne change que par une décision
 // (deciderCorrespondance), contrôlée ici puis par les contraintes de la table.
 
-export const OUTILS_JOURNAL = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+export const OUTILS_JOURNAL = AUTRES_OUTILS;   // registre de Norma, sauf Matrix
 const LIMITE_JOURNAL = 200, LIMITE_REX = 500, LIMITE_CORRESPONDANCES = 1000;
 
 const texte = v => (v == null ? '' : String(v)).trim();

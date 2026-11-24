@@ -140,6 +140,11 @@ Les tables de correspondance (personnes, projets, sites) tranchées dans la list
 
 ## 6. Feuille de route
 
+> **Suivi (24/11/2026).** L'état des lots, des écarts E-01 à E-15 et des écarts de l'audit Norma se tient désormais dans
+> Norma, pour toute la suite : `reste-a-faire/matrix.json` du dépôt Norma, page globale
+> https://claude.ai/artifact/Rs7kooJdowShdYUqNS8jQf (REGLES § 3). Les tableaux ci-dessous restent l'analyse d'origine ;
+> leurs mentions « Fait le … » ne sont plus tenues à jour ici.
+
 | Lot | Contenu |
 |---|---|
 | 1 · Catalogue | Application Matrix (bibliothèque, graphe, flux, doublons, qualité) sur les schémas lus dans le code ; réception des déclarations ; ajout du module de déclaration dans les quatre outils. |

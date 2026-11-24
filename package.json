@@ -2,7 +2,7 @@
   "name": "matrix",
   "version": "0.1.0",
   "private": true,
-  "description": "Matrix : référentiel des bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie, Arche, Crucible)",
+  "description": "Matrix : référentiel des bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus)",
   "engines": {
     "node": ">=22"
   },
@@ -15,6 +15,7 @@
     "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\""
   },
   "dependencies": {
+    "@phosphor-icons/web": "2.1.2",
     "cytoscape": "3.33.1",
     "openid-client": "6.8.8",
     "pg": "8.23.0"

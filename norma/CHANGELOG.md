@@ -1,5 +1,22 @@
 # Norma — journal des versions
 
+## 1.2.0 — 24 novembre 2026
+
+À la demande du propriétaire : un standard commun plutôt que des copies d'un outil à l'autre.
+
+- **Questionnaire du responsable produit** dans le socle : `outils/questionnaire/build.mjs` (sans dépendance) et
+  `page.template.html` (reprise du modèle de Crucible et Modulus, le plus récent ; palette Nocturne sombre et clair,
+  `outils/pages/nocturne-page.css`, contrastes AA testés). Réglé par `scripts/questionnaire/config.json` de l'outil ;
+  questions contrôlées (ids uniques, groupe connu, champs obligatoires). Réponses inchangées (collection `answers`).
+  Distribué aux outils par `copier` (`outils/questionnaire`, `outils/pages`).
+- **Reste à faire de la solution** : `reste-a-faire/<outil>.json` (schéma `reste-a-faire/SCHEMA.md`, repris de Keystone),
+  générateur `outils/reste-a-faire/build.mjs` (`npm run reste-a-faire` → `RESTE-A-FAIRE.md`, `.artifacts/reste-a-faire.html`).
+  Reprise : copie fidèle de Keystone, Arche, Crucible ; conversion des listes de Codex, Vigie, Cursus, Matrix, Clavis et
+  Modulus ; écarts de l'audit Norma du 24 novembre (PR d'adoption de chaque outil) en catégorie « alignement Norma ».
+- `REGLES.md` § 3 : la liste se tient dans Norma (plus de page « reste à développer » par outil) ; questionnaire par le
+  modèle de Norma. Version mineure : un outil reprend la copie, puis remplace ses scripts `remaining:page` et
+  `questionnaire:page` (voir `README.md`).
+
 ## 1.1.0 — 24 novembre 2026
 
 - `charte/ds/ThemeToggle.tsx` : nom du groupe `t('Dark / light display')` (traduit « Affichage ») au lieu de

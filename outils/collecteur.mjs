@@ -31,9 +31,10 @@ import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lireLitteral } from './litteral.mjs';
+import { AUTRES_OUTILS } from './registre.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const ORDER = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+const ORDER = AUTRES_OUTILS;   // registre de Norma, sauf Matrix ; un outil sans source ni déclaration est passé
 
 // ── Domaines fonctionnels et descriptions ────────────────────────────────
 

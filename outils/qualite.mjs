@@ -1,3 +1,4 @@
+import { AUTRES_OUTILS } from './registre.mjs';
 // Qualité des données (écart E-09) : règles déclarées par table, exécutées par la sonde sur le serveur commun, en
 // lecture seule, en nommant les colonnes (jamais SELECT *), jamais sur une colonne sensible ou fermée à Matrix.
 //
@@ -13,7 +14,7 @@
 
 export const TYPES = ['fraicheur', 'non_nul', 'unicite', 'plage', 'valeurs'];
 const GRAVITES = ['info', 'attention', 'erreur'];
-const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+const OUTILS = AUTRES_OUTILS;   // registre de Norma, sauf Matrix
 const NOM = /^[a-z_][a-z0-9_]*$/;
 const AUJOURDHUI = 'aujourd\'hui';
 

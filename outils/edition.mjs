@@ -11,8 +11,9 @@
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { RACINE } from './page.mjs';
+import { AUTRES_OUTILS } from './registre.mjs';
 
-const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+const APPS = AUTRES_OUTILS;   // registre de Norma, sauf Matrix
 const JOURNAL_MAX = 2000;
 const lire = f => JSON.parse(readFileSync(f, 'utf8'));
 

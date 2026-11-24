@@ -1,3 +1,4 @@
+import { TOUS_LES_OUTILS } from './registre.mjs';
 // Visionneuse des données : ce qu'il y a dans une table (ou une vue) d'un outil, page par page, sur le serveur commun.
 //
 // Règle du socle (docs/architecture-postgres.md) : « Matrix lit tout, sauf les colonnes sensibles ». La visionneuse ne lit
@@ -5,7 +6,7 @@
 // comme telle, jamais lue ; jamais de SELECT *. Chaque lecture tourne dans une transaction en lecture seule, bornée dans
 // le temps ; identifiants cités, valeurs en paramètres ; textes longs tronqués, binaires résumés à leur taille.
 
-const SCHEMAS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'matrix'];
+const SCHEMAS = TOUS_LES_OUTILS;   // registre de Norma ; ce que matrix_app ne peut lire reste refusé par le serveur
 const NOM = /^[a-z_][a-z0-9_]{0,62}$/;
 export const PAR_PAGE = [25, 50, 100, 200];
 const LONGUEUR_MAX = 500;

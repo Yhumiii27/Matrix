@@ -18,4 +18,9 @@ par `npm run norma:check` ; elles se changent dans le dépôt `Yhumiii27/Norma`,
   Docker, répétée le 24 novembre 2026) : `docs/installation-directe.md`. Décisions : `docs/decisions.md`.
 - Port de Matrix : 3700 (registre de Norma, défaut de `serveur.mjs`) ; l'image Docker garde le port interne 3000.
 - Affichage sombre / clair : cookie `epc2i-theme`, attribut `data-theme` posé par `serveur.mjs` (`outils/theme.mjs`) ;
-  thème clair dans `maquette/source.html` (`:root[data-theme="light"]`, valeurs de `norma/charte/nocturne.css`).
+  thèmes et jetons pris dans `norma/charte/nocturne.css`, jamais recopiés.
+- Coque commune de Norma 2.0 (`norma/charte/COQUE.md`) : `maquette/source.html` écrit le HTML de la coque avec les classes
+  de `norma/charte/coque.css` (barre latérale `.coque-side` et recherche de pages ⌘K, un en-tête `.coque-header` par écran,
+  paire langue / affichage `.coque-prefs` empilée en dernier, barre supérieure et tiroir ≤ 1024 px, panneau
+  `.coque-panel` 640 px) ; `serveur.mjs` sert `/charte/nocturne.css`, `touch.css` et `coque.css`, que la maquette publiée
+  (`npm run maquette`) recopie dans la page.

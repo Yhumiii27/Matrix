@@ -47,13 +47,27 @@ test('affichage sombre / clair : data-theme d’après le cookie epc2i-theme, bo
   assert.match(sombre, /<html lang="fr" data-theme="dark">/);
   const clair = await (await fetch(libre + '/', { headers: { cookie: 'epc2i-theme=light' } })).text();
   assert.match(clair, /<html lang="fr" data-theme="light">/);
-  // Sélecteur FR / EN puis bouton d'affichage, à droite de l'en-tête (Norma § 7). Le HTML porte les chaînes sources
-  // anglaises (data-i18n-attrs) que la page traduit en français par défaut (outils/i18n.mjs).
-  const droite = clair.slice(clair.indexOf('<div class="header-right">'), clair.indexOf('</header>'));
-  assert.match(droite, /id="langue"[\s\S]*data-langue-choix="fr"[\s\S]*data-langue-choix="en"[\s\S]*id="affichage"/);
-  assert.match(droite, /<div class="seg seg-icons" id="affichage" role="group" aria-label="Dark \/ light display"[^>]*>[\s\S]*data-theme-choix="dark"[\s\S]*data-theme-choix="light"/);
-  assert.match(droite, /aria-label="Dark display"/);
-  assert.match(droite, /aria-label="Light display"/);
+  // Paire langue / affichage empilée (Norma 2.0, COQUE.md § 4) : FR | EN au-dessus de sombre | clair, dernier élément des
+  // outils communs de l'en-tête de chaque écran. Le HTML porte les chaînes sources anglaises (data-i18n-attrs) que la page
+  // traduit en français par défaut (outils/i18n.mjs).
+  const outils = clair.slice(clair.indexOf('<div class="entete-outils" id="entete-outils">'), clair.indexOf('<div class="app-main">'));
+  assert.match(outils, /class="coque-header-search"[\s\S]*class="coque-header-tools"[\s\S]*<div class="coque-prefs">/);
+  assert.match(outils, /<div class="coque-pref" id="langue"[\s\S]*data-langue-choix="fr"[\s\S]*data-langue-choix="en"[\s\S]*<div class="coque-pref" id="affichage" role="group" aria-label="Dark \/ light display"[^>]*>[\s\S]*data-theme-choix="dark"[\s\S]*data-theme-choix="light"/);
+  assert.match(outils, /class="coque-pref-opt" data-theme-choix="dark"[^>]*aria-label="Dark display"/);
+  assert.match(outils, /aria-label="Light display"/);
+  // Même paire, dernière de la barre supérieure (≤ 1024 px).
+  const barre = clair.slice(clair.indexOf('<div class="coque-topbar">'), clair.indexOf('<div class="entete-outils"'));
+  assert.match(barre, /<div class="coque-topbar-tools">\s*<div class="coque-prefs">[\s\S]*data-langue-choix="en"[\s\S]*data-theme-choix="light"/);
+  // Charte de Norma servie par Matrix (jamais de CDN), pas de bloc de thème recopié.
+  for (const f of ['nocturne', 'touch', 'coque']) {
+    assert.match(clair, new RegExp(`<link rel="stylesheet" href="/charte/${f}\\.css">`));
+    const r = await fetch(libre + `/charte/${f}.css`);
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type'), /^text\/css/);
+  }
+  assert.match(await (await fetch(libre + '/charte/coque.css')).text(), /\.coque-prefs/);
+  assert.equal((await fetch(libre + '/charte/../serveur.mjs')).status, 404);
+  assert.doesNotMatch(clair, /--color-bg: #/);
   // Langue d'après le cookie matrix-lang (français sans cookie).
   const anglais = await (await fetch(libre + '/', { headers: { cookie: 'matrix-lang=en; epc2i-theme=light' } })).text();
   assert.match(anglais, /<html lang="en" data-theme="light">/);

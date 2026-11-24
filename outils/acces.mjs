@@ -130,12 +130,13 @@ export function pageConnexion({ erreur = '', suite = '/', identifiant = '', entr
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connexion · Matrix</title>
+<link rel="stylesheet" href="/charte/nocturne.css">
 <style>
   @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url(/fonts/inter-latin-wght.woff2) format("woff2"); }
-  /* Charte Nocturne (norma/charte/nocturne.css) : sombre par défaut, clair par <html data-theme="light"> (cookie epc2i-theme,
-     posé par serveur.mjs). */
-  :root { color-scheme: dark; --fond: #161826; --carte: #232532; --texte: #e9e9ed; --doux: color-mix(in srgb, #e9e9ed 62%, transparent); --bord: color-mix(in srgb, #e9e9ed 16%, transparent); --accent: #9184d9; --sur-accent: #161826; --erreur: #ff8787; }
-  :root[data-theme="light"] { color-scheme: light; --fond: #f4f5f9; --carte: #ffffff; --texte: #1c1e29; --doux: color-mix(in srgb, #1c1e29 68%, transparent); --bord: color-mix(in srgb, #1c1e29 14%, transparent); --accent: #5f51b8; --sur-accent: #ffffff; --erreur: #c92a2a; }
+  /* Charte Nocturne (norma/charte/nocturne.css, servie par Matrix) : sombre par défaut, clair par <html data-theme="light">
+     (cookie epc2i-theme, posé par serveur.mjs). Jetons de la charte seulement. */
+  :root { --fond: var(--color-bg); --carte: var(--color-surface); --texte: var(--color-text); --doux: color-mix(in srgb, var(--color-text) 62%, transparent); --bord: var(--color-divider); --accent: var(--color-accent); --sur-accent: var(--color-bg); --erreur: var(--color-accent-300); }
+  :root[data-theme="light"] { --doux: color-mix(in srgb, var(--color-text) 68%, transparent); --sur-accent: var(--color-surface); }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--fond); color: var(--texte); font: 15px/1.5 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; padding: 16px; }
   form { width: 100%; max-width: 360px; background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; padding: 28px 24px; display: grid; gap: 14px; }

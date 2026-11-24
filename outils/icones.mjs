@@ -36,6 +36,7 @@ export const ICONES = {
   plus: 'plus',
   moon: 'moon',
   sun: 'sun',
+  calendar: 'calendar-blank',
 };
 
 let cache = null;

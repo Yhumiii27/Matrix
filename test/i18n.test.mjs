@@ -37,11 +37,13 @@ test('toute chaîne source de la page a sa traduction française', () => {
   const manquantes = [...chaines].filter(c => !(c in FR));
   assert.deepEqual(manquantes, []);
   // Une traduction différente de l'anglais, sauf les mots identiques dans les deux langues.
-  const memes = new Set(['Administration', 'Publications', 'Description', 'Note']);
+  const memes = new Set(['Administration', 'Publications', 'Description', 'Note', 'Menu', 'Catalogue']);
   assert.deepEqual(Object.entries(FR).filter(([en, fr]) => en === fr && !memes.has(en)).map(([en]) => en), []);
 });
 
-test('le sélecteur FR / EN est juste avant le bouton d’affichage sombre / clair', () => {
-  const entete = source.slice(source.indexOf('<div class="header-right">'), source.indexOf('</header>'));
-  assert.ok(entete.indexOf('id="langue"') > 0 && entete.indexOf('id="langue"') < entete.indexOf('id="affichage"'));
+test('la paire langue / affichage est empilée, FR / EN au-dessus de sombre / clair, à la fin des outils de l’en-tête', () => {
+  const outils = source.slice(source.indexOf('<div class="entete-outils"'), source.indexOf('<div class="app-main">'));
+  const prefs = outils.indexOf('<div class="coque-prefs">');
+  assert.ok(prefs > outils.indexOf('class="coque-header-tools"'));
+  assert.ok(outils.indexOf('id="langue"') > prefs && outils.indexOf('id="langue"') < outils.indexOf('id="affichage"'));
 });

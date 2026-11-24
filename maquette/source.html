@@ -3,58 +3,36 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<!-- Charte de Norma 2.0 (copie norma/charte, servie par Matrix : /charte/…) : jetons et thèmes sombre / clair, cibles
+     tactiles, coque commune (COQUE.md). La maquette publiée comme artefact les recopie dans la page (outils/page.mjs). -->
+<link rel="stylesheet" href="/charte/nocturne.css">
+<link rel="stylesheet" href="/charte/touch.css">
+<link rel="stylesheet" href="/charte/coque.css">
 <style>
-/* Mise en page : coque Codex (barre latérale 224 px + en-tête), écrans en trois volets.
-   Design system Nocturne : sombre par défaut, clair par <html data-theme="light"> (Norma, bouton « Affichage » de l'en-tête). */
+/* Coque commune de Norma 2.0 (norma/charte/COQUE.md, classes .coque-… de coque.css) : barre latérale 232 px avec la
+   recherche de pages ⌘K, un en-tête .coque-header par écran (fil, titre 26 px, recherche du catalogue, date de collecte,
+   puis la paire langue / affichage empilée), barre supérieure et tiroir ≤ 1024 px, panneau latéral 640 px. Couleurs,
+   tailles de texte et mesures : jetons de nocturne.css ; ce bloc n'ajoute que ce qui est propre à Matrix. */
 :root {
-  color-scheme: dark;
-  --color-bg: #161826;
-  --color-surface: #232532;
-  --color-text: #e9e9ed;
-  --color-accent: #9184d9;
-  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
-  --color-neutral-100: #f3f5fe; --color-neutral-300: #cfd3e5; --color-neutral-500: #9397ab;
-  --color-neutral-600: #75798c; --color-neutral-700: #595d6c; --color-neutral-800: #3f424d; --color-neutral-900: #292b31;
-  --color-accent-100: #f5f4ff; --color-accent-300: #d2cefd; --color-accent-400: #b5abfc;
-  --color-accent-700: #5d5294; --color-accent-800: #423a6a; --color-accent-900: #2b2741;
-  /* Couleurs des applications : peu saturées, pour le graphe et les pastilles. */
+  /* Couleurs des applications (propres à Matrix) : peu saturées, pour le graphe et les pastilles. */
   --app-keystone: #7fa6d6; --app-codex: #a99de6; --app-cursus: #d6a77f; --app-vigie: #79c2a2; --app-arche: #d68fa8; --app-crucible: #c4b46e; --app-clavis: #8fb8c9; --app-matrix: #b3a1d9; --app-modulus: #a9c47a; --app-externe: #75798c;
-  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px;
-  --shadow-sm: 0 0 0 1px #3f424d;
-  --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0,0,0,0.55);
-  --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0,0,0,0.65);
   --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
   --rule: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 :root[data-theme="light"] {
-  /* Thème clair : valeurs du bloc :root[data-theme="light"] de norma/charte/nocturne.css (Norma 1.0.2). */
-  color-scheme: light;
-  --color-bg: #f4f5f9;
-  --color-surface: #ffffff;
-  --color-text: #1c1e29;
-  --color-accent: #5f51b8;
-  --color-divider: color-mix(in srgb, #1c1e29 14%, transparent);
-  --color-neutral-100: #1f2128; --color-neutral-300: #4a4d5a; --color-neutral-500: #7c8093;
-  --color-neutral-600: #a2a6b8; --color-neutral-700: #c9ccdb; --color-neutral-800: #e2e4ee; --color-neutral-900: #eef0f6;
-  --color-accent-100: #251f4a; --color-accent-300: #4a3f92; --color-accent-400: #5f51b8;
-  --color-accent-700: #cbc5f6; --color-accent-800: #e3e0fb; --color-accent-900: #f1effd;
   /* Couleurs des applications, assombries pour rester lisibles sur fond blanc (contraste ≥ 4,5:1). */
   --app-keystone: #3f6fa8; --app-codex: #6a5bc4; --app-cursus: #9a5f2a; --app-vigie: #287a57; --app-arche: #b04a70; --app-crucible: #7d6c1f; --app-clavis: #2f6f87; --app-matrix: #5f51b8; --app-modulus: #4f6b1f; --app-externe: #6a6e80;
-  --shadow-sm: 0 0 0 1px #e2e4ee;
-  --shadow-md: 0 0 0 1px #c9ccdb, 0 6px 18px rgba(28, 30, 41, 0.10);
-  --shadow-lg: 0 0 0 1px #a2a6b8, 0 16px 40px rgba(28, 30, 41, 0.16);
   /* Textes secondaires à 68 % du texte en clair (Norma 1.0.2 : 55 % ne donnait que 3,7:1 sur blanc). */
   --muted: color-mix(in srgb, var(--color-text) 68%, transparent);
   --rule: color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 html, body { height: 100%; margin: 0; }
 [hidden] { display: none !important; }
-body { background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: 13px; line-height: 1.45; overflow: hidden; }
+body { background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: var(--text-ui); line-height: 1.45; overflow: hidden; }
 *, *::before, *::after { box-sizing: border-box; }
 h1, h2, h3, h4, h5, h6 { font-weight: 500; line-height: 1.12; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
-h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+h6 { font-size: var(--text-ui); letter-spacing: 0.08em; text-transform: uppercase; }
 p { margin: 0; }
 a { color: var(--color-accent); text-underline-offset: 3px; }
 :focus { outline: none; }
@@ -71,7 +49,7 @@ a { color: var(--color-accent); text-underline-offset: 3px; }
 .nowrap { white-space: nowrap; }
 
 /* Boutons, champs, segments, étiquettes (Nocturne) */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; text-decoration: none; font: inherit; font-weight: 500; font-size: 13px; line-height: 1.2; color: var(--color-text); background: transparent; border: 1px solid transparent; padding: 6px 10px; border-radius: var(--radius-md); white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; text-decoration: none; font: inherit; font-weight: 500; font-size: var(--text-ui); line-height: 1.2; color: var(--color-text); background: transparent; border: 1px solid transparent; padding: 6px 10px; border-radius: var(--radius-md); white-space: nowrap; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-primary { color: var(--color-accent); border-color: var(--color-accent); }
 .btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
@@ -81,8 +59,8 @@ a { color: var(--color-accent); text-underline-offset: 3px; }
 .btn-ghost { color: var(--color-accent); padding-inline: 4px; }
 .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .btn-icon { width: 32px; height: 32px; padding: 0; }
-.btn-sm { font-size: 12px; padding: 4px 8px; }
-.input { width: 100%; min-height: 34px; padding: 6px 10px; font: inherit; font-size: 13px; color: var(--color-text); caret-color: var(--color-accent); background: var(--color-surface); border: 1px solid var(--color-divider); border-radius: var(--radius-md); }
+.btn-sm { font-size: var(--text-control); padding: 4px 8px; }
+.input { width: 100%; min-height: 34px; padding: 6px 10px; font: inherit; font-size: var(--text-ui); color: var(--color-text); caret-color: var(--color-accent); background: var(--color-surface); border: 1px solid var(--color-divider); border-radius: var(--radius-md); }
 .input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
 .input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
 select.input { appearance: none; width: auto; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
@@ -93,7 +71,7 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .search .input { padding-left: 32px; }
 .seg { display: inline-flex; overflow-x: auto; scrollbar-width: none; border: 1px solid var(--color-divider); border-radius: var(--radius-md); flex: none; max-width: 100%; }
 .list-head > div, .toolbar > div { min-width: 0; max-width: 100%; }
-.seg button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; font: inherit; font-size: 12px; color: inherit; background: transparent; border: 0; cursor: pointer; white-space: nowrap; }
+.seg button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; font: inherit; font-size: var(--text-small); color: inherit; background: transparent; border: 0; cursor: pointer; white-space: nowrap; }
 .seg button + button { border-left: 1px solid var(--color-divider); }
 .seg button[aria-pressed="true"] { color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
 .seg button:not([aria-pressed="true"]):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
@@ -107,16 +85,16 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .tag-ghost { box-shadow: inset 0 0 0 1px var(--color-divider); color: var(--muted); }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
 .card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-surface); }
-.card-kicker { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-accent); }
+.card-kicker { font-size: var(--text-micro); letter-spacing: .1em; text-transform: uppercase; color: var(--color-accent); }
 .card-meta { font-size: 11px; color: var(--muted); }
 .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .sec-title { opacity: .7; }
-.sec-link { font-size: 12px; text-decoration: none; white-space: nowrap; background: none; border: 0; color: var(--color-accent); cursor: pointer; font: inherit; font-size: 12px; padding: 0; }
+.sec-link { font-size: var(--text-small); text-decoration: none; white-space: nowrap; background: none; border: 0; color: var(--color-accent); cursor: pointer; font: inherit; font-size: var(--text-small); padding: 0; }
 .hairline { border-bottom: 1px solid var(--rule); }
 
 /* Tableaux : filets qui s'estompent aux deux bouts */
-.table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.table th { text-align: left; font-size: 10.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); padding: 6px 8px; white-space: nowrap; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--text-ui); }
+.table th { text-align: left; font-size: var(--text-eyebrow); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); padding: 6px 8px; white-space: nowrap; }
 .table td { padding: 7px 8px; vertical-align: top; }
 .table thead tr { background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
 .table tbody tr { background: linear-gradient(to right, transparent, var(--rule) 48px, var(--rule) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
@@ -127,50 +105,42 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .table-wrap { overflow-x: auto; min-width: 0; }
 
-/* Coque */
-.app { display: grid; grid-template-columns: 224px minmax(0, 1fr); height: 100%; }
-.side { display: flex; flex-direction: column; padding: 14px 10px; border-right: 1px solid var(--color-divider); min-height: 0; overflow: auto; }
-.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 20px; }
-.logo { width: 28px; height: 28px; flex: none; border-radius: var(--radius-md); border: 1px solid var(--color-accent); display: grid; place-items: center; color: var(--color-accent); box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 35%, transparent); }
-.brand-name { font-size: 16px; font-weight: 500; line-height: 1.1; }
-.nav-items { display: flex; flex-direction: column; gap: 2px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--radius-md); font-size: 13px; color: inherit; text-decoration: none; border-left: 2px solid transparent; }
-.nav-item:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
-.nav-item[aria-current="page"] { color: var(--color-accent); border-left-color: var(--color-accent); }
-.nav-item .tag { margin-left: auto; padding: 0 6px; font-size: 10px; }
-.side-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 18px; }
-.overline { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 8px 2px; }
-.linked { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 8px; color: inherit; }
-.mark { width: 18px; height: 18px; flex: none; border-radius: 4px; border: 1px solid currentColor; display: inline-grid; vertical-align: middle; place-items: center; font-size: 9px; font-weight: 600; }
-.user { display: flex; align-items: center; gap: 10px; padding: 10px 8px 2px; border-top: 1px solid var(--color-divider); margin-top: 6px; }
-.avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--color-accent-800); color: var(--color-accent-100); display: grid; place-items: center; font-size: 11px; font-weight: 500; }
-.app-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.header { display: flex; align-items: center; gap: 14px; padding: 9px 18px; border-bottom: 1px solid var(--color-divider); }
-.header h5 { font-size: 15px; min-width: 190px; }
-.header .search { flex: 1; max-width: 520px; }
-.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* Coque (Norma 2.0, COQUE.md) : grille .coque, barre latérale .coque-side, colonne .coque-main. Sur grand écran la page
+   tient dans la fenêtre : l'en-tête de l'écran reste en place et l'écran défile seul (volets du catalogue, graphe). */
+.coque { height: 100vh; }
+.coque-main { height: 100vh; min-height: 0; overflow: hidden; }
+.coque-entry .coque-badge[hidden] { display: none; }
+.entete-outils { display: none; }
+.coque-side-foot .overline { font-size: var(--text-eyebrow); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--color-neutral-500); padding: 0 8px; }
+.linked { display: flex; align-items: center; gap: 8px; font-size: var(--text-ui); padding: 3px 8px; color: var(--color-neutral-300); }
+.mark { width: 18px; height: 18px; flex: none; border-radius: var(--radius-sm); border: 1px solid currentColor; display: inline-grid; vertical-align: middle; place-items: center; font-size: 9px; font-weight: var(--weight-strong); }
+.coque-user.is-static { cursor: default; }
+.coque-user.is-static:hover { background: var(--color-surface); }
+.coque-status-date .tag { font-size: 11px; }
 /* Rôle Lecture (E-02) : boutons de saisie masqués ; le serveur refuse de toute façon les modifications (403). */
 .lecture-seule #g-nouveau, .lecture-seule [data-g-modifier], .lecture-seule #qr-nouvelle, .lecture-seule [data-qr], .lecture-seule #pub-nouvelle { display: none !important; }
 .app-main { flex: 1; min-height: 0; position: relative; }
-.screen { position: absolute; inset: 0; overflow: auto; }
-.pad { padding: 22px 24px 32px; }
+.vue { position: absolute; inset: 0; display: flex; flex-direction: column; gap: var(--shell-gap); min-height: 0; }
+.screen { position: relative; flex: 1; min-height: 0; overflow: auto; }
+/* Écrans en volets (bibliothèque, graphe, flux, doublons) : un cadre sous l'en-tête. */
+.screen:not(.pad) { border: 1px solid var(--color-divider); border-radius: var(--radius-md); }
+.pad { padding: 0 0 8px; }
 .wrap { max-width: 1180px; }
 
 /* Accueil */
 .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
-.hello { font-size: 26px; margin-bottom: 4px; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 26px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 26px; }
 .kpi { text-align: left; border: 0; cursor: pointer; color: inherit; font: inherit; gap: 2px; }
 .kpi:hover { box-shadow: var(--shadow-sm); }
-.kpi-value { font-size: 30px; line-height: 1.1; font-weight: 500; margin: 4px 0; font-variant-numeric: tabular-nums; }
-.cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 28px; }
+.kpi-value { font-size: var(--text-kpi-lg); line-height: 1.1; font-weight: 500; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
 .col { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
 .app-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 0; cursor: pointer; }
 .app-row:hover .app-name { color: var(--color-accent-300); }
-.app-badge { width: 34px; height: 34px; border-radius: var(--radius-md); display: grid; place-items: center; font-weight: 600; font-size: 12px; border: 1px solid currentColor; }
+.app-badge { width: 34px; height: 34px; border-radius: var(--radius-md); display: grid; place-items: center; font-weight: 600; font-size: var(--text-small); border: 1px solid currentColor; }
 .app-stats { display: flex; gap: 16px; font-variant-numeric: tabular-nums; text-align: right; }
-.app-stats b { display: block; font-weight: 500; font-size: 14px; }
+.app-stats b { display: block; font-weight: 500; font-size: var(--text-dialog); }
 .alert-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
 .bar { height: 6px; border-radius: 3px; background: var(--color-neutral-800); overflow: hidden; display: flex; }
 .bar span { display: block; height: 100%; }
@@ -180,11 +150,11 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .tree { width: 244px; flex: none; border-right: 1px solid var(--color-divider); display: flex; flex-direction: column; min-height: 0; }
 .tree-head { padding: 14px 16px 8px; }
 .tree-body { flex: 1; overflow: auto; padding: 0 8px 14px; display: flex; flex-direction: column; gap: 1px; }
-.node { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; font: inherit; font-size: 13px; padding: 6px 8px 6px 8px; border-radius: var(--radius-md); cursor: pointer; background: transparent; color: inherit; }
+.node { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; font: inherit; font-size: var(--text-ui); padding: 6px 8px 6px 8px; border-radius: var(--radius-md); cursor: pointer; background: transparent; color: inherit; }
 .node:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
 .node[aria-current="true"] { background: color-mix(in srgb, var(--color-accent) 10%, transparent); color: var(--color-accent); }
 .node .count { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.node.child { font-size: 12px; padding: 5px 8px 5px 30px; }
+.node.child { font-size: var(--text-small); padding: 5px 8px 5px 30px; }
 .node .chev { width: 12px; flex: none; opacity: .7; }
 .list { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .list-head { display: flex; align-items: center; gap: 10px; padding: 12px 20px 8px; flex-wrap: wrap; }
@@ -193,11 +163,11 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .crumb-title { font-size: 16px; font-weight: 500; }
 .list-body { flex: 1; overflow: auto; padding: 0 12px 12px; }
 .list-foot { padding: 8px 20px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--color-divider); }
-.quick { width: 380px; flex: none; border-left: 1px solid var(--color-divider); overflow: auto; padding: 16px 18px 24px; display: flex; flex-direction: column; gap: 14px; background: var(--color-bg); }
+.quick { width: clamp(300px, 28vw, 380px); flex: none; border-left: 1px solid var(--color-divider); overflow: auto; padding: 16px 18px 24px; display: flex; flex-direction: column; gap: 14px; background: var(--color-bg); }
 .quick-head { display: flex; align-items: flex-start; gap: 10px; }
 .quick-title { font-size: 16px; font-weight: 500; word-break: break-word; flex: 1; min-width: 0; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: 12px; margin: 0; }
+.dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: var(--text-small); margin: 0; }
 .dl dt { color: var(--muted); }
 .dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .mini-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -205,18 +175,18 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .mini-kpis b { display: block; font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .mini-kpis span { font-size: 11px; color: var(--muted); }
 .cols-list { display: flex; flex-direction: column; }
-.col-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 12px; }
+.col-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: var(--text-small); }
 .col-row .mono { overflow-wrap: anywhere; }
 .col-type { color: var(--muted); font-size: 11px; text-align: right; }
 .col-flags { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
-.col-flags .tag { font-size: 10px; padding: 0 6px; }
-.link-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; font-size: 12px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.col-flags .tag { font-size: var(--text-micro); padding: 0 6px; }
+.link-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; font-size: var(--text-small); border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--color-accent-300); cursor: pointer; text-align: left; }
 .link-btn:hover { text-decoration: underline; }
-.block-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+.block-title { font-size: var(--text-eyebrow); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
 .empty { color: var(--muted); padding: 16px 8px; }
 .empty-pane { margin: auto 0; text-align: center; color: var(--muted); padding: 30px 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.map-table td { font-size: 12px; overflow-wrap: anywhere; }
+.map-table td { font-size: var(--text-small); overflow-wrap: anywhere; }
 .map-table { table-layout: fixed; }
 .map-table td.arrow { width: 22px; }
 .map-table th:nth-child(2) { width: 22px; }
@@ -226,7 +196,7 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .graph-area { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; flex-wrap: wrap; border-bottom: 1px solid var(--color-divider); }
 .toolbar .spacer { flex: 1; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; font: inherit; font-size: 12px; color: inherit; background: transparent; border: 1px solid var(--color-divider); cursor: pointer; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; font: inherit; font-size: var(--text-small); color: inherit; background: transparent; border: 1px solid var(--color-divider); cursor: pointer; }
 .chip[aria-pressed="false"] { opacity: .45; }
 .chip:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
 .canvas-wrap { flex: 1; position: relative; min-height: 0; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-surface) 70%, transparent), var(--color-bg) 70%); }
@@ -244,63 +214,50 @@ select.input option { background: var(--color-surface); color: var(--color-text)
 .graph-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 
 /* Référentiels, flux */
-.matrix-grid { display: grid; grid-template-columns: 90px repeat(var(--n-apps, 6), minmax(0, 1fr)); gap: 4px; font-size: 12px; margin: 4px 0 16px; max-width: 560px; }
+.matrix-grid { display: grid; grid-template-columns: 90px repeat(var(--n-apps, 6), minmax(0, 1fr)); gap: 4px; font-size: var(--text-small); margin: 4px 0 16px; max-width: 560px; }
 .matrix-grid div { padding: 6px 8px; border-radius: 6px; }
 .matrix-grid .h { color: var(--muted); font-size: 11px; }
 .matrix-grid .c { background: var(--color-surface); text-align: center; font-variant-numeric: tabular-nums; }
 .matrix-grid .c.z { background: transparent; box-shadow: inset 0 0 0 1px var(--rule); color: var(--muted); }
 .matrix-grid .c.x { background: transparent; color: var(--color-neutral-700); }
-.note { font-size: 12px; padding: 10px 12px; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--color-divider); }
-.prose { font-size: 13px; max-width: 64ch; }
+.note { font-size: var(--text-small); padding: 10px 12px; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--color-divider); }
+.prose { font-size: var(--text-ui); max-width: 64ch; }
 .perm { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; }
 .perm.on { color: var(--color-accent); }
 .perm.off { color: var(--color-neutral-700); }
 .option { display: flex; flex-direction: column; gap: 4px; text-align: left; font: inherit; color: inherit; background: transparent; border: 1px solid var(--color-divider); border-radius: var(--radius-md); padding: 9px 11px; cursor: pointer; }
 .option:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
 .option[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 25%, transparent); }
-.option-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
-.option-id { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--color-neutral-600); display: grid; place-items: center; font-size: 10.5px; font-weight: 600; }
+.option-head { display: flex; align-items: center; gap: 8px; font-size: var(--text-control); }
+.option-id { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--color-neutral-600); display: grid; place-items: center; font-size: var(--text-eyebrow); font-weight: 600; }
 .option[aria-pressed="true"] .option-id { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-bg); }
 .field { display: flex; flex-direction: column; gap: 5px; }
-.field-label { font-size: 12px; color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+.field-label { font-size: var(--text-small); color: color-mix(in srgb, var(--color-text) 70%, transparent); }
 textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
-.form-error { color: var(--color-accent-300); font-size: 12px; margin: 0; }
-.table td .input { min-height: 30px; padding: 4px 8px; font-size: 12.5px; min-width: 90px; }
+.form-error { color: var(--color-accent-300); font-size: var(--text-small); margin: 0; }
+.table td .input { min-height: 30px; padding: 4px 8px; font-size: var(--text-control); min-width: 90px; }
 .table td select.input { width: 100%; }
-.code { font-family: var(--font-mono); font-size: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); overflow-x: auto; white-space: pre; }
-/* Panneau latéral des formulaires (Norma § 7 : un bouton l'ouvre, il se ferme au succès, Échap ou « Annuler »). */
-.drawer-backdrop { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, var(--color-bg) 60%, transparent); }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 41; width: min(520px, 100vw); display: flex; flex-direction: column; background: var(--color-surface); box-shadow: var(--shadow-lg); }
-.drawer.drawer-large { width: min(860px, 100vw); }
-.drawer-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--color-divider); }
-.drawer-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 500; word-break: break-word; }
-.drawer-body { flex: 1; overflow: auto; padding: 16px 18px 24px; display: flex; flex-direction: column; gap: 12px; }
+.code { font-family: var(--font-mono); font-size: var(--text-small); padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); overflow-x: auto; white-space: pre; }
+/* Panneau latéral des formulaires (Norma § 7, COQUE.md § 7 : .coque-panel 640 px, 680 px en large) : un bouton l'ouvre,
+   il se ferme au succès, Échap ou « Annuler ». */
+.drawer-head { display: flex; align-items: center; gap: 10px; }
+.drawer-title { flex: 1; min-width: 0; word-break: break-word; }
+.drawer-body { display: flex; flex-direction: column; gap: 12px; }
 .drawer-body .field { width: auto !important; }
-.toasts { position: fixed; right: max(20px, env(safe-area-inset-right, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); z-index: 50; display: flex; flex-direction: column; gap: 8px; }
-.toast { background: var(--color-surface); box-shadow: var(--shadow-md); border-radius: var(--radius-md); padding: 10px 14px; font-size: 13px; }
+.toasts { position: fixed; right: max(22px, env(safe-area-inset-right, 0px)); bottom: max(22px, env(safe-area-inset-bottom, 0px)); z-index: 70; max-width: 420px; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--color-surface); box-shadow: var(--shadow-md); border-radius: var(--radius-md); padding: 10px 14px; font-size: var(--text-ui); }
 
-@media (max-width: 1180px) {
-  .quick { width: 330px; }
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cols { grid-template-columns: minmax(0, 1fr); }
+/* Un seul point de rupture (COQUE.md § 1) : ≤ 1024 px, barre supérieure et tiroir (coque.css), page qui défile. */
+@media (min-width: 1025px) {
+  .coque-side-close.btn { display: none; }
+  .cols { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
 }
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   body { overflow: auto; }
-  .app { display: flex; flex-direction: column; height: auto; min-height: 100%; }
-  .side { flex-direction: row; align-items: center; gap: 4px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); border-right: 0; border-bottom: 1px solid var(--color-divider); overflow-x: auto; }
-  .brand { padding: 0 10px 0 0; }
-  .brand .sub { display: none; }
-  .nav-items { flex-direction: row; }
-  .nav-item { border-left: 0; padding: 6px 8px; }
-  .nav-item span.label { white-space: nowrap; }
-  .side-bottom { display: none; }
-  .header { flex-wrap: wrap; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
-  .header h5 { min-width: 0; }
-  .header .search { flex-basis: 100%; max-width: none; order: 3; }
+  .coque, .coque-main { height: auto; overflow: visible; }
   .app-main { flex: none; }
-  .screen { position: static; overflow: visible; }
-  .screen[hidden] { display: none !important; }
-  .pad { padding: 18px max(16px, env(safe-area-inset-right, 0px)) 28px max(16px, env(safe-area-inset-left, 0px)); }
+  .vue { position: static; gap: var(--shell-gap-compact); }
+  .screen { position: static; overflow: visible; flex: none; }
   .panes { position: static; flex-direction: column; }
   .tree, .quick { width: auto; border: 0; border-bottom: 1px solid var(--color-divider); }
   .tree-body { max-height: 220px; }
@@ -308,7 +265,6 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
   .list-head, .list-foot { padding-left: 16px; padding-right: 16px; }
   .list-body { max-height: 60vh; padding-inline: 8px; }
   .canvas-wrap { height: 70vh; flex: none; }
-  .kpis { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .app-row { grid-template-columns: 34px minmax(0, 1fr); }
   .app-stats { grid-column: 2; text-align: left; }
   .legend { display: none; }
@@ -316,43 +272,70 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
-<div class="app">
-  <nav class="side" aria-label="Main navigation" data-i18n-attrs="aria-label">
-    <div class="brand">
-      <div class="logo" data-icon="matrix" data-size="15"></div>
-      <div><div class="brand-name">Matrix</div><div class="sub text-muted" data-i18n>Data catalogue</div></div>
+<div class="coque">
+  <a class="coque-skip" href="#contenu" data-i18n>Skip to main content</a>
+  <aside class="coque-side" id="coque-side" aria-label="Main menu" data-i18n-attrs="aria-label">
+    <div class="coque-brand">
+      <span class="coque-logo" data-icon="matrix" data-size="15"></span>
+      <span class="coque-wordmark">Matrix</span>
+      <button type="button" class="btn btn-ghost btn-icon coque-side-close" id="menu-fermer" aria-label="Close menu" title="Close menu" data-i18n-attrs="aria-label title"><span data-icon="close" data-size="14"></span></button>
     </div>
-    <div class="nav-items" id="nav"></div>
-    <div class="side-bottom">
+    <div class="coque-pagesearch" role="search">
+      <span class="coque-pagesearch-icon" data-icon="search" data-size="14"></span>
+      <input class="input" id="page-q" type="search" placeholder="Go to a page…" aria-label="Go to a page…" autocomplete="off" data-i18n-attrs="placeholder aria-label">
+      <kbd class="coque-kbd">⌘K</kbd>
+    </div>
+    <nav class="coque-nav" id="nav" aria-label="Main navigation" data-i18n-attrs="aria-label"></nav>
+    <footer class="coque-side-foot">
       <div class="overline" data-i18n>Linked applications</div>
       <div id="linked"></div>
-      <div class="user">
-        <div class="avatar">SI</div>
-        <div style="min-width:0"><div class="ellipsis" data-i18n>IT department</div><div class="sub text-muted" data-i18n>Data administrator</div></div>
+      <div class="coque-user is-static">
+        <span class="coque-avatar">SI</span>
+        <span class="coque-who"><span class="coque-who-name" data-i18n>IT department</span><span class="coque-who-role" data-i18n>Data administrator</span></span>
+      </div>
+    </footer>
+  </aside>
+  <div class="coque-backdrop" id="menu-voile"></div>
+  <main class="coque-main" id="contenu" tabindex="-1">
+    <div class="coque-topbar">
+      <button type="button" class="btn btn-secondary btn-sm coque-menu-btn" id="menu-ouvrir" aria-expanded="false" aria-controls="coque-side"><span data-icon="list" data-size="16"></span><span data-i18n>Menu</span></button>
+      <span class="coque-topbar-brand"><span class="coque-topbar-logo" data-icon="matrix" data-size="15"></span>Matrix</span>
+      <div class="coque-topbar-tools">
+        <div class="coque-prefs">
+          <div class="coque-pref" role="group" aria-label="Language" data-i18n-attrs="aria-label">
+            <button type="button" class="coque-pref-opt" data-langue-choix="fr" aria-pressed="true" lang="fr" title="Français">FR</button>
+            <button type="button" class="coque-pref-opt" data-langue-choix="en" aria-pressed="false" lang="en" title="English">EN</button>
+          </div>
+          <div class="coque-pref" role="group" aria-label="Dark / light display" data-i18n-attrs="aria-label">
+            <button type="button" class="coque-pref-opt" data-theme-choix="dark" aria-pressed="true" title="Dark display" aria-label="Dark display" data-i18n-attrs="title aria-label"><span data-icon="moon" data-size="14"></span></button>
+            <button type="button" class="coque-pref-opt" data-theme-choix="light" aria-pressed="false" title="Light display" aria-label="Light display" data-i18n-attrs="title aria-label"><span data-icon="sun" data-size="14"></span></button>
+          </div>
+        </div>
       </div>
     </div>
-  </nav>
-  <div class="app-col">
-    <header class="header">
-      <h5 id="screen-title"></h5>
-      <form class="search" id="global-search" role="search">
-        <span data-icon="search" data-size="15"></span>
+    <!-- Outils communs de l'en-tête : placés dans l'en-tête .coque-header de l'écran affiché (show), dans l'ordre fixe de
+         COQUE.md § 3 — recherche du catalogue, date de collecte et personne connectée, puis la paire langue / affichage. -->
+    <div class="entete-outils" id="entete-outils">
+      <form class="coque-header-search" id="global-search" role="search">
+        <span class="coque-header-search-icon" data-icon="search" data-size="14"></span>
         <input class="input" id="global-q" type="search" placeholder="Search for a table, a column, a flow…" autocomplete="off" aria-label="Search the catalogue" data-i18n-attrs="placeholder aria-label">
       </form>
-      <div class="header-right">
-        <span class="tag tag-ghost" id="collect-tag" title="Date the schemas were last read" data-i18n-attrs="title"></span>
+      <div class="coque-header-tools">
+        <span class="coque-status-date" id="collect-tag" title="Date the schemas were last read" data-i18n-attrs="title"></span>
         <span class="sub" id="moi" hidden></span>
-        <div class="seg" id="langue" role="group" aria-label="Language" data-i18n-attrs="aria-label">
-          <button type="button" data-langue-choix="fr" aria-pressed="true" lang="fr">FR</button>
-          <button type="button" data-langue-choix="en" aria-pressed="false" lang="en">EN</button>
+      </div>
+      <div class="coque-prefs">
+        <div class="coque-pref" id="langue" role="group" aria-label="Language" data-i18n-attrs="aria-label">
+          <button type="button" class="coque-pref-opt" data-langue-choix="fr" aria-pressed="true" lang="fr" title="Français">FR</button>
+          <button type="button" class="coque-pref-opt" data-langue-choix="en" aria-pressed="false" lang="en" title="English">EN</button>
         </div>
-        <div class="seg seg-icons" id="affichage" role="group" aria-label="Dark / light display" data-i18n-attrs="aria-label">
-          <button type="button" data-theme-choix="dark" aria-pressed="true" title="Dark display" aria-label="Dark display" data-i18n-attrs="title aria-label"><span data-icon="moon" data-size="14"></span></button>
-          <button type="button" data-theme-choix="light" aria-pressed="false" title="Light display" aria-label="Light display" data-i18n-attrs="title aria-label"><span data-icon="sun" data-size="14"></span></button>
+        <div class="coque-pref" id="affichage" role="group" aria-label="Dark / light display" data-i18n-attrs="aria-label">
+          <button type="button" class="coque-pref-opt" data-theme-choix="dark" aria-pressed="true" title="Dark display" aria-label="Dark display" data-i18n-attrs="title aria-label"><span data-icon="moon" data-size="14"></span></button>
+          <button type="button" class="coque-pref-opt" data-theme-choix="light" aria-pressed="false" title="Light display" aria-label="Light display" data-i18n-attrs="title aria-label"><span data-icon="sun" data-size="14"></span></button>
         </div>
       </div>
-    </header>
-    <main class="app-main">
+    </div>
+    <div class="app-main">
       <section class="screen pad" id="s-accueil" data-title="Dashboard"></section>
       <section class="screen" id="s-bibliotheque" data-title="Database library" hidden></section>
       <section class="screen pad" id="s-glossaire" data-title="Business glossary" hidden></section>
@@ -369,8 +352,8 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
       <section class="screen pad" id="s-rex" data-title="Lessons learned" hidden></section>
       <section class="screen pad" id="s-correspondances" data-title="Identifier mappings" hidden></section>
       <section class="screen pad" id="s-administration" data-title="Administration" hidden></section>
-    </main>
-  </div>
+    </div>
+  </main>
 </div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div id="panneau-hote"></div>
@@ -542,29 +525,99 @@ const NAV = [
   ['correspondances', tr('Mappings'), 'key'],
   ['administration', tr('Administration'), 'shield'],
 ];
-$('nav').innerHTML = NAV.map(([id, label, ic]) => `<a class="nav-item" href="#${id}" data-screen="${id}">${icon(ic)}<span class="label">${label}</span>${id === 'doublons' ? '<span class="tag tag-accent" id="nav-doublons"></span>' : id === 'liens' ? '<span class="tag tag-accent" id="nav-liens" hidden></span>' : ''}</a>`).join('');
+let current = null;
+// Fil d'Ariane de chaque écran (COQUE.md § 3 : section › page ; le nom de l'outil est dans la marque, pas dans le fil).
+const GROUPE = { accueil: tr('Home'), bibliotheque: tr('Catalogue'), glossaire: tr('Catalogue'), donnees: tr('Catalogue'), graphe: tr('Catalogue'),
+  flux: tr('Exchanges'), doublons: tr('Exchanges'), referentiels: tr('Exchanges'), liens: tr('Exchanges'), publications: tr('Exchanges'), correspondances: tr('Exchanges'),
+  qualite: tr('Monitoring'), sante: tr('Monitoring'), journal: tr('Monitoring'), rex: tr('Monitoring'), administration: tr('Administration') };
+// Un en-tête .coque-header par écran : chaque <section class="screen"> est placée dans une vue (.vue) qui porte son en-tête
+// (fil, titre h1 26 px) ; les outils communs (recherche, date, langue / affichage) y sont placés à l'affichage (show).
+document.querySelectorAll('.app-main > section.screen').forEach(s => {
+  const id = s.id.slice(2);
+  const vue = document.createElement('div');
+  vue.className = 'vue'; vue.id = 'v-' + id; vue.hidden = s.hidden; s.hidden = false;
+  vue.innerHTML = `<header class="coque-header"><div class="coque-header-left"><div class="coque-crumb"><span>${esc(GROUPE[id] || '')}</span></div><div class="coque-title-row"><h1 class="coque-title">${esc(s.dataset.title)}</h1></div></div></header>`;
+  s.before(vue); vue.append(s);
+});
+const OUTILS_ENTETE = [...$('entete-outils').children];
+document.querySelector('.vue:not([hidden]) .coque-header').append(...OUTILS_ENTETE);
+$('entete-outils').remove();
+// Menu : entrées .coque-entry ; pendant la saisie dans « Aller à une page… » (⌘K), les pages trouvées remplacent le menu.
+const entreeNav = ([id, label, ic]) => `<a class="coque-entry" href="#${id}" data-screen="${id}"><span class="coque-entry-icon">${icon(ic)}</span><span class="coque-entry-label">${label}</span>${id === 'doublons' ? '<span class="coque-badge" id="nav-doublons"></span>' : id === 'liens' ? '<span class="coque-badge" id="nav-liens" hidden></span>' : ''}</a>`;
+const dessinerNav = () => { $('nav').innerHTML = NAV.map(entreeNav).join(''); marquerNav(); navBadge(); if (typeof navLiens === 'function' && SANTE_PRETE) navLiens(); };
+let SANTE_PRETE = false;
+const marquerNav = () => document.querySelectorAll('#nav .coque-entry').forEach(a => a.dataset.screen === current ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
 function navBadge() { const el = $('nav-doublons'); if (el) { const n = DOUBLONS.length - Decisions.count(); el.textContent = n; el.hidden = !n; el.title = tr('{n} group(s) to decide', { n }); } }
-navBadge();
+dessinerNav();
 $('linked').innerHTML = APP_IDS.map(a => `<div class="linked">${appMark(a)}<span>${APPS[a].nom}</span><span class="sub text-muted" style="margin-left:auto">:${APPS[a].port}</span></div>`).join('');
-$('collect-tag').textContent = tr('Schemas read on {date}', { date: new Date(CAT.generatedAt).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }) });
+$('collect-tag').innerHTML = icon('calendar', 14) + esc(tr('Schemas read on {date}', { date: new Date(CAT.generatedAt).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }) }));
 hydrateIcons(document);
 
 // ── Langue FR / EN (cookie matrix-lang, un an ; la page est rechargée dans la langue choisie) ──
+// Deux copies de la paire langue / affichage (COQUE.md § 4) : en-tête de l'écran (> 1024 px) et barre supérieure.
+document.querySelectorAll('[data-langue-choix]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.langueChoix === LANG)));
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-langue-choix]'); if (!b || b.dataset.langueChoix === LANG) return;
+  document.cookie = `matrix-lang=${b.dataset.langueChoix === 'en' ? 'en' : 'fr'}; path=/; max-age=31536000; samesite=lax`;
+  location.reload();
+});
+
+// ── Barre latérale en tiroir (≤ 1024 px, COQUE.md § 8) et recherche de pages ⌘K (§ 2) ──
+const Menu = (() => {
+  const side = $('coque-side'), voile = $('menu-voile'), bouton = $('menu-ouvrir'), contenu = $('contenu');
+  const etroit = matchMedia('(max-width: 1024px)');
+  const ouvert = () => side.classList.contains('is-open');
+  const ouvrir = (focus = $('menu-fermer')) => {
+    side.classList.add('is-open'); voile.classList.add('is-on'); bouton.setAttribute('aria-expanded', 'true'); contenu.inert = true;
+    setTimeout(() => focus.focus(), 0);
+  };
+  const fermer = (rendre = true) => {
+    if (!ouvert()) return;
+    side.classList.remove('is-open'); voile.classList.remove('is-on'); bouton.setAttribute('aria-expanded', 'false'); contenu.inert = false;
+    if (rendre) bouton.focus();
+  };
+  bouton.addEventListener('click', () => ouvrir());
+  $('menu-fermer').addEventListener('click', () => fermer());
+  voile.addEventListener('click', () => fermer());
+  side.addEventListener('click', e => { if (e.target.closest('a[href^="#"]')) fermer(false); });
+  etroit.addEventListener('change', () => { if (!etroit.matches) fermer(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ouvert() && !document.querySelector('.drawer')) fermer(); });
+  return { ouvrir, fermer, etroit };
+})();
 (() => {
-  const groupe = $('langue');
-  groupe.querySelectorAll('[data-langue-choix]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.langueChoix === LANG)));
-  groupe.addEventListener('click', e => {
-    const b = e.target.closest('[data-langue-choix]'); if (!b || b.dataset.langueChoix === LANG) return;
-    document.cookie = `matrix-lang=${b.dataset.langueChoix === 'en' ? 'en' : 'fr'}; path=/; max-age=31536000; samesite=lax`;
-    location.reload();
+  const q = $('page-q');
+  const plier = v => String(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const trouvees = () => {
+    const m = plier(q.value.trim());
+    return NAV.filter(([id, label]) => [label, $('s-' + id).dataset.title, GROUPE[id]].some(x => plier(x).includes(m)));
+  };
+  const dessiner = () => {
+    if (!q.value.trim()) return dessinerNav();
+    const hits = trouvees();
+    $('nav').innerHTML = hits.length ? hits.map(([id, label, ic]) => `<a class="coque-entry" href="#${id}" data-screen="${id}"><span class="coque-entry-icon">${icon(ic)}</span><span class="coque-entry-hit"><span class="coque-entry-label">${label}</span><span class="coque-entry-section">${esc(GROUPE[id])}</span></span></a>`).join('')
+      : `<div class="coque-nav-empty">${esc(tr('No page matches'))}</div>`;
+    marquerNav();
+  };
+  const vider = () => { if (q.value) { q.value = ''; dessiner(); } };
+  q.addEventListener('input', dessiner);
+  q.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const h = q.value.trim() && trouvees()[0]; if (h) { vider(); Menu.fermer(false); go(h[0]); } }
+    else if (e.key === 'Escape') { e.stopPropagation(); vider(); }
+  });
+  $('nav').addEventListener('click', e => { if (e.target.closest('a[data-screen]')) setTimeout(vider, 0); });
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (Menu.etroit.matches) Menu.ouvrir(q); else { q.focus(); q.select(); }
+    }
   });
 })();
 
 // ── Panneau latéral des formulaires (Norma § 7) ──
 // panneau(titre, corps) rend le panneau d'un formulaire : l'écran le dessine tant que son état d'édition est ouvert, et le
 // retire au succès ou à « Annuler ». La croix, le fond et Échap déclenchent le bouton « Annuler » du panneau ([data-annuler]).
-const panneau = (titre, corps, { large = false } = {}) => `<div class="drawer-backdrop" data-panneau-fermer></div>
-  <aside class="drawer${large ? ' drawer-large' : ''}" role="dialog" aria-modal="true" aria-labelledby="drawer-titre"><div class="drawer-head"><h6 class="drawer-title" id="drawer-titre">${titre}</h6>
+const panneau = (titre, corps, { large = false } = {}) => `<div class="drawer-backdrop coque-panel-scrim" data-panneau-fermer></div>
+  <aside class="drawer coque-panel${large ? ' is-wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="drawer-titre"><div class="drawer-head"><h2 class="drawer-title coque-panel-title" id="drawer-titre">${titre}</h2>
   <button type="button" class="btn btn-ghost btn-icon" data-panneau-fermer aria-label="${esc(tr('Close'))}" title="${esc(tr('Close'))}">${icon('close', 14)}</button></div>
   <div class="drawer-body">${corps}</div></aside>`;
 const fermerPanneau = () => { const a = document.querySelector('.drawer [data-annuler]'); if (a) a.click(); };
@@ -578,10 +631,9 @@ new MutationObserver(() => {
 
 // ── Affichage sombre / clair (Norma : cookie epc2i-theme, attribut data-theme de <html>, posé par le serveur) ──
 (() => {
-  const groupe = $('affichage');
-  const marquer = t => groupe.querySelectorAll('[data-theme-choix]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoix === t)));
+  const marquer = t => document.querySelectorAll('[data-theme-choix]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoix === t)));
   marquer(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
-  groupe.addEventListener('click', e => {
+  document.addEventListener('click', e => {
     const b = e.target.closest('[data-theme-choix]'); if (!b) return;
     const t = b.dataset.themeChoix === 'light' ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
@@ -592,13 +644,14 @@ new MutationObserver(() => {
 })();
 
 const rendered = {};
-let current = null;
 function show(screen) {
   if (!NAV.some(n => n[0] === screen)) screen = 'accueil';
   current = screen;
-  document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== 's-' + screen);
-  document.querySelectorAll('.nav-item').forEach(a => a.toggleAttribute('aria-current', a.dataset.screen === screen) || a.dataset.screen === screen && a.setAttribute('aria-current', 'page'));
-  $('screen-title').textContent = $('s-' + screen).dataset.title;
+  document.querySelectorAll('.vue').forEach(v => v.hidden = v.id !== 'v-' + screen);
+  marquerNav();
+  // Outils communs dans l'en-tête de l'écran affiché, ordre fixe ; la paire langue / affichage en dernier, à droite.
+  $('v-' + screen).querySelector('.coque-header').append(...OUTILS_ENTETE);
+  document.title = `${$('s-' + screen).dataset.title} · Matrix`;
   if (!rendered[screen]) { rendered[screen] = true; RENDER[screen](); }
   if (screen === 'graphe') Graph.ensure();
 }
@@ -788,7 +841,7 @@ RENDER.accueil = () => {
   const date = new Date(CAT.generatedAt).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   $('s-accueil').innerHTML = `<div class="wrap">
     <div class="top">
-      <div><h2 class="hello">${tr('Hello')}</h2><p class="text-muted">${tr('{date} · Here is the state of the EPC2i suite’s databases.', { date: date[0].toUpperCase() + date.slice(1) })}</p></div>
+      <div><p class="text-muted">${tr('{date} · Here is the state of the EPC2i suite’s databases.', { date: date[0].toUpperCase() + date.slice(1) })}</p></div>
       <div class="actions"><button class="btn btn-primary" data-go="bibliotheque">${icon('db', 14)} ${tr('Open the library')}</button><button class="btn btn-secondary" data-go="graphe">${icon('graph', 14)} ${tr('Link graph')}</button></div>
     </div>
     <div class="kpis">
@@ -2076,6 +2129,7 @@ RENDER.liens = () => {
   draw();
 };
 navLiens();
+SANTE_PRETE = true;
 
 // ── Publications (décision M-18, lot P3) : ce que chaque outil publie, défini et appliqué par Matrix ──
 const nomLecteur = l => l === 'bi_reader' ? 'Power BI' : (APPS[String(l).replace(/_app$/, '')]?.nom || 'Matrix');
@@ -2085,7 +2139,7 @@ RENDER.publications = () => {
   const root = $('s-publications');
   if (!SERVEUR || !SERVEUR_COMMUN) { root.innerHTML = `<div class="wrap">${SANS_SERVEUR_COMMUN('Le registre des publications (vues pub_ des outils, décision M-18)')}</div>`; return; }
   const st = { outil: '', etat: 'toutes', liste: null, nonReprises: [], gestion: false, erreur: null, sel: null, fiche: null, brouillon: null, depot: null };
-  const enHaut = () => { root.scrollIntoView({ block: 'start' }); document.querySelector('.app-main')?.scrollTo?.(0, 0); };
+  const enHaut = () => { root.scrollIntoView({ block: 'start' }); root.scrollTo?.(0, 0); };
   const charger = async () => {
     try { const j = await lireApi('/api/publications'); Object.assign(st, { liste: j.publications, nonReprises: j.nonReprises, gestion: j.gestion, erreur: null }); }
     catch (e) { st.erreur = e.message; }

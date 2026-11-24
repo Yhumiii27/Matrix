@@ -589,6 +589,13 @@ createServer(function traiter(req, res) {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/connexion' || url.pathname === '/deconnexion') return routeConnexion(req, res, url);
+    // Feuilles de la charte de Norma 2.0 (copie norma/charte : jetons et thèmes, cibles tactiles, coque commune), publiques
+    // comme la police : la page de connexion les demande. Jamais de CDN (REGLES § 7 et § 9).
+    const feuille = req.method === 'GET' && url.pathname.match(/^\/charte\/(nocturne|touch|coque)\.css$/);
+    if (feuille) {
+      res.writeHead(200, { ...ENTETES, 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=3600' });
+      return res.end(readFileSync(join(RACINE, 'norma/charte', feuille[1] + '.css')));
+    }
     // Police Inter de la charte (copie de Norma), publique comme la page de connexion qui la demande.
     const police = req.method === 'GET' && url.pathname.match(/^\/fonts\/(inter-[a-z-]+-wght\.woff2)$/);
     if (police) {

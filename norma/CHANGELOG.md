@@ -1,5 +1,11 @@
 # Norma — journal des versions
 
+## 1.0.3 — 24 novembre 2026
+
+- `dependances.json` : `cytoscape` (graphe des liens de Matrix) et `rolldown` (tests de rendu de Cursus) autorisées.
+- `registre/outils.json` : ports de Cursus nommés d'après leur usage (`dev` 3210 = API et serveur, `vite` 5173,
+  `app_mac` 3217) au lieu d'un `api: 3217` trompeur.
+
 ## 1.0.2 — 24 novembre 2026
 
 - `nocturne.css` : en thème clair, `figcaption`, `.text-muted` et `.card-meta` à 68 % du texte (3,7:1 → 5,2:1, seuil AA) ; relevé par

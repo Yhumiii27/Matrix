@@ -1,9 +1,9 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "fichiers": {
-    "CHANGELOG.md": "2ead309e79a36a2c10edd05a629c5db0aa94130b70ba7312ffd7cfabe8b2ec4e",
+    "CHANGELOG.md": "4d222d534645b46fdf5ecb4ad73cc0cb644457356d47e0f4eac430b4c752e741",
     "REGLES.md": "cdaf87cab44c27aadfdb09e601a146bdbd79667056f894146d9fbb3c8dc15fba",
-    "VERSION": "9fd28642d3aca191e5c7fc2383cfd6fabb2aac8743f029dabb8989ac584e31bc",
+    "VERSION": "f5e5c9534532840fcd45bb002e69ed85c61dba2753450e26b448b7df1481e24d",
     "charte/README.md": "67914eb24d64ce21afeadaefa693a94cff3bb25a5e35e911034b4501b72a9e9a",
     "charte/ds/Button.module.css": "2bede3c975ade7b81e3352aa058295f4e7074e7fd5d80bf7dc285930a8c14ea5",
     "charte/ds/Button.tsx": "b637891573e775f73c735da1a57d85f508052203b2819dcf8b66765b1fb2fa5e",
@@ -46,8 +46,8 @@
     "charte/nocturne-readme.md": "dcc4460813d2feb7cc696c1a6f881626137537c96dd57a504cca7de330fc7499",
     "charte/nocturne.css": "4ec0c3678189f77fd5924754768341f150699e1efbb30911686a7b62c692abf4",
     "charte/touch.css": "205962d259644169a32b31e8d4bac44b6a694a23640bc013ff924a0b4b265bf6",
-    "dependances.json": "c71c2d0ac13a2381e03459a71292421c334bb7db80c8277b39a9c794afec2113",
+    "dependances.json": "bd65db09545903174f5ac5579df181870aab400e2884697d6929aeee80216274",
     "outils/norma.mjs": "4f21556f21a8d63c09f94c587ed4e15bf133e7585b1e2d43a8d4d51fca750414",
-    "registre/outils.json": "80c1a8b5fed6bb6c98479559b3de49a40e872d741e6ad054511368f18e1035ea"
+    "registre/outils.json": "551a5994093980fe4ccd50a5c6c5eb7967b3acb6a05ed1436e908207bb4d652e"
   }
 }

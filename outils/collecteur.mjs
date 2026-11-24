@@ -513,8 +513,7 @@ export function collect({ root, dataDir, declDir, fallback = null, now = new Dat
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root = process.argv[2] ?? join(here, '..', '..');
-  const dataDir = process.env.MATRIX_DATA_DIR ?? join(here, '..', 'data');
-  const declDir = process.env.MATRIX_DECLARATIONS_DIR ?? join(here, '..', 'declarations');
+  const { dataDir, declarationsDir: declDir } = (await import('./config.mjs')).chargerConfiguration();
   const { catalogue, events } = collect({ root, dataDir, declDir });
   mkdirSync(dataDir, { recursive: true });
   writeFileSync(join(dataDir, 'catalogue.json'), JSON.stringify(catalogue, null, 1));

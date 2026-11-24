@@ -1,10 +1,10 @@
 {
-  "version": "1.0.3",
+  "version": "1.1.0",
   "fichiers": {
-    "CHANGELOG.md": "4d222d534645b46fdf5ecb4ad73cc0cb644457356d47e0f4eac430b4c752e741",
+    "CHANGELOG.md": "57aae75ef830810c35db4b19200d7ba8c8d5c9fe4ce47f0fdd098fb48672bfde",
     "REGLES.md": "cdaf87cab44c27aadfdb09e601a146bdbd79667056f894146d9fbb3c8dc15fba",
-    "VERSION": "f5e5c9534532840fcd45bb002e69ed85c61dba2753450e26b448b7df1481e24d",
-    "charte/README.md": "67914eb24d64ce21afeadaefa693a94cff3bb25a5e35e911034b4501b72a9e9a",
+    "VERSION": "1575e1af4a95f12f70b4ee6a6adce8160953d93ea17dc2611b90883ccc3ad3b8",
+    "charte/README.md": "51a7da87735315afbd2666c2f5153b044dd3196a3dde200d58f65ab3ad2db64f",
     "charte/ds/Button.module.css": "2bede3c975ade7b81e3352aa058295f4e7074e7fd5d80bf7dc285930a8c14ea5",
     "charte/ds/Button.tsx": "b637891573e775f73c735da1a57d85f508052203b2819dcf8b66765b1fb2fa5e",
     "charte/ds/Card.module.css": "6620cd391567361236783801a78a878dd3245507d87eab0b38137cd306f59b91",
@@ -27,7 +27,7 @@
     "charte/ds/Table.tsx": "a9b970c3ab91e8d7352ba34e94056d8c523b51616afbb1e628f13eca92e1b0af",
     "charte/ds/Tag.module.css": "b8ac9efc1204e2ad87f6663310b218344ba239beec1fa00214838090627095d4",
     "charte/ds/Tag.tsx": "cb1f83fbfc54501e75a64aa4823264d91b2b21e395c246f6c73eea0d60f1e071",
-    "charte/ds/ThemeToggle.tsx": "4c77648841655e1ce475545202787928db7f5817f86f268bc788c91be0270531",
+    "charte/ds/ThemeToggle.tsx": "1c2ff404b155eeb2a5f547c81bb8e64b6a73d9e288e209436a6021ca3f11739a",
     "charte/ds/Toast.module.css": "0ca1b6e254be27cb27482857a68359d688b041753ce2f86800f8cc3974bd144a",
     "charte/ds/Toast.tsx": "45e474e0af9c3f5d818767a66a4169126c7ae2c9e3a11192a355af7871e25b26",
     "charte/ds/cx.ts": "23a5d4baf1602f8214c3a82374c7261bee1991c9e8fe5cfb43ceecb026b99c9a",

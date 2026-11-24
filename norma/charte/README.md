@@ -52,7 +52,7 @@ langue FR / EN**, dans l'en-tête de chaque outil (propriétaire, 24 novembre 20
 - Le serveur lit le cookie et pose `data-theme` sur `<html>` au rendu (pas de flash) :
   `<html data-theme={themeOf(cookies().get(THEME_COOKIE)?.value)}>`.
 - Le bouton : `ds/ThemeToggle.tsx` (icônes lune / soleil, libellés « Dark display » / « Light display » à traduire
-  « Affichage sombre » / « Affichage clair », groupe « Display » → « Affichage »), posé à droite du sélecteur de langue.
+  « Affichage sombre » / « Affichage clair », groupe « Dark / light display » → « Affichage » (pas « Display », déjà pris par d’autres écrans dans Keystone), posé à droite du sélecteur de langue.
   Il change l'attribut et le cookie dans le navigateur, sans aller-retour au serveur.
 - **Contraste en clair** : la rampe neutre est inversée ; un texte en `--color-neutral-500` ou plus clair ne fait que
   3,9:1 sur blanc (sous 4,5:1) : pour du texte, prendre `--color-neutral-400` ou plus foncé (100 à 400 en clair), ou les

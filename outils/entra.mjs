@@ -24,8 +24,8 @@ const DUREE_DECOUVERTE_MS = 24 * 3600 * 1000;
 
 const local = u => ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
 
-/** Configuration Entra ID lue dans l'environnement : { active, erreurs, … }. */
-export function lireConfigEntra(env = process.env) {
+/** Configuration Entra ID lue dans l'environnement (fourni par outils/config.mjs) : { active, erreurs, … }. */
+export function lireConfigEntra(env) {
   const v = k => String(env[k] ?? '').trim();
   const tenant = v('MATRIX_ENTRA_TENANT_ID'), clientId = v('MATRIX_ENTRA_CLIENT_ID'), clientSecret = v('MATRIX_ENTRA_CLIENT_SECRET');
   const publicUrl = v('MATRIX_PUBLIC_URL').replace(/\/+$/, ''), secret = v('MATRIX_SESSION_SECRET');

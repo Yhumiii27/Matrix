@@ -1,5 +1,11 @@
 # Norma — journal des versions
 
+## 1.1.0 — 24 novembre 2026
+
+- `charte/ds/ThemeToggle.tsx` : nom du groupe `t('Dark / light display')` (traduit « Affichage ») au lieu de
+  `t('Display')`, déjà traduit « Vue » dans Keystone (une clé n'a qu'une traduction). Version mineure : un outil qui
+  utilise ce composant ajoute la nouvelle clé à son dictionnaire français.
+
 ## 1.0.3 — 24 novembre 2026
 
 - `dependances.json` : `cytoscape` (graphe des liens de Matrix) et `rolldown` (tests de rendu de Cursus) autorisées.

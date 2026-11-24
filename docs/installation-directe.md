@@ -5,7 +5,7 @@ directement par SSH. Chaque commande de ce guide a été jouée lors de la **ré
 PostgreSQL 16 neuf, les quatre outils sur leur branche `main`, l'annuaire réel importé, un vrai navigateur du premier mot de
 passe jusqu'à chaque outil). Les écarts trouvés et leurs corrections sont au § 12.
 
-Cursus, Vigie, Arche et Crucible suivent le même schéma ensuite (§ 13).
+Cursus, Vigie, Arche, Crucible et Modulus suivent le même schéma ensuite (§ 13).
 
 ## 0. Ce qu'il faut avant de commencer
 
@@ -42,7 +42,7 @@ Mots de passe des rôles, générés une fois :
 
 ```bash
 cd /etc/epc2i && {
-  for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
+  for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MODULUS MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
   echo "MATRIX_GESTION_PASSWORD=$(openssl rand -hex 24)"
   echo "BI_READER_PASSWORD=$(openssl rand -hex 24)"
   echo "EPC2I_SAUVEGARDE_PASSWORD=$(openssl rand -hex 24)"
@@ -327,3 +327,19 @@ Cursus, Vigie, Arche, Crucible : même suite (archive, `npm ci`, build, fichier 
 `14-reprise-publications.sql` avec `-v outils=…` étendu, inscription `oidc:client`, service systemd, bloc nginx), puis passage
 de l'outil de « prévu » à « ouvert » dans Clavis. Lecture des droits dans la base : `CURSUS_OIDC_EMETTEUR` +
 `CURSUS_ACCES_CLAVIS=on`, `ARCHE_ACCESS_FROM_CLAVIS=on`, `CRUCIBLE_ACCESS_FROM_CLAVIS=on` ; Vigie : à faire.
+
+**Modulus** (commercial et chiffrage, « validé » du propriétaire du 24/11/2026) : le socle crée déjà le rôle `modulus_app`
+et le schéma `modulus` (sans `MODULUS_APP_PASSWORD` dans `postgres.env`, le rôle existe sans pouvoir se connecter). Modulus
+n'a encore ni table, ni publication, ni lien. Le jour de son déploiement : `MODULUS_APP_PASSWORD` dans `postgres.env` (la
+boucle du § 2 le génère ; sur un serveur déjà installé, l'ajouter à la main), rejeu de `init/01` à `03`, puis
+`/etc/epc2i/modulus.env` sur le modèle de Clavis (§ 4), port **3800** (registre de Norma) :
+
+```bash
+cat > modulus.env <<EOF
+NODE_ENV=production
+PORT=3800
+DATABASE_URL=postgres://modulus_app:$MODULUS_APP_PASSWORD@$DB
+EOF
+```
+
+Les autres variables (connexion par Clavis, secret de session) suivent le `.env.example` de Modulus, quand il sera livré.

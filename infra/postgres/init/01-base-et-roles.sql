@@ -22,10 +22,13 @@
 --   clavis_app                                      connexion de Clavis (annuaire et accès aux outils), propriétaire du
 --                                                   schéma clavis ; sans CLAVIS_APP_PASSWORD, le rôle existe sans pouvoir
 --                                                   se connecter (serveur où Clavis n'est pas déployé)
+--   modulus_app                                     connexion de Modulus (commercial et chiffrage), propriétaire du
+--                                                   schéma modulus ; sans MODULUS_APP_PASSWORD, le rôle existe sans
+--                                                   pouvoir se connecter (serveur où Modulus n'est pas déployé)
 --   bi_reader                                       connexion de Power BI (demande M-14 d'Arche) : lecture seule, rien
 --                                                   d'autre que les vues pub_ que le registre des liens lui accorde ;
 --                                                   sans BI_READER_PASSWORD, le rôle existe sans pouvoir se connecter
---   matrix_lecture  (groupe)                        SELECT sur les 6 schémas des outils, colonnes sensibles exclues
+--   matrix_lecture  (groupe)                        SELECT sur les schémas des outils, colonnes sensibles exclues
 --   matrix_admin    (groupe)                        tous les droits ; attribué nominativement (droits.declarer_admin)
 --   epc2i_sauvegarde                                connexion des sauvegardes, membre de pg_read_all_data
 
@@ -52,6 +55,7 @@ END $$;
 \getenv mdp_epc2i_sauvegarde EPC2I_SAUVEGARDE_PASSWORD
 \getenv mdp_bi_reader BI_READER_PASSWORD
 \getenv mdp_clavis_app CLAVIS_APP_PASSWORD
+\getenv mdp_modulus_app MODULUS_APP_PASSWORD
 \if :{?mdp_keystone_app}
 \else
   \set mdp_keystone_app ''
@@ -134,7 +138,7 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'epc2i') \gexec
 -- Fuseau UTC et format ISO, comme PGlite : les dates et horodatages lus par les outils ne changent pas.
 ALTER DATABASE epc2i SET timezone TO 'UTC';
 ALTER DATABASE epc2i SET datestyle TO 'ISO, MDY';
-COMMENT ON DATABASE epc2i IS 'Serveur commun EPC2I : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, matrix). Voir infra/postgres/README.md dans Matrix.';
+COMMENT ON DATABASE epc2i IS 'Serveur commun EPC2I : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, matrix). Voir infra/postgres/README.md dans Matrix.';
 
 -- ── 3. Rôles ─────────────────────────────────────────────────────────────
 BEGIN;
@@ -142,7 +146,7 @@ BEGIN;
 SELECT format('CREATE ROLE %I', nom)
 FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app',
                   'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader',
-                  'clavis_app']) AS nom
+                  'clavis_app', 'modulus_app']) AS nom
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = nom) \gexec
 
 -- Rôles de groupe : pas de connexion directe.
@@ -175,13 +179,22 @@ SELECT CASE WHEN :'mdp_bi_reader' = '' THEN 'ALTER ROLE bi_reader WITH NOLOGIN N
 SELECT CASE WHEN :'mdp_clavis_app' = '' THEN 'ALTER ROLE clavis_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD NULL'
             ELSE format('ALTER ROLE clavis_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'mdp_clavis_app') END \gexec
 
+-- Modulus (commercial et chiffrage, « validé » du propriétaire du 24/11/2026) : de même, connexion seulement si
+-- MODULUS_APP_PASSWORD est fourni, pour que le socle se rejoue sans elle sur un serveur où Modulus n'est pas déployé.
+\if :{?mdp_modulus_app}
+\else
+  \set mdp_modulus_app ''
+\endif
+SELECT CASE WHEN :'mdp_modulus_app' = '' THEN 'ALTER ROLE modulus_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD NULL'
+            ELSE format('ALTER ROLE modulus_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'mdp_modulus_app') END \gexec
+
 -- Matrix lit les schémas des outils par le groupe matrix_lecture.
 GRANT matrix_lecture TO matrix_app;
 -- Sauvegardes : lecture de toutes les données, colonnes sensibles comprises (pg_dump).
 GRANT pg_read_all_data TO epc2i_sauvegarde;
 -- Administration : un membre de matrix_admin peut prendre le rôle d'un outil (SET ROLE) pour une opération de
 -- structure exceptionnelle, sans en hériter les droits au quotidien. Ses requêtes sont journalisées.
-GRANT keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, matrix_app, matrix_gestion TO matrix_admin WITH INHERIT FALSE, SET TRUE;
+GRANT keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, matrix_app, matrix_gestion TO matrix_admin WITH INHERIT FALSE, SET TRUE;
 
 COMMENT ON ROLE keystone_app IS 'Connexion de Keystone : propriétaire du schéma keystone ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE codex_app IS 'Connexion de Codex : propriétaire du schéma codex ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
@@ -190,10 +203,11 @@ COMMENT ON ROLE vigie_app IS 'Connexion de Vigie : propriétaire du schéma vigi
 COMMENT ON ROLE arche_app IS 'Connexion d''Arche (CAPEX des filiales) : propriétaire du schéma arche ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE crucible_app IS 'Connexion de Crucible (moyens d''essais R&D partagés) : propriétaire du schéma crucible ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE clavis_app IS 'Connexion de Clavis (annuaire et accès aux outils) : propriétaire du schéma clavis ; ailleurs, seulement SELECT sur les vues pub_ accordées. matrix_lecture ne lit ni les comptes ni les clients et codes de connexion (tables fermées, droits.colonnes_sensibles). Sans CLAVIS_APP_PASSWORD : NOLOGIN.';
+COMMENT ON ROLE modulus_app IS 'Connexion de Modulus (commercial et chiffrage : catalogue machines, BOM standard, prix, affaires, savoir-faire) : propriétaire du schéma modulus ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/). Sans MODULUS_APP_PASSWORD : NOLOGIN.';
 COMMENT ON ROLE matrix_app IS 'Connexion de Matrix : propriétaire du schéma matrix, lit les outils par matrix_lecture.';
 COMMENT ON ROLE matrix_gestion IS 'Connexion de Matrix pour l''administration (décision M-18) : propriétaire des vues pub_ des outils, USAGE et CREATE sur leurs schémas, SELECT sur leurs tables, GRANT et REVOKE des liens ; aucune écriture dans les tables, aucun attribut d''administration.';
 COMMENT ON ROLE bi_reader IS 'Connexion de Power BI (demande M-14 d''Arche) : transactions en lecture seule, SELECT sur les seules vues pub_ que le registre des liens de Matrix lui accorde (lecteur bi_reader), rien d''autre. Sans BI_READER_PASSWORD : NOLOGIN.';
-COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, clavis, sauf les colonnes de droits.colonnes_sensibles.';
+COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, sauf les colonnes de droits.colonnes_sensibles.';
 COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les sept schémas. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';
 COMMENT ON ROLE epc2i_sauvegarde IS 'Connexion des sauvegardes (pg_dump) : membre de pg_read_all_data.';
 
@@ -201,7 +215,7 @@ COMMENT ON ROLE epc2i_sauvegarde IS 'Connexion des sauvegardes (pg_dump) : membr
 -- Personne ne se connecte à epc2i sans droit explicite ; aucun rôle (hors superutilisateur) n'y crée de schéma.
 REVOKE ALL ON DATABASE epc2i FROM PUBLIC;
 GRANT CONNECT ON DATABASE epc2i
-  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, epc2i_sauvegarde, bi_reader;
+  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, epc2i_sauvegarde, bi_reader;
 
 COMMIT;
 

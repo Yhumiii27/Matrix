@@ -7,6 +7,8 @@ demandé, et tout changement sur le serveur commun (droits, rôles, vues, foncti
 (lecture et écriture dans le dépôt d'infrastructure), 3 (interdits) et 4 (boîte aux lettres `REQUESTS.md`) des consignes
 du 22/10/2026 restent en vigueur. S'applique à toute session Claude qui administre l'infrastructure.
 
+Confirmée par Guillaume Garrigue le 24/11/2026 (« Oui », décision M-22 de `docs/decisions.md`).
+
 ## 1. Ce que Claude fait seul, sans demander
 
 - **Lire** : les dépôts de la suite, la configuration Coolify, l'état du serveur commun (sonde de Matrix, contrôles en
@@ -67,3 +69,4 @@ reportée ici, avec sa date. En cas d'écart avec `norma/REGLES.md` § 10, les r
   « validé » préalable hors suppression et restauration).
 - 24/11/2026 : alignement sur REGLES § 10 (Norma 1.0) — fusion sur demande du propriétaire ; serveur commun, Coolify et
   `REQUESTS.md` des autres outils après « validé » ; interdits complétés (donnée personnelle, contournement d'un test).
+- 24/11/2026 : cette version confirmée par Guillaume Garrigue (« Oui », décision M-22).

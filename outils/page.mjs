@@ -63,7 +63,9 @@ export function construirePage({ forme = 'fragment', dataDir, serveurCommun = fa
   const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json).replace('/*RECHERCHE*/', () => recherche)
     .replace('/*ICONES*/', () => JSON.stringify(tracesIcones()))
     .replace('/*I18N*/', () => JSON.stringify(FR).replace(/</g, '\\u003c'));
-  if (forme === 'fragment') return source;
+  // Maquette publiée comme artefact (sans serveur) : les feuilles de la charte (/charte/…) sont recopiées dans la page.
+  if (forme === 'fragment') return source.replace(/<link rel="stylesheet" href="\/charte\/(nocturne|touch|coque)\.css">/g,
+    (m, f) => `<style>\n${readFileSync(join(RACINE, 'norma/charte', f + '.css'), 'utf8')}</style>`);
   const fin = source.indexOf('</style>') + '</style>'.length;
   const tete = source.slice(0, fin);
   const corps = source.slice(fin).replace(CDN_CYTOSCAPE, '/vendor/cytoscape.min.js');

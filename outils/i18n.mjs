@@ -54,6 +54,16 @@ export const FR = {
   'Dark display': 'Affichage sombre',
   'Light display': 'Affichage clair',
   'Close': 'Fermer',
+  // Coque commune de Norma 2.0 (COQUE.md) : recherche de pages, tiroir, lien d'évitement, sections du fil d'Ariane
+  'Main menu': 'Menu principal',
+  'Menu': 'Menu',
+  'Close menu': 'Fermer le menu',
+  'Go to a page…': 'Aller à une page…',
+  'No page matches': 'Aucune page ne correspond',
+  'Skip to main content': 'Aller au contenu',
+  'Catalogue': 'Catalogue',
+  'Exchanges': 'Échanges',
+  'Monitoring': 'Suivi',
   'Copied: {text}': 'Copié : {text}',
   '{n} group(s) to decide': '{n} groupe(s) à trancher',
   // Écrans (titres et menu)

@@ -277,7 +277,7 @@ export function validerLien({ vue, lecteur, statut, motif, nature }, vuesConnues
   vue = String(vue ?? '').trim(); lecteur = String(lecteur ?? '').trim(); statut = String(statut ?? '').trim();
   nature = String(nature ?? '').trim() || 'lecture';
   if (!['lecture', 'execution'].includes(nature)) throw new Error('nature : lecture (vue pub_) ou execution (fonction pub_)');
-  if (!/^(keystone|codex|cursus|vigie|arche|crucible|clavis|matrix)\.pub_[a-z0-9_]+$/.test(vue)) throw new Error(`${nature === 'execution' ? 'fonction' : 'vue'} invalide (« ${vue} ») : schéma.pub_nom attendu`);
+  if (!/^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|matrix)\.pub_[a-z0-9_]+$/.test(vue)) throw new Error(`${nature === 'execution' ? 'fonction' : 'vue'} invalide (« ${vue} ») : schéma.pub_nom attendu`);
   if (nature === 'execution' && vue.startsWith('matrix.')) throw new Error('Matrix ne publie pas de fonction d’écriture : ses référentiels s’écrivent dans Matrix');
   if (!LECTEURS.includes(lecteur)) throw new Error(`lecteur inconnu : ${lecteur}`);
   if (`${vue.split('.')[0]}_app` === lecteur) throw new Error('un outil lit et écrit ses propres données sans lien');

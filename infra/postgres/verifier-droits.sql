@@ -190,7 +190,14 @@ BEGIN
     (184, 'un autre outil lit une table de Clavis', 'keystone_app', 'SELECT 1 FROM clavis.zz_k', 'refusé'),
     (185, 'Matrix lit une table de Clavis', 'matrix_app', 'SELECT id FROM clavis.zz_k', 'autorisé'),
     (186, 'Clavis : table des comptes (créée si absente)', 'clavis_app', 'CREATE TABLE IF NOT EXISTS clavis.users (id uuid, password_hash text)', 'autorisé'),
-    (187, 'Matrix lit les comptes de Clavis', 'matrix_app', 'SELECT count(*) FROM clavis.users', 'refusé')
+    (187, 'Matrix lit les comptes de Clavis', 'matrix_app', 'SELECT count(*) FROM clavis.users', 'refusé'),
+    -- Modulus (24/11/2026) : de même.
+    (190, 'Modulus : créer une table dans son schéma', 'modulus_app', 'CREATE TABLE modulus.zz_m (id integer)', 'autorisé'),
+    (191, 'Modulus : créer une table dans le schéma d''un autre outil', 'modulus_app', 'CREATE TABLE arche.zz_m (id integer)', 'refusé'),
+    (192, 'Modulus : lire une table d''un autre outil', 'modulus_app', 'SELECT id FROM arche.zz_a', 'refusé'),
+    (193, 'Modulus : créer une table dans public', 'modulus_app', 'CREATE TABLE public.zz_m (id integer)', 'refusé'),
+    (194, 'un autre outil lit une table de Modulus', 'arche_app', 'SELECT 1 FROM modulus.zz_m', 'refusé'),
+    (195, 'Matrix lit une table de Modulus', 'matrix_app', 'SELECT id FROM modulus.zz_m', 'autorisé')
   ) AS t(n, cas, role, q, attendu) ORDER BY n LOOP
     INSERT INTO resultats VALUES (c.n, c.cas, c.role, c.attendu, pg_temp.essai(c.role, c.q));
   END LOOP;

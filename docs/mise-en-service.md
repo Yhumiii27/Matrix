@@ -26,6 +26,7 @@ Conventions de la fiche :
 |---|---|---|
 | 1.1 | Redéployer le service `postgres` dans Coolify, pour que l'image contienne les derniers `init/` et `partage/`. | Le conteneur redémarre sans erreur. |
 | 1.2 | Rejouer le socle (`infra/postgres/README.md`, « Rejouer le socle ») : `docker compose exec postgres sh -c 'for f in /docker-entrypoint-initdb.d/*.sql; do psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f "$f" \|\| exit 1; done'`. Il pose `droits.accorder_execution`, indispensable aux liens d'écriture (D13, D12, M-19). | `SELECT to_regprocedure('droits.accorder_execution(text,text)') IS NOT NULL;` renvoie `t`. |
+| 1.3 | Modulus (« validé » du 24/11/2026) : le rejeu de 1.2 crée le rôle `modulus_app` et le schéma `modulus`, sans table, publication ni lien. Sans `MODULUS_APP_PASSWORD` (facultatif, comme `CLAVIS_APP_PASSWORD`), le rôle existe en `NOLOGIN` ; le jour du déploiement de Modulus, ajouter la variable à la ressource `postgres` (cochée « Available at Build Time »), redéployer et rejouer 1.2, puis écrire `/etc/epc2i/modulus.env` (port 3800, `DATABASE_URL=postgres://modulus_app:…@hôte:5432/epc2i`, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'modulus';` renvoie `modulus \| modulus_app` ; `droits.verifier()` sans erreur. |
 
 ## 2. Migrations des outils
 

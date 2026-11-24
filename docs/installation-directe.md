@@ -245,6 +245,10 @@ Les droits des personnes se lisent dans `clavis.pub_acces` : tant que Matrix ne 
 refusée** (lecture impossible = refus). Dans Matrix, écran « Publications » :
 
 1. `clavis.pub_personnes` et `clavis.pub_acces` : « Appliquer » la définition proposée par le dépôt ;
+   `clavis.pub_acces` publie `personne_id`, `application`, `autorise`, `niveau`, `domaine`, `role` (rôle principal),
+   `ouvert`, `maj_le`, puis `roles` (`text[]`, tous les rôles en vigueur) et `perimetre` (`jsonb`, périmètre de chaque rôle),
+   ajoutées en fin le 24/11/2026 (DM-1 de Clavis) : elles lisent `clavis.person_roles`, la migration `0004_person_roles` de
+   Clavis doit donc être passée avant « Appliquer » ;
 2. puis, dans « Liens entre outils », autoriser les lecteurs proposés (`keystone_app`, `codex_app`, `matrix_app`, …).
 
 L'ordre compte : un lien vers une vue qui n'existe pas encore est refusé. `appliquer-liens.sh` pose les droits au passage

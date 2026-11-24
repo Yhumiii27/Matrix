@@ -443,3 +443,10 @@ Format d'une entrée :
   une erreur). Contrôles : `has_table_privilege('cursus_app', 'codex.pub_types_document', 'SELECT')` et
   `has_table_privilege('cursus_app', 'codex.pub_documents', 'SELECT')`.
 - Validé par Guillaume le : 2026-11-10
+
+## [2026-11-24] Clavis → Matrix — DM-1 · `clavis.pub_acces` : colonnes `roles` et `perimetre` en fin de vue (lot B)
+- Statut : FAITE (24/11/2026, côté dépôt : définition de `clavis.pub_acces` de `data/publications-depot.json` remplacée par la requête de référence `PUB_ACCES` de Clavis ; reste « Appliquer » dans l'écran Publications du serveur en service, après la migration `0004_person_roles` de Clavis)
+- Demande : ajouter en fin de vue `roles` (`text[]`, tous les rôles en vigueur de la personne sur l'outil, triés `COLLATE "C"`) et `perimetre` (`jsonb`, par rôle : domaine, sites, entités, échéance) ; les huit colonnes existantes sont inchangées.
+- Justification : plusieurs rôles par personne et par outil, avec périmètre et échéance (`docs/PROPOSITION-DROITS.md` de Clavis) ; `role` reste le rôle principal, aucun lecteur ne casse.
+- Détails techniques : requête de référence `src/server/publications/definitions.ts` de Clavis (testée par `definitions.test.ts`), demande `docs/DEMANDES-MATRIX.md` (DM-1) de Clavis ; lit en plus `clavis.person_roles` (aucune donnée personnelle). Lecteurs inchangés.
+- Validé par Guillaume le : 2026-11-24 (lancement du lot B de Clavis)

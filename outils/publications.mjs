@@ -1,3 +1,4 @@
+import { AUTRES_OUTILS } from './registre.mjs';
 // Publications des outils administrées par Matrix (décision M-18, lot P2 ; docs/architecture-postgres.md § 8 septies).
 //
 // Une publication est une vue pub_ d'un outil. Matrix la définit (registre matrix.publications, écrit par matrix_app) et
@@ -14,7 +15,7 @@
 // Un échec annule tout ; la publication passe alors à l'état « erreur » avec le message, la vue reste telle qu'elle était.
 // Une décision sur un lien (écran « Liens entre outils ») est appliquée de même, tout de suite (appliquerLien).
 
-export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis'];
+export const OUTILS = AUTRES_OUTILS;   // registre de Norma, sauf Matrix (ses propres vues pub_ sont à part)
 const NOM = /^[a-z_][a-z0-9_]*$/;
 const VUE = /^(keystone|codex|cursus|vigie|arche|crucible|clavis)\.pub_[a-z0-9_]+$/;
 const LECTEURS = ['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'matrix_app', 'bi_reader'];

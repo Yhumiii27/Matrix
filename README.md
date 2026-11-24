@@ -1,6 +1,6 @@
 # Matrix
 
-Outil du service informatique pour gérer les bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie, Arche, Crucible). Il propose :
+Outil du service informatique pour gérer les bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus ; liste tirée du registre de Norma, `norma/registre/outils.json`). Il propose :
 - une bibliothèque des tables ;
 - un graphe des liens entre tables et entre logiciels ;
 - la liste des doublons à trancher ;
@@ -17,7 +17,8 @@ Outil du service informatique pour gérer les bases de données de la suite EPC2
 | `docs/doublons-a-trancher.md` | Les 20 groupes de tables en double, avec les options et celle qui est proposée. |
 | `docs/declaration-des-tables.md` | Comment une table créée dans un outil arrive dans la bibliothèque de Matrix. |
 | `docs/architecture-postgres.md` § 8 quinquies | Sonde, état de santé et registre des liens (Matrix « dataverse »). |
-| `docs/delegation-claude.md` | Ce que Claude fait seul sur GitHub, Coolify et le serveur commun, ce qu'il fait après un « validé », ce qu'il ne fait jamais (délégation du 10/11/2026). |
+| `docs/delegation-claude.md` | Ce que Claude fait seul, ce qu'il fait après un « validé » (serveur commun, Coolify, demandes aux autres outils), ce qu'il ne fait jamais (alignée sur `norma/REGLES.md` § 10 le 24/11/2026). |
+| Reste à faire | Tenu dans Norma, pour toute la suite : `reste-a-faire/matrix.json` du dépôt Norma, page globale https://claude.ai/artifact/Rs7kooJdowShdYUqNS8jQf (REGLES § 3). Matrix ne tient plus de liste propre ; les écarts E-01 à E-15 de `docs/proposition.md` § 6 y sont repris. |
 | `docs/mise-en-service.md` | Fiche de mise en service sur le serveur commun : socle, migrations des outils, partage, Entra ID, déploiement, demandes à traiter dans l'écran Publications, contrôles SQL. |
 | `maquette/matrix.html` | Maquette navigable, à ouvrir dans un navigateur (données réelles des quatre dépôts). |
 
@@ -50,6 +51,9 @@ outils/edition.mjs                documentation, décisions, référentiels, jou
 outils/referentiels-pg.mjs        référentiels écrits dans le schéma matrix du serveur commun (pays, zones, filiales, sites, organigramme)
 outils/consultation.mjs           journal unifié, REX unifié et correspondances d'identifiants lus sur le serveur commun
 outils/page.mjs                   construit la page à partir de maquette/source.html et des données
+outils/i18n.mjs                   langue de l'interface : chaînes sources anglaises, dictionnaire français, cookie matrix-lang (FR par défaut)
+outils/icones.mjs                 icônes Phosphor de la page, tracés tirés de @phosphor-icons/web (aucun CDN)
+outils/registre.mjs               listes d'outils tirées du registre de Norma (norma/registre/outils.json)
 outils/construire-maquette.mjs    assemble maquette/matrix.html (version publiée comme artefact)
 outils/generer-liste-doublons.mjs génère docs/doublons-a-trancher.md
 maquette/source.html              source de la maquette

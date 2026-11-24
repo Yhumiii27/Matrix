@@ -84,7 +84,9 @@ import { roleDepuisEntra, roleDepuisAcces, personneDepuisJeton, debutConnexion, 
 import { traiterAlertes } from './outils/alertes.mjs';
 import { chargerConfiguration } from './outils/config.mjs';
 import { themeDeRequete, avecTheme } from './outils/theme.mjs';
+import { langueDeRequete, avecLangue } from './outils/i18n.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
+import { AUTRES_OUTILS } from './outils/registre.mjs';
 
 // Toutes les variables d'environnement sont lues et contrôlées par outils/config.mjs (Norma § 9) : une variable invalide
 // arrête Matrix ici, avant l'écoute, une ligne par erreur.
@@ -136,7 +138,8 @@ const PRODUCTION = CONFIG.production;
 const DB_URL = CONFIG.dbUrl;
 const GESTION_URL = CONFIG.gestionUrl;
 const SYNCHRO_MINUTES = CONFIG.synchroMinutes;
-const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+// Outils qui déclarent leurs tables ou dont Matrix documente les tables : registre de Norma, sauf Matrix.
+const APPS = AUTRES_OUTILS;
 const MAX_OCTETS = 10 * 1024 * 1024;
 const EMBARQUE = join(RACINE, 'data');
 
@@ -786,7 +789,8 @@ createServer(function traiter(req, res) {
     }
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       res.writeHead(200, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', vary: 'Cookie' });
-      return res.end(avecTheme(pageCourante(), themeDeRequete(req.headers.cookie)));
+      // Langue (cookie matrix-lang, français par défaut) et affichage (cookie epc2i-theme) posés sur <html>.
+      return res.end(avecLangue(avecTheme(pageCourante(), themeDeRequete(req.headers.cookie)), langueDeRequete(req.headers.cookie)));
     }
     if (req.method === 'GET' && url.pathname === '/vendor/cytoscape.min.js' && cytoscape) {
       res.writeHead(200, { ...ENTETES, 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'public, max-age=604800, immutable' });

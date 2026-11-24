@@ -47,12 +47,17 @@ test('affichage sombre / clair : data-theme d’après le cookie epc2i-theme, bo
   assert.match(sombre, /<html lang="fr" data-theme="dark">/);
   const clair = await (await fetch(libre + '/', { headers: { cookie: 'epc2i-theme=light' } })).text();
   assert.match(clair, /<html lang="fr" data-theme="light">/);
-  // Le bouton « Affichage » est dans l'en-tête, à droite (dernier élément de .header-right ; Matrix n'a pas de sélecteur
-  // de langue FR / EN : son interface n'existe qu'en français).
+  // Sélecteur FR / EN puis bouton d'affichage, à droite de l'en-tête (Norma § 7). Le HTML porte les chaînes sources
+  // anglaises (data-i18n-attrs) que la page traduit en français par défaut (outils/i18n.mjs).
   const droite = clair.slice(clair.indexOf('<div class="header-right">'), clair.indexOf('</header>'));
-  assert.match(droite, /<div class="seg seg-icons" id="affichage" role="group" aria-label="Affichage">[\s\S]*data-theme-choix="dark"[\s\S]*data-theme-choix="light"/);
-  assert.match(droite, /aria-label="Affichage sombre"/);
-  assert.match(droite, /aria-label="Affichage clair"/);
+  assert.match(droite, /id="langue"[\s\S]*data-langue-choix="fr"[\s\S]*data-langue-choix="en"[\s\S]*id="affichage"/);
+  assert.match(droite, /<div class="seg seg-icons" id="affichage" role="group" aria-label="Dark \/ light display"[^>]*>[\s\S]*data-theme-choix="dark"[\s\S]*data-theme-choix="light"/);
+  assert.match(droite, /aria-label="Dark display"/);
+  assert.match(droite, /aria-label="Light display"/);
+  // Langue d'après le cookie matrix-lang (français sans cookie).
+  const anglais = await (await fetch(libre + '/', { headers: { cookie: 'matrix-lang=en; epc2i-theme=light' } })).text();
+  assert.match(anglais, /<html lang="en" data-theme="light">/);
+  assert.match(clair, /"Dark display":"Affichage sombre"/);
   assert.doesNotMatch(clair, /fonts\.googleapis\.com/);
   const police = await fetch(libre + '/fonts/inter-latin-wght.woff2');
   assert.equal(police.status, 200);

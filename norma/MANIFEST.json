@@ -1,9 +1,9 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "fichiers": {
-    "CHANGELOG.md": "57aae75ef830810c35db4b19200d7ba8c8d5c9fe4ce47f0fdd098fb48672bfde",
-    "REGLES.md": "cdaf87cab44c27aadfdb09e601a146bdbd79667056f894146d9fbb3c8dc15fba",
-    "VERSION": "1575e1af4a95f12f70b4ee6a6adce8160953d93ea17dc2611b90883ccc3ad3b8",
+    "CHANGELOG.md": "0a264a6ba38bdbb934f2a23e752e193f80bc2411a241ac91c6f5de2ebea89074",
+    "REGLES.md": "094d42748432ca9e08cba9e5f88f021df1a8c15f29a962fc6f11768d43cde2b0",
+    "VERSION": "1e5b51cde515396a9fa762909cf8ca6584ccc564b325d2eebeea76175fe95c4d",
     "charte/README.md": "51a7da87735315afbd2666c2f5153b044dd3196a3dde200d58f65ab3ad2db64f",
     "charte/ds/Button.module.css": "2bede3c975ade7b81e3352aa058295f4e7074e7fd5d80bf7dc285930a8c14ea5",
     "charte/ds/Button.tsx": "b637891573e775f73c735da1a57d85f508052203b2819dcf8b66765b1fb2fa5e",
@@ -47,7 +47,10 @@
     "charte/nocturne.css": "4ec0c3678189f77fd5924754768341f150699e1efbb30911686a7b62c692abf4",
     "charte/touch.css": "205962d259644169a32b31e8d4bac44b6a694a23640bc013ff924a0b4b265bf6",
     "dependances.json": "bd65db09545903174f5ac5579df181870aab400e2884697d6929aeee80216274",
-    "outils/norma.mjs": "4f21556f21a8d63c09f94c587ed4e15bf133e7585b1e2d43a8d4d51fca750414",
+    "outils/norma.mjs": "2e05e4f9e873b7da8b1574730cb9c1dd16f05c7a57a712018aa3afc10941cd45",
+    "outils/pages/nocturne-page.css": "14d0d4389846fb42cd5900794a07b8373cd02d45a590e8a57b7e6e41c5c21e2e",
+    "outils/questionnaire/build.mjs": "26628495fedb5c4f79dad0f46910adf9d1f6c0d9ccdde7c5ff6d5a247150403d",
+    "outils/questionnaire/page.template.html": "cfb571791484868e7ebf36e8ce13be8acfe74976c87f3954ae43280cec099b04",
     "registre/outils.json": "551a5994093980fe4ccd50a5c6c5eb7967b3acb6a05ed1436e908207bb4d652e"
   }
 }

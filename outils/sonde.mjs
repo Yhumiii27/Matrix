@@ -17,12 +17,14 @@ import { createHash } from 'node:crypto';
 import { analyserVue, confirmer } from './lignage.mjs';
 import pg from 'pg';
 import { controlerQualite } from './qualite.mjs';
+import { AUTRES_OUTILS, TOUS_LES_OUTILS } from './registre.mjs';
 
-export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
+// Outils dont les tables sont sondées : registre de Norma, sauf Matrix et Clavis (ci-dessous).
+export const OUTILS = AUTRES_OUTILS.filter(o => o !== 'clavis');
 // Clavis (24/11/2026) : ses vues pub_ se lisent par lien ; ses tables ne sont pas sondées comme celles des outils.
-export const SCHEMAS_LIENS = [...OUTILS, 'clavis', 'matrix'];
+export const SCHEMAS_LIENS = TOUS_LES_OUTILS;
 // bi_reader : Power BI, lecteur des seules vues pub_ que le registre lui accorde (demande M-14 d'Arche).
-export const LECTEURS = OUTILS.map(o => `${o}_app`).concat('clavis_app', 'matrix_app', 'bi_reader');
+export const LECTEURS = TOUS_LES_OUTILS.map(o => `${o}_app`).concat('bi_reader');
 const JOURNAUX_MIGRATIONS = ['__drizzle_migrations', 'schema_migrations'];
 
 const Q_TABLES = `

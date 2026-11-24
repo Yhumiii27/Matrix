@@ -10,6 +10,8 @@ import { chargerEdition } from './edition.mjs';
 import { fluxObserves } from './lignage.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tracesIcones } from './icones.mjs';
+import { FR } from './i18n.mjs';
 
 export const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CDN_CYTOSCAPE = 'https://cdn.jsdelivr.net/npm/cytoscape@3.33.1/dist/cytoscape.min.js';
@@ -58,7 +60,9 @@ export function construirePage({ forme = 'fragment', dataDir, serveurCommun = fa
   const json = JSON.stringify(donnees({ dataDir, serveur: forme === 'document', serveurCommun })).replace(/</g, '\\u003c');
   // Recherche plein texte (E-13) : outils/recherche.mjs recopié tel quel dans la page, sans ses « export ».
   const recherche = readFileSync(join(RACINE, 'outils/recherche.mjs'), 'utf8').replace(/^export /gm, '');
-  const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json).replace('/*RECHERCHE*/', () => recherche);
+  const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json).replace('/*RECHERCHE*/', () => recherche)
+    .replace('/*ICONES*/', () => JSON.stringify(tracesIcones()))
+    .replace('/*I18N*/', () => JSON.stringify(FR).replace(/</g, '\\u003c'));
   if (forme === 'fragment') return source;
   const fin = source.indexOf('</style>') + '</style>'.length;
   const tete = source.slice(0, fin);

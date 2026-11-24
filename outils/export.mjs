@@ -1,10 +1,11 @@
+import { AUTRES_OUTILS, NOMS_OUTILS } from './registre.mjs';
 // Exports du catalogue et API de lecture (écart E-12, docs/proposition.md § 6). Fonctions pures : elles prennent le
 // catalogue (data/catalogue.json), l'édition (documentation saisie) et l'état de santé (lignage des vues pub_), et
 // rendent du texte. serveur.mjs les sert sous /api/export/… et /api/catalogue/… ; aucune donnée des tables n'est lue,
 // seulement leur structure.
 
-const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
-const NOMS = { keystone: 'Keystone', codex: 'Codex', cursus: 'Cursus', vigie: 'Vigie', arche: 'Arche', crucible: 'Crucible' };
+const OUTILS = AUTRES_OUTILS;   // registre de Norma, sauf Matrix
+const NOMS = NOMS_OUTILS;
 
 // Fiches à plat : une par table, documentation de Matrix appliquée, sensibles et vues qui la publient.
 export function fiches(catalogue, { edition = null, sante = null, outil = null } = {}) {

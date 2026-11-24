@@ -11,6 +11,10 @@ test('validerLien : formes, lecteur, refus motivé, vue inexistante', () => {
   assert.throws(() => validerLien({ vue: 'keystone.pub_projets', lecteur: 'postgres', statut: 'autorise' }), /lecteur inconnu/);
   assert.throws(() => validerLien({ vue: 'keystone.pub_projets', lecteur: 'keystone_app', statut: 'autorise' }), /ses propres données/);
   assert.throws(() => validerLien({ vue: 'keystone.pub_projets', lecteur: 'codex_app', statut: 'refuse', motif: '  ' }), /motivé/);
+  // Clavis (24/11/2026) : ses vues se lisent par lien, et il lit par lien lui aussi.
+  assert.equal(validerLien({ vue: 'clavis.pub_acces', lecteur: 'keystone_app', statut: 'autorise' }).vue, 'clavis.pub_acces');
+  assert.equal(validerLien({ vue: 'keystone.pub_projets', lecteur: 'clavis_app', statut: 'demande' }).lecteur, 'clavis_app');
+  assert.throws(() => validerLien({ vue: 'clavis.pub_acces', lecteur: 'clavis_app', statut: 'autorise' }), /ses propres données/);
   const connues = new Set(['keystone.pub_projets']);
   assert.throws(() => validerLien({ vue: 'keystone.pub_futur', lecteur: 'codex_app', statut: 'autorise' }, connues), /seule une demande/);
   assert.equal(validerLien({ vue: 'keystone.pub_futur', lecteur: 'codex_app', statut: 'demande' }, connues).statut, 'demande');

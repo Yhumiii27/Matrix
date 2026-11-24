@@ -1,0 +1,325 @@
+# Installation directe sur le serveur interne (sans Docker ni Coolify)
+
+Guide de mise en service du **StarterPack** (Matrix, Clavis, Keystone, Codex) sur un serveur Linux de l'entreprise, installé
+directement par SSH. Chaque commande de ce guide a été jouée lors de la **répétition du 24 novembre 2026** (un cluster
+PostgreSQL 16 neuf, les quatre outils sur leur branche `main`, l'annuaire réel importé, un vrai navigateur du premier mot de
+passe jusqu'à chaque outil). Les écarts trouvés et leurs corrections sont au § 12.
+
+Cursus, Vigie, Arche et Crucible suivent le même schéma ensuite (§ 13).
+
+## 0. Ce qu'il faut avant de commencer
+
+| Élément | Valeur attendue |
+| --- | --- |
+| Système | Debian 12 ou Ubuntu 22.04/24.04, accès root par SSH |
+| Node.js | 22 LTS (22.12 ou plus) — `node -v` |
+| PostgreSQL | 16 (le serveur commun, décision D-27) avec `psql` |
+| Mandataire HTTPS | nginx (ou celui de la DSI) avec un certificat pour chaque nom d'hôte |
+| Noms d'hôte | un par outil dans le DNS interne, par exemple `clavis.epc2i.local`, `keystone.…`, `codex.…`, `matrix.…` |
+| Sources | les dépôts Matrix, Clavis, Keystone, Codex (archive de `main`, ou `git clone` avec un jeton de lecture) |
+| Annuaire | le fichier CSV de l'organigramme (il nomme des personnes réelles : jamais dans Git, copié par `scp`) |
+| Messagerie | **à choisir avec la DSI** avant d'envoyer des mots de passe provisoires : Graph `Mail.Send` ou SMTP |
+
+Ports internes (jamais exposés, le mandataire seul les joint) : Clavis 3600, Keystone 3000, Codex 3100, Matrix 3700.
+
+## 1. Comptes et dossiers
+
+```bash
+adduser --system --group --home /opt/epc2i epc2i
+mkdir -p /opt/epc2i /etc/epc2i /var/lib/epc2i/{clavis,keystone,codex,matrix} /var/backups/epc2i/{clavis,postgres}
+chmod 700 /etc/epc2i
+chown -R epc2i:epc2i /opt/epc2i /var/lib/epc2i /var/backups/epc2i
+```
+
+- `/opt/epc2i/<outil>` : le code de chaque outil ;
+- `/etc/epc2i/<outil>.env` : sa configuration et ses secrets (mode 600, propriétaire root, lus par systemd) ;
+- `/var/lib/epc2i/<outil>` : ses données (Clavis y garde **sa clé de signature OIDC**, `oidc/` : à sauvegarder) ;
+- `/var/backups/epc2i` : les sauvegardes.
+
+## 2. PostgreSQL : mots de passe et socle
+
+Mots de passe des rôles, générés une fois :
+
+```bash
+cd /etc/epc2i && {
+  for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
+  echo "MATRIX_GESTION_PASSWORD=$(openssl rand -hex 24)"
+  echo "BI_READER_PASSWORD=$(openssl rand -hex 24)"
+  echo "EPC2I_SAUVEGARDE_PASSWORD=$(openssl rand -hex 24)"
+} > postgres.env && chmod 600 postgres.env
+```
+
+Socle, en superutilisateur (`init/` crée la base `epc2i`, les rôles et les schémas, puis les droits par défaut) :
+
+```bash
+cd /opt/epc2i/matrix/infra/postgres
+set -a; . /etc/epc2i/postgres.env; set +a
+for f in init/01-base-et-roles.sql init/02-schemas.sql init/03-droits.sql; do
+  sudo -u postgres --preserve-env psql -X -q -d postgres -v ON_ERROR_STOP=1 -f "$f" || break
+done
+```
+
+Puis les tables de Matrix, en `matrix_app`, chaque fichier dans une transaction :
+
+```bash
+export PGHOST=127.0.0.1 PGPASSWORD=$MATRIX_APP_PASSWORD
+for f in 10-matrix-referentiels 12-matrix-liens 13-matrix-publications 15-matrix-edition 16-matrix-historique 17-matrix-glossaire-qualite; do
+  psql -X -q -U matrix_app -d epc2i -v ON_ERROR_STOP=1 -1 -f partage/$f.sql || break
+done
+```
+
+`pg_hba.conf` : `scram-sha-256` pour `127.0.0.1/32` sur la base `epc2i` ; aucun accès depuis le réseau tant qu'aucun poste
+(Power BI : `bi_reader`) n'en a besoin.
+
+## 3. Code et compilation
+
+Une archive de `main` par outil (sans historique ni fichier hors Git) :
+
+```bash
+cd /opt/epc2i
+for r in Matrix:matrix Clavis:clavis Keystone:keystone Codex:codex; do
+  (cd ~/sources/${r%%:*} && git fetch -q origin main && git archive --prefix=${r##*:}/ FETCH_HEAD) | tar -x -C /opt/epc2i
+done
+chown -R epc2i:epc2i /opt/epc2i
+```
+
+Installation et compilation, **avec les adresses publiques** : Next.js inscrit les variables `NEXT_PUBLIC_*` dans le code au
+moment du `build` ; une adresse changée ensuite demande une nouvelle compilation.
+
+```bash
+export NEXT_TELEMETRY_DISABLED=1 \
+  NEXT_PUBLIC_KEYSTONE_URL=https://keystone.epc2i.local NEXT_PUBLIC_CODEX_URL=https://codex.epc2i.local \
+  NEXT_PUBLIC_VIGIE_URL=https://vigie.epc2i.local NEXT_PUBLIC_CURSUS_URL=https://cursus.epc2i.local
+for o in clavis keystone codex; do (cd /opt/epc2i/$o && sudo -u epc2i -E npm ci --no-audit --no-fund && sudo -u epc2i -E npm run build) || break; done
+(cd /opt/epc2i/matrix && sudo -u epc2i npm ci --no-audit --no-fund)   # Matrix n'a pas d'étape de compilation
+```
+
+Comptez 3 à 6 minutes par outil. Next.js doit être en **16.4.6** au moins : la 16.4.2 refuse de compiler
+(`SecurityFatalError`, faille connue).
+
+## 4. Configuration de chaque outil
+
+Gabarits (remplacer `epc2i.local` par le domaine réel ; `r` génère un secret de session) :
+
+```bash
+set -a; . /etc/epc2i/postgres.env; set +a; cd /etc/epc2i
+DB=127.0.0.1:5432/epc2i; r(){ openssl rand -base64 48 | tr -d '\n/+=' | cut -c1-48; }
+cat > clavis.env <<EOF
+NODE_ENV=production
+PORT=3600
+DATABASE_URL=postgres://clavis_app:$CLAVIS_APP_PASSWORD@$DB
+CLAVIS_SEED=production
+CLAVIS_AUTH=local
+CLAVIS_PUBLIC_URL=https://clavis.epc2i.local
+CLAVIS_SESSION_SECRET=$(r)
+CLAVIS_DATA_DIR=/var/lib/epc2i/clavis
+CLAVIS_BACKUP_DIR=/var/backups/epc2i/clavis
+EOF
+cat > keystone.env <<EOF
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=postgres://keystone_app:$KEYSTONE_APP_PASSWORD@$DB
+KEYSTONE_SEED=production
+KEYSTONE_DATA_DIR=/var/lib/epc2i/keystone
+KEYSTONE_PUBLIC_URL=https://keystone.epc2i.local
+KEYSTONE_AUTH=entra
+KEYSTONE_SESSION_SECRET=$(r)
+ENTRA_ISSUER=https://clavis.epc2i.local
+ENTRA_CLIENT_ID=keystone
+ENTRA_CLIENT_SECRET=a-remplir
+ENTRA_REDIRECT_URI=https://keystone.epc2i.local/api/auth/callback
+KEYSTONE_PERSONS_FROM_TOKEN=on
+KEYSTONE_ACCESS_FROM_CLAVIS=on
+EOF
+cat > codex.env <<EOF
+NODE_ENV=production
+DATABASE_URL=postgres://codex_app:$CODEX_APP_PASSWORD@$DB
+CODEX_SEED=minimal
+CODEX_DATA_DIR=/var/lib/epc2i/codex
+CODEX_AUTH=clavis
+CODEX_PUBLIC_URL=https://codex.epc2i.local
+CODEX_CLAVIS_URL=https://clavis.epc2i.local
+CODEX_CLAVIS_CLIENT_ID=codex
+CODEX_CLAVIS_CLIENT_SECRET=a-remplir
+CODEX_SESSION_SECRET=$(r)
+CODEX_TRUST_PROXY=1
+EOF
+cat > matrix.env <<EOF
+NODE_ENV=production
+PORT=3700
+MATRIX_DATA_DIR=/var/lib/epc2i/matrix
+MATRIX_DATABASE_URL=postgres://matrix_app:$MATRIX_APP_PASSWORD@$DB
+MATRIX_GESTION_DATABASE_URL=postgres://matrix_gestion:$MATRIX_GESTION_PASSWORD@$DB
+MATRIX_PUBLIC_URL=https://matrix.epc2i.local
+MATRIX_SESSION_SECRET=$(r)
+MATRIX_ENTRA_TENANT_ID=clavis
+MATRIX_ENTRA_ISSUER=https://clavis.epc2i.local
+MATRIX_ENTRA_CLIENT_ID=matrix
+MATRIX_ENTRA_CLIENT_SECRET=a-remplir
+MATRIX_ACCES_CLAVIS=on
+EOF
+chmod 600 *.env
+```
+
+- `KEYSTONE_FILE_SCAN=off` seulement si l'antivirus (ClamAV) n'est pas encore installé ; sinon le laisser par défaut.
+- Codex écoute sur 3100 par son script `start` (pas de `PORT`).
+- Les `a-remplir` sont posés au § 7.
+
+## 5. Migrations des outils
+
+Dans cet ordre, Clavis d'abord (les autres lisent ses vues) :
+
+```bash
+for o in clavis keystone codex; do
+  (cd /opt/epc2i/$o && set -a && . /etc/epc2i/$o.env && set +a && sudo -u epc2i -E npm run -s db:migrate) || break
+done
+```
+
+Puis, en superutilisateur, la reprise des publications des outils installés par Matrix (M-18) et l'application du registre
+des liens :
+
+```bash
+cd /opt/epc2i/matrix/infra/postgres && set -a && . /etc/epc2i/postgres.env && set +a
+sudo -u postgres --preserve-env psql -X -q -d epc2i -v ON_ERROR_STOP=1 -v outils=keystone,codex -1 -f partage/14-reprise-publications.sql
+sudo -u postgres EPC2I_LIENS_ETAT=/var/lib/epc2i/matrix/liens.etat sh partage/appliquer-liens.sh
+```
+
+`appliquer-liens.sh` ne fait rien quand les droits sont à jour : il tourne ensuite **toutes les 5 minutes** (§ 9), ce qui
+applique les liens que la DSI autorise dans l'écran de Matrix.
+
+## 6. Services systemd
+
+Un service par outil (`/etc/systemd/system/epc2i-<outil>.service`) ; exemple pour Keystone :
+
+```ini
+[Unit]
+Description=EPC2I Keystone
+After=network.target postgresql.service
+
+[Service]
+User=epc2i
+WorkingDirectory=/opt/epc2i/keystone
+EnvironmentFile=/etc/epc2i/keystone.env
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Pour Matrix : `WorkingDirectory=/opt/epc2i/matrix`, `ExecStart=/usr/bin/node serveur.mjs`. Keystone et Clavis ont en plus
+leur tâche de fond : `epc2i-keystone-worker` et `epc2i-clavis-worker`, même fichier avec `ExecStart=/usr/bin/npm run worker`.
+
+```bash
+systemctl daemon-reload
+systemctl enable --now epc2i-clavis epc2i-matrix epc2i-keystone epc2i-codex epc2i-keystone-worker epc2i-clavis-worker
+for u in 3600/api/health 3000/api/health 3100/api/health 3700/api/sante; do echo "$u → $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$u)"; done
+```
+
+Quatre `200` attendus.
+
+## 7. Clavis : administrateur, annuaire, inscription des outils
+
+```bash
+cd /opt/epc2i/clavis && set -a && . /etc/epc2i/clavis.env && set +a
+sudo -u epc2i -E npm run -s admin:create -- <e-mail de l'administrateur DSI> "<Nom>"     # mot de passe provisoire affiché une fois
+sudo -u epc2i -E npm run -s directory:import -- /root/annuaire-initial.csv --domaine epc-groupe.com
+```
+
+Inscription des trois outils (le secret s'affiche **une seule fois** : le copier aussitôt dans le fichier de l'outil) :
+
+```bash
+sudo -u epc2i -E npm run -s oidc:client -- keystone https://keystone.epc2i.local/api/auth/callback "https://keystone.epc2i.local/sign-in?signedOut=1"
+sudo -u epc2i -E npm run -s oidc:client -- codex https://codex.epc2i.local/auth/retour https://codex.epc2i.local/
+sudo -u epc2i -E npm run -s oidc:client -- matrix https://matrix.epc2i.local/auth/retour
+```
+
+Secrets à poser : `ENTRA_CLIENT_SECRET` (keystone.env), `CODEX_CLAVIS_CLIENT_SECRET` (codex.env), `MATRIX_ENTRA_CLIENT_SECRET`
+(matrix.env), puis `systemctl restart epc2i-keystone epc2i-codex epc2i-matrix`. Ensuite, supprimer le fichier de
+l'annuaire du serveur (`shred -u`).
+
+## 8. Matrix : publier les vues de Clavis et autoriser leur lecture
+
+Les droits des personnes se lisent dans `clavis.pub_acces` : tant que Matrix ne l'a pas publiée, **chaque connexion est
+refusée** (lecture impossible = refus). Dans Matrix, écran « Publications » :
+
+1. `clavis.pub_personnes` et `clavis.pub_acces` : « Appliquer » la définition proposée par le dépôt ;
+2. puis, dans « Liens entre outils », autoriser les lecteurs proposés (`keystone_app`, `codex_app`, `matrix_app`, …).
+
+L'ordre compte : un lien vers une vue qui n'existe pas encore est refusé. `appliquer-liens.sh` pose les droits au passage
+suivant (ou le lancer à la main, § 5).
+
+## 9. Mandataire HTTPS, tâches planifiées, sauvegardes
+
+nginx, un bloc par outil :
+
+```nginx
+server {
+  listen 443 ssl http2;
+  server_name keystone.epc2i.local;
+  ssl_certificate     /etc/ssl/epc2i/keystone.crt;
+  ssl_certificate_key /etc/ssl/epc2i/keystone.key;
+  client_max_body_size 60m;
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+```
+
+`crontab -e` (root) :
+
+```cron
+*/5 * * * *  sudo -u postgres EPC2I_LIENS_ETAT=/var/lib/epc2i/matrix/liens.etat sh /opt/epc2i/matrix/infra/postgres/partage/appliquer-liens.sh >> /var/log/epc2i-liens.log 2>&1
+30 2 * * *   . /etc/epc2i/postgres.env; PGHOST=127.0.0.1 PGPASSWORD=$EPC2I_SAUVEGARDE_PASSWORD EPC2I_SAUVEGARDE_DIR=/var/backups/epc2i/postgres sh /opt/epc2i/matrix/infra/postgres/sauvegarde/sauvegarder.sh >> /var/log/epc2i-sauvegarde.log 2>&1
+45 2 * * *   tar -C /var/lib/epc2i -czf /var/backups/epc2i/donnees-$(date +\%F).tgz clavis codex keystone matrix && find /var/backups/epc2i -name 'donnees-*.tgz' -mtime +14 -delete
+```
+
+La sauvegarde des bases contient les données sensibles de Cursus et de Vigie : toute copie hors du serveur est chiffrée.
+Les données des outils (`/var/lib/epc2i`) contiennent la clé OIDC de Clavis et les fichiers de Codex : sans elles, une
+restauration oblige à réinscrire les outils et perd les documents.
+
+## 10. Recette
+
+Avec deux personnes de l'annuaire, activées dans Clavis, chacune avec un mot de passe provisoire :
+
+| Vérification | Attendu |
+| --- | --- |
+| Ouvrir Keystone | renvoi vers Clavis, changement du mot de passe provisoire, **retour à Keystone** |
+| Rôle dans Keystone | celui réglé dans Clavis (ex. « Chef de projet ») |
+| Ouvrir Codex ensuite | ouvert sans ressaisir le mot de passe ; utilisateur créé et lié |
+| Matrix pour une personne sans accès | page « Accès refusé » |
+| Retirer l'accès à Codex dans Clavis | page suivante de Codex : refus |
+| Changer le rôle Keystone dans Clavis | appliqué à la page suivante (menu et libellé) |
+| Matrix pour l'administrateur informatique | rôle « admin » |
+
+## 11. Mise à jour d'un outil
+
+```bash
+systemctl stop epc2i-<outil>
+# sauvegarde (§ 9), nouvelle archive de main dans /opt/epc2i/<outil>, puis :
+npm ci && npm run build && npm run db:migrate
+systemctl start epc2i-<outil>
+```
+
+Une migration qui toucherait une colonne lue par une vue `pub_` échoue : Matrix fait d'abord évoluer la publication.
+
+## 12. Ce que la répétition a trouvé (corrigé)
+
+| Écart | Correction |
+| --- | --- |
+| Codex ne compilait pas (Next 16.4.2, faille signalée) | Next 16.4.6 (Codex#31) |
+| Matrix refusait les liens vers `clavis.pub_*` et sa sonde ignorait le schéma `clavis` | Matrix#94 |
+| Après le changement du mot de passe provisoire, la personne restait sur l'accueil de Clavis au lieu de revenir à l'outil | Clavis#8 |
+| Keystone appliquait le rôle changé dans Clavis mais gardait le libellé de la connexion (« Chef de projet ») | Keystone#80 |
+| `POST /api/publications/<vue>/appliquer` exige un corps JSON (`{}`) | à savoir pour un script ; l'écran le fait |
+
+## 13. Les outils suivants
+
+Cursus, Vigie, Arche, Crucible : même suite (archive, `npm ci`, build, fichier `/etc/epc2i/<outil>.env`, `db:migrate`,
+`14-reprise-publications.sql` avec `-v outils=…` étendu, inscription `oidc:client`, service systemd, bloc nginx), puis passage
+de l'outil de « prévu » à « ouvert » dans Clavis. Lecture des droits dans la base : `CURSUS_OIDC_EMETTEUR` +
+`CURSUS_ACCES_CLAVIS=on`, `ARCHE_ACCESS_FROM_CLAVIS=on`, `CRUCIBLE_ACCESS_FROM_CLAVIS=on` ; Vigie : à faire.

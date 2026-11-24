@@ -19,9 +19,10 @@ import pg from 'pg';
 import { controlerQualite } from './qualite.mjs';
 
 export const OUTILS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
-export const SCHEMAS_LIENS = [...OUTILS, 'matrix'];
+// Clavis (24/11/2026) : ses vues pub_ se lisent par lien ; ses tables ne sont pas sondées comme celles des outils.
+export const SCHEMAS_LIENS = [...OUTILS, 'clavis', 'matrix'];
 // bi_reader : Power BI, lecteur des seules vues pub_ que le registre lui accorde (demande M-14 d'Arche).
-export const LECTEURS = OUTILS.map(o => `${o}_app`).concat('matrix_app', 'bi_reader');
+export const LECTEURS = OUTILS.map(o => `${o}_app`).concat('clavis_app', 'matrix_app', 'bi_reader');
 const JOURNAUX_MIGRATIONS = ['__drizzle_migrations', 'schema_migrations'];
 
 const Q_TABLES = `
@@ -274,7 +275,7 @@ export function validerLien({ vue, lecteur, statut, motif, nature }, vuesConnues
   vue = String(vue ?? '').trim(); lecteur = String(lecteur ?? '').trim(); statut = String(statut ?? '').trim();
   nature = String(nature ?? '').trim() || 'lecture';
   if (!['lecture', 'execution'].includes(nature)) throw new Error('nature : lecture (vue pub_) ou execution (fonction pub_)');
-  if (!/^(keystone|codex|cursus|vigie|arche|crucible|matrix)\.pub_[a-z0-9_]+$/.test(vue)) throw new Error(`${nature === 'execution' ? 'fonction' : 'vue'} invalide (« ${vue} ») : schéma.pub_nom attendu`);
+  if (!/^(keystone|codex|cursus|vigie|arche|crucible|clavis|matrix)\.pub_[a-z0-9_]+$/.test(vue)) throw new Error(`${nature === 'execution' ? 'fonction' : 'vue'} invalide (« ${vue} ») : schéma.pub_nom attendu`);
   if (nature === 'execution' && vue.startsWith('matrix.')) throw new Error('Matrix ne publie pas de fonction d’écriture : ses référentiels s’écrivent dans Matrix');
   if (!LECTEURS.includes(lecteur)) throw new Error(`lecteur inconnu : ${lecteur}`);
   if (`${vue.split('.')[0]}_app` === lecteur) throw new Error('un outil lit et écrit ses propres données sans lien');

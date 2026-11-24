@@ -99,8 +99,12 @@ Dépôts, rôles PostgreSQL, ports et variables de connexion : `norma/registre/o
 Charte et composants : `norma/charte/` (mode d'emploi `norma/charte/README.md`). En bref :
 - couleurs, polices, espacements, rayons et ombres viennent des variables de `nocturne.css`, jamais en dur ;
 - Inter servie depuis le dépôt (le `build` ne demande pas le réseau) ; icônes Phosphor ;
-- barre latérale par thème, recherche de pages ⌘K, sélecteur FR / EN dans l’en-tête, et juste à côté le bouton
-  d’affichage sombre / clair (cookie `epc2i-theme`, attribut `data-theme` de `<html>`) ;
+- **ce qui est commun est au même endroit dans tous les outils** : la coque (barre latérale, en-tête de page, actions,
+  barre d'outils, panneau latéral, barre supérieure sur téléphone), ses mesures et l'échelle des textes suivent
+  `norma/charte/COQUE.md` (classes `coque.css`, composants `charte/ds`) ; un écart se propose dans Norma ;
+- barre latérale par thème, recherche de pages ⌘K sous la marque ; sélecteur FR / EN et bouton d’affichage sombre / clair
+  **empilés, de même taille** (langue au-dessus), dernier élément à droite de l'en-tête de chaque page (barre supérieure
+  sur téléphone), jamais ailleurs (cookie `epc2i-theme`, attribut `data-theme` de `<html>`) ;
 - actions de la page dans l'en-tête (au-delà de trois : menu « Actions ») ; aucun formulaire ouvert dans la page : un
   bouton ouvre un panneau latéral, fermé au succès ;
 - accessibilité : focus visible, contrastes de la charte, bouton à icône seule nommé.

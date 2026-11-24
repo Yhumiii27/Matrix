@@ -29,7 +29,7 @@ before(async () => {
   vueReelle = (await sql(`SELECT relkind FROM pg_class WHERE oid = to_regclass('clavis.pub_acces')`)).rows[0]?.relkind === 'v';
   if (vueReelle) return;
   if (!(await sql(`SELECT to_regclass('clavis.pub_acces') AS v`)).rows[0].v) {
-    await sql(`SET ROLE clavis_app; CREATE TABLE clavis.pub_acces (personne_id uuid, application text, autorise boolean, niveau text, domaine text, role text, ouvert boolean, maj_le timestamptz); RESET ROLE`);
+    await sql(`SET ROLE clavis_app; CREATE TABLE clavis.pub_acces (personne_id uuid, application text, autorise boolean, niveau text, domaine text, role text, ouvert boolean, maj_le timestamptz, roles text[] NOT NULL DEFAULT '{}', perimetre jsonb NOT NULL DEFAULT '{}'); RESET ROLE`);
     creee = true;
   }
   await sql(`SET ROLE clavis_app; INSERT INTO clavis.pub_acces VALUES

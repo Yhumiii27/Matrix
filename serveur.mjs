@@ -31,7 +31,8 @@
 //   POST /api/publications/:vue/appliquer   appliquer sur le serveur (rôle matrix_gestion) : vue, contrôles, droits des liens
 //   POST /api/publications/:vue/retirer     supprimer la vue (aucun lien autorisé)  { motif }
 //
-// Variables d'environnement :
+// Variables d'environnement (lues et contrôlées au démarrage par outils/config.mjs : une valeur invalide arrête Matrix,
+// une ligne par erreur ; liste complète, types et bornes dans .env.example) :
 //   PORT               port d'écoute (défaut 3700, port de Matrix au registre de Norma ; 3000 dans l'image Docker)
 //   MATRIX_DATA_DIR    dossier des données vivantes : catalogue, historique, déclarations (défaut ./data ;
 //                      /data dans l'image Docker, à monter sur un volume persistant)
@@ -77,29 +78,33 @@ import { client, lireServeur, declarations, validerLien, ecrireLien, suivreMigra
 import { calculerSante } from './outils/sante.mjs';
 import { chargerRegles, suivreIncidents } from './outils/qualite.mjs';
 import { saisiesDisponibles, lireGlossaire, enregistrerTerme, lireReglesPg, reglesActives, reprendreRegles, enregistrerRegle } from './outils/saisies-pg.mjs';
-import { lireMotDePasse, motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
+import { motDePasseValide, identifiantBasic, creerSession, lireSession, creerJeton, lireJeton, lireCookie, enteteCookie, suiteSure, limiteur, pageConnexion, COOKIE, DUREE_SESSION_S } from './outils/acces.mjs';
 import { lireDonnees, editerLigne, pourRole } from './outils/visionneuse.mjs';
-import { lireConfigEntra, roleDepuisEntra, roleDepuisAcces, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
-import { lireConfigAlertes, traiterAlertes } from './outils/alertes.mjs';
+import { roleDepuisEntra, roleDepuisAcces, personneDepuisJeton, debutConnexion, finConnexion, CHEMIN_RETOUR } from './outils/entra.mjs';
+import { traiterAlertes } from './outils/alertes.mjs';
+import { chargerConfiguration } from './outils/config.mjs';
 import { themeDeRequete, avecTheme } from './outils/theme.mjs';
 import { listerPublications, lirePublication, enregistrerPublication, appliquerPublication, retirerPublication, appliquerLien, etatDepot } from './outils/publications.mjs';
 
-const PORT = +(process.env.PORT ?? 3700);
-const DATA = process.env.MATRIX_DATA_DIR ?? join(RACINE, 'data');
+// Toutes les variables d'environnement sont lues et contrôlées par outils/config.mjs (Norma § 9) : une variable invalide
+// arrête Matrix ici, avant l'écoute, une ligne par erreur.
+const CONFIG = chargerConfiguration();
+const PORT = CONFIG.port;
+const DATA = CONFIG.dataDir;
 const DECL = join(DATA, 'declarations');
-const SOURCES = process.env.MATRIX_SOURCES_DIR ?? null;
-const TOKEN = process.env.MATRIX_TOKEN ?? '';
-const { mdp: MOT_DE_PASSE, avertissements: AVERTISSEMENTS_MDP } = lireMotDePasse(process.env.MATRIX_MOT_DE_PASSE);
+const SOURCES = CONFIG.sourcesDir;
+const TOKEN = CONFIG.token;
+const MOT_DE_PASSE = CONFIG.motDePasse;
 // Connexion nominative par Microsoft Entra ID (M-06, E-02) ; le mot de passe reste pour les scripts (en-tête Basic) et,
 // tant qu'Entra ID n'est pas configuré, pour la page de connexion.
-const ENTRA = lireConfigEntra(process.env);
+const ENTRA = CONFIG.entra;
 // Alertes de la DSI par e-mail (E-05, M-14) : composées à chaque lecture du serveur, envoyées par Microsoft Graph.
-const ALERTES = lireConfigAlertes(process.env);
+const ALERTES = CONFIG.alertes;
 let alertes = { active: ALERTES.active, erreurs: ALERTES.erreurs, dernierEnvoi: null, derniereErreur: null, enAttente: 0 };
 async function alerter(entree) {
   try {
     const f = join(DATA, 'alertes.json');
-    const r = await traiterAlertes(ALERTES, existsSync(f) ? lireJson(f) : null, entree, { lien: String(process.env.MATRIX_PUBLIC_URL ?? '').trim() });
+    const r = await traiterAlertes(ALERTES, existsSync(f) ? lireJson(f) : null, entree, { lien: CONFIG.publicUrl });
     if (ALERTES.active) ecrireJson(f, r.journal);
     alertes = { ...alertes, dernierEnvoi: r.journal.dernierEnvoi, derniereErreur: r.journal.derniereErreur, enAttente: r.enAttente.length };
     if (r.envoyees) console.log(`[${new Date().toISOString()}] alertes : ${r.envoyees} envoyée(s) à ${ALERTES.destinataires.join(', ')}`);
@@ -110,8 +115,8 @@ const ACCES_RESERVE = Boolean(MOT_DE_PASSE || ENTRA.active);
 // Une seule base (décision du propriétaire, 23/11/2026) : avec la connexion par Clavis, le rôle de la personne est lu dans
 // clavis.pub_acces (lien accordé à matrix_app), à la connexion puis au plus toutes les minutes ; une lecture impossible
 // refuse l'accès. Le rôle du jeton n'est pas utilisé.
-const ACCES_CLAVIS = String(process.env.MATRIX_ACCES_CLAVIS ?? '').trim().toLowerCase() === 'on';
-const DUREE_DROIT_MS = Math.max(0, Number(process.env.MATRIX_ACCES_CLAVIS_SECONDES ?? 60) || 0) * 1000;
+const ACCES_CLAVIS = CONFIG.accesClavis;
+const DUREE_DROIT_MS = CONFIG.dureeDroitMs;
 const droitsClavis = new Map();
 async function droitClavis(oid) {
   let role = null;
@@ -127,10 +132,10 @@ async function droitClavis(oid) {
   return role;
 }
 const COOKIE_OIDC = 'matrix_oidc';
-const PRODUCTION = process.env.NODE_ENV === 'production';
-const DB_URL = process.env.MATRIX_DATABASE_URL ?? '';
-const GESTION_URL = process.env.MATRIX_GESTION_DATABASE_URL ?? '';
-const SYNCHRO_MINUTES = Math.max(0, Number(process.env.MATRIX_SYNCHRO_MINUTES ?? 60) || 0);
+const PRODUCTION = CONFIG.production;
+const DB_URL = CONFIG.dbUrl;
+const GESTION_URL = CONFIG.gestionUrl;
+const SYNCHRO_MINUTES = CONFIG.synchroMinutes;
 const APPS = ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible'];
 const MAX_OCTETS = 10 * 1024 * 1024;
 const EMBARQUE = join(RACINE, 'data');
@@ -858,11 +863,8 @@ createServer(function traiter(req, res) {
   const { catalogue, events } = demarrage;
   const n = catalogue.apps.reduce((s, a) => s + a.tables.length, 0);
   console.log(`Matrix écoute sur le port ${PORT} · ${n} tables · données dans ${DATA}${events.length ? ` · ${events.length} changement(s) depuis la dernière collecte` : ''}`);
-  for (const a of AVERTISSEMENTS_MDP) console.warn(a);
   if (ENTRA.active) console.log(`Connexion par Microsoft Entra ID (émetteur ${ENTRA.issuer}, rôles ${ENTRA.roleAdmin} et ${ENTRA.roleLecture}).`);
-  else if (ENTRA.erreurs.length) console.warn(`Microsoft Entra ID non activé, configuration incomplète : ${ENTRA.erreurs.join(' ; ')}.`);
   if (ALERTES.active) console.log(`Alertes par e-mail actives : ${ALERTES.destinataires.length} destinataire(s), envoi depuis ${ALERTES.expediteur}.`);
-  else if (ALERTES.erreurs.length) console.warn(`Alertes par e-mail non activées, configuration incomplète : ${ALERTES.erreurs.join(' ; ')}.`);
   if (!TOKEN) console.warn('MATRIX_TOKEN absent : les outils ne peuvent pas déclarer leurs tables.');
   if (DB_URL) {
     setTimeout(() => synchroniser('démarrage'), 1000).unref();

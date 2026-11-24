@@ -21,7 +21,7 @@ const SUPPRESSIONS = new Set(['table_supprimee', 'colonne_supprimee', 'hors_migr
 const GARDER = 2000;
 
 /** Configuration lue dans l'environnement : { active, erreurs, destinataires, expediteur, tenant, clientId, clientSecret }. */
-export function lireConfigAlertes(env = process.env) {
+export function lireConfigAlertes(env) {
   const v = k => String(env[k] ?? '').trim();
   const brut = v('MATRIX_ALERTES_DESTINATAIRES');
   if (!brut) return { active: false, erreurs: [] };

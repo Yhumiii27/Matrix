@@ -11,8 +11,9 @@ par `npm run norma:check` ; elles se changent dans le dépôt `Yhumiii27/Norma`,
 - Reste à faire de Matrix : tenu dans Norma (`reste-a-faire/matrix.json`, page globale
   https://claude.ai/artifact/Rs7kooJdowShdYUqNS8jQf ; REGLES § 3), plus de liste propre à Matrix.
 - Interface : chaînes sources anglaises traduites par `outils/i18n.mjs` (`tr('…')` dans `maquette/source.html`, français
-  par défaut, cookie `matrix-lang`, sélecteur FR / EN juste avant le bouton d'affichage) ; le texte saisi et les données
-  ne passent jamais par `tr()`. Icônes Phosphor par `outils/icones.mjs` ; formulaires dans le panneau latéral
+  par défaut, cookie `matrix-lang`, sélecteur FR / EN juste avant le bouton d'affichage ; page de connexion par `t()` de
+  `outils/acces.mjs` ; un contexte en fin de source, `tr('Applied#publication')`, départage deux traductions et ne
+  s'affiche pas ; contrôle `test/i18n.test.mjs`) ; le texte saisi et les données ne passent jamais par `tr()`. Icônes Phosphor par `outils/icones.mjs` ; formulaires dans le panneau latéral
   (`panneau()` de la page) ; listes d'outils par `outils/registre.mjs`.
 - Mise en service sur le serveur commun : `docs/mise-en-service.md` ; installation directe sur le serveur interne (sans
   Docker, répétée le 24 novembre 2026) : `docs/installation-directe.md`. Décisions : `docs/decisions.md`.

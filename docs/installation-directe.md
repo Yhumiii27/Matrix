@@ -45,6 +45,7 @@ cd /etc/epc2i && {
   for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MODULUS MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
   echo "MATRIX_GESTION_PASSWORD=$(openssl rand -hex 24)"
   echo "BI_READER_PASSWORD=$(openssl rand -hex 24)"
+  echo "CURSUS_PURGE_PASSWORD=$(openssl rand -hex 24)"
   echo "EPC2I_SAUVEGARDE_PASSWORD=$(openssl rand -hex 24)"
 } > postgres.env && chmod 600 postgres.env
 ```
@@ -327,6 +328,21 @@ Cursus, Vigie, Arche, Crucible : même suite (archive, `npm ci`, build, fichier 
 `14-reprise-publications.sql` avec `-v outils=…` étendu, inscription `oidc:client`, service systemd, bloc nginx), puis passage
 de l'outil de « prévu » à « ouvert » dans Clavis. Lecture des droits dans la base : `CURSUS_OIDC_EMETTEUR` +
 `CURSUS_ACCES_CLAVIS=on`, `ARCHE_ACCESS_FROM_CLAVIS=on`, `CRUCIBLE_ACCESS_FROM_CLAVIS=on` ; Vigie : à faire.
+
+**Cursus : purge du journal des actions par le rôle dédié** (décision M-24 du 25/11/2026). Le journal de Cursus est en
+ajout seul (migration `0035_journal_ajout_seul`) : seul `cursus_purge` en supprime les lignes échues (12 mois, 36 pour la
+paie), par `cursus.purger_journal()`. Le rôle est créé par `init/01` (connexion seulement avec `CURSUS_PURGE_PASSWORD`,
+généré au § 2 ; sur un serveur déjà installé, l'ajouter à la main à `postgres.env`) ; ses droits sont posés par `init/03`
+**une fois la migration 0035 de Cursus passée** : après le premier `db:migrate` de Cursus, rejouer `init/03-droits.sql`
+(sans effet avant). Puis, dans `/etc/epc2i/cursus.env`, une seconde adresse, jamais celle de `cursus_app` :
+
+```bash
+echo "CURSUS_PURGE_DATABASE_URL=postgres://cursus_purge:$CURSUS_PURGE_PASSWORD@$DB" >> cursus.env
+```
+
+Contrôle : `SELECT le, par, supprimees_un_an, supprimees_trois_ans FROM cursus.journal_purges ORDER BY id DESC LIMIT 3;`
+(une ligne par jour, `par` = `cursus_purge`) et `droits.verifier()` sans erreur ni « attention » sur `cursus_purge`. Sans
+la variable, Cursus le dit au démarrage et ne supprime rien.
 
 **Modulus** (commercial et chiffrage, « validé » du propriétaire du 24/11/2026) : le socle crée déjà le rôle `modulus_app`
 et le schéma `modulus` (sans `MODULUS_APP_PASSWORD` dans `postgres.env`, le rôle existe sans pouvoir se connecter). Modulus

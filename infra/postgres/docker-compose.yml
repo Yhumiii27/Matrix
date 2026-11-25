@@ -36,6 +36,8 @@ services:
       MODULUS_APP_PASSWORD: ${MODULUS_APP_PASSWORD:-}
       # Facultatif : sans lui, le rôle bi_reader (Power BI) existe sans pouvoir se connecter.
       BI_READER_PASSWORD: ${BI_READER_PASSWORD:-}
+      # Facultatif : sans lui, le rôle cursus_purge (purge du journal de Cursus, M-24) existe sans pouvoir se connecter.
+      CURSUS_PURGE_PASSWORD: ${CURSUS_PURGE_PASSWORD:-}
       EPC2I_SAUVEGARDE_PASSWORD: ${EPC2I_SAUVEGARDE_PASSWORD:?EPC2I_SAUVEGARDE_PASSWORD manquant}
       # Lus par sauvegarde/sauvegarder.sh.
       EPC2I_SAUVEGARDE_DIR: /sauvegardes

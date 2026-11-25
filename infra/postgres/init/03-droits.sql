@@ -811,13 +811,85 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'droit CREATE sur la base (il permettrait de créer un schéma)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
     AND has_database_privilege(r.oid, v_db, 'CREATE');
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'attribut d''administration (SUPERUSER, CREATEROLE, CREATEDB, REPLICATION ou BYPASSRLS)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
     AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls);
+
+  -- Purge du journal des actions de Cursus (décision M-24) : cursus_purge n'a que ses droits (section 5 ter), n'est membre
+  -- d'aucun rôle, et le journal garde ses déclencheurs « ajout seul » (migration 0035 de Cursus) actifs.
+  RETURN QUERY
+  SELECT 'erreur', 'cursus_purge', format('cursus_purge est membre de %s : il ne doit avoir que les droits de la purge', g.rolname)
+  FROM pg_auth_members m JOIN pg_roles g ON g.oid = m.roleid JOIN pg_roles r ON r.oid = m.member
+  WHERE r.rolname = 'cursus_purge';
+  RETURN QUERY
+  SELECT 'erreur', format('cursus_purge, %I.%I', n.nspname, c.relname), format('droit %s inattendu : la purge n''a que DELETE sur cursus.journal, SELECT sur cursus.journal_actions_paie, INSERT sur cursus.journal_purges (et quelques colonnes en lecture)', p.priv)
+  FROM pg_roles x
+  CROSS JOIN pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
+  WHERE x.rolname = 'cursus_purge'
+    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'matrix', 'droits', 'public', 'extensions')
+    AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND has_table_privilege(x.oid, c.oid, p.priv)
+    AND NOT (n.nspname = 'cursus' AND (c.relname, p.priv) IN (('journal', 'DELETE'), ('journal_actions_paie', 'SELECT'), ('journal_purges', 'INSERT')));
+  RETURN QUERY
+  SELECT 'erreur', format('cursus_purge, %I.%I.%I', n.nspname, c.relname, a.attname), format('droit %s inattendu sur la colonne : la purge ne lit que id, at, action et paie du journal, et l''identifiant du registre', p.priv)
+  FROM pg_roles x
+  CROSS JOIN pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')) AS p(priv)
+  WHERE x.rolname = 'cursus_purge'
+    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'matrix', 'droits', 'public', 'extensions')
+    AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND NOT has_table_privilege(x.oid, c.oid, p.priv)
+    AND has_column_privilege(x.oid, c.oid, a.attnum, p.priv)
+    AND NOT (n.nspname = 'cursus' AND p.priv = 'SELECT'
+             AND ((c.relname = 'journal' AND a.attname IN ('id', 'at', 'action', 'paie')) OR (c.relname = 'journal_purges' AND a.attname = 'id')));
+  RETURN QUERY
+  SELECT 'erreur', format('cursus_purge, %I.%I(%s)', n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)), 'droit EXECUTE inattendu : la purge n''exécute que cursus.purger_journal()'
+  FROM pg_roles x
+  CROSS JOIN pg_proc f
+  JOIN pg_namespace n ON n.oid = f.pronamespace
+  CROSS JOIN LATERAL aclexplode(f.proacl) a
+  WHERE x.rolname = 'cursus_purge' AND a.grantee = x.oid AND a.privilege_type = 'EXECUTE'
+    AND NOT (n.nspname = 'cursus' AND f.proname = 'purger_journal' AND pg_get_function_identity_arguments(f.oid) = '');
+  RETURN QUERY
+  SELECT 'erreur', format('cursus_purge, schéma %s', n.nspname), format('droit %s inattendu sur le schéma', p.priv)
+  FROM pg_roles x
+  CROSS JOIN pg_namespace n
+  CROSS JOIN (VALUES ('USAGE'), ('CREATE')) AS p(priv)
+  WHERE x.rolname = 'cursus_purge'
+    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'matrix', 'droits', 'public', 'extensions')
+    AND has_schema_privilege(x.oid, n.oid, p.priv)
+    AND NOT (n.nspname = 'cursus' AND p.priv = 'USAGE');
+  RETURN QUERY
+  SELECT 'erreur', 'cursus.journal', format('déclencheur %s absent ou désactivé : le journal de Cursus n''est plus en ajout seul (Norma § 4, M-24)', t.nom)
+  FROM (VALUES ('journal_ajout_seul'), ('journal_ajout_seul_vidage')) AS t(nom)
+  WHERE to_regclass('cursus.journal_purges') IS NOT NULL
+    AND NOT EXISTS (SELECT FROM pg_trigger g WHERE g.tgrelid = to_regclass('cursus.journal') AND g.tgname = t.nom AND g.tgenabled IN ('O', 'A'));
+  RETURN QUERY
+  SELECT 'attention', 'cursus_purge',
+         CASE WHEN NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'cursus_purge')
+              THEN 'rôle absent alors que la migration 0035 de Cursus est passée : rejouer init/01-base-et-roles.sql puis init/03-droits.sql (purge du journal de Cursus impossible)'
+              ELSE 'droits de la purge du journal de Cursus incomplets : rejouer init/03-droits.sql (section 5 ter)' END
+  -- CASE : chaque contrôle n'est évalué qu'une fois la fonction et le rôle présents (les fonctions has_* refusent un nom absent).
+  WHERE CASE WHEN to_regprocedure('cursus.purger_journal()') IS NULL OR to_regclass('cursus.journal_purges') IS NULL
+                  OR to_regclass('cursus.journal_actions_paie') IS NULL THEN false
+             WHEN NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'cursus_purge') THEN true
+             ELSE NOT (has_schema_privilege('cursus_purge', 'cursus', 'USAGE')
+             AND has_table_privilege('cursus_purge', 'cursus.journal', 'DELETE')
+             AND has_column_privilege('cursus_purge', 'cursus.journal', 'at', 'SELECT')
+             AND has_column_privilege('cursus_purge', 'cursus.journal', 'action', 'SELECT')
+             AND has_column_privilege('cursus_purge', 'cursus.journal', 'paie', 'SELECT')
+             AND has_table_privilege('cursus_purge', 'cursus.journal_actions_paie', 'SELECT')
+             AND has_table_privilege('cursus_purge', 'cursus.journal_purges', 'INSERT')
+             AND has_column_privilege('cursus_purge', 'cursus.journal_purges', 'id', 'SELECT')
+             AND has_function_privilege('cursus_purge', 'cursus.purger_journal()', 'EXECUTE')) END;
 
   -- Appartenances attendues.
   RETURN QUERY
@@ -1047,6 +1119,34 @@ BEGIN
   RETURN 'retire';
 END $$;
 COMMENT ON FUNCTION droits.accorder_execution(text, text) IS 'Lien d''exécution (M-18, lot P4) : accorde EXECUTE sur une fonction pub_ d''un outil à un autre outil si matrix.liens l''autorise (nature execution), le retire sinon. Appelée par matrix_gestion, qui ne reçoit jamais EXECUTE lui-même.';
+
+-- ── 5 ter. Purge du journal des actions de Cursus (décision M-24, 25/11/2026) ──
+-- « ok pour la purge par rôle dédié sur Cursus » : le journal de Cursus est en ajout seul (migration
+-- 0035_journal_ajout_seul : un déclencheur refuse UPDATE, DELETE et TRUNCATE, au rôle cursus_app compris) ; seul
+-- cursus_purge (init/01) supprime, et seulement les lignes échues (12 mois, 36 pour la paie), par cursus.purger_journal(),
+-- qui inscrit chaque passage dans cursus.journal_purges. Droits posés ici, rien d'autre (état voulu, rejouable) ; avant la
+-- migration 0035 de Cursus, aucun : rejouer ce fichier après elle. Ne lit jamais payload ni message.
+DO $purge$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'cursus_purge') THEN
+    RAISE NOTICE 'cursus_purge absent : rejouer init/01-base-et-roles.sql.';
+    RETURN;
+  END IF;
+  REVOKE ALL ON ALL TABLES IN SCHEMA cursus FROM cursus_purge;
+  REVOKE ALL ON ALL SEQUENCES IN SCHEMA cursus FROM cursus_purge;
+  REVOKE ALL ON ALL ROUTINES IN SCHEMA cursus FROM cursus_purge;
+  IF to_regclass('cursus.journal_purges') IS NULL OR to_regclass('cursus.journal_actions_paie') IS NULL
+     OR to_regprocedure('cursus.purger_journal()') IS NULL THEN
+    REVOKE ALL ON SCHEMA cursus FROM cursus_purge;
+    RAISE NOTICE 'Purge du journal de Cursus : migration 0035_journal_ajout_seul pas encore passée ; droits de cursus_purge posés au prochain rejeu de ce fichier.';
+    RETURN;
+  END IF;
+  GRANT USAGE ON SCHEMA cursus TO cursus_purge;
+  GRANT SELECT (id, at, action, paie), DELETE ON cursus.journal TO cursus_purge;
+  GRANT SELECT ON cursus.journal_actions_paie TO cursus_purge;
+  GRANT INSERT, SELECT (id) ON cursus.journal_purges TO cursus_purge;
+  GRANT EXECUTE ON FUNCTION cursus.purger_journal() TO cursus_purge;
+END $purge$;
 
 -- ── 6. Droits sur le schéma droits ──────────────────────────────────────
 REVOKE ALL ON ALL TABLES IN SCHEMA droits FROM PUBLIC;

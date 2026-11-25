@@ -28,6 +28,10 @@
 --   bi_reader                                       connexion de Power BI (demande M-14 d'Arche) : lecture seule, rien
 --                                                   d'autre que les vues pub_ que le registre des liens lui accorde ;
 --                                                   sans BI_READER_PASSWORD, le rôle existe sans pouvoir se connecter
+--   cursus_purge                                    connexion de la purge du journal des actions de Cursus (décision M-24) :
+--                                                   seul rôle qui supprime des lignes de cursus.journal, les seules lignes
+--                                                   échues, par cursus.purger_journal() (droits : init/03-droits.sql) ;
+--                                                   sans CURSUS_PURGE_PASSWORD, le rôle existe sans pouvoir se connecter
 --   matrix_lecture  (groupe)                        SELECT sur les schémas des outils, colonnes sensibles exclues
 --   matrix_admin    (groupe)                        tous les droits ; attribué nominativement (droits.declarer_admin)
 --   epc2i_sauvegarde                                connexion des sauvegardes, membre de pg_read_all_data
@@ -56,6 +60,7 @@ END $$;
 \getenv mdp_bi_reader BI_READER_PASSWORD
 \getenv mdp_clavis_app CLAVIS_APP_PASSWORD
 \getenv mdp_modulus_app MODULUS_APP_PASSWORD
+\getenv mdp_cursus_purge CURSUS_PURGE_PASSWORD
 \if :{?mdp_keystone_app}
 \else
   \set mdp_keystone_app ''
@@ -146,7 +151,7 @@ BEGIN;
 SELECT format('CREATE ROLE %I', nom)
 FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app',
                   'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader',
-                  'clavis_app', 'modulus_app']) AS nom
+                  'clavis_app', 'modulus_app', 'cursus_purge']) AS nom
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = nom) \gexec
 
 -- Rôles de groupe : pas de connexion directe.
@@ -188,6 +193,19 @@ SELECT CASE WHEN :'mdp_clavis_app' = '' THEN 'ALTER ROLE clavis_app WITH NOLOGIN
 SELECT CASE WHEN :'mdp_modulus_app' = '' THEN 'ALTER ROLE modulus_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD NULL'
             ELSE format('ALTER ROLE modulus_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'mdp_modulus_app') END \gexec
 
+-- Purge du journal des actions de Cursus (« ok pour la purge par rôle dédié sur Cursus », décision M-24 du 25/11/2026) :
+-- connexion seulement si CURSUS_PURGE_PASSWORD est fourni, comme bi_reader ; jamais membre d'un autre rôle. Ses droits
+-- (aucun autre que la purge des lignes échues) sont posés par init/03-droits.sql une fois la migration 0035 de Cursus passée.
+\if :{?mdp_cursus_purge}
+\else
+  \set mdp_cursus_purge ''
+\endif
+SELECT CASE WHEN :'mdp_cursus_purge' = '' THEN 'ALTER ROLE cursus_purge WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD NULL'
+            ELSE format('ALTER ROLE cursus_purge WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'mdp_cursus_purge') END \gexec
+SELECT format('REVOKE %I FROM cursus_purge', g.rolname)
+FROM pg_auth_members m JOIN pg_roles g ON g.oid = m.roleid JOIN pg_roles r ON r.oid = m.member
+WHERE r.rolname = 'cursus_purge' \gexec
+
 -- Matrix lit les schémas des outils par le groupe matrix_lecture.
 GRANT matrix_lecture TO matrix_app;
 -- Sauvegardes : lecture de toutes les données, colonnes sensibles comprises (pg_dump).
@@ -209,13 +227,14 @@ COMMENT ON ROLE matrix_gestion IS 'Connexion de Matrix pour l''administration (d
 COMMENT ON ROLE bi_reader IS 'Connexion de Power BI (demande M-14 d''Arche) : transactions en lecture seule, SELECT sur les seules vues pub_ que le registre des liens de Matrix lui accorde (lecteur bi_reader), rien d''autre. Sans BI_READER_PASSWORD : NOLOGIN.';
 COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, sauf les colonnes de droits.colonnes_sensibles.';
 COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les sept schémas. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';
+COMMENT ON ROLE cursus_purge IS 'Connexion de la purge du journal des actions de Cursus (décision M-24) : supprime les seules lignes échues de cursus.journal (12 mois, 36 pour la paie) par cursus.purger_journal() ; droits : CONNECT, USAGE sur cursus, SELECT (id, at, action, paie) et DELETE sur journal, SELECT sur journal_actions_paie, INSERT et SELECT (id) sur journal_purges, EXECUTE sur purger_journal(), rien d''autre (init/03-droits.sql). Sans CURSUS_PURGE_PASSWORD : NOLOGIN.';
 COMMENT ON ROLE epc2i_sauvegarde IS 'Connexion des sauvegardes (pg_dump) : membre de pg_read_all_data.';
 
 -- ── 4. Accès à la base ───────────────────────────────────────────────────
 -- Personne ne se connecte à epc2i sans droit explicite ; aucun rôle (hors superutilisateur) n'y crée de schéma.
 REVOKE ALL ON DATABASE epc2i FROM PUBLIC;
 GRANT CONNECT ON DATABASE epc2i
-  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, epc2i_sauvegarde, bi_reader;
+  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, epc2i_sauvegarde, bi_reader, cursus_purge;
 
 COMMIT;
 

@@ -3,8 +3,10 @@
 -- Lancement, en superutilisateur, après les scripts d'initialisation :
 --   psql -h <hôte> -U postgres -d postgres -v ON_ERROR_STOP=1 -f verifier-droits.sql
 -- Le script crée des tables d'essai (préfixe zz_) dans les schémas des outils, joue chaque rôle (SET ROLE) et
--- compare le résultat obtenu au résultat attendu. Les cas 71 à 73 éprouvent le schéma extensions (pg_trgm, réservé
--- à Codex). Les cas 100 à 138 éprouvent la convention de partage (infra/postgres/partage/README.md) : un outil lit
+-- compare le résultat obtenu au résultat attendu. Les cas 86, 87 et 153 à 179 éprouvent le rôle cursus_purge (purge du
+-- journal des actions de Cursus, décision M-24 ; 157 à 169 et 179 seulement une fois la migration 0035 de Cursus passée).
+-- Les cas 71 à 73 éprouvent le schéma extensions (pg_trgm, réservé à Codex). Les cas 100 à 138 éprouvent la convention
+-- de partage (infra/postgres/partage/README.md) : un outil lit
 -- les vues pub_ d'un autre, et droits.verifier() signale tout autre droit croisé ainsi que toute vue pub_ qui lit une
 -- colonne sensible, et tout droit inattendu sur le schéma extensions (137, 138). Les cas 140 à 152 éprouvent les tables
 -- fermées en entier (colonne « * » de droits.colonnes_sensibles) et un droit posé hors du déclencheur. Les cas 200 et
@@ -197,11 +199,32 @@ BEGIN
     (192, 'Modulus : lire une table d''un autre outil', 'modulus_app', 'SELECT id FROM arche.zz_a', 'refusé'),
     (193, 'Modulus : créer une table dans public', 'modulus_app', 'CREATE TABLE public.zz_m (id integer)', 'refusé'),
     (194, 'un autre outil lit une table de Modulus', 'arche_app', 'SELECT 1 FROM modulus.zz_m', 'refusé'),
-    (195, 'Matrix lit une table de Modulus', 'matrix_app', 'SELECT id FROM modulus.zz_m', 'autorisé')
+    (195, 'Matrix lit une table de Modulus', 'matrix_app', 'SELECT id FROM modulus.zz_m', 'autorisé'),
+    -- Purge du journal de Cursus (décision M-24, 25/11/2026) : cursus_purge n'a rien d'autre que ses droits sur le journal.
+    (153, 'Purge de Cursus : créer une table dans cursus', 'cursus_purge', 'CREATE TABLE cursus.zz_p (id integer)', 'refusé'),
+    (154, 'Purge de Cursus : lire une table de Cursus hors du journal', 'cursus_purge', 'SELECT id FROM cursus.zz_ouverte', 'refusé'),
+    (155, 'Purge de Cursus : supprimer dans une table de Cursus hors du journal', 'cursus_purge', 'DELETE FROM cursus.zz_ouverte WHERE false', 'refusé'),
+    (156, 'Purge de Cursus : lire une table d''un autre outil', 'cursus_purge', 'SELECT id FROM vigie.zz_essai', 'refusé')
   ) AS t(n, cas, role, q, attendu) ORDER BY n LOOP
     INSERT INTO resultats VALUES (c.n, c.cas, c.role, c.attendu, pg_temp.essai(c.role, c.q));
   END LOOP;
 END $$;
+
+-- Purge du journal de Cursus sur les vraies tables (cas 157 à 169), une fois la migration 0035 de Cursus passée et
+-- init/03-droits.sql rejoué : lecture des seules colonnes de la règle, suppression (la règle d'échéance est au
+-- déclencheur, WHERE false : aucune ligne touchée), registre en ajout. Aucun cas avant cette migration.
+INSERT INTO resultats
+SELECT n, cas, 'cursus_purge', attendu, pg_temp.essai('cursus_purge', q)
+FROM (VALUES
+  (157, 'Purge de Cursus : lire le contenu du journal', 'SELECT payload FROM cursus.journal LIMIT 0', 'refusé'),
+  (158, 'Purge de Cursus : lire les colonnes de la règle (id, at, action, paie)', 'SELECT id, at, action, paie FROM cursus.journal LIMIT 0', 'autorisé'),
+  (159, 'Purge de Cursus : modifier le journal', 'UPDATE cursus.journal SET action = action WHERE false', 'refusé'),
+  (166, 'Purge de Cursus : supprimer du journal (lignes échues seulement, déclencheur)', 'DELETE FROM cursus.journal WHERE false', 'autorisé'),
+  (167, 'Purge de Cursus : écrire au journal', 'INSERT INTO cursus.journal (action) SELECT ''x'' WHERE false', 'refusé'),
+  (168, 'Purge de Cursus : inscrire un passage au registre', 'INSERT INTO cursus.journal_purges (regle, limite_journal, limite_paie, supprimees_un_an, supprimees_trois_ans) SELECT ''x'', now(), now(), 0, 0 WHERE false', 'autorisé'),
+  (169, 'Purge de Cursus : modifier le registre', 'UPDATE cursus.journal_purges SET regle = regle WHERE false', 'refusé')
+) AS t(n, cas, q, attendu)
+WHERE to_regprocedure('cursus.purger_journal()') IS NOT NULL;
 
 -- Lecteur attendu de la vue d'essai, comme l'inscrit partage/90-droits.sql (annulé avec le reste).
 INSERT INTO droits.partage_lecteurs (vue, lecteur) VALUES ('vigie.pub_zz_ok', 'keystone_app') ON CONFLICT DO NOTHING;
@@ -233,8 +256,17 @@ FROM (VALUES
   -- Droit posé hors du déclencheur droits_ddl (drapeau de droits.appliquer_droits() levé à la main) : seul
   -- droits.verifier() le voit.
   (151, 'colonne sensible redevenue lisible (hors déclencheur)', 'postgres', 'SET LOCAL droits.application_en_cours = ''on''; GRANT SELECT (secret) ON vigie.zz_pub TO matrix_lecture', 'vigie.zz_pub.secret', 'signalé'),
-  (152, 'table fermée redevenue lisible (hors déclencheur)', 'postgres', 'SET LOCAL droits.application_en_cours = ''on''; GRANT SELECT ON vigie.zz_ferme TO matrix_lecture', 'vigie.zz_ferme', 'signalé')
+  (152, 'table fermée redevenue lisible (hors déclencheur)', 'postgres', 'SET LOCAL droits.application_en_cours = ''on''; GRANT SELECT ON vigie.zz_ferme TO matrix_lecture', 'vigie.zz_ferme', 'signalé'),
+  -- Purge du journal de Cursus (M-24) : tout droit de plus, attribut ou appartenance est signalé.
+  (176, 'Purge de Cursus : droit de trop accordé à cursus_purge', 'postgres', 'GRANT SELECT ON cursus.zz_ouverte TO cursus_purge', 'cursus_purge, cursus.zz_ouverte', 'signalé'),
+  (177, 'Purge de Cursus : attribut d''administration pour cursus_purge', 'postgres', 'ALTER ROLE cursus_purge CREATEDB', 'cursus_purge', 'signalé'),
+  (178, 'Purge de Cursus : cursus_purge membre d''un autre rôle', 'postgres', 'GRANT cursus_app TO cursus_purge', 'cursus_purge', 'signalé')
 ) AS t(n, cas, role, q, motif, attendu);
+-- Déclencheur « ajout seul » du journal de Cursus désactivé : signalé (une fois la migration 0035 passée).
+INSERT INTO resultats
+SELECT 179, 'Purge de Cursus : déclencheur du journal désactivé', 'postgres', 'signalé',
+       pg_temp.signale('postgres', 'ALTER TABLE cursus.journal DISABLE TRIGGER journal_ajout_seul', 'cursus.journal')
+WHERE to_regclass('cursus.journal_purges') IS NOT NULL;
 
 -- Vraies tables de Vigie (cas 200 et suivants) : chaque entrée vigie de droits.colonnes_sensibles dont la table et la
 -- colonne existent (colonnes de santé de events, copies dans change_log, tables fermées en entier). Matrix ne la lit
@@ -278,7 +310,9 @@ FROM (VALUES
   (82, 'keystone_app est étranger à codex_app', 'keystone_app', 'non', pg_has_role('keystone_app', 'codex_app', 'MEMBER')),
   (83, 'matrix_app hérite de matrix_lecture', 'matrix_app', 'oui', pg_has_role('matrix_app', 'matrix_lecture', 'USAGE')),
   (84, 'epc2i_sauvegarde hérite de pg_read_all_data', 'epc2i_sauvegarde', 'oui', pg_has_role('epc2i_sauvegarde', 'pg_read_all_data', 'USAGE')),
-  (85, 'keystone_app sans droit CREATE sur la base', 'keystone_app', 'non', has_database_privilege('keystone_app', 'epc2i', 'CREATE'))
+  (85, 'keystone_app sans droit CREATE sur la base', 'keystone_app', 'non', has_database_privilege('keystone_app', 'epc2i', 'CREATE')),
+  (86, 'cursus_purge n''hérite pas des droits de cursus_app', 'cursus_purge', 'non', pg_has_role('cursus_purge', 'cursus_app', 'USAGE')),
+  (87, 'cursus_purge sans droit CREATE sur la base', 'cursus_purge', 'non', has_database_privilege('cursus_purge', 'epc2i', 'CREATE'))
 ) AS t(n, cas, role, attendu, ok);
 
 -- Administrateur nominatif.

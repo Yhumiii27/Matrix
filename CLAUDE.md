@@ -19,8 +19,12 @@ par `npm run norma:check` ; elles se changent dans le dépôt `Yhumiii27/Norma`,
 - Port de Matrix : 3700 (registre de Norma, défaut de `serveur.mjs`) ; l'image Docker garde le port interne 3000.
 - Affichage sombre / clair : cookie `epc2i-theme`, attribut `data-theme` posé par `serveur.mjs` (`outils/theme.mjs`) ;
   thèmes et jetons pris dans `norma/charte/nocturne.css`, jamais recopiés.
-- Coque commune de Norma 2.0 (`norma/charte/COQUE.md`) : `maquette/source.html` écrit le HTML de la coque avec les classes
+- Coque commune de Norma 2.0, logo de Norma 2.3 (`norma/charte/COQUE.md`) : `maquette/source.html` écrit le HTML de la coque avec les classes
   de `norma/charte/coque.css` (barre latérale `.coque-side` et recherche de pages ⌘K, un en-tête `.coque-header` par écran,
   paire langue / affichage `.coque-prefs` empilée en dernier, barre supérieure et tiroir ≤ 1024 px, panneau
   `.coque-panel` 640 px) ; `serveur.mjs` sert `/charte/nocturne.css`, `touch.css` et `coque.css`, que la maquette publiée
   (`npm run maquette`) recopie dans la page.
+- Logo de Matrix (Norma 2.3.0, `norma/charte/COQUE.md` § 2 et § 8 bis) : `outils/page.mjs` recopie
+  `norma/charte/logos/matrix.svg` dans la marque de la barre latérale (`.coque-logo-mark`, 26 px) et de la barre supérieure
+  (`.coque-topbar-mark`, 20 px) et en favicon (`<link rel="icon">` en adresse `data:`), dans la page servie comme dans la
+  maquette publiée ; marques `<!--LOGO-MARQUE-->`, `<!--LOGO-BARRE-->`, `<!--FAVICON-->` de `maquette/source.html`.

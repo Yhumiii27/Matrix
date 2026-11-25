@@ -1,9 +1,11 @@
 <title>Matrix</title>
+<!-- Favicon : logo de Matrix de Norma 2.3 (norma/charte/logos/matrix.svg), posé par outils/page.mjs. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Matrix%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g-matrix%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%236a7a9c%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%233b4763%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g-matrix)%22%2F%3E%3Crect%20x%3D%22.75%22%20y%3D%22.75%22%20width%3D%2262.5%22%20height%3D%2262.5%22%20rx%3D%2213.3%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-opacity%3D%22.14%22%20stroke-width%3D%221.5%22%2F%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M17%2017H47M17%2032H47M17%2047H47M17%2017V47M32%2017V47M47%2017V47%22%20opacity%3D%22.7%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2217%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2217%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2247%22%20cy%3D%2217%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2232%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%226%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2247%22%20cy%3D%2232%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2247%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2247%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2247%22%20cy%3D%2247%22%20r%3D%224%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E">
 <meta name="description" content="Matrix : bibliothèque et graphe des bases de données de Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus et Vector">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<!-- Charte de Norma 2.0 (copie norma/charte, servie par Matrix : /charte/…) : jetons et thèmes sombre / clair, cibles
+<!-- Charte de Norma 2.3 (copie norma/charte, servie par Matrix : /charte/…) : jetons et thèmes sombre / clair, cibles
      tactiles, coque commune (COQUE.md). La maquette publiée comme artefact les recopie dans la page (outils/page.mjs). -->
 <style>
 /* Nocturne — design-system tokens and component classes. This file is the source of truth for the system's look; retune it here and see readme.md. */
@@ -480,10 +482,14 @@ textarea.input { min-height: 90px; resize: vertical; }
   display: grid; place-items: center; color: var(--color-accent);
   box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
+/* Logo de l'outil (Norma 2.3.0, charte/logos) : la tuile remplace le carré à bord d'accent. */
+.coque-logo-mark { border: 0; box-shadow: none; overflow: hidden; }
+.coque-logo-mark svg { width: 26px; height: 26px; display: block; }
 .coque-wordmark { font-size: var(--text-brand); font-weight: var(--weight-strong); letter-spacing: -0.01em; }
 .coque-side-close { display: none; }
 
-/* Recherche de pages ⌘K, sous la marque. */
+/* Recherche de pages ⌘K, sous la marque. Indication ⌘K en --color-neutral-400 (Norma 2.2) : --color-neutral-500 ne
+   donnait que 3,9:1 en affichage clair. */
 .coque-pagesearch { position: relative; }
 .coque-pagesearch-icon { position: absolute; left: 9px; top: 9px; color: var(--color-neutral-500); pointer-events: none; }
 .coque-pagesearch .input {
@@ -491,7 +497,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 }
 .coque-kbd {
   position: absolute; right: 8px; top: 8px; font-size: var(--text-micro); padding: 1px 5px; border-radius: var(--radius-sm);
-  border: 1px solid var(--color-neutral-800); color: var(--color-neutral-500); pointer-events: none;
+  border: 1px solid var(--color-neutral-800); color: var(--color-neutral-400); pointer-events: none;
 }
 
 .coque-nav { display: flex; flex-direction: column; gap: 2px; }
@@ -559,8 +565,10 @@ textarea.input { min-height: 90px; resize: vertical; }
 .coque-user-caret { margin-left: auto; color: var(--color-neutral-500); flex: none; }
 
 /* ── 3. En-tête de page ─────────────────────────────────────────────────── */
-/* Ordre fixe, de gauche à droite : [fil + titre] [recherche globale] [actions de la page] [outils] [langue / affichage]. */
-.coque-header { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+/* Ordre fixe, de gauche à droite : [fil + titre] [recherche globale] [actions de la page] [outils] [langue / affichage].
+   Norma 2.2 : `justify-content: flex-end` — quand l'en-tête passe à la ligne, la seconde ligne (outils, date, cloche, paire)
+   reste alignée à droite ; le bloc du titre garde la gauche par sa marge automatique. */
+.coque-header { display: flex; align-items: flex-end; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
 .coque-header-left { display: flex; flex-direction: column; gap: 4px; margin-right: auto; min-width: 0; }
 .coque-crumb {
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: var(--text-small); color: var(--color-neutral-400);
@@ -711,6 +719,8 @@ textarea.input { min-height: 90px; resize: vertical; }
 .coque-menu-btn.btn { gap: 8px; min-height: var(--touch-target); font-size: var(--text-ui); }
 .coque-topbar-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: var(--weight-strong); }
 .coque-topbar-logo { color: var(--color-accent); }
+.coque-topbar-mark { display: inline-flex; flex: none; border-radius: 5px; overflow: hidden; }
+.coque-topbar-mark svg { width: 20px; height: 20px; display: block; }
 .coque-topbar-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .coque-backdrop { display: none; }
 
@@ -724,6 +734,8 @@ textarea.input { min-height: 90px; resize: vertical; }
   }
   /* La paire langue / affichage quitte l'en-tête de page pour la droite de la barre supérieure. */
   .coque-header .coque-prefs { display: none; }
+  /* Une seule cloche visible (Norma 2.2) : quand la barre supérieure porte la cloche, celle de l'en-tête de page est masquée. */
+  .coque:has(.coque-topbar .coque-bell) .coque-header .coque-bell { display: none; }
   .coque-title { font-size: var(--text-title-compact); }
   .coque-side {
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 66; width: var(--shell-drawer-w); height: 100dvh;
@@ -1024,7 +1036,7 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
   <a class="coque-skip" href="#contenu" data-i18n>Skip to main content</a>
   <aside class="coque-side" id="coque-side" aria-label="Main menu" data-i18n-attrs="aria-label">
     <div class="coque-brand">
-      <span class="coque-logo" data-icon="matrix" data-size="15"></span>
+      <span class="coque-logo coque-logo-mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><linearGradient id="g-matrix-marque" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a7a9c"/><stop offset="1" stop-color="#3b4763"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#g-matrix-marque)"/><rect x=".75" y=".75" width="62.5" height="62.5" rx="13.3" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="1.5"/><path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M17 17H47M17 32H47M17 47H47M17 17V47M32 17V47M47 17V47" opacity=".7"/><circle cx="17" cy="17" r="4" fill="#fff"/><circle cx="32" cy="17" r="4" fill="#fff"/><circle cx="47" cy="17" r="4" fill="#fff"/><circle cx="17" cy="32" r="4" fill="#fff"/><circle cx="32" cy="32" r="6" fill="#fff"/><circle cx="47" cy="32" r="4" fill="#fff"/><circle cx="17" cy="47" r="4" fill="#fff"/><circle cx="32" cy="47" r="4" fill="#fff"/><circle cx="47" cy="47" r="4" fill="#fff"/></svg></span>
       <span class="coque-wordmark">Matrix</span>
       <button type="button" class="btn btn-ghost btn-icon coque-side-close" id="menu-fermer" aria-label="Close menu" title="Close menu" data-i18n-attrs="aria-label title"><span data-icon="close" data-size="14"></span></button>
     </div>
@@ -1047,7 +1059,7 @@ textarea.input { resize: vertical; min-height: 70px; font-family: inherit; }
   <main class="coque-main" id="contenu" tabindex="-1">
     <div class="coque-topbar">
       <button type="button" class="btn btn-secondary btn-sm coque-menu-btn" id="menu-ouvrir" aria-expanded="false" aria-controls="coque-side"><span data-icon="list" data-size="16"></span><span data-i18n>Menu</span></button>
-      <span class="coque-topbar-brand"><span class="coque-topbar-logo" data-icon="matrix" data-size="15"></span>Matrix</span>
+      <span class="coque-topbar-brand"><span class="coque-topbar-mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><linearGradient id="g-matrix-barre" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a7a9c"/><stop offset="1" stop-color="#3b4763"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#g-matrix-barre)"/><rect x=".75" y=".75" width="62.5" height="62.5" rx="13.3" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="1.5"/><path fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M17 17H47M17 32H47M17 47H47M17 17V47M32 17V47M47 17V47" opacity=".7"/><circle cx="17" cy="17" r="4" fill="#fff"/><circle cx="32" cy="17" r="4" fill="#fff"/><circle cx="47" cy="17" r="4" fill="#fff"/><circle cx="17" cy="32" r="4" fill="#fff"/><circle cx="32" cy="32" r="6" fill="#fff"/><circle cx="47" cy="32" r="4" fill="#fff"/><circle cx="17" cy="47" r="4" fill="#fff"/><circle cx="32" cy="47" r="4" fill="#fff"/><circle cx="47" cy="47" r="4" fill="#fff"/></svg></span>Matrix</span>
       <div class="coque-topbar-tools">
         <div class="coque-prefs">
           <div class="coque-pref" role="group" aria-label="Language" data-i18n-attrs="aria-label">

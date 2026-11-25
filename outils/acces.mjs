@@ -12,6 +12,7 @@
 //   - un en-tête Basic refusé (celui de l'authentification de Coolify, par exemple) ne bloque plus : la session décide ;
 //   - chaque refus est écrit dans le journal du conteneur, et le démarrage signale une variable suspecte.
 
+import { FR, traduire, langOf } from './i18n.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const COOKIE = 'matrix_session';
@@ -123,13 +124,15 @@ const echapper = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', 
  * Page de connexion (HTML autonome, sans script). `entra` : bouton « Se connecter avec Microsoft » (E-02) à la place du
  * formulaire à mot de passe ; `refus` : page d'accès refusé (compte sans rôle Matrix).
  */
-export function pageConnexion({ erreur = '', suite = '/', identifiant = '', entra = false, refus = false } = {}) {
+export function pageConnexion({ erreur = '', erreurVars, suite = '/', identifiant = '', entra = false, refus = false, lang = 'fr' } = {}) {
+  // Langue de la page (cookie matrix-lang lu par serveur.mjs) ; l'erreur est une chaîne source anglaise du dictionnaire.
+  const t = (source, vars) => traduire(FR, lang, source, vars);
   return `<!doctype html>
-<html lang="fr">
+<html lang="${langOf(lang)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connexion · Matrix</title>
+<title>${t('Sign-in')} · Matrix</title>
 <link rel="stylesheet" href="/charte/nocturne.css">
 <style>
   @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url(/fonts/inter-latin-wght.woff2) format("woff2"); }
@@ -152,18 +155,18 @@ export function pageConnexion({ erreur = '', suite = '/', identifiant = '', entr
 <body>
 ${entra ? `<form>
   <h1>Matrix</h1>
-  ${refus ? `<p>Votre compte Microsoft n’a pas accès à Matrix. Demandez au service informatique de vous attribuer le rôle « Lecture » ou « Administrateur » dans l’application Matrix d’Entra ID.</p>`
-    : `<p>Cartographie des données du groupe EPC2I. Connectez-vous avec votre compte Microsoft de l’entreprise ; votre nom signe vos modifications dans le journal.</p>`}
-  ${erreur ? `<div class="erreur" role="alert">${echapper(erreur)}</div>` : ''}
-  <a class="bouton" href="/auth/entra?suite=${encodeURIComponent(suiteSure(suite))}">${refus ? 'Se connecter avec un autre compte' : 'Se connecter avec Microsoft'}</a>
+  ${refus ? `<p>${t('Your Microsoft account has no access to Matrix. Ask the IT department to give you the “Read” or “Administrator” role in the Matrix application of Entra ID.')}</p>`
+    : `<p>${t('Data map of the EPC2I group. Sign in with your company Microsoft account; your name signs your changes in the log.')}</p>`}
+  ${erreur ? `<div class="erreur" role="alert">${echapper(t(erreur, erreurVars))}</div>` : ''}
+  <a class="bouton" href="/auth/entra?suite=${encodeURIComponent(suiteSure(suite))}">${refus ? t('Sign in with another account') : t('Sign in with Microsoft')}</a>
 </form>` : `<form method="post" action="/connexion">
   <h1>Matrix</h1>
-  <p>Cartographie des données du groupe EPC2I. Identifiez-vous avec le mot de passe de Matrix ; votre identifiant signe vos modifications dans le journal.</p>
-  ${erreur ? `<div class="erreur" role="alert">${echapper(erreur)}</div>` : ''}
+  <p>${t('Data map of the EPC2I group. Identify yourself with the Matrix password; your identifier signs your changes in the log.')}</p>
+  ${erreur ? `<div class="erreur" role="alert">${echapper(t(erreur, erreurVars))}</div>` : ''}
   <input type="hidden" name="suite" value="${echapper(suiteSure(suite))}">
-  <label>Identifiant<input name="identifiant" autocomplete="username" required maxlength="120" value="${echapper(identifiant)}" ${identifiant ? '' : 'autofocus'}></label>
-  <label>Mot de passe<input name="mot_de_passe" type="password" autocomplete="current-password" required ${identifiant ? 'autofocus' : ''}></label>
-  <button type="submit">Se connecter</button>
+  <label>${t('Identifier')}<input name="identifiant" autocomplete="username" required maxlength="120" value="${echapper(identifiant)}" ${identifiant ? '' : 'autofocus'}></label>
+  <label>${t('Password')}<input name="mot_de_passe" type="password" autocomplete="current-password" required ${identifiant ? 'autofocus' : ''}></label>
+  <button type="submit">${t('Sign in')}</button>
 </form>`}
 </body>
 </html>`;

@@ -492,7 +492,7 @@ async function routeEntra(req, res, url) {
       return res.end();
     } catch (e) {
       console.error(`connexion Entra ID : ${e.message}`);
-      return html(res, 502, pageConnexion({ entra: true, erreur: 'Microsoft Entra ID ne répond pas : réessayez dans un instant.' }));
+      return html(res, 502, pageConnexion({ lang: langueDeRequete(req.headers.cookie), entra: true, erreur: 'Microsoft Entra ID is not answering: try again in a moment.' }));
     }
   }
   // Retour de Microsoft.
@@ -500,15 +500,15 @@ async function routeEntra(req, res, url) {
   const controle = lireJeton(lireCookie(req.headers.cookie, COOKIE_OIDC), ENTRA.secret);
   if (url.searchParams.get('error')) {
     console.warn(`[${new Date().toISOString()}] connexion Entra ID refusée par Microsoft : ${url.searchParams.get('error')} ${url.searchParams.get('error_description') ?? ''}`);
-    return html(res, 403, pageConnexion({ entra: true, erreur: `Microsoft a refusé la connexion (${String(url.searchParams.get('error_description') ?? url.searchParams.get('error')).split(/\r?\n/)[0].slice(0, 200)}).` }), { 'set-cookie': effacer });
+    return html(res, 403, pageConnexion({ lang: langueDeRequete(req.headers.cookie), entra: true, erreur: 'Microsoft refused the sign-in ({reason}).', erreurVars: { reason: String(url.searchParams.get('error_description') ?? url.searchParams.get('error')).split(/\r?\n/)[0].slice(0, 200) } }), { 'set-cookie': effacer });
   }
-  if (!controle) return html(res, 400, pageConnexion({ entra: true, erreur: 'La connexion a expiré ou a été ouverte dans un autre onglet : recommencez.' }), { 'set-cookie': effacer });
+  if (!controle) return html(res, 400, pageConnexion({ lang: langueDeRequete(req.headers.cookie), entra: true, erreur: 'The sign-in expired or was opened in another tab: start again.' }), { 'set-cookie': effacer });
   try {
     const c = await finConnexion(ENTRA, url.search, controle);
     const p = personneDepuisJeton(c), role = ACCES_CLAVIS ? (p.oid ? await droitClavis(p.oid) : null) : roleDepuisEntra(c.roles, ENTRA);
     if (!role) {
       console.warn(`[${new Date().toISOString()}] connexion Entra ID refusée pour « ${p.nom} » (${p.oid}) : aucun rôle Matrix`);
-      return html(res, 403, pageConnexion({ entra: true, refus: true }), { 'set-cookie': effacer });
+      return html(res, 403, pageConnexion({ lang: langueDeRequete(req.headers.cookie), entra: true, refus: true }), { 'set-cookie': effacer });
     }
     console.log(`[${new Date().toISOString()}] connexion Entra ID de « ${p.nom} » (${role}) depuis ${adresse(req)}`);
     res.writeHead(303, { ...ENTETES, location: suiteSure(controle.suite), 'cache-control': 'no-store',
@@ -516,7 +516,7 @@ async function routeEntra(req, res, url) {
     return res.end();
   } catch (e) {
     console.warn(`[${new Date().toISOString()}] connexion Entra ID en échec : ${e.message}`);
-    return html(res, 401, pageConnexion({ entra: true, erreur: 'La connexion n’a pas pu être vérifiée : recommencez.' }), { 'set-cookie': effacer });
+    return html(res, 401, pageConnexion({ lang: langueDeRequete(req.headers.cookie), entra: true, erreur: 'The sign-in could not be verified: start again.' }), { 'set-cookie': effacer });
   }
 }
 
@@ -537,8 +537,8 @@ function routeConnexion(req, res, url) {
     return res.end();
   }
   if (!ACCES_RESERVE) { res.writeHead(303, { ...ENTETES, location: '/' }); return res.end(); }
-  if (ENTRA.active) return req.method === 'GET' ? html(res, 200, pageConnexion({ entra: true, suite: url.searchParams.get('suite') ?? '/' })) : json(res, 405, { erreur: 'connexion par Microsoft Entra ID' });
-  if (req.method === 'GET') return html(res, 200, pageConnexion({ suite: url.searchParams.get('suite') ?? '/' }));
+  if (ENTRA.active) return req.method === 'GET' ? html(res, 200, pageConnexion({ lang: langueDeRequete(req.headers.cookie), entra: true, suite: url.searchParams.get('suite') ?? '/' })) : json(res, 405, { erreur: 'connexion par Microsoft Entra ID' });
+  if (req.method === 'GET') return html(res, 200, pageConnexion({ lang: langueDeRequete(req.headers.cookie), suite: url.searchParams.get('suite') ?? '/' }));
   if (req.method !== 'POST') return json(res, 405, { erreur: 'méthode non autorisée' });
   const origine = req.headers.origin;
   if (origine && origine !== 'null' && new URL(origine).host !== req.headers.host) return json(res, 403, { erreur: 'origine refusée' });
@@ -548,13 +548,13 @@ function routeConnexion(req, res, url) {
     const suite = suiteSure(f.get('suite'));
     if (connexions.bloque(ip)) {
       console.warn(`[${new Date().toISOString()}] connexion bloquée (trop d'échecs) depuis ${ip}`);
-      return html(res, 429, pageConnexion({ erreur: 'Trop de tentatives : réessayez dans un quart d’heure.', suite, identifiant }));
+      return html(res, 429, pageConnexion({ lang: langueDeRequete(req.headers.cookie), erreur: 'Too many attempts: try again in a quarter of an hour.', suite, identifiant }));
     }
     const mdp = f.get('mot_de_passe') ?? '';
     if (!identifiant || !motDePasseValide(mdp, MOT_DE_PASSE)) {
       connexions.echec(ip);
       console.warn(`[${new Date().toISOString()}] connexion refusée pour « ${identifiant || '(vide)'} » depuis ${ip} : ${identifiant ? 'mot de passe incorrect' : 'identifiant vide'}`);
-      return html(res, 401, pageConnexion({ erreur: identifiant ? 'Mot de passe incorrect.' : 'Indiquez votre identifiant.', suite, identifiant }));
+      return html(res, 401, pageConnexion({ lang: langueDeRequete(req.headers.cookie), erreur: identifiant ? 'Incorrect password.' : 'Enter your identifier.', suite, identifiant }));
     }
     connexions.reussite(ip);
     console.log(`[${new Date().toISOString()}] connexion de « ${identifiant} » depuis ${ip}`);

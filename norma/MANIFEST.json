@@ -1,9 +1,9 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "fichiers": {
-    "CHANGELOG.md": "129376f1227d2cd87098fe7bd1003e3063bcbb7e5e645aaa471e6c6eef743349",
-    "REGLES.md": "a56939839e83ffd6462ef997c12e0a228bd9da18b858e19f418ee032cdcc4745",
-    "VERSION": "c28fcca53637bc88e124af1725df13cb98c69dedefd62fb3cdbe1cdb6b760624",
+    "CHANGELOG.md": "9d126a37bb32370a0b20e2ab83e024ecced1eb1ddc15e05cd22623a5600dc3ec",
+    "REGLES.md": "650c224ef3999ab75e4b4da88852d594646edf80654c5b3d982b3a5a930ad872",
+    "VERSION": "c89b87c262e9d5ffd20e73aac74a1772adcc9f5a21682cc33adcf5086e5fef5c",
     "charte/AUDIT-2026-11-24.md": "37bb577270359398fe9a15682f2cd6f0351b86c007918efc97987ef54bb0abff",
     "charte/COQUE.md": "b39123beae4ad982fff6442acbe13b91a9d4b4b448efcccad5ad6917da46120c",
     "charte/README.md": "887a3801213b99f07d4a008d39cb1a4e4cca77386b53dcf9d9291e8c8f80cff2",
@@ -63,6 +63,6 @@
     "outils/pages/nocturne-page.css": "14d0d4389846fb42cd5900794a07b8373cd02d45a590e8a57b7e6e41c5c21e2e",
     "outils/questionnaire/build.mjs": "26628495fedb5c4f79dad0f46910adf9d1f6c0d9ccdde7c5ff6d5a247150403d",
     "outils/questionnaire/page.template.html": "cfb571791484868e7ebf36e8ce13be8acfe74976c87f3954ae43280cec099b04",
-    "registre/outils.json": "551a5994093980fe4ccd50a5c6c5eb7967b3acb6a05ed1436e908207bb4d652e"
+    "registre/outils.json": "b449ad095cbd2cb61a0bd7ef38ab49aaf425b78f83af277396bf041d227a9df9"
   }
 }

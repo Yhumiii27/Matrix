@@ -1,5 +1,19 @@
 # Norma — journal des versions
 
+## 2.1.0 — 24 novembre 2026
+
+À la demande du propriétaire (« oui » à la demande DN-1 de Vector) : un dixième outil dans la suite.
+
+- **Registre** : `vector` (Vector, expéditions nationales et internationales : demandes, colisage, transport, douane,
+  documents, suivi, coûts), dépôt `Yhumiii27/vector`, schéma `vector`, rôle `vector_app`, ports 3900 (dev) et 3910
+  (tests), connexion `ENTRA_ISSUER` et `VECTOR_ACCESS_FROM_CLAVIS=on`, commits en anglais.
+- `REGLES.md` § 1 et § 2 : ligne Vector au tableau de la suite, Vector parmi les outils aux commits en anglais ;
+  `README.md` : Vector dans la liste des outils.
+- **Reste à faire** : `reste-a-faire/vector.json` (repris de `docs/reste-a-faire-vector.json` de Vector : livraisons VE-L0
+  à VE-L6, plus VE-N01 « Coque commune Norma 2.0 ») ; identifiants `VE-L<n>` dans `SCHEMA.md`.
+- Mise à jour du reste à faire de la solution (Arche, Crucible, Clavis, Matrix, Codex, Cursus, Vigie, Modulus, Norma).
+- Version mineure : un outil reprend la copie (`copier`) sans changer son code ; Vector peut passer `npm run norma:check`.
+
 ## 2.0.0 — 24 novembre 2026
 
 À la demande du propriétaire : « un audit du design de toutes les pages de tous les softs afin d'aligner proprement tous

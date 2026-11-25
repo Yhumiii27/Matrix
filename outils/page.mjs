@@ -24,6 +24,14 @@ const POLICES = `
 @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url(/fonts/inter-latin-ext-wght.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 </style>`;
 
+// Logo de Matrix (Norma 2.3.0, norma/charte/logos/matrix.svg, COQUE.md § 2 et § 8 bis), lu dans la copie de Norma :
+// recopié dans la marque de la barre latérale (26 px, .coque-logo-mark) et de la barre supérieure (20 px,
+// .coque-topbar-mark), décoratif (le nom suit), avec un identifiant de dégradé propre à chaque copie ; favicon en
+// adresse data: dans les deux formes (la maquette publiée n'a pas de serveur, la page servie aucune route de plus).
+const LOGO = readFileSync(join(RACINE, 'norma/charte/logos/matrix.svg'), 'utf8').trim();
+const logo = n => LOGO.replace(' role="img" aria-label="Matrix"', ' aria-hidden="true" focusable="false"').replaceAll('g-matrix', `g-matrix-${n}`);
+const FAVICON = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(LOGO)}">`;
+
 const lire = f => JSON.parse(readFileSync(f, 'utf8'));
 
 /** Rassemble les données de la page. Le catalogue et l'historique viennent de dataDir ; le reste du dépôt. */
@@ -62,7 +70,8 @@ export function construirePage({ forme = 'fragment', dataDir, serveurCommun = fa
   const recherche = readFileSync(join(RACINE, 'outils/recherche.mjs'), 'utf8').replace(/^export /gm, '');
   const source = readFileSync(join(RACINE, 'maquette/source.html'), 'utf8').replace('/*DONNEES*/', () => json).replace('/*RECHERCHE*/', () => recherche)
     .replace('/*ICONES*/', () => JSON.stringify(tracesIcones()))
-    .replace('/*I18N*/', () => JSON.stringify(FR).replace(/</g, '\\u003c'));
+    .replace('/*I18N*/', () => JSON.stringify(FR).replace(/</g, '\\u003c'))
+    .replace('<!--FAVICON-->', () => FAVICON).replace('<!--LOGO-MARQUE-->', () => logo('marque')).replace('<!--LOGO-BARRE-->', () => logo('barre'));
   // Maquette publiée comme artefact (sans serveur) : les feuilles de la charte (/charte/…) sont recopiées dans la page.
   if (forme === 'fragment') return source.replace(/<link rel="stylesheet" href="\/charte\/(nocturne|touch|coque)\.css">/g,
     (m, f) => `<style>\n${readFileSync(join(RACINE, 'norma/charte', f + '.css'), 'utf8')}</style>`);

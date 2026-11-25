@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS matrix.publications (
   applique_par text,
   applique_le  timestamptz,
   CONSTRAINT publications_pkey PRIMARY KEY (vue),
-  CONSTRAINT publications_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus)\.pub_[a-z0-9_]+$'),
+  CONSTRAINT publications_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector)\.pub_[a-z0-9_]+$'),
   CONSTRAINT publications_outil_check CHECK (outil = split_part(vue, '.', 1)),
   CONSTRAINT publications_mode_check CHECK (mode IN ('colonnes', 'sql')),
   -- Mode « colonnes » : une table de l'outil, des colonnes choisies ([{ "colonne": …, "nom": … }]), un filtre facultatif.
@@ -45,9 +45,9 @@ CREATE TABLE IF NOT EXISTS matrix.publications (
   CONSTRAINT publications_origine_check CHECK (origine IN ('reprise', 'matrix')),
   CONSTRAINT publications_application_check CHECK (etat <> 'appliquee' OR (applique_le IS NOT NULL AND contrat IS NOT NULL))
 );
--- Outils admis (rejeu sur un serveur existant) : Clavis ajouté le 23/11/2026, Modulus le 24/11/2026.
+-- Outils admis (rejeu sur un serveur existant) : Clavis ajouté le 23/11/2026, Modulus le 24/11/2026, Vector le 25/11/2026.
 ALTER TABLE matrix.publications DROP CONSTRAINT IF EXISTS publications_vue_check;
-ALTER TABLE matrix.publications ADD CONSTRAINT publications_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus)\.pub_[a-z0-9_]+$');
+ALTER TABLE matrix.publications ADD CONSTRAINT publications_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector)\.pub_[a-z0-9_]+$');
 COMMENT ON TABLE matrix.publications IS 'Registre des publications (vues pub_ des outils), administré par Matrix (M-18) : définition, contrat et état ; appliqué par matrix_gestion.';
 COMMENT ON COLUMN matrix.publications.definition IS 'Requête SELECT de la vue, noms de tables qualifiés par leur schéma. Mode colonnes : produite par Matrix à partir de source, colonnes et filtre.';
 COMMENT ON COLUMN matrix.publications.contrat IS 'Colonnes de la vue appliquée, dans l''ordre : [{ "nom": …, "type": … }]. Une colonne ne s''y retire, ne s''y renomme ni ne change de type (PostgreSQL le refuse aussi) ; un changement incompatible se fait par une vue …_v2.';

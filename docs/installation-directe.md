@@ -5,7 +5,7 @@ directement par SSH. Chaque commande de ce guide a été jouée lors de la **ré
 PostgreSQL 16 neuf, les quatre outils sur leur branche `main`, l'annuaire réel importé, un vrai navigateur du premier mot de
 passe jusqu'à chaque outil). Les écarts trouvés et leurs corrections sont au § 12.
 
-Cursus, Vigie, Arche, Crucible et Modulus suivent le même schéma ensuite (§ 13).
+Cursus, Vigie, Arche, Crucible, Modulus et Vector suivent le même schéma ensuite (§ 13).
 
 ## 0. Ce qu'il faut avant de commencer
 
@@ -42,7 +42,7 @@ Mots de passe des rôles, générés une fois :
 
 ```bash
 cd /etc/epc2i && {
-  for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MODULUS MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
+  for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MODULUS VECTOR MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
   echo "MATRIX_GESTION_PASSWORD=$(openssl rand -hex 24)"
   echo "BI_READER_PASSWORD=$(openssl rand -hex 24)"
   echo "CURSUS_PURGE_PASSWORD=$(openssl rand -hex 24)"
@@ -359,3 +359,20 @@ EOF
 ```
 
 Les autres variables (connexion par Clavis, secret de session) suivent le `.env.example` de Modulus, quand il sera livré.
+
+**Vector** (expéditions nationales et internationales, « validé » du propriétaire du 25/11/2026, décision M-25) : de même,
+le socle crée le rôle `vector_app` et le schéma `vector` (sans `VECTOR_APP_PASSWORD` dans `postgres.env`, le rôle existe
+sans pouvoir se connecter). Vector n'a encore ni publication ni lien. Le jour de son déploiement : `VECTOR_APP_PASSWORD`
+dans `postgres.env` (la boucle du § 2 le génère ; sur un serveur déjà installé, l'ajouter à la main), rejeu de `init/01`
+à `03`, puis `/etc/epc2i/vector.env` sur le modèle de Clavis (§ 4), port **3900** (registre de Norma) :
+
+```bash
+cat > vector.env <<EOF
+NODE_ENV=production
+PORT=3900
+DATABASE_URL=postgres://vector_app:$VECTOR_APP_PASSWORD@$DB
+EOF
+```
+
+Les autres variables (connexion par Clavis avec `VECTOR_ACCESS_FROM_CLAVIS=on`, secret de session) suivent le
+`.env.example` de Vector.

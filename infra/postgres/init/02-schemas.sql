@@ -13,6 +13,7 @@
 --   crucible  crucible_app   crucible
 --   clavis    clavis_app     clavis   (annuaire et accès aux outils, 23/11/2026)
 --   modulus   modulus_app    modulus  (commercial et chiffrage, 24/11/2026)
+--   vector    vector_app     vector   (expéditions, 25/11/2026)
 --   matrix    matrix_app     matrix
 --
 -- Chaque outil crée ses tables et le journal de ses migrations dans son propre schéma. Aucun rôle d'outil n'a le
@@ -42,6 +43,7 @@ CREATE SCHEMA IF NOT EXISTS arche    AUTHORIZATION arche_app;
 CREATE SCHEMA IF NOT EXISTS crucible AUTHORIZATION crucible_app;
 CREATE SCHEMA IF NOT EXISTS clavis AUTHORIZATION clavis_app;
 CREATE SCHEMA IF NOT EXISTS modulus  AUTHORIZATION modulus_app;
+CREATE SCHEMA IF NOT EXISTS vector   AUTHORIZATION vector_app;
 CREATE SCHEMA IF NOT EXISTS matrix   AUTHORIZATION matrix_app;
 
 -- Rejeu : remet le bon propriétaire si quelqu'un l'a changé.
@@ -53,9 +55,10 @@ ALTER SCHEMA arche    OWNER TO arche_app;
 ALTER SCHEMA crucible OWNER TO crucible_app;
 ALTER SCHEMA clavis OWNER TO clavis_app;
 ALTER SCHEMA modulus  OWNER TO modulus_app;
+ALTER SCHEMA vector   OWNER TO vector_app;
 ALTER SCHEMA matrix   OWNER TO matrix_app;
 
-REVOKE ALL ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, matrix FROM PUBLIC;
+REVOKE ALL ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix FROM PUBLIC;
 
 COMMENT ON SCHEMA keystone IS 'Keystone (gestion de projets) : tables et journal des migrations (__drizzle_migrations). Propriétaire keystone_app.';
 COMMENT ON SCHEMA codex    IS 'Codex (GED) : tables et journal des migrations (__drizzle_migrations). Propriétaire codex_app.';
@@ -65,6 +68,7 @@ COMMENT ON SCHEMA arche    IS 'Arche (CAPEX des filiales, méthode DIG-PRODI) : 
 COMMENT ON SCHEMA crucible IS 'Crucible (moyens d''essais R&D partagés) : tables et journal des migrations (__drizzle_migrations). Propriétaire crucible_app.';
 COMMENT ON SCHEMA clavis   IS 'Clavis (annuaire et accès aux outils) : personnes, profils, accès, comptes et journal des migrations (__drizzle_migrations). Propriétaire clavis_app. Comptes, clients et codes de connexion fermés à matrix_lecture (droits.colonnes_sensibles).';
 COMMENT ON SCHEMA modulus  IS 'Modulus (commercial et chiffrage : catalogue machines, BOM standard, prix, affaires, savoir-faire) : tables et journal des migrations. Propriétaire modulus_app.';
+COMMENT ON SCHEMA vector   IS 'Vector (expéditions nationales et internationales : demandes, colisage, transport, douane, documents, suivi, coûts) : tables et journal des migrations. Propriétaire vector_app.';
 COMMENT ON SCHEMA matrix   IS 'Matrix (catalogue des bases) : catalogue, correspondances, historique, journal. Propriétaire matrix_app.';
 
 -- Paramètres de session, appliqués à chaque connexion de l'outil sur epc2i (y compris derrière PgBouncer,
@@ -77,6 +81,7 @@ ALTER ROLE arche_app    IN DATABASE epc2i SET search_path TO arche;
 ALTER ROLE crucible_app IN DATABASE epc2i SET search_path TO crucible;
 ALTER ROLE clavis_app   IN DATABASE epc2i SET search_path TO clavis;
 ALTER ROLE modulus_app  IN DATABASE epc2i SET search_path TO modulus;
+ALTER ROLE vector_app   IN DATABASE epc2i SET search_path TO vector;
 ALTER ROLE matrix_app   IN DATABASE epc2i SET search_path TO matrix;
 
 -- Une transaction ouverte et oubliée garde ses verrous, dont le verrou d'écriture de l'outil (voir
@@ -89,6 +94,7 @@ ALTER ROLE arche_app    IN DATABASE epc2i SET idle_in_transaction_session_timeou
 ALTER ROLE crucible_app IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE clavis_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE modulus_app  IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE vector_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 ALTER ROLE matrix_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
 
 -- bi_reader (Power BI, demande M-14 d'Arche) : toute transaction en lecture seule ; une requête de plus de 2 minutes
@@ -115,4 +121,4 @@ COMMENT ON SCHEMA extensions IS 'Extensions installées par le superutilisateur 
 
 COMMIT;
 
-\echo 'Étape 2 terminée : schémas keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, matrix et extensions (pg_trgm) en place.'
+\echo 'Étape 2 terminée : schémas keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix et extensions (pg_trgm) en place.'

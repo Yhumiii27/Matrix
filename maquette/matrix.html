@@ -1,5 +1,5 @@
 <title>Matrix</title>
-<meta name="description" content="Matrix : bibliothèque et graphe des bases de données de Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis et Modulus">
+<meta name="description" content="Matrix : bibliothèque et graphe des bases de données de Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus et Vector">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -763,14 +763,14 @@ textarea.input { min-height: 90px; resize: vertical; }
    tailles de texte et mesures : jetons de nocturne.css ; ce bloc n'ajoute que ce qui est propre à Matrix. */
 :root {
   /* Couleurs des applications (propres à Matrix) : peu saturées, pour le graphe et les pastilles. */
-  --app-keystone: #7fa6d6; --app-codex: #a99de6; --app-cursus: #d6a77f; --app-vigie: #79c2a2; --app-arche: #d68fa8; --app-crucible: #c4b46e; --app-clavis: #8fb8c9; --app-matrix: #b3a1d9; --app-modulus: #a9c47a; --app-externe: #75798c;
+  --app-keystone: #7fa6d6; --app-codex: #a99de6; --app-cursus: #d6a77f; --app-vigie: #79c2a2; --app-arche: #d68fa8; --app-crucible: #c4b46e; --app-clavis: #8fb8c9; --app-matrix: #b3a1d9; --app-modulus: #a9c47a; --app-vector: #e0906e; --app-externe: #75798c;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
   --rule: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 :root[data-theme="light"] {
   /* Couleurs des applications, assombries pour rester lisibles sur fond blanc (contraste ≥ 4,5:1). */
-  --app-keystone: #3f6fa8; --app-codex: #6a5bc4; --app-cursus: #9a5f2a; --app-vigie: #287a57; --app-arche: #b04a70; --app-crucible: #7d6c1f; --app-clavis: #2f6f87; --app-matrix: #5f51b8; --app-modulus: #4f6b1f; --app-externe: #6a6e80;
+  --app-keystone: #3f6fa8; --app-codex: #6a5bc4; --app-cursus: #9a5f2a; --app-vigie: #287a57; --app-arche: #b04a70; --app-crucible: #7d6c1f; --app-clavis: #2f6f87; --app-matrix: #5f51b8; --app-modulus: #4f6b1f; --app-vector: #a8472a; --app-externe: #6a6e80;
   /* Textes secondaires à 68 % du texte en clair (Norma 1.0.2 : 55 % ne donnait que 3,7:1 sur blanc). */
   --muted: color-mix(in srgb, var(--color-text) 68%, transparent);
   --rule: color-mix(in srgb, var(--color-text) 12%, transparent);
@@ -1158,6 +1158,7 @@ const APPS = {
   clavis: { nom: 'Clavis', role: 'Annuaire, accès, connexion centrale', moteur: 'PostgreSQL (serveur commun EPC2I)', orm: 'Drizzle', port: 3600, init: 'Cl', donnees: 'schéma clavis' },
   matrix: { nom: 'Matrix', role: 'Serveur PostgreSQL commun, publications, liens entre outils', moteur: 'PostgreSQL (serveur commun EPC2I)', orm: 'aucun (SQL versionné)', port: 3700, init: 'M', donnees: 'schéma matrix' },
   modulus: { nom: 'Modulus', role: 'Commercial et chiffrage : catalogue machines, BOM standard, prix, affaires, savoir-faire — en cadrage', moteur: 'PostgreSQL (serveur commun EPC2I, prévu)', orm: 'Drizzle (prévu)', port: 3800, init: 'Mo', donnees: 'schéma modulus (prévu)' },
+  vector: { nom: 'Vector', role: 'Expéditions nationales et internationales : demandes, colisage, transport, douane, documents, suivi, coûts — en construction', moteur: 'PostgreSQL (serveur commun EPC2I, prévu)', orm: 'Drizzle (prévu)', port: 3900, init: 'Ve', donnees: 'schéma vector (prévu)' },
 };
 const APP_IDS = Object.keys(APPS);
 const css = getComputedStyle(document.documentElement);
@@ -2232,8 +2233,9 @@ const Graph = (() => {
       const colW2 = Math.max(blocks.codex.w, blocks.vigie.w);
       const origin = { keystone: [0, 0], codex: [colW + G, 0], cursus: [0, rowH + G], vigie: [colW + G, rowH + G], arche: [colW + G + colW2 + G, (rowH + G) / 2],
         crucible: [colW + G + colW2 + G, (rowH + G) / 2 + blocks.arche.h + G],
-        // Outils arrivés ensuite (Clavis, Matrix, Modulus) : une rangée sous les quatre premiers.
-        clavis: [0, 2 * (rowH + G)], matrix: [colW + G, 2 * (rowH + G)], modulus: [colW + G + colW2 + G, 2 * (rowH + G)] };
+        // Outils arrivés ensuite (Clavis, Matrix, Modulus, Vector) : une rangée sous les quatre premiers.
+        clavis: [0, 2 * (rowH + G)], matrix: [colW + G, 2 * (rowH + G)], modulus: [colW + G + colW2 + G, 2 * (rowH + G)],
+        vector: [colW + G + colW2 + G + blocks.modulus.w + G, 2 * (rowH + G)] };
       const center = {};
       for (const a of APP_IDS) { place(blocks[a], ...origin[a]); center[a] = { x: origin[a][0] + blocks[a].w / 2, y: origin[a][1] + blocks[a].h / 2 }; }
       const pairs = {};

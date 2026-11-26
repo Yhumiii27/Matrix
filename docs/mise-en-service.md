@@ -93,7 +93,7 @@ Puis redéployer.
 
 ## 6. Écran Publications : demandes à traiter
 
-Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes à traiter ». Faire les lignes dans l'ordre (6.1 à 6.13) : chaque lien d'écriture avant la publication qui lit ses demandes.
+Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes à traiter ». Faire les lignes dans l'ordre (6.1 à 6.14) : chaque lien d'écriture avant la publication qui lit ses demandes.
 
 | | Ligne du bloc | Bouton | Demande | Vérification (en `postgres`) |
 |---|---|---|---|---|
@@ -110,6 +110,7 @@ Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes 
 | 6.11 | `arche.pub_capex` → `codex_app` (lecture) | « Autoriser » | Codex CX-01 | `SELECT has_table_privilege('codex_app', 'arche.pub_capex', 'SELECT');` renvoie `t`, au plus tard 15 minutes après si `pub_capex` n'est pas encore reprise par Matrix (droit posé par `appliquer-liens.sh`) |
 | 6.12 | `codex.pub_types_document` → `cursus_app` (lecture) | « Autoriser » | Cursus lot 16 | `SELECT has_table_privilege('cursus_app', 'codex.pub_types_document', 'SELECT');` renvoie `t` (dans les 15 minutes si les vues de Codex ne sont pas encore reprises par Matrix) |
 | 6.13 | `codex.pub_documents` → `cursus_app` (lecture) | « Autoriser » | Cursus lot 16 | `SELECT has_table_privilege('cursus_app', 'codex.pub_documents', 'SELECT');` renvoie `t` (dans les 15 minutes si les vues de Codex ne sont pas encore reprises par Matrix) |
+| 6.14 | `codex.pub_documents`, `pub_revisions_document`, `pub_validations`, `pub_journal` | « Enregistrer en brouillon », puis « Appliquer », pour chacune, une fois les vues de Codex reprises par Matrix (`partage/14-reprise-publications.sql -v outils=codex`) et, pour `pub_journal`, la migration `0006_lot16_dossier_personnel` de Codex passée (sans elle : état « erreur », vue inchangée) | Codex lot 16 | `SELECT count(*) FROM codex.pub_documents WHERE type_code = 'DPE';` renvoie `0` ; `SELECT count(*) FROM codex.pub_journal j JOIN codex.destroyed_documents y ON y.id = j.objet;` renvoie `0` |
 
 Une publication refusée à l'application passe à l'état « erreur », avec le message de PostgreSQL ou du contrôle du serveur. La vue reste alors telle qu'elle était : il suffit de corriger, puis d'appliquer de nouveau. Si la visionneuse affiche « ne suit pas la convention » sur une fonction `pub_editer`, c'est l'outil qui doit la corriger, pas Matrix.
 

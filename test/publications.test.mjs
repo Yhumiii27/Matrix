@@ -51,6 +51,64 @@ test('contrat : on ajoute en fin, on ne retire, ne renomme ni ne change de type'
   assert.match(ecartContrat(avant, [avant[0], { nom: 'code', type: 'integer' }]), /change de type/);
 });
 
+// Colonnes publiées d'une définition SQL : liste du SELECT de premier niveau, nom après AS ou après le dernier point.
+function colonnesPubliees(sql) {
+  const corps = sql.replace(/^\s*SELECT\s+/i, '');
+  const items = [];
+  let prof = 0, courant = '';
+  for (let i = 0; i < corps.length; i++) {
+    const c = corps[i];
+    if (prof === 0 && /^\s+FROM\s/i.test(corps.slice(i, i + 7)) && /\s/.test(c)) break;
+    if (c === '(') prof++;
+    if (c === ')') prof--;
+    if (c === ',' && prof === 0) { items.push(courant); courant = ''; } else courant += c;
+  }
+  items.push(courant);
+  return items.map(s => { s = s.trim(); const as = s.match(/\sAS\s+(\w+)$/i); return as ? as[1] : s.split('.').pop(); });
+}
+
+test('dépôt : chaque définition SQL passe le contrôle de l’écran Publications', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const depot = JSON.parse(await readFile(new URL('../data/publications-depot.json', import.meta.url), 'utf8'));
+  const vues = depot.publications.map(p => p.vue);
+  assert.equal(new Set(vues).size, vues.length, 'une seule entrée par vue');
+  for (const p of depot.publications.filter(x => !x.attendue)) {
+    validerVue(p.vue);
+    assert.equal(verifierSql(p.definition), p.definition.trim(), p.vue);
+    assert.equal(preparerPublication(p).definition, p.definition.trim(), p.vue);
+  }
+});
+
+test('dépôt : lot 16 de Codex, enregistrements du dossier du personnel (DPE) hors des vues, contrats inchangés', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const depot = JSON.parse(await readFile(new URL('../data/publications-depot.json', import.meta.url), 'utf8'));
+  const def = vue => depot.publications.find(p => p.vue === vue)?.definition ?? assert.fail(`${vue} absente du dépôt`);
+  // Contrats D10 et D18 v1 (migration 0001_partage de Codex) : mêmes colonnes, même ordre.
+  const CONTRATS = {
+    'codex.pub_documents': ['id', 'aliases', 'title', 'origin', 'attachment', 'project_code', 'program_code', 'family', 'type_code',
+      'subtype', 'department', 'site', 'owner_id', 'owner_name', 'author_id', 'author_name', 'conf', 'keywords', 'lang', 'state',
+      'status', 'rev_in_force', 'rev_working', 'issued_at', 'review_due_at', 'expires_at', 'discipline', 'project_phase',
+      'work_package', 'source_org', 'external_ref', 'legal_hold', 'obsolete_at', 'archived_at', 'created_at', 'modified_at',
+      'distribution', 'review_months', 'process_code', 'owner_matricule'],
+    'codex.pub_revisions_document': ['revision_id', 'doc_id', 'letter', 'status', 'created_at', 'effective_at', 'approved_at',
+      'in_force_at', 'superseded_at', 'modifier_id', 'change_ref', 'working_versions', 'last_version_id', 'last_version_n',
+      'last_version_date', 'last_version_author_id', 'last_version_author_name', 'last_version_comment', 'file_name', 'mime', 'size'],
+    'codex.pub_validations': ['workflow_id', 'doc_id', 'revision', 'requester_id', 'due', 'current_step', 'outcome', 'created_at',
+      'idx', 'function_key', 'step_label', 'assignee_id', 'assignee_name', 'done_on', 'assignee_matricule'],
+    'codex.pub_journal': ['ref_source', 'nature', 'quand', 'qui', 'qui_ref', 'qui_role', 'action', 'objet', 'detail', 'projet', 'qui_matricule'],
+  };
+  for (const [vue, colonnes] of Object.entries(CONTRATS)) assert.deepEqual(colonnesPubliees(def(vue)), colonnes, vue);
+  // Le filtre existant (tres_confidentiel) reste, celui du lot 16 s'ajoute.
+  assert.match(def('codex.pub_documents'), /WHERE d\.conf <> 'tres_confidentiel'\s+AND d\.type_code <> 'DPE'\s*$/);
+  assert.match(def('codex.pub_revisions_document'), /JOIN codex\.documents d ON d\.id = r\.doc_id AND d\.conf <> 'tres_confidentiel' AND d\.type_code <> 'DPE'/);
+  assert.match(def('codex.pub_validations'), /JOIN codex\.documents d\s+ON d\.id = w\.doc_id AND d\.conf <> 'tres_confidentiel' AND d\.type_code <> 'DPE'/);
+  // Journal : entrées sans document gardées ; DPE et documents détruits exclus, même après la destruction (plus de ligne dans documents).
+  const journal = def('codex.pub_journal').replace(/\s+/g, ' ');
+  assert.match(journal, /WHERE a\.doc_id IS NULL OR NOT \(a\.doc_id IN \(SELECT x\.id FROM codex\.documents x WHERE x\.type_code = 'DPE'\) OR a\.doc_id IN \(SELECT y\.id FROM codex\.destroyed_documents y\)\)$/);
+  // Point 3 de la demande (vue propre à Cursus) non retenu.
+  assert.ok(!depot.publications.some(p => p.vue === 'codex.pub_enregistrements_personnel'));
+});
+
 const APP = process.env.MATRIX_TEST_DATABASE_URL, GESTION = process.env.MATRIX_TEST_GESTION_URL, ADMIN = process.env.MATRIX_TEST_ADMIN_URL;
 test('serveur : publier, lier, refuser une rupture de contrat ou une colonne sensible, retirer',
   { skip: !(APP && GESTION && ADMIN) && 'MATRIX_TEST_DATABASE_URL, MATRIX_TEST_GESTION_URL ou MATRIX_TEST_ADMIN_URL absent' }, async () => {

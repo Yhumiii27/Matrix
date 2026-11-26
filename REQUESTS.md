@@ -452,7 +452,7 @@ Format d'une entrée :
 - Validé par Guillaume le : 2026-11-24 (lancement du lot B de Clavis)
 
 ## [2026-11-26] Codex → Matrix — Lot 16 · Enregistrements du dossier du personnel hors des vues `pub_` de Codex
-- Statut : OUVERTE
+- Statut : FAITE côté dépôt (26/11/2026 : points 1 et 2 ; définitions de `codex.pub_documents`, `pub_revisions_document`, `pub_validations` et `pub_journal` ajoutées à `data/publications-depot.json`, reprises de la migration `0001_partage` de Codex avec les filtres demandés, colonnes inchangées, vérifiées sur PostgreSQL 16 avec les migrations 0000 à 0006 de Codex et par `test/publications.test.mjs` ; point 3 non retenu, Cursus ne l'a pas demandé. Reste « Appliquer » dans l'écran Publications du serveur en service, ligne 6.14 de `docs/mise-en-service.md` : après la reprise des vues de Codex par Matrix et, pour `pub_journal` qui lit `codex.destroyed_documents`, après la migration `0006_lot16_dossier_personnel` de Codex — avant, l'application échoue sans rien changer)
 - Demande :
   1. `codex.pub_journal` : ne plus publier les entrées des enregistrements du dossier du personnel (type `DPE`), avant comme après leur destruction. Filtre proposé, aucune colonne ne change :
      `WHERE a.doc_id IS NULL OR NOT (a.doc_id IN (SELECT x.id FROM codex.documents x WHERE x.type_code = 'DPE') OR a.doc_id IN (SELECT y.id FROM codex.destroyed_documents y))`.

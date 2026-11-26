@@ -450,3 +450,14 @@ Format d'une entrée :
 - Justification : plusieurs rôles par personne et par outil, avec périmètre et échéance (`docs/PROPOSITION-DROITS.md` de Clavis) ; `role` reste le rôle principal, aucun lecteur ne casse.
 - Détails techniques : requête de référence `src/server/publications/definitions.ts` de Clavis (testée par `definitions.test.ts`), demande `docs/DEMANDES-MATRIX.md` (DM-1) de Clavis ; lit en plus `clavis.person_roles` (aucune donnée personnelle). Lecteurs inchangés.
 - Validé par Guillaume le : 2026-11-24 (lancement du lot B de Clavis)
+
+## [2026-11-26] Codex → Matrix — Lot 16 · Enregistrements du dossier du personnel hors des vues `pub_` de Codex
+- Statut : OUVERTE
+- Demande :
+  1. `codex.pub_journal` : ne plus publier les entrées des enregistrements du dossier du personnel (type `DPE`), avant comme après leur destruction. Filtre proposé, aucune colonne ne change :
+     `WHERE a.doc_id IS NULL OR NOT (a.doc_id IN (SELECT x.id FROM codex.documents x WHERE x.type_code = 'DPE') OR a.doc_id IN (SELECT y.id FROM codex.destroyed_documents y))`.
+  2. `codex.pub_documents`, `codex.pub_revisions_document`, `codex.pub_validations` : exclure aussi les enregistrements `DPE` (`AND d.type_code <> 'DPE'`) ; aucune colonne ne change.
+  3. Seulement si Cursus le demande : une publication propre lue par `cursus_app` seul (par exemple `codex.pub_enregistrements_personnel`) plutôt que les vues communes ; aujourd'hui Cursus a tout ce qu'il lui faut par l'API de Codex.
+- Justification : depuis Codex#38 (lot 16 de Cursus, décision D-32 de Codex), Codex reçoit les pièces du dossier du personnel déposées par Cursus (justificatifs d'absence, vaccination, frais de santé…), Confidentiel ou Très confidentiel, au titre portant le matricule du salarié, et Cursus peut les détruire. `pub_journal` ne filtre aucun document : l'existence, la date et la référence `cursus:piece/<id>` des enregistrements Très confidentiel y sont lisibles, et les enregistrements Confidentiel figurent dans `pub_documents`, que lisent Keystone, Vigie, Arche et Matrix. Sans cette demande, ces métadonnées restent publiées (jamais le fichier).
+- Détails techniques : note complète `docs/demandes/matrix-lot16-enregistrements.md` du dépôt de Codex (tableau de ce que chaque vue expose). Tables lues : `codex.documents.type_code`, `codex.destroyed_documents.id` (migration `0006_lot16_dossier_personnel` de Codex). Seules des lignes sortent des vues ; contrats de colonnes inchangés.
+- Validé par Guillaume le : 2026-11-26

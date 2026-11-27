@@ -10,6 +10,7 @@ COPY init/ /docker-entrypoint-initdb.d/
 COPY sauvegarde/ /opt/atrium/sauvegarde/
 COPY partage/ /opt/atrium/partage/
 COPY renommage/ /opt/atrium/renommage/
+COPY ajouts/ /opt/atrium/ajouts/
 COPY verifier-droits.sql /opt/atrium/verifier-droits.sql
 # Renommage de la suite en Atrium (docs/renommage-atrium.md) : l'ancien chemin /opt/epc2i reste un lien vers
 # /opt/atrium, pour que les tâches planifiées de Coolify écrites avant le renommage (sh /opt/epc2i/…) continuent de

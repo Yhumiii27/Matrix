@@ -16,7 +16,7 @@ DECLARE r record; n bigint;
 BEGIN
   FOR r IN SELECT c.oid, n2.nspname, c.relname FROM pg_class c JOIN pg_namespace n2 ON n2.oid = c.relnamespace
            WHERE c.relkind IN ('r', 'p') AND n2.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible',
-                 'clavis', 'modulus', 'vector', 'matrix', 'droits')
+                 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits')
            ORDER BY 2, 3 LOOP
     EXECUTE format('SELECT count(*) FROM %I.%I', r.nspname, r.relname) INTO n;
     objet := format('table %s.%s', r.nspname, r.relname); valeur := n::text; RETURN NEXT;

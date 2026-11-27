@@ -1,6 +1,6 @@
 # Matrix
 
-Outil du service informatique pour gérer les bases de données de la suite Atrium (Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus, Vector ; liste tirée du registre de Norma, `norma/registre/outils.json`). Il propose :
+Outil du service informatique pour gérer les bases de données de la suite Atrium (Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus, Vector, Ingenium ; liste tirée du registre de Norma, `norma/registre/outils.json`). Il propose :
 - une bibliothèque des tables ;
 - un graphe des liens entre tables et entre logiciels ;
 - la liste des doublons à trancher ;

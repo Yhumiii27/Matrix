@@ -62,7 +62,7 @@ BEGIN
 END $$;
 SELECT 'ALTER DATABASE epc2i RENAME TO atrium' WHERE EXISTS (SELECT FROM pg_database WHERE datname = 'epc2i') \gexec
 ALTER DATABASE atrium WITH ALLOW_CONNECTIONS true;
-COMMENT ON DATABASE atrium IS 'Serveur commun de la suite Atrium : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix). Voir infra/postgres/README.md dans Matrix.';
+COMMENT ON DATABASE atrium IS 'Serveur commun de la suite Atrium : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium, matrix). Voir infra/postgres/README.md dans Matrix.';
 
 -- 2. Rôle des sauvegardes (le mot de passe SCRAM est gardé).
 SELECT 'ALTER ROLE epc2i_sauvegarde RENAME TO atrium_sauvegarde' WHERE EXISTS (SELECT FROM pg_roles WHERE rolname = 'epc2i_sauvegarde') \gexec

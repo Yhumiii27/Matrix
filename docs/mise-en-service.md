@@ -31,6 +31,7 @@ Conventions de la fiche :
 | 1.4 | Purge du journal de Cursus (« ok pour la purge par rôle dédié sur Cursus », décision M-24 du 25/11/2026) : ajouter `CURSUS_PURGE_PASSWORD` à la ressource `postgres` (facultatif ; cochée « Available at Build Time »), redéployer et rejouer 1.2 : le rôle `cursus_purge` est créé (`NOLOGIN` sans la variable). Ses droits ne sont posés qu'une fois la migration `0035_journal_ajout_seul` de Cursus passée (étape 2) : rejouer alors `init/03-droits.sql`, puis poser `CURSUS_PURGE_DATABASE_URL=postgres://cursus_purge:…@atrium-postgres:5432/atrium` dans l'application Cursus et la redémarrer. | `SELECT par, supprimees_un_an FROM cursus.journal_purges ORDER BY id DESC LIMIT 1;` renvoie une ligne `cursus_purge` du jour ; `droits.verifier()` sans erreur ni « attention » sur `cursus_purge`. |
 | 1.3 | Modulus (« validé » du 24/11/2026) : le rejeu de 1.2 crée le rôle `modulus_app` et le schéma `modulus`, sans table, publication ni lien. Sans `MODULUS_APP_PASSWORD` (facultatif, comme `CLAVIS_APP_PASSWORD`), le rôle existe en `NOLOGIN` ; le jour du déploiement de Modulus, ajouter la variable à la ressource `postgres` (cochée « Available at Build Time »), redéployer et rejouer 1.2, puis écrire `/etc/atrium/modulus.env` (port 3800, `DATABASE_URL=postgres://modulus_app:…@hôte:5432/atrium`, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'modulus';` renvoie `modulus \| modulus_app` ; `droits.verifier()` sans erreur. |
 | 1.5 | Vector (« validé » du 25/11/2026, décision M-25) : le rejeu de 1.2 crée le rôle `vector_app` et le schéma `vector`, sans publication ni lien. Sans `VECTOR_APP_PASSWORD` (facultatif, comme `MODULUS_APP_PASSWORD`), le rôle existe en `NOLOGIN` ; le jour du déploiement de Vector, ajouter la variable à la ressource `postgres` (cochée « Available at Build Time »), redéployer et rejouer 1.2, puis écrire `/etc/atrium/vector.env` (port 3900, `DATABASE_URL=postgres://vector_app:…@hôte:5432/atrium`, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'vector';` renvoie `vector \| vector_app` ; `droits.verifier()` sans erreur. |
+| 1.6 | Ingenium (« validé » du 27/11/2026, demande DI-M1, décision M-29), **sur le serveur en service, sans rejouer `01`** : sauvegarde de moins de 24 h (`SAVE_DAILY`, ou `sauvegarder.sh`), puis en `postgres` `psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /opt/atrium/ajouts/ingenium.sql` (Coolify : dans le conteneur après redéploiement de l'image ; installation directe : `/opt/atrium/matrix/infra/postgres/ajouts/ingenium.sql`), puis `psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /docker-entrypoint-initdb.d/03-droits.sql` (installation directe : `init/03-droits.sql`). Rôle `ingenium_app` en `NOLOGIN` (sans mot de passe) ; le jour du déploiement d'Ingenium, `INGENIUM_APP_PASSWORD` dans la ressource `postgres` puis rejeu de 1.2, et `/etc/atrium/ingenium.env` (port 4000, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'ingenium';` renvoie `ingenium \| ingenium_app` ; `verifier-droits.sql` : « Tous les cas sont conformes » (cas 210 à 215) ; `droits.verifier()` sans erreur. |
 
 ## 2. Migrations des outils
 
@@ -95,7 +96,7 @@ Puis redéployer.
 
 ## 6. Écran Publications : demandes à traiter
 
-Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes à traiter ». Faire les lignes dans l'ordre (6.1 à 6.14) : chaque lien d'écriture avant la publication qui lit ses demandes.
+Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes à traiter ». Faire les lignes dans l'ordre (6.1 à 6.18) : chaque lien d'écriture avant la publication qui lit ses demandes.
 
 | | Ligne du bloc | Bouton | Demande | Vérification (en `postgres`) |
 |---|---|---|---|---|
@@ -113,6 +114,10 @@ Connecté en Administrateur, dans l'écran « Publications », bloc « Demandes 
 | 6.12 | `codex.pub_types_document` → `cursus_app` (lecture) | « Autoriser » | Cursus lot 16 | `SELECT has_table_privilege('cursus_app', 'codex.pub_types_document', 'SELECT');` renvoie `t` (dans les 15 minutes si les vues de Codex ne sont pas encore reprises par Matrix) |
 | 6.13 | `codex.pub_documents` → `cursus_app` (lecture) | « Autoriser » | Cursus lot 16 | `SELECT has_table_privilege('cursus_app', 'codex.pub_documents', 'SELECT');` renvoie `t` (dans les 15 minutes si les vues de Codex ne sont pas encore reprises par Matrix) |
 | 6.14 | `codex.pub_documents`, `pub_revisions_document`, `pub_validations`, `pub_journal` | « Enregistrer en brouillon », puis « Appliquer », pour chacune, une fois les vues de Codex reprises par Matrix (`partage/14-reprise-publications.sql -v outils=codex`) et, pour `pub_journal`, la migration `0006_lot16_dossier_personnel` de Codex passée (sans elle : état « erreur », vue inchangée) | Codex lot 16 | `SELECT count(*) FROM codex.pub_documents WHERE type_code = 'DPE';` renvoie `0` ; `SELECT count(*) FROM codex.pub_journal j JOIN codex.destroyed_documents y ON y.id = j.objet;` renvoie `0` |
+| 6.15 | `clavis.pub_personnes` | « Enregistrer en brouillon », puis « Appliquer », une fois la migration `0007_lot_d_settings` de Clavis passée (sans elle : état « erreur », vue inchangée) | Clavis DM-2 | `SELECT type, proprietaire_id FROM clavis.pub_personnes LIMIT 1;` répond sans erreur ; les treize premières colonnes inchangées |
+| 6.16 | `clavis.pub_acces` | « Appliquer », si elle n'est pas déjà appliquée avec `roles` et `perimetre` (migration `0004_person_roles` de Clavis passée) | Clavis DM-1 | `SELECT roles, perimetre FROM clavis.pub_acces LIMIT 1;` répond sans erreur |
+| 6.17 | `cursus.pub_salaries` → `clavis_app` (lecture) | « Autoriser » | Clavis DM-3 | `SELECT has_table_privilege('clavis_app', 'cursus.pub_salaries', 'SELECT');` renvoie `t` (dans les 15 minutes si les vues de Cursus ne sont pas encore reprises par Matrix) ; puis `CLAVIS_CURSUS=views` dans Clavis |
+| 6.18 | Les 16 liens `… → ingenium_app` (lecture) de DI-M1 ; puis `ingenium.pub_journal` (« Enregistrer en brouillon », « Appliquer ») une fois la table `ingenium.audit_entries` migrée par Ingenium | « Autoriser » pour chaque lien | Ingenium DI-M1 | `SELECT count(*) FROM matrix.liens WHERE lecteur = 'ingenium_app' AND statut = 'autorise';` renvoie `16` ; `SELECT has_table_privilege('ingenium_app', 'keystone.pub_projets', 'SELECT');` renvoie `t` (dans les 15 minutes pour une vue non reprise) ; journal : `SELECT count(*) FROM ingenium.pub_journal;` répond, puis rejouer `partage/95-matrix-journal-unifie.sql` |
 
 Une publication refusée à l'application passe à l'état « erreur », avec le message de PostgreSQL ou du contrôle du serveur. La vue reste alors telle qu'elle était : il suffit de corriger, puis d'appliquer de nouveau. Si la visionneuse affiche « ne suit pas la convention » sur une fonction `pub_editer`, c'est l'outil qui doit la corriger, pas Matrix.
 
@@ -121,18 +126,20 @@ Une publication refusée à l'application passe à l'état « erreur », avec le
 | | Vérification |
 |---|---|
 | 7.1 | `SELECT gravite, objet, constat FROM droits.verifier() WHERE gravite = 'erreur';` renvoie un résultat vide. |
-| 7.2 | `SELECT vue, lecteur, statut, nature FROM matrix.liens WHERE vue LIKE 'vigie.%' OR vue = 'codex.pub_editer' OR (vue, lecteur) = ('arche.pub_capex', 'codex_app') OR lecteur = 'cursus_app' AND vue LIKE 'codex.%' ORDER BY 1, 2;` montre les lignes de l'étape 6 en `autorise`. |
+| 7.2 | `SELECT vue, lecteur, statut, nature FROM matrix.liens WHERE vue LIKE 'vigie.%' OR vue = 'codex.pub_editer' OR (vue, lecteur) = ('arche.pub_capex', 'codex_app') OR lecteur = 'cursus_app' AND vue LIKE 'codex.%' OR lecteur = 'ingenium_app' OR (vue, lecteur) = ('cursus.pub_salaries', 'clavis_app') ORDER BY 1, 2;` montre les lignes de l'étape 6 en `autorise`. |
 | 7.3 | Toutes les vues `pub_` reprises ou créées par Matrix ont `security_barrier=true` : `SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'v' AND c.relname LIKE 'pub\_%' AND pg_get_userbyid(c.relowner) = 'matrix_gestion' AND NOT coalesce(c.reloptions @> '{security_barrier=true}', false);` renvoie un résultat vide. Une vue appliquée avant le 08/11/2026 le devient au prochain « Appliquer ». |
 | 7.4 | Écran Santé de Matrix : liens « appliqués », aucun « à appliquer ». |
 
 ## 8. Après la mise en service
 
-Prévenir la session de Matrix : elle passera à FAITE, dans son `REQUESTS.md`, les demandes de Vigie (D13 : lien d'exécution et publication ; D12 : liens d'exécution et publications) de Crucible (M-21), de Codex (CX-01) et de Cursus (lot 16). Les outils lecteurs peuvent alors activer leur lecture :
+Prévenir la session de Matrix : elle passera à FAITE, dans son `REQUESTS.md`, les demandes de Vigie (D13 : lien d'exécution et publication ; D12 : liens d'exécution et publications) de Crucible (M-21), de Codex (CX-01), de Cursus (lot 16), de Clavis (DM-1 à DM-3) et d'Ingenium (DI-M1). Les outils lecteurs peuvent alors activer leur lecture :
 - Keystone : avancement des NC et des ECO, état des demandes ;
 - Codex : création d'une demande de modification ;
 - Crucible : suspensions des moyens d'essai ;
 - Codex : miroir des CAPEX d'Arche (aucun redéploiement, la tâche « capex » lit au passage suivant) ;
-- Cursus : stockage de ses pièces justificatives dans Codex.
+- Cursus : stockage de ses pièces justificatives dans Codex ;
+- Clavis : arrivées et départs lus dans Cursus (`CLAVIS_CURSUS=views`) ;
+- Ingenium : sources lues dans la base (projets, articles, documents, ECO, droits, sites) au lieu de son jeu de démonstration.
 
 Ce qui reste hors de cette fiche :
 - Cursus doit corriger ses tests `tests/push.test.ts`, qui échouent en CI ; c'est à faire dans le dépôt Cursus.

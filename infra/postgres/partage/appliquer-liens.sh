@@ -78,9 +78,9 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     CROSS JOIN LATERAL aclexplode(c.relacl) a
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND c.relkind = 'v'
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND c.relkind = 'v'
       AND c.relname LIKE 'pub\_%' AND a.privilege_type = 'SELECT' AND a.grantee <> c.relowner
-      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'bi_reader')
+      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'matrix_app', 'bi_reader')
       AND NOT EXISTS (SELECT FROM matrix.liens l
                       WHERE l.vue = n.nspname || '.' || c.relname AND l.lecteur = pg_get_userbyid(a.grantee)
                         AND l.statut = 'autorise')
@@ -98,9 +98,9 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
     CROSS JOIN LATERAL aclexplode(p.proacl) a
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector') AND p.proname LIKE 'pub\_%'
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium') AND p.proname LIKE 'pub\_%'
       AND a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner
-      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'bi_reader')
+      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'matrix_app', 'bi_reader')
       AND NOT EXISTS (SELECT FROM matrix.liens l
                       WHERE l.vue = n.nspname || '.' || p.proname AND l.lecteur = pg_get_userbyid(a.grantee)
                         AND l.statut = 'autorise' AND coalesce(to_jsonb(l) ->> 'nature', 'lecture') = 'execution')
@@ -110,8 +110,8 @@ SELECT CASE WHEN to_regclass('matrix.liens') IS NULL THEN 'registre absent' ELSE
     SELECT false
     FROM pg_namespace n
     CROSS JOIN LATERAL aclexplode(n.nspacl) a
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND a.privilege_type = 'USAGE'
-      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app')
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND a.privilege_type = 'USAGE'
+      AND pg_get_userbyid(a.grantee) IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app')
       AND a.grantee <> n.nspowner
       AND NOT EXISTS (SELECT FROM pg_class v
                       WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'

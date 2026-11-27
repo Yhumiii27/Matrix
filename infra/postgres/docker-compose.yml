@@ -1,5 +1,5 @@
 # Serveur PostgreSQL commun de la suite Atrium : une base atrium, un schéma par outil (keystone, codex, cursus, vigie, arche,
-# crucible, clavis, modulus, vector, matrix).
+# crucible, clavis, modulus, vector, ingenium, matrix).
 #
 # Renommage de la suite en Atrium (décisions M-26 et M-28 du 27/11/2026, docs/renommage-atrium.md). Les volumes
 # s'appellent atrium_pgdata et atrium_sauvegardes. ATTENTION : Coolify nomme chaque volume
@@ -43,6 +43,8 @@ services:
       MODULUS_APP_PASSWORD: ${MODULUS_APP_PASSWORD:-}
       # Facultatif : sans lui, le rôle vector_app existe sans pouvoir se connecter (Vector non déployé).
       VECTOR_APP_PASSWORD: ${VECTOR_APP_PASSWORD:-}
+      # Facultatif : sans lui, le rôle ingenium_app existe sans pouvoir se connecter (Ingenium non déployé).
+      INGENIUM_APP_PASSWORD: ${INGENIUM_APP_PASSWORD:-}
       # Facultatif : sans lui, le rôle bi_reader (Power BI) existe sans pouvoir se connecter.
       BI_READER_PASSWORD: ${BI_READER_PASSWORD:-}
       # Facultatif : sans lui, le rôle cursus_purge (purge du journal de Cursus, M-24) existe sans pouvoir se connecter.

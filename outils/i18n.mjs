@@ -153,6 +153,7 @@ export const FR = {
   'PostgreSQL (Atrium shared server, planned)': 'PostgreSQL (serveur commun Atrium, prévu)',
   '— (group)': '— (groupe)',
   'Domestic and international shipments: requests, packing, transport, customs, documents, tracking, costs — being built': 'Expéditions nationales et internationales : demandes, colisage, transport, douane, documents, suivi, coûts — en construction',
+  'Engineering: discipline register, P&ID, technical reference, engineering BOM, drawings, pack and technical file — being framed': 'Ingénierie : registre des disciplines, P&ID, référentiel technique, nomenclatures d’ingénierie, plans, pack et dossier technique — en cadrage',
   'Table added': 'Table ajoutée',
   'Table removed': 'Table supprimée',
   'Column added': 'Colonne ajoutée',

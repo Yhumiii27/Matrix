@@ -505,7 +505,7 @@ Le rafraîchissement tourne au démarrage, chaque nuit et à la demande (écran 
 
 **Charge.** Vigie 7,5 j (vues déjà écrites), Keystone 3,25 j, Matrix 0,5 j.
 
-**Risques.** La gravité perd un niveau (4 dans Vigie, 3 dans Keystone). Les règles de Vigie feront refuser des demandes de Keystone : l'état `refused` évite des renvois sans fin. Les plans de prévention de Vigie sont pensés pour EPC2I entreprise utilisatrice, pas pour un chantier client. Les réclamations client sont exclues de la vue.
+**Risques.** La gravité perd un niveau (4 dans Vigie, 3 dans Keystone). Les règles de Vigie feront refuser des demandes de Keystone : l'état `refused` évite des renvois sans fin. Les plans de prévention de Vigie sont pensés pour l'entreprise utilisatrice, pas pour un chantier client. Les réclamations client sont exclues de la vue.
 
 ### D14 · Sites (option A)
 

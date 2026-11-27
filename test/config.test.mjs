@@ -11,7 +11,7 @@ import { VARIABLES, lireConfiguration, chargerConfiguration } from '../outils/co
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRA = {
   MATRIX_ENTRA_TENANT_ID: 'clavis', MATRIX_ENTRA_CLIENT_ID: 'matrix', MATRIX_ENTRA_CLIENT_SECRET: 's',
-  MATRIX_ENTRA_ISSUER: 'https://clavis.epc2i.example', MATRIX_PUBLIC_URL: 'https://matrix.epc2i.example/',
+  MATRIX_ENTRA_ISSUER: 'https://clavis.atrium.example', MATRIX_PUBLIC_URL: 'https://matrix.atrium.example/',
   MATRIX_SESSION_SECRET: 'x'.repeat(32),
 };
 
@@ -34,7 +34,7 @@ test('sans variable : les valeurs par défaut, aucune erreur', () => {
 
 test('valeurs lues, vides = défaut', () => {
   const { config, erreurs } = lireConfiguration({ PORT: '3000', NODE_ENV: 'production', MATRIX_SYNCHRO_MINUTES: '0', MATRIX_ACCES_CLAVIS_SECONDES: '',
-    MATRIX_DATABASE_URL: 'postgres://matrix_app:p@127.0.0.1:5432/epc2i', MATRIX_GESTION_DATABASE_URL: 'postgresql://matrix_gestion:p@db/epc2i',
+    MATRIX_DATABASE_URL: 'postgres://matrix_app:p@127.0.0.1:5432/atrium', MATRIX_GESTION_DATABASE_URL: 'postgresql://matrix_gestion:p@db/atrium',
     MATRIX_TOKEN: 'jeton', ...ENTRA, MATRIX_ACCES_CLAVIS: 'ON' });
   assert.deepEqual(erreurs, []);
   assert.equal(config.port, 3000);
@@ -43,15 +43,15 @@ test('valeurs lues, vides = défaut', () => {
   assert.equal(config.dureeDroitMs, 60000);
   assert.equal(config.accesClavis, true);
   assert.equal(config.token, 'jeton');
-  assert.equal(config.publicUrl, 'https://matrix.epc2i.example');
+  assert.equal(config.publicUrl, 'https://matrix.atrium.example');
   assert.equal(config.entra.active, true);
 });
 
 test('une erreur par variable invalide', () => {
   const { erreurs } = lireConfiguration({
     PORT: '70000', NODE_ENV: 'prod', MATRIX_SYNCHRO_MINUTES: 'une heure', MATRIX_ACCES_CLAVIS_SECONDES: '120',
-    MATRIX_ACCES_CLAVIS: 'oui', MATRIX_DATABASE_URL: 'mysql://hote/base', MATRIX_PUBLIC_URL: 'http://matrix.epc2i.example',
-    MATRIX_SESSION_SECRET: 'court', MATRIX_ENTRA_ISSUER: 'pas une adresse', MATRIX_ALERTES_DESTINATAIRES: 'dsi@epc2i.example, nimporte',
+    MATRIX_ACCES_CLAVIS: 'oui', MATRIX_DATABASE_URL: 'mysql://hote/base', MATRIX_PUBLIC_URL: 'http://matrix.atrium.example',
+    MATRIX_SESSION_SECRET: 'court', MATRIX_ENTRA_ISSUER: 'pas une adresse', MATRIX_ALERTES_DESTINATAIRES: 'dsi@atrium.example, nimporte',
     MATRIX_ALERTES_EXPEDITEUR: 'matrix', MATRIX_ALERTES_GRAPH_URL: 'ftp://graph', MATRIX_SOURCES_DIR: join(tmpdir(), 'matrix-absent-' + Date.now()),
   });
   const attendues = [/^PORT : entre 1 et 65535/, /^NODE_ENV : /, /^MATRIX_SYNCHRO_MINUTES : nombre entier/, /^MATRIX_ACCES_CLAVIS_SECONDES : entre 0 et 60/,
@@ -75,7 +75,7 @@ test('cohérence : Clavis sans serveur commun ni connexion complète, gestion sa
 });
 
 test('configuration incomplète : signalée, pas bloquante (comme avant)', () => {
-  const r = lireConfiguration({ MATRIX_ENTRA_TENANT_ID: 't', MATRIX_ALERTES_DESTINATAIRES: 'dsi@epc2i.example' });
+  const r = lireConfiguration({ MATRIX_ENTRA_TENANT_ID: 't', MATRIX_ALERTES_DESTINATAIRES: 'dsi@atrium.example' });
   assert.deepEqual(r.erreurs, []);
   assert.ok(r.avertissements.some(a => /Entra ID non activé.*MATRIX_ENTRA_CLIENT_ID manquant/.test(a)));
   assert.ok(r.avertissements.some(a => /Alertes par e-mail non activées.*EXPEDITEUR manquant/.test(a)));

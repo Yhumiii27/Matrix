@@ -1,4 +1,4 @@
--- Serveur PostgreSQL commun EPC2I, étape 3 sur 3 : droits de Matrix et protection des colonnes sensibles.
+-- Serveur PostgreSQL commun de la suite Atrium, étape 3 sur 3 : droits de Matrix et protection des colonnes sensibles.
 --
 -- Lancement : automatique au premier démarrage du conteneur, ou à la main en superutilisateur, après les étapes 1 et 2 :
 --   psql -h <hôte> -U postgres -d postgres -v ON_ERROR_STOP=1 -f init/03-droits.sql
@@ -45,7 +45,14 @@
 \set ON_ERROR_STOP on
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
 \pset pager off
-\connect epc2i
+-- Base commune : atrium, ou epc2i tant que le serveur en service n'est pas renommé (docs/renommage-atrium.md) ;
+-- -v base=<nom> l'impose.
+\if :{?base}
+\else
+  SELECT coalesce((SELECT datname FROM pg_database WHERE datname IN ('atrium', 'epc2i')
+                   ORDER BY datname <> 'atrium' LIMIT 1), 'atrium') AS base \gset
+\endif
+\connect :base
 
 BEGIN;
 
@@ -129,7 +136,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app, codex_app, cursus_app, vigie_app
 CREATE SCHEMA IF NOT EXISTS droits AUTHORIZATION CURRENT_USER;
 REVOKE ALL ON SCHEMA droits FROM PUBLIC;
 GRANT USAGE ON SCHEMA droits TO matrix_lecture, matrix_admin, matrix_gestion;
-COMMENT ON SCHEMA droits IS 'Droits du serveur EPC2I : colonnes sensibles et contrôle des droits de matrix_lecture. Propriété du superutilisateur. Voir infra/postgres/init/03-droits.sql dans Matrix.';
+COMMENT ON SCHEMA droits IS 'Droits du serveur commun de la suite Atrium : colonnes sensibles et contrôle des droits de matrix_lecture. Propriété du superutilisateur. Voir infra/postgres/init/03-droits.sql dans Matrix.';
 
 CREATE TABLE IF NOT EXISTS droits.colonnes_sensibles (
   schema_nom   text NOT NULL,
@@ -776,7 +783,7 @@ BEGIN
   -- Accès des rôles aux schémas : chaque outil chez soi, plus la convention de partage. Un outil peut avoir USAGE
   -- sur le schéma d'un autre (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix) s'il y lit au moins une vue pub_ ; ses autres
   -- droits dans ce schéma sont contrôlés plus haut (droits croisés). CREATE croisé : toujours une erreur. Le schéma
-  -- extensions (init/02 : pg_trgm) n'est ouvert qu'à codex_app, et à epc2i_sauvegarde par pg_read_all_data ; CREATE
+  -- extensions (init/02 : pg_trgm) n'est ouvert qu'à codex_app, et au rôle des sauvegardes (atrium_sauvegarde, epc2i_sauvegarde avant le renommage) par pg_read_all_data ; CREATE
   -- n'y est accordé à aucun de ces rôles.
   RETURN QUERY
   SELECT 'erreur', format('%s, schéma %s', r.nom, n.nspname),
@@ -798,6 +805,9 @@ BEGIN
                -- Power BI : USAGE seulement là où il lit une vue pub_ (contrôle « lecteur » ci-dessous).
                ('bi_reader', ARRAY[]::text[], ARRAY[]::text[], true),
                ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits'], ARRAY[]::text[], false),
+               -- Rôle des sauvegardes : atrium_sauvegarde ; epc2i_sauvegarde tant que le serveur n'est pas renommé
+               -- (docs/renommage-atrium.md, à retirer ensuite). Le JOIN sur pg_roles ignore le nom absent.
+               ('atrium_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false),
                ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false)
        ) AS r(nom, usage_ok, create_ok, lecteur)
   JOIN pg_roles x ON x.rolname = r.nom
@@ -817,12 +827,12 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'droit CREATE sur la base (il permettrait de créer un schéma)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'atrium_sauvegarde', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
     AND has_database_privilege(r.oid, v_db, 'CREATE');
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'attribut d''administration (SUPERUSER, CREATEROLE, CREATEDB, REPLICATION ou BYPASSRLS)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'atrium_sauvegarde', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
     AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls);
 
   -- Purge du journal des actions de Cursus (décision M-24) : cursus_purge n'a que ses droits (section 5 ter), n'est membre
@@ -900,7 +910,10 @@ BEGIN
   -- Appartenances attendues.
   RETURN QUERY
   SELECT 'erreur', m.membre, format('doit être membre de %s', m.groupe)
-  FROM (VALUES ('matrix_app', 'matrix_lecture'), ('epc2i_sauvegarde', 'pg_read_all_data')) AS m(membre, groupe)
+  FROM (VALUES ('matrix_app', 'matrix_lecture'),
+               -- Rôle des sauvegardes : atrium_sauvegarde, ou epc2i_sauvegarde avant le renommage (docs/renommage-atrium.md).
+               (coalesce((SELECT rolname::text FROM pg_roles WHERE rolname IN ('atrium_sauvegarde', 'epc2i_sauvegarde')
+                          ORDER BY rolname <> 'atrium_sauvegarde' LIMIT 1), 'atrium_sauvegarde'), 'pg_read_all_data')) AS m(membre, groupe)
   WHERE NOT pg_has_role(m.membre, m.groupe, 'USAGE');
 
   -- bi_reader (Power BI) n'hérite d'aucun rôle (il lirait ses tables) et ses transactions sont en lecture seule.
@@ -909,14 +922,14 @@ BEGIN
   FROM pg_auth_members am JOIN pg_roles g ON g.oid = am.roleid JOIN pg_roles m ON m.oid = am.member
   WHERE m.rolname = 'bi_reader';
   RETURN QUERY
-  SELECT 'attention', 'bi_reader', 'default_transaction_read_only absent sur epc2i : rejouer init/02-schemas.sql'
+  SELECT 'attention', 'bi_reader', 'default_transaction_read_only absent sur la base commune : rejouer init/02-schemas.sql'
   WHERE EXISTS (SELECT FROM pg_roles WHERE rolname = 'bi_reader')
     AND NOT EXISTS (SELECT FROM pg_db_role_setting d JOIN pg_roles x ON x.oid = d.setrole
                     WHERE x.rolname = 'bi_reader' AND d.setdatabase = v_db AND 'default_transaction_read_only=on' = ANY (d.setconfig));
 
   -- search_path des rôles de connexion.
   RETURN QUERY
-  SELECT 'attention', r.nom, format('search_path attendu sur epc2i : %s', r.nsp)
+  SELECT 'attention', r.nom, format('search_path attendu sur la base commune : %s', r.nsp)
   FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'),
                ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('matrix_app', 'matrix')) AS r(nom, nsp)
   WHERE NOT EXISTS (SELECT FROM pg_db_role_setting d JOIN pg_roles x ON x.oid = d.setrole

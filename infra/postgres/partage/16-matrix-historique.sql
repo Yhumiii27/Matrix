@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 16 : historique des schémas des outils, sur le serveur commun (écart E-04, suite).
+-- Partage des données de la suite Atrium, fichier 16 : historique des schémas des outils, sur le serveur commun (écart E-04, suite).
 --
 -- Jusqu'ici, l'historique des schémas (tables et colonnes ajoutées, retirées ou modifiées, migrations appliquées,
 -- changements hors migration : écart E-06) vivait dans <MATRIX_DATA_DIR>/historique.json. Avec le serveur commun, il vit
@@ -10,7 +10,7 @@
 -- Alignement (outils/historique-pg.mjs) : à chaque lecture du serveur commun, Matrix envoie les événements de
 -- historique.json absents de la table, puis réécrit historique.json d'après la table, qui fait foi.
 -- Exécution : en tant que matrix_app, après 12-matrix-liens.sql :
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/16-matrix-historique.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/16-matrix-historique.sql
 -- Rejouable. Au premier passage de Matrix qui trouve la table vide, tout historique.json y est repris.
 
 \set ON_ERROR_STOP on

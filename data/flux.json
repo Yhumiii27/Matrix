@@ -635,7 +635,7 @@
   },
   {
    "id": "F18",
-   "nom": "Projets EPC2i liés à un CAPEX : jalons, avancement, avenants, réserves",
+   "nom": "Projets de l'entreprise liés à un CAPEX : jalons, avancement, avenants, réserves",
    "de": "keystone",
    "vers": "arche",
    "mode": "Vue pub_ (lecture)",
@@ -679,7 +679,7 @@
    "champs": [
     [
      "pub_capex : code, filiale, phase, typologie, jalons",
-     "fiche projet EPC2i (lien vers le CAPEX)"
+     "fiche projet de l'entreprise (lien vers le CAPEX)"
     ],
     [
      "pub_rampup : TRS et production par ligne",

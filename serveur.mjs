@@ -47,7 +47,7 @@
 //   MATRIX_ACCES_CLAVIS on : connexion par Clavis (MATRIX_ENTRA_ISSUER = adresse de Clavis) ; le rôle est lu dans
 //                      clavis.pub_acces du serveur commun (MATRIX_DATABASE_URL) à la connexion puis au plus toutes les
 //                      MATRIX_ACCES_CLAVIS_SECONDES (60 par défaut), jamais dans le jeton ; lecture impossible = refus.
-//   MATRIX_DATABASE_URL connexion au serveur PostgreSQL commun en matrix_app (postgres://matrix_app:…@hôte:5432/epc2i).
+//   MATRIX_DATABASE_URL connexion au serveur PostgreSQL commun en matrix_app (postgres://matrix_app:…@hôte:5432/atrium).
 //                      Avec elle, la sonde (outils/sonde.mjs) lit elle-même les tables, liens, vues pub_ et droits
 //                      de chaque outil, met le registre et les graphes à jour, calcule l'état de santé et tient le
 //                      registre des liens (matrix.liens). Les référentiels saisis sont écrits dans le schéma matrix
@@ -527,7 +527,7 @@ function lireFormulaire(req, res, suite) {
   req.on('end', () => { if (!res.writableEnded) suite(new URLSearchParams(Buffer.concat(morceaux).toString('utf8'))); });
 }
 
-// Affichage sombre / clair (Norma) : data-theme posé sur <html> d'après le cookie epc2i-theme de la requête.
+// Affichage sombre / clair (Norma) : data-theme posé sur <html> d'après le cookie atrium-theme de la requête (ancien epc2i-theme en repli).
 const html = (res, code, corps, entetes = {}) => { res.writeHead(code, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...entetes }); res.end(avecTheme(corps, themeDeRequete(res.req?.headers.cookie))); };
 
 // GET /connexion (page), POST /connexion (vérification, cookie), GET /deconnexion.
@@ -796,7 +796,7 @@ createServer(function traiter(req, res) {
     }
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       res.writeHead(200, { ...ENTETES, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', vary: 'Cookie' });
-      // Langue (cookie matrix-lang, français par défaut) et affichage (cookie epc2i-theme) posés sur <html>.
+      // Langue (cookie matrix-lang, français par défaut) et affichage (cookie atrium-theme) posés sur <html>.
       return res.end(avecLangue(avecTheme(pageCourante(), themeDeRequete(req.headers.cookie)), langueDeRequete(req.headers.cookie)));
     }
     if (req.method === 'GET' && url.pathname === '/vendor/cytoscape.min.js' && cytoscape) {

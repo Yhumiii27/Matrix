@@ -42,11 +42,13 @@ test('page et API de lecture', async () => {
   assert.equal((await fetch(libre + '/api/inconnue')).status, 404);
 });
 
-test('affichage sombre / clair : data-theme d’après le cookie epc2i-theme, bouton dans l’en-tête, police servie localement', async () => {
+test('affichage sombre / clair : data-theme d’après le cookie atrium-theme (ancien epc2i-theme en repli), bouton dans l’en-tête, police servie localement', async () => {
   const sombre = await (await fetch(libre + '/')).text();
   assert.match(sombre, /<html lang="fr" data-theme="dark">/);
-  const clair = await (await fetch(libre + '/', { headers: { cookie: 'epc2i-theme=light' } })).text();
+  const clair = await (await fetch(libre + '/', { headers: { cookie: 'atrium-theme=light' } })).text();
   assert.match(clair, /<html lang="fr" data-theme="light">/);
+  const ancien = await (await fetch(libre + '/', { headers: { cookie: 'epc2i-theme=light' } })).text();
+  assert.match(ancien, /<html lang="fr" data-theme="light">/);
   // Paire langue / affichage empilée (Norma 2.0, COQUE.md § 4) : FR | EN au-dessus de sombre | clair, dernier élément des
   // outils communs de l'en-tête de chaque écran. Le HTML porte les chaînes sources anglaises (data-i18n-attrs) que la page
   // traduit en français par défaut (outils/i18n.mjs).
@@ -69,7 +71,7 @@ test('affichage sombre / clair : data-theme d’après le cookie epc2i-theme, bo
   assert.equal((await fetch(libre + '/charte/../serveur.mjs')).status, 404);
   assert.doesNotMatch(clair, /--color-bg: #/);
   // Langue d'après le cookie matrix-lang (français sans cookie).
-  const anglais = await (await fetch(libre + '/', { headers: { cookie: 'matrix-lang=en; epc2i-theme=light' } })).text();
+  const anglais = await (await fetch(libre + '/', { headers: { cookie: 'matrix-lang=en; atrium-theme=light' } })).text();
   assert.match(anglais, /<html lang="en" data-theme="light">/);
   assert.match(clair, /"Dark display":"Affichage sombre"/);
   assert.doesNotMatch(clair, /fonts\.googleapis\.com/);
@@ -77,7 +79,7 @@ test('affichage sombre / clair : data-theme d’après le cookie epc2i-theme, bo
   assert.equal(police.status, 200);
   assert.equal(police.headers.get('content-type'), 'font/woff2');
   assert.equal((await fetch(libre + '/fonts/../serveur.mjs')).status, 404);
-  const connexion = await (await fetch(protege + '/connexion', { headers: { cookie: 'epc2i-theme=light' } })).text();
+  const connexion = await (await fetch(protege + '/connexion', { headers: { cookie: 'atrium-theme=light' } })).text();
   assert.match(connexion, /<html lang="fr" data-theme="light">/);
 });
 

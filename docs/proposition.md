@@ -1,6 +1,6 @@
 # Matrix : proposition
 
-Matrix est l'outil du service informatique pour gérer les bases de données de la suite EPC2i : Keystone, Codex, Cursus et Vigie. Il ne remplace aucune base. Il les recense, montre comment elles sont reliées, repère les doublons et suit chaque changement de schéma. Plus tard, il servira aussi à les administrer : volumétrie, extraits, sauvegardes, droits.
+Matrix est l'outil du service informatique pour gérer les bases de données de la suite Atrium : Keystone, Codex, Cursus et Vigie. Il ne remplace aucune base. Il les recense, montre comment elles sont reliées, repère les doublons et suit chaque changement de schéma. Plus tard, il servira aussi à les administrer : volumétrie, extraits, sauvegardes, droits.
 
 Il suit les mêmes règles de conception que les autres outils (design system Nocturne, structure de l'écran de Codex, interface en français), parce qu'un outil technique doit être aussi simple à utiliser que les autres.
 
@@ -83,7 +83,7 @@ Les autres règles de Codex sont reprises :
 **Étape 2 : un serveur PostgreSQL commun, un schéma par outil (validé le 15 octobre 2026).** Les quatre bases restent séparées, mais sur un même serveur :
 
 ```
-serveur PostgreSQL EPC2I
+serveur PostgreSQL Atrium
 ├── schéma keystone   ← propriétaire : rôle keystone_app
 ├── schéma codex      ← propriétaire : rôle codex_app
 ├── schéma cursus     ← propriétaire : rôle cursus_app (migration depuis SQLite)

@@ -95,7 +95,7 @@ test('verrouillage (E-04) : documentation ou décision préparée sur une versio
   assert.throws(() => documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Autre', version: null }, 'marc'),
     e => e.code === 'conflit' && /documentée entre-temps par claire/.test(e.message));
   // Avec la version enregistrée, Marc passe ; sans version (ancien client), rien n'est contrôlé.
-  const m = documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Projets EPC2I', version: c.majLe }, 'marc');
+  const m = documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Projets du groupe', version: c.majLe }, 'marc');
   assert.equal(m.majPar, 'marc');
   assert.equal(documenter(d, catalogue, { app: 'keystone', table: 'projects', description: 'Sans version' }, 'zoe').description, 'Sans version');
   // Décision : l'option vue avant le choix doit être celle enregistrée.

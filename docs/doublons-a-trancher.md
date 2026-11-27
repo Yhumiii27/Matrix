@@ -49,7 +49,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Doublon · Critique**
 
-**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés EPC2i y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche. Crucible (22/10/2026, livraison 1) : crucible.users porte les comptes Entra ; crucible.people (prévue) porte les opérateurs planifiables avec leur matricule Cursus. Application de l'option A : les salariés EPC2i viennent de cursus.pub_salaries (lecture accordée à crucible_app, demande CU-2 de Crucible) ; les personnes d'EPC France, absentes de Cursus, restent saisies dans Crucible.
+**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés de l'entreprise y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche. Crucible (22/10/2026, livraison 1) : crucible.users porte les comptes Entra ; crucible.people (prévue) porte les opérateurs planifiables avec leur matricule Cursus. Application de l'option A : les salariés de l'entreprise viennent de cursus.pub_salaries (lecture accordée à crucible_app, demande CU-2 de Crucible) ; les personnes d'EPC France, absentes de Cursus, restent saisies dans Crucible.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -58,7 +58,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Codex | `users` | Utilisateurs de la GED et comptes système | 25 personnes + comptes codex, keystone, vigie ; id texte |
 | Vigie | `people` | Personnel suivi dans la matrice d'habilitations | 12 personnes, noms provisoires entre crochets ([T. Nguyen]) |
 | Arche | `users` | Comptes Arche (Entra ID), personnes du groupe et des filiales | prévue (spécification d'Arche, livraison 0) |
-| Crucible | `users` | Comptes Crucible (Entra ID), EPC2i et entités partenaires (EPC France) | réelle (migration 0000_platform de Crucible) |
+| Crucible | `users` | Comptes Crucible (Entra ID) : l'entreprise et les entités partenaires (EPC France) | réelle (migration 0000_platform de Crucible) |
 | Crucible | `people` | Personnes planifiables : opérateurs, techniciens, pyrotechniciens | prévue (spécification de Crucible, docs/spec/02-objets.md) |
 
 **Colonnes qui se correspondent**
@@ -91,7 +91,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Codex | `projects` | Copie locale pour rattacher les documents | 3 projets, mêmes codes que Keystone (HLT-026, NDC-031, RCF-019) |
 | Vigie | `keystone_projects` | Copie locale pour les listes de choix | 10 projets K-2024-097… : aucun code n'existe dans Keystone |
 | Cursus | `projets` | Codes à imputer sur les feuilles de temps | 14 codes : projets K-26xx et codes internes INT-PROD, INT-HSE, ECOLE… |
-| Arche | `keystone_projects` | Miroir des projets EPC2i liés à un CAPEX (lu dans keystone.pub_projets) | prévue (spécification d'Arche, livraison 0) |
+| Arche | `keystone_projects` | Miroir des projets de l'entreprise liés à un CAPEX (lu dans keystone.pub_projets) | prévue (spécification d'Arche, livraison 0) |
 | Crucible | `projects` | Projets R&D demandeurs : classe de priorité, confidentialité, lien Keystone (keystone_code) ou programme Codex | réelle (migration 0000_platform de Crucible) |
 
 **Colonnes qui se correspondent**
@@ -483,14 +483,14 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Chevauchement · Mineur**
 
-**Ce que contiennent les tables.** Une entreprise extérieure de Vigie peut aussi être un fournisseur de Keystone. Codex et Cursus stockent le client en texte libre. Arche : la filiale d'un CAPEX est le client du projet EPC2i (keystone.clients) ; voir D21.
+**Ce que contiennent les tables.** Une entreprise extérieure de Vigie peut aussi être un fournisseur de Keystone. Codex et Cursus stockent le client en texte libre. Arche : la filiale d'un CAPEX est le client du projet de l'entreprise (keystone.clients) ; voir D21.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Keystone | `clients` | Clients | clients des projets |
 | Keystone | `suppliers` | Fournisseurs (code X3, notes de performance) | 31 fournisseurs |
 | Vigie | `contractors` | Entreprises extérieures des plans de prévention | 6 entreprises |
-| Arche | `subsidiaries` | Filiales du groupe (client des projets EPC2i, R-190) | prévue (spécification d'Arche, livraison 0) |
+| Arche | `subsidiaries` | Filiales du groupe (client des projets de l'entreprise, R-190) | prévue (spécification d'Arche, livraison 0) |
 
 **Colonnes qui se correspondent**
 
@@ -585,7 +585,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Homonyme · Mineur**
 
-**Ce que contiennent les tables.** Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration. Arche : risks, decisions, changes et reviews portent sur un CAPEX, pas sur un projet EPC2i ni sur un événement QHSE ; homonymes gardés et toujours nommés avec leur outil (option A). changes n'est pas un ECR / ECO (D12) : il ne modifie ni produit ni document. Crucible (22/10/2026, spécification) : resources (moyens d'essai) et incidents (aléas de planification) sont des homonymes de keystone.resource_requests et des événements de Vigie ; un accident ou un presqu'accident pendant un essai se déclare dans Vigie.
+**Ce que contiennent les tables.** Aucune fusion à faire. Le risque est la confusion lors d'une requête ou d'une intégration. Arche : risks, decisions, changes et reviews portent sur un CAPEX, pas sur un projet de l'entreprise ni sur un événement QHSE ; homonymes gardés et toujours nommés avec leur outil (option A). changes n'est pas un ECR / ECO (D12) : il ne modifie ni produit ni document. Crucible (22/10/2026, spécification) : resources (moyens d'essai) et incidents (aléas de planification) sont des homonymes de keystone.resource_requests et des événements de Vigie ; un accident ou un presqu'accident pendant un essai se déclare dans Vigie.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -615,15 +615,15 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Chevauchement · Majeur**
 
-**Ce que contiennent les tables.** Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets EPC2i dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles. Crucible (22/10/2026, livraison 1) : crucible.entities (EPC2I, EPCFR) recoupe la liste des filiales. Application de l'option A : EPC France entre dans matrix.filiales (demande M-6 de Crucible ; code à 3 lettres, par exemple EFR) et crucible.entities en devient le miroir, la nature « interne » ou « partenaire » restant propre à Crucible ; matrix.pub_filiales est accordée à crucible_app.
+**Ce que contiennent les tables.** Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets de l'entreprise dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles. Crucible (22/10/2026, livraison 1) : crucible.entities (l'entreprise et sa filiale française) recoupe la liste des filiales. Application de l'option A : EPC France entre dans matrix.filiales (demande M-6 de Crucible ; code à 3 lettres, par exemple EFR) et crucible.entities en devient le miroir, la nature « interne » ou « partenaire » restant propre à Crucible ; matrix.pub_filiales est accordée à crucible_app.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
 | Arche | `zones` | Zones (Directeurs de Zone) | prévue (spécification d'Arche) |
 | Arche | `subsidiaries` | Filiales : code à 3 lettres, pays, zone, devise | prévue (spécification d'Arche) |
 | Arche | `sites` | Usines et terrains des filiales | prévue (spécification d'Arche) |
-| Keystone | `clients` | Clients des projets EPC2i, dont les filiales (code3) | Les filiales commandent les machines à EPC2i |
-| Crucible | `entities` | Entités : EPC2i (exploitant), partenaires des installations partagées (EPC France) | réelle (migration 0000_platform de Crucible) |
+| Keystone | `clients` | Clients des projets de l'entreprise, dont les filiales (code3) | Les filiales commandent les machines à l'entreprise |
+| Crucible | `entities` | Entités : l'entreprise (exploitante), partenaires des installations partagées (EPC France) | réelle (migration 0000_platform de Crucible) |
 
 **Colonnes qui se correspondent**
 
@@ -648,11 +648,11 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Chevauchement · Mineur**
 
-**Ce que contiennent les tables.** Arche prévoit sa propre bibliothèque REX (ajout hors CDC, à valider côté Arche), alors que Keystone tient déjà les leçons apprises des projets EPC2i. Le REX d'un CAPEX porte souvent sur la machine livrée par EPC2i.
+**Ce que contiennent les tables.** Arche prévoit sa propre bibliothèque REX (ajout hors CDC, à valider côté Arche), alors que Keystone tient déjà les leçons apprises des projets de l'entreprise. Le REX d'un CAPEX porte souvent sur la machine livrée par l'entreprise.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
-| Keystone | `lessons_learned` | Leçons apprises des projets EPC2i | Keystone détient le REX des projets |
+| Keystone | `lessons_learned` | Leçons apprises des projets de l'entreprise | Keystone détient le REX des projets |
 | Keystone | `rex_references` | Références de REX | Liens vers les leçons apprises |
 | Arche | `rex_entries` | REX capitalisé d'un CAPEX, partagé avec les fonctions centrales | prévue (spécification d'Arche) |
 

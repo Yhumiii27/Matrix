@@ -137,7 +137,7 @@ export function pageConnexion({ erreur = '', erreurVars, suite = '/', identifian
 <style>
   @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url(/fonts/inter-latin-wght.woff2) format("woff2"); }
   /* Charte Nocturne (norma/charte/nocturne.css, servie par Matrix) : sombre par défaut, clair par <html data-theme="light">
-     (cookie epc2i-theme, posé par serveur.mjs). Jetons de la charte seulement. */
+     (cookie atrium-theme, posé par serveur.mjs). Jetons de la charte seulement. */
   :root { --fond: var(--color-bg); --carte: var(--color-surface); --texte: var(--color-text); --doux: color-mix(in srgb, var(--color-text) 62%, transparent); --bord: var(--color-divider); --accent: var(--color-accent); --sur-accent: var(--color-bg); --erreur: var(--color-accent-300); }
   :root[data-theme="light"] { --doux: color-mix(in srgb, var(--color-text) 68%, transparent); --sur-accent: var(--color-surface); }
   * { box-sizing: border-box; }
@@ -156,12 +156,12 @@ export function pageConnexion({ erreur = '', erreurVars, suite = '/', identifian
 ${entra ? `<form>
   <h1>Matrix</h1>
   ${refus ? `<p>${t('Your Microsoft account has no access to Matrix. Ask the IT department to give you the “Read” or “Administrator” role in the Matrix application of Entra ID.')}</p>`
-    : `<p>${t('Data map of the EPC2I group. Sign in with your company Microsoft account; your name signs your changes in the log.')}</p>`}
+    : `<p>${t('Data map of the Atrium suite. Sign in with your company Microsoft account; your name signs your changes in the log.')}</p>`}
   ${erreur ? `<div class="erreur" role="alert">${echapper(t(erreur, erreurVars))}</div>` : ''}
   <a class="bouton" href="/auth/entra?suite=${encodeURIComponent(suiteSure(suite))}">${refus ? t('Sign in with another account') : t('Sign in with Microsoft')}</a>
 </form>` : `<form method="post" action="/connexion">
   <h1>Matrix</h1>
-  <p>${t('Data map of the EPC2I group. Identify yourself with the Matrix password; your identifier signs your changes in the log.')}</p>
+  <p>${t('Data map of the Atrium suite. Identify yourself with the Matrix password; your identifier signs your changes in the log.')}</p>
   ${erreur ? `<div class="erreur" role="alert">${echapper(t(erreur, erreurVars))}</div>` : ''}
   <input type="hidden" name="suite" value="${echapper(suiteSure(suite))}">
   <label>${t('Identifier')}<input name="identifiant" autocomplete="username" required maxlength="120" value="${echapper(identifiant)}" ${identifiant ? '' : 'autofocus'}></label>

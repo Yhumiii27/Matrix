@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 14 : reprise par Matrix des vues pub_ créées par les outils (décision M-18).
+-- Partage des données de la suite Atrium, fichier 14 : reprise par Matrix des vues pub_ créées par les outils (décision M-18).
 --
 -- Pour chaque vue pub_ des outils choisis qui appartient encore à l'outil (créée par une de ses migrations) :
 --   1. la vue passe à matrix_gestion (ALTER VIEW … OWNER TO) : ses lecteurs gardent leur droit, PostgreSQL le
@@ -13,7 +13,7 @@
 --
 -- Exécution : en superutilisateur, après init/03-droits.sql et 13-matrix-publications.sql, avec la liste des outils
 -- repris (ou « tous ») :
---   psql -h <hôte> -U postgres -d epc2i -v ON_ERROR_STOP=1 -v outils=keystone,codex -1 -f partage/14-reprise-publications.sql
+--   psql -h <hôte> -U postgres -d atrium -v ON_ERROR_STOP=1 -v outils=keystone,codex -1 -f partage/14-reprise-publications.sql
 -- Rejouable : une vue déjà reprise n'est plus touchée.
 
 \set ON_ERROR_STOP on

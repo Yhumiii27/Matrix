@@ -15,7 +15,7 @@ Cursus, Vigie, Arche, Crucible, Modulus et Vector suivent le même schéma ensui
 | Node.js | 22 LTS (22.12 ou plus) — `node -v` |
 | PostgreSQL | 16 (le serveur commun, décision D-27) avec `psql` |
 | Mandataire HTTPS | nginx (ou celui de la DSI) avec un certificat pour chaque nom d'hôte |
-| Noms d'hôte | un par outil dans le DNS interne, par exemple `clavis.epc2i.local`, `keystone.…`, `codex.…`, `matrix.…` |
+| Noms d'hôte | un par outil dans le DNS interne, par exemple `clavis.atrium.local`, `keystone.…`, `codex.…`, `matrix.…` |
 | Sources | les dépôts Matrix, Clavis, Keystone, Codex (archive de `main`, ou `git clone` avec un jeton de lecture) |
 | Annuaire | le fichier CSV de l'organigramme (il nomme des personnes réelles : jamais dans Git, copié par `scp`) |
 | Messagerie | **à choisir avec la DSI** avant d'envoyer des mots de passe provisoires : Graph `Mail.Send` ou SMTP |
@@ -25,36 +25,36 @@ Ports internes (jamais exposés, le mandataire seul les joint) : Clavis 3600, Ke
 ## 1. Comptes et dossiers
 
 ```bash
-adduser --system --group --home /opt/epc2i epc2i
-mkdir -p /opt/epc2i /etc/epc2i /var/lib/epc2i/{clavis,keystone,codex,matrix} /var/backups/epc2i/{clavis,postgres}
-chmod 700 /etc/epc2i
-chown -R epc2i:epc2i /opt/epc2i /var/lib/epc2i /var/backups/epc2i
+adduser --system --group --home /opt/atrium atrium
+mkdir -p /opt/atrium /etc/atrium /var/lib/atrium/{clavis,keystone,codex,matrix} /var/backups/atrium/{clavis,postgres}
+chmod 700 /etc/atrium
+chown -R atrium:atrium /opt/atrium /var/lib/atrium /var/backups/atrium
 ```
 
-- `/opt/epc2i/<outil>` : le code de chaque outil ;
-- `/etc/epc2i/<outil>.env` : sa configuration et ses secrets (mode 600, propriétaire root, lus par systemd) ;
-- `/var/lib/epc2i/<outil>` : ses données (Clavis y garde **sa clé de signature OIDC**, `oidc/` : à sauvegarder) ;
-- `/var/backups/epc2i` : les sauvegardes.
+- `/opt/atrium/<outil>` : le code de chaque outil ;
+- `/etc/atrium/<outil>.env` : sa configuration et ses secrets (mode 600, propriétaire root, lus par systemd) ;
+- `/var/lib/atrium/<outil>` : ses données (Clavis y garde **sa clé de signature OIDC**, `oidc/` : à sauvegarder) ;
+- `/var/backups/atrium` : les sauvegardes.
 
 ## 2. PostgreSQL : mots de passe et socle
 
 Mots de passe des rôles, générés une fois :
 
 ```bash
-cd /etc/epc2i && {
+cd /etc/atrium && {
   for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MODULUS VECTOR MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
   echo "MATRIX_GESTION_PASSWORD=$(openssl rand -hex 24)"
   echo "BI_READER_PASSWORD=$(openssl rand -hex 24)"
   echo "CURSUS_PURGE_PASSWORD=$(openssl rand -hex 24)"
-  echo "EPC2I_SAUVEGARDE_PASSWORD=$(openssl rand -hex 24)"
+  echo "ATRIUM_SAUVEGARDE_PASSWORD=$(openssl rand -hex 24)"
 } > postgres.env && chmod 600 postgres.env
 ```
 
-Socle, en superutilisateur (`init/` crée la base `epc2i`, les rôles et les schémas, puis les droits par défaut) :
+Socle, en superutilisateur (`init/` crée la base `atrium`, les rôles et les schémas, puis les droits par défaut) :
 
 ```bash
-cd /opt/epc2i/matrix/infra/postgres
-set -a; . /etc/epc2i/postgres.env; set +a
+cd /opt/atrium/matrix/infra/postgres
+set -a; . /etc/atrium/postgres.env; set +a
 for f in init/01-base-et-roles.sql init/02-schemas.sql init/03-droits.sql; do
   sudo -u postgres --preserve-env psql -X -q -d postgres -v ON_ERROR_STOP=1 -f "$f" || break
 done
@@ -65,11 +65,11 @@ Puis les tables de Matrix, en `matrix_app`, chaque fichier dans une transaction 
 ```bash
 export PGHOST=127.0.0.1 PGPASSWORD=$MATRIX_APP_PASSWORD
 for f in 10-matrix-referentiels 12-matrix-liens 13-matrix-publications 15-matrix-edition 16-matrix-historique 17-matrix-glossaire-qualite; do
-  psql -X -q -U matrix_app -d epc2i -v ON_ERROR_STOP=1 -1 -f partage/$f.sql || break
+  psql -X -q -U matrix_app -d atrium -v ON_ERROR_STOP=1 -1 -f partage/$f.sql || break
 done
 ```
 
-`pg_hba.conf` : `scram-sha-256` pour `127.0.0.1/32` sur la base `epc2i` ; aucun accès depuis le réseau tant qu'aucun poste
+`pg_hba.conf` : `scram-sha-256` pour `127.0.0.1/32` sur la base `atrium` ; aucun accès depuis le réseau tant qu'aucun poste
 (Power BI : `bi_reader`) n'en a besoin.
 
 ## 3. Code et compilation
@@ -77,11 +77,11 @@ done
 Une archive de `main` par outil (sans historique ni fichier hors Git) :
 
 ```bash
-cd /opt/epc2i
+cd /opt/atrium
 for r in Matrix:matrix Clavis:clavis Keystone:keystone Codex:codex; do
-  (cd ~/sources/${r%%:*} && git fetch -q origin main && git archive --prefix=${r##*:}/ FETCH_HEAD) | tar -x -C /opt/epc2i
+  (cd ~/sources/${r%%:*} && git fetch -q origin main && git archive --prefix=${r##*:}/ FETCH_HEAD) | tar -x -C /opt/atrium
 done
-chown -R epc2i:epc2i /opt/epc2i
+chown -R atrium:atrium /opt/atrium
 ```
 
 Installation et compilation, **avec les adresses publiques** : Next.js inscrit les variables `NEXT_PUBLIC_*` dans le code au
@@ -89,10 +89,10 @@ moment du `build` ; une adresse changée ensuite demande une nouvelle compilatio
 
 ```bash
 export NEXT_TELEMETRY_DISABLED=1 \
-  NEXT_PUBLIC_KEYSTONE_URL=https://keystone.epc2i.local NEXT_PUBLIC_CODEX_URL=https://codex.epc2i.local \
-  NEXT_PUBLIC_VIGIE_URL=https://vigie.epc2i.local NEXT_PUBLIC_CURSUS_URL=https://cursus.epc2i.local
-for o in clavis keystone codex; do (cd /opt/epc2i/$o && sudo -u epc2i -E npm ci --no-audit --no-fund && sudo -u epc2i -E npm run build) || break; done
-(cd /opt/epc2i/matrix && sudo -u epc2i npm ci --no-audit --no-fund)   # Matrix n'a pas d'étape de compilation
+  NEXT_PUBLIC_KEYSTONE_URL=https://keystone.atrium.local NEXT_PUBLIC_CODEX_URL=https://codex.atrium.local \
+  NEXT_PUBLIC_VIGIE_URL=https://vigie.atrium.local NEXT_PUBLIC_CURSUS_URL=https://cursus.atrium.local
+for o in clavis keystone codex; do (cd /opt/atrium/$o && sudo -u atrium -E npm ci --no-audit --no-fund && sudo -u atrium -E npm run build) || break; done
+(cd /opt/atrium/matrix && sudo -u atrium npm ci --no-audit --no-fund)   # Matrix n'a pas d'étape de compilation
 ```
 
 Comptez 3 à 6 minutes par outil. Next.js doit être en **16.4.6** au moins : la 16.4.2 refuse de compiler
@@ -100,35 +100,35 @@ Comptez 3 à 6 minutes par outil. Next.js doit être en **16.4.6** au moins : la
 
 ## 4. Configuration de chaque outil
 
-Gabarits (remplacer `epc2i.local` par le domaine réel ; `r` génère un secret de session) :
+Gabarits (remplacer `atrium.local` par le domaine réel ; `r` génère un secret de session) :
 
 ```bash
-set -a; . /etc/epc2i/postgres.env; set +a; cd /etc/epc2i
-DB=127.0.0.1:5432/epc2i; r(){ openssl rand -base64 48 | tr -d '\n/+=' | cut -c1-48; }
+set -a; . /etc/atrium/postgres.env; set +a; cd /etc/atrium
+DB=127.0.0.1:5432/atrium; r(){ openssl rand -base64 48 | tr -d '\n/+=' | cut -c1-48; }
 cat > clavis.env <<EOF
 NODE_ENV=production
 PORT=3600
 DATABASE_URL=postgres://clavis_app:$CLAVIS_APP_PASSWORD@$DB
 CLAVIS_SEED=production
 CLAVIS_AUTH=local
-CLAVIS_PUBLIC_URL=https://clavis.epc2i.local
+CLAVIS_PUBLIC_URL=https://clavis.atrium.local
 CLAVIS_SESSION_SECRET=$(r)
-CLAVIS_DATA_DIR=/var/lib/epc2i/clavis
-CLAVIS_BACKUP_DIR=/var/backups/epc2i/clavis
+CLAVIS_DATA_DIR=/var/lib/atrium/clavis
+CLAVIS_BACKUP_DIR=/var/backups/atrium/clavis
 EOF
 cat > keystone.env <<EOF
 NODE_ENV=production
 PORT=3000
 DATABASE_URL=postgres://keystone_app:$KEYSTONE_APP_PASSWORD@$DB
 KEYSTONE_SEED=production
-KEYSTONE_DATA_DIR=/var/lib/epc2i/keystone
-KEYSTONE_PUBLIC_URL=https://keystone.epc2i.local
+KEYSTONE_DATA_DIR=/var/lib/atrium/keystone
+KEYSTONE_PUBLIC_URL=https://keystone.atrium.local
 KEYSTONE_AUTH=entra
 KEYSTONE_SESSION_SECRET=$(r)
-ENTRA_ISSUER=https://clavis.epc2i.local
+ENTRA_ISSUER=https://clavis.atrium.local
 ENTRA_CLIENT_ID=keystone
 ENTRA_CLIENT_SECRET=a-remplir
-ENTRA_REDIRECT_URI=https://keystone.epc2i.local/api/auth/callback
+ENTRA_REDIRECT_URI=https://keystone.atrium.local/api/auth/callback
 KEYSTONE_PERSONS_FROM_TOKEN=on
 KEYSTONE_ACCESS_FROM_CLAVIS=on
 EOF
@@ -136,10 +136,10 @@ cat > codex.env <<EOF
 NODE_ENV=production
 DATABASE_URL=postgres://codex_app:$CODEX_APP_PASSWORD@$DB
 CODEX_SEED=minimal
-CODEX_DATA_DIR=/var/lib/epc2i/codex
+CODEX_DATA_DIR=/var/lib/atrium/codex
 CODEX_AUTH=clavis
-CODEX_PUBLIC_URL=https://codex.epc2i.local
-CODEX_CLAVIS_URL=https://clavis.epc2i.local
+CODEX_PUBLIC_URL=https://codex.atrium.local
+CODEX_CLAVIS_URL=https://clavis.atrium.local
 CODEX_CLAVIS_CLIENT_ID=codex
 CODEX_CLAVIS_CLIENT_SECRET=a-remplir
 CODEX_SESSION_SECRET=$(r)
@@ -148,13 +148,13 @@ EOF
 cat > matrix.env <<EOF
 NODE_ENV=production
 PORT=3700
-MATRIX_DATA_DIR=/var/lib/epc2i/matrix
+MATRIX_DATA_DIR=/var/lib/atrium/matrix
 MATRIX_DATABASE_URL=postgres://matrix_app:$MATRIX_APP_PASSWORD@$DB
 MATRIX_GESTION_DATABASE_URL=postgres://matrix_gestion:$MATRIX_GESTION_PASSWORD@$DB
-MATRIX_PUBLIC_URL=https://matrix.epc2i.local
+MATRIX_PUBLIC_URL=https://matrix.atrium.local
 MATRIX_SESSION_SECRET=$(r)
 MATRIX_ENTRA_TENANT_ID=clavis
-MATRIX_ENTRA_ISSUER=https://clavis.epc2i.local
+MATRIX_ENTRA_ISSUER=https://clavis.atrium.local
 MATRIX_ENTRA_CLIENT_ID=matrix
 MATRIX_ENTRA_CLIENT_SECRET=a-remplir
 MATRIX_ACCES_CLAVIS=on
@@ -172,7 +172,7 @@ Dans cet ordre, Clavis d'abord (les autres lisent ses vues) :
 
 ```bash
 for o in clavis keystone codex; do
-  (cd /opt/epc2i/$o && set -a && . /etc/epc2i/$o.env && set +a && sudo -u epc2i -E npm run -s db:migrate) || break
+  (cd /opt/atrium/$o && set -a && . /etc/atrium/$o.env && set +a && sudo -u atrium -E npm run -s db:migrate) || break
 done
 ```
 
@@ -180,9 +180,9 @@ Puis, en superutilisateur, la reprise des publications des outils installés par
 des liens :
 
 ```bash
-cd /opt/epc2i/matrix/infra/postgres && set -a && . /etc/epc2i/postgres.env && set +a
-sudo -u postgres --preserve-env psql -X -q -d epc2i -v ON_ERROR_STOP=1 -v outils=keystone,codex -1 -f partage/14-reprise-publications.sql
-sudo -u postgres EPC2I_LIENS_ETAT=/var/lib/epc2i/matrix/liens.etat sh partage/appliquer-liens.sh
+cd /opt/atrium/matrix/infra/postgres && set -a && . /etc/atrium/postgres.env && set +a
+sudo -u postgres --preserve-env psql -X -q -d atrium -v ON_ERROR_STOP=1 -v outils=keystone,codex -1 -f partage/14-reprise-publications.sql
+sudo -u postgres ATRIUM_LIENS_ETAT=/var/lib/atrium/matrix/liens.etat sh partage/appliquer-liens.sh
 ```
 
 `appliquer-liens.sh` ne fait rien quand les droits sont à jour : il tourne ensuite **toutes les 5 minutes** (§ 9), ce qui
@@ -190,17 +190,17 @@ applique les liens que la DSI autorise dans l'écran de Matrix.
 
 ## 6. Services systemd
 
-Un service par outil (`/etc/systemd/system/epc2i-<outil>.service`) ; exemple pour Keystone :
+Un service par outil (`/etc/systemd/system/atrium-<outil>.service`) ; exemple pour Keystone :
 
 ```ini
 [Unit]
-Description=EPC2I Keystone
+Description=Atrium Keystone
 After=network.target postgresql.service
 
 [Service]
-User=epc2i
-WorkingDirectory=/opt/epc2i/keystone
-EnvironmentFile=/etc/epc2i/keystone.env
+User=atrium
+WorkingDirectory=/opt/atrium/keystone
+EnvironmentFile=/etc/atrium/keystone.env
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=5
@@ -209,12 +209,12 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Pour Matrix : `WorkingDirectory=/opt/epc2i/matrix`, `ExecStart=/usr/bin/node serveur.mjs`. Keystone et Clavis ont en plus
-leur tâche de fond : `epc2i-keystone-worker` et `epc2i-clavis-worker`, même fichier avec `ExecStart=/usr/bin/npm run worker`.
+Pour Matrix : `WorkingDirectory=/opt/atrium/matrix`, `ExecStart=/usr/bin/node serveur.mjs`. Keystone et Clavis ont en plus
+leur tâche de fond : `atrium-keystone-worker` et `atrium-clavis-worker`, même fichier avec `ExecStart=/usr/bin/npm run worker`.
 
 ```bash
 systemctl daemon-reload
-systemctl enable --now epc2i-clavis epc2i-matrix epc2i-keystone epc2i-codex epc2i-keystone-worker epc2i-clavis-worker
+systemctl enable --now atrium-clavis atrium-matrix atrium-keystone atrium-codex atrium-keystone-worker atrium-clavis-worker
 for u in 3600/api/health 3000/api/health 3100/api/health 3700/api/sante; do echo "$u → $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$u)"; done
 ```
 
@@ -223,21 +223,21 @@ Quatre `200` attendus.
 ## 7. Clavis : administrateur, annuaire, inscription des outils
 
 ```bash
-cd /opt/epc2i/clavis && set -a && . /etc/epc2i/clavis.env && set +a
-sudo -u epc2i -E npm run -s admin:create -- <e-mail de l'administrateur DSI> "<Nom>"     # mot de passe provisoire affiché une fois
-sudo -u epc2i -E npm run -s directory:import -- /root/annuaire-initial.csv --domaine epc-groupe.com
+cd /opt/atrium/clavis && set -a && . /etc/atrium/clavis.env && set +a
+sudo -u atrium -E npm run -s admin:create -- <e-mail de l'administrateur DSI> "<Nom>"     # mot de passe provisoire affiché une fois
+sudo -u atrium -E npm run -s directory:import -- /root/annuaire-initial.csv --domaine <domaine des adresses de l'entreprise>
 ```
 
 Inscription des trois outils (le secret s'affiche **une seule fois** : le copier aussitôt dans le fichier de l'outil) :
 
 ```bash
-sudo -u epc2i -E npm run -s oidc:client -- keystone https://keystone.epc2i.local/api/auth/callback "https://keystone.epc2i.local/sign-in?signedOut=1"
-sudo -u epc2i -E npm run -s oidc:client -- codex https://codex.epc2i.local/auth/retour https://codex.epc2i.local/
-sudo -u epc2i -E npm run -s oidc:client -- matrix https://matrix.epc2i.local/auth/retour
+sudo -u atrium -E npm run -s oidc:client -- keystone https://keystone.atrium.local/api/auth/callback "https://keystone.atrium.local/sign-in?signedOut=1"
+sudo -u atrium -E npm run -s oidc:client -- codex https://codex.atrium.local/auth/retour https://codex.atrium.local/
+sudo -u atrium -E npm run -s oidc:client -- matrix https://matrix.atrium.local/auth/retour
 ```
 
 Secrets à poser : `ENTRA_CLIENT_SECRET` (keystone.env), `CODEX_CLAVIS_CLIENT_SECRET` (codex.env), `MATRIX_ENTRA_CLIENT_SECRET`
-(matrix.env), puis `systemctl restart epc2i-keystone epc2i-codex epc2i-matrix`. Ensuite, supprimer le fichier de
+(matrix.env), puis `systemctl restart atrium-keystone atrium-codex atrium-matrix`. Ensuite, supprimer le fichier de
 l'annuaire du serveur (`shred -u`).
 
 ## 8. Matrix : publier les vues de Clavis et autoriser leur lecture
@@ -262,9 +262,9 @@ nginx, un bloc par outil :
 ```nginx
 server {
   listen 443 ssl http2;
-  server_name keystone.epc2i.local;
-  ssl_certificate     /etc/ssl/epc2i/keystone.crt;
-  ssl_certificate_key /etc/ssl/epc2i/keystone.key;
+  server_name keystone.atrium.local;
+  ssl_certificate     /etc/ssl/atrium/keystone.crt;
+  ssl_certificate_key /etc/ssl/atrium/keystone.key;
   client_max_body_size 60m;
   location / {
     proxy_pass http://127.0.0.1:3000;
@@ -278,13 +278,13 @@ server {
 `crontab -e` (root) :
 
 ```cron
-*/5 * * * *  sudo -u postgres EPC2I_LIENS_ETAT=/var/lib/epc2i/matrix/liens.etat sh /opt/epc2i/matrix/infra/postgres/partage/appliquer-liens.sh >> /var/log/epc2i-liens.log 2>&1
-30 2 * * *   . /etc/epc2i/postgres.env; PGHOST=127.0.0.1 PGPASSWORD=$EPC2I_SAUVEGARDE_PASSWORD EPC2I_SAUVEGARDE_DIR=/var/backups/epc2i/postgres sh /opt/epc2i/matrix/infra/postgres/sauvegarde/sauvegarder.sh >> /var/log/epc2i-sauvegarde.log 2>&1
-45 2 * * *   tar -C /var/lib/epc2i -czf /var/backups/epc2i/donnees-$(date +\%F).tgz clavis codex keystone matrix && find /var/backups/epc2i -name 'donnees-*.tgz' -mtime +14 -delete
+*/5 * * * *  sudo -u postgres ATRIUM_LIENS_ETAT=/var/lib/atrium/matrix/liens.etat sh /opt/atrium/matrix/infra/postgres/partage/appliquer-liens.sh >> /var/log/atrium-liens.log 2>&1
+30 2 * * *   . /etc/atrium/postgres.env; PGHOST=127.0.0.1 PGPASSWORD=$ATRIUM_SAUVEGARDE_PASSWORD ATRIUM_SAUVEGARDE_DIR=/var/backups/atrium/postgres sh /opt/atrium/matrix/infra/postgres/sauvegarde/sauvegarder.sh >> /var/log/atrium-sauvegarde.log 2>&1
+45 2 * * *   tar -C /var/lib/atrium -czf /var/backups/atrium/donnees-$(date +\%F).tgz clavis codex keystone matrix && find /var/backups/atrium -name 'donnees-*.tgz' -mtime +14 -delete
 ```
 
 La sauvegarde des bases contient les données sensibles de Cursus et de Vigie : toute copie hors du serveur est chiffrée.
-Les données des outils (`/var/lib/epc2i`) contiennent la clé OIDC de Clavis et les fichiers de Codex : sans elles, une
+Les données des outils (`/var/lib/atrium`) contiennent la clé OIDC de Clavis et les fichiers de Codex : sans elles, une
 restauration oblige à réinscrire les outils et perd les documents.
 
 ## 10. Recette
@@ -304,10 +304,10 @@ Avec deux personnes de l'annuaire, activées dans Clavis, chacune avec un mot de
 ## 11. Mise à jour d'un outil
 
 ```bash
-systemctl stop epc2i-<outil>
-# sauvegarde (§ 9), nouvelle archive de main dans /opt/epc2i/<outil>, puis :
+systemctl stop atrium-<outil>
+# sauvegarde (§ 9), nouvelle archive de main dans /opt/atrium/<outil>, puis :
 npm ci && npm run build && npm run db:migrate
-systemctl start epc2i-<outil>
+systemctl start atrium-<outil>
 ```
 
 Une migration qui toucherait une colonne lue par une vue `pub_` échoue : Matrix fait d'abord évoluer la publication.
@@ -324,7 +324,7 @@ Une migration qui toucherait une colonne lue par une vue `pub_` échoue : Matrix
 
 ## 13. Les outils suivants
 
-Cursus, Vigie, Arche, Crucible : même suite (archive, `npm ci`, build, fichier `/etc/epc2i/<outil>.env`, `db:migrate`,
+Cursus, Vigie, Arche, Crucible : même suite (archive, `npm ci`, build, fichier `/etc/atrium/<outil>.env`, `db:migrate`,
 `14-reprise-publications.sql` avec `-v outils=…` étendu, inscription `oidc:client`, service systemd, bloc nginx), puis passage
 de l'outil de « prévu » à « ouvert » dans Clavis. Lecture des droits dans la base : `CURSUS_OIDC_EMETTEUR` +
 `CURSUS_ACCES_CLAVIS=on`, `ARCHE_ACCESS_FROM_CLAVIS=on`, `CRUCIBLE_ACCESS_FROM_CLAVIS=on` ; Vigie : à faire.
@@ -334,7 +334,7 @@ ajout seul (migration `0035_journal_ajout_seul`) : seul `cursus_purge` en suppri
 paie), par `cursus.purger_journal()`. Le rôle est créé par `init/01` (connexion seulement avec `CURSUS_PURGE_PASSWORD`,
 généré au § 2 ; sur un serveur déjà installé, l'ajouter à la main à `postgres.env`) ; ses droits sont posés par `init/03`
 **une fois la migration 0035 de Cursus passée** : après le premier `db:migrate` de Cursus, rejouer `init/03-droits.sql`
-(sans effet avant). Puis, dans `/etc/epc2i/cursus.env`, une seconde adresse, jamais celle de `cursus_app` :
+(sans effet avant). Puis, dans `/etc/atrium/cursus.env`, une seconde adresse, jamais celle de `cursus_app` :
 
 ```bash
 echo "CURSUS_PURGE_DATABASE_URL=postgres://cursus_purge:$CURSUS_PURGE_PASSWORD@$DB" >> cursus.env
@@ -348,7 +348,7 @@ la variable, Cursus le dit au démarrage et ne supprime rien.
 et le schéma `modulus` (sans `MODULUS_APP_PASSWORD` dans `postgres.env`, le rôle existe sans pouvoir se connecter). Modulus
 n'a encore ni table, ni publication, ni lien. Le jour de son déploiement : `MODULUS_APP_PASSWORD` dans `postgres.env` (la
 boucle du § 2 le génère ; sur un serveur déjà installé, l'ajouter à la main), rejeu de `init/01` à `03`, puis
-`/etc/epc2i/modulus.env` sur le modèle de Clavis (§ 4), port **3800** (registre de Norma) :
+`/etc/atrium/modulus.env` sur le modèle de Clavis (§ 4), port **3800** (registre de Norma) :
 
 ```bash
 cat > modulus.env <<EOF
@@ -364,7 +364,7 @@ Les autres variables (connexion par Clavis, secret de session) suivent le `.env.
 le socle crée le rôle `vector_app` et le schéma `vector` (sans `VECTOR_APP_PASSWORD` dans `postgres.env`, le rôle existe
 sans pouvoir se connecter). Vector n'a encore ni publication ni lien. Le jour de son déploiement : `VECTOR_APP_PASSWORD`
 dans `postgres.env` (la boucle du § 2 le génère ; sur un serveur déjà installé, l'ajouter à la main), rejeu de `init/01`
-à `03`, puis `/etc/epc2i/vector.env` sur le modèle de Clavis (§ 4), port **3900** (registre de Norma) :
+à `03`, puis `/etc/atrium/vector.env` sur le modèle de Clavis (§ 4), port **3900** (registre de Norma) :
 
 ```bash
 cat > vector.env <<EOF

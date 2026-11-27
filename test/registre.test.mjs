@@ -32,9 +32,9 @@ test('le socle du serveur commun crée le schéma et le rôle de chaque outil du
   const registre = JSON.parse(readFileSync(new URL('../norma/registre/outils.json', import.meta.url), 'utf8')).outils;
   for (const { schema, role_pg: role } of registre) {
     assert.match(roles, new RegExp(`'${role}'`), `${role} créé (init/01)`);
-    assert.match(roles, new RegExp(`GRANT CONNECT ON DATABASE epc2i\\s+TO [^;]*\\b${role}\\b`), `${role} : CONNECT`);
+    assert.match(roles, new RegExp(`GRANT CONNECT ON DATABASE :"base"\\s+TO [^;]*\\b${role}\\b`), `${role} : CONNECT`);
     assert.match(schemas, new RegExp(`CREATE SCHEMA IF NOT EXISTS ${schema}\\s+AUTHORIZATION ${role};`), `schéma ${schema}`);
-    assert.match(schemas, new RegExp(`ALTER ROLE ${role}\\s+IN DATABASE epc2i SET search_path TO ${schema};`), `search_path de ${role}`);
+    assert.match(schemas, new RegExp(`ALTER ROLE ${role}\\s+IN DATABASE :"base" SET search_path TO ${schema};`), `search_path de ${role}`);
     assert.match(droits, new RegExp(`\\('${role}', ARRAY\\['${schema}'`), `${role} dans droits.verifier()`);
     assert.match(sauvegarde, new RegExp(`for schema in [^;]*\\b${schema}\\b`), `${schema} sauvegardé`);
   }

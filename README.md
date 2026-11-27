@@ -1,6 +1,6 @@
 # Matrix
 
-Outil du service informatique pour gérer les bases de données de la suite EPC2I (Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus, Vector ; liste tirée du registre de Norma, `norma/registre/outils.json`). Il propose :
+Outil du service informatique pour gérer les bases de données de la suite Atrium (Keystone, Codex, Cursus, Vigie, Arche, Crucible, Clavis, Modulus, Vector ; liste tirée du registre de Norma, `norma/registre/outils.json`). Il propose :
 - une bibliothèque des tables ;
 - un graphe des liens entre tables et entre logiciels ;
 - la liste des doublons à trancher ;
@@ -68,7 +68,7 @@ npm start                                # serveur Matrix sur http://localhost:3
 node outils/collecteur.mjs ..            # relire les schémas dans les dépôts voisins et comparer
 node outils/construire-maquette.mjs      # reconstruire maquette/matrix.html
 node outils/generer-liste-doublons.mjs   # régénérer docs/doublons-a-trancher.md
-npm test                                 # tests (node --test, dossier test/) ; MATRIX_TEST_DATABASE_URL=postgres://matrix_app:…@hôte/epc2i
+npm test                                 # tests (node --test, dossier test/) ; MATRIX_TEST_DATABASE_URL=postgres://matrix_app:…@hôte/atrium
                                          # ajoute ceux du serveur commun (base d'essai seulement)
 bash scripts/ci-socle.sh                 # rejoue le socle sur un PostgreSQL d'essai et contrôle les droits (PGHOST, mots de passe)
 ```
@@ -94,8 +94,8 @@ Le `Dockerfile` à la racine installe la dépendance et lance `node serveur.mjs`
 | Variable d'environnement | `MATRIX_TOKEN` : jeton partagé avec les quatre outils ; sans lui, les déclarations sont refusées |
 | Variable d'environnement | `MATRIX_MOT_DE_PASSE` : mot de passe d'accès à Matrix (identifiant libre, enregistré dans le journal). Sans lui, la consultation est ouverte et les modifications sont refusées. Évitez « $ » (Coolify peut l'interpréter) |
 | Variables d'environnement | Connexion nominative par Microsoft Entra ID (décision M-06, écart E-02), toutes nécessaires : `MATRIX_ENTRA_TENANT_ID`, `MATRIX_ENTRA_CLIENT_ID`, `MATRIX_ENTRA_CLIENT_SECRET`, `MATRIX_PUBLIC_URL` (adresse publique en `https://`, base de l'URI de retour `/auth/retour`), `MATRIX_SESSION_SECRET` (32 caractères au moins, `openssl rand -base64 48`). Facultatives : `MATRIX_ENTRA_ROLE_ADMIN` (défaut `Matrix.Administrateur`), `MATRIX_ENTRA_ROLE_LECTURE` (défaut `Matrix.Lecture`), `MATRIX_ENTRA_ISSUER` (autre émetteur). Une configuration incomplète est signalée au démarrage et laissée inactive |
-| Variable d'environnement | `MATRIX_DATABASE_URL` : `postgres://matrix_app:<MATRIX_APP_PASSWORD>@epc2i-postgres:5432/epc2i`. Active la sonde : lecture du serveur commun au démarrage puis toutes les heures, état de santé, registre des liens. Sans elle, Matrix vit des déclarations et du code des dépôts |
-| Variable d'environnement | `MATRIX_GESTION_DATABASE_URL` : `postgres://matrix_gestion:<MATRIX_GESTION_PASSWORD>@epc2i-postgres:5432/epc2i`. Matrix applique lui-même les publications (vues `pub_` des outils) et les décisions sur les liens, tout de suite (décision M-18). Sans elle, les publications restent en brouillon et les liens attendent `appliquer-liens.sh` |
+| Variable d'environnement | `MATRIX_DATABASE_URL` : `postgres://matrix_app:<MATRIX_APP_PASSWORD>@atrium-postgres:5432/atrium`. (Avant le renommage du serveur en service, `docs/renommage-atrium.md` : `epc2i-postgres:5432/epc2i`.) Active la sonde : lecture du serveur commun au démarrage puis toutes les heures, état de santé, registre des liens. Sans elle, Matrix vit des déclarations et du code des dépôts |
+| Variable d'environnement | `MATRIX_GESTION_DATABASE_URL` : `postgres://matrix_gestion:<MATRIX_GESTION_PASSWORD>@atrium-postgres:5432/atrium`. Matrix applique lui-même les publications (vues `pub_` des outils) et les décisions sur les liens, tout de suite (décision M-18). Sans elle, les publications restent en brouillon et les liens attendent `appliquer-liens.sh` |
 | Variables d'environnement | Alertes de la DSI par e-mail (décision M-14, écart E-05), avec l'inscription Entra ID de Matrix : `MATRIX_ALERTES_DESTINATAIRES` (adresses séparées par des virgules ; les alertes sont actives dès qu'elle est posée) et `MATRIX_ALERTES_EXPEDITEUR` (boîte d'envoi, par exemple `matrix@…`). Une configuration incomplète est signalée au démarrage et laissée inactive |
 | Variable d'environnement | `MATRIX_SYNCHRO_MINUTES` (facultative) : intervalle entre deux lectures, 60 par défaut ; 0 : au démarrage et à la demande seulement |
 | Contrôle de santé | intégré à l'image (`GET /api/sante`) ; rien à configurer |

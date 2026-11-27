@@ -1,4 +1,4 @@
--- Serveur PostgreSQL commun EPC2I, étape 2 sur 3 : un schéma par outil.
+-- Serveur PostgreSQL commun de la suite Atrium, étape 2 sur 3 : un schéma par outil.
 --
 -- Lancement : automatique au premier démarrage du conteneur, ou à la main en superutilisateur, après l'étape 1 :
 --   psql -h <hôte> -U postgres -d postgres -v ON_ERROR_STOP=1 -f init/02-schemas.sql
@@ -28,7 +28,14 @@
 \set ON_ERROR_STOP on
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
 \pset pager off
-\connect epc2i
+-- Base commune : atrium, ou epc2i tant que le serveur en service n'est pas renommé (docs/renommage-atrium.md) ;
+-- -v base=<nom> l'impose.
+\if :{?base}
+\else
+  SELECT coalesce((SELECT datname FROM pg_database WHERE datname IN ('atrium', 'epc2i')
+                   ORDER BY datname <> 'atrium' LIMIT 1), 'atrium') AS base \gset
+\endif
+\connect :base
 
 BEGIN;
 
@@ -71,44 +78,44 @@ COMMENT ON SCHEMA modulus  IS 'Modulus (commercial et chiffrage : catalogue mach
 COMMENT ON SCHEMA vector   IS 'Vector (expéditions nationales et internationales : demandes, colisage, transport, douane, documents, suivi, coûts) : tables et journal des migrations. Propriétaire vector_app.';
 COMMENT ON SCHEMA matrix   IS 'Matrix (catalogue des bases) : catalogue, correspondances, historique, journal. Propriétaire matrix_app.';
 
--- Paramètres de session, appliqués à chaque connexion de l'outil sur epc2i (y compris derrière PgBouncer,
+-- Paramètres de session, appliqués à chaque connexion de l'outil sur la base commune (y compris derrière PgBouncer,
 -- qui refuse le paramètre de démarrage « options »).
-ALTER ROLE keystone_app IN DATABASE epc2i SET search_path TO keystone;
-ALTER ROLE codex_app    IN DATABASE epc2i SET search_path TO codex;
-ALTER ROLE cursus_app   IN DATABASE epc2i SET search_path TO cursus;
-ALTER ROLE vigie_app    IN DATABASE epc2i SET search_path TO vigie;
-ALTER ROLE arche_app    IN DATABASE epc2i SET search_path TO arche;
-ALTER ROLE crucible_app IN DATABASE epc2i SET search_path TO crucible;
-ALTER ROLE clavis_app   IN DATABASE epc2i SET search_path TO clavis;
-ALTER ROLE modulus_app  IN DATABASE epc2i SET search_path TO modulus;
-ALTER ROLE vector_app   IN DATABASE epc2i SET search_path TO vector;
-ALTER ROLE matrix_app   IN DATABASE epc2i SET search_path TO matrix;
+ALTER ROLE keystone_app IN DATABASE :"base" SET search_path TO keystone;
+ALTER ROLE codex_app    IN DATABASE :"base" SET search_path TO codex;
+ALTER ROLE cursus_app   IN DATABASE :"base" SET search_path TO cursus;
+ALTER ROLE vigie_app    IN DATABASE :"base" SET search_path TO vigie;
+ALTER ROLE arche_app    IN DATABASE :"base" SET search_path TO arche;
+ALTER ROLE crucible_app IN DATABASE :"base" SET search_path TO crucible;
+ALTER ROLE clavis_app   IN DATABASE :"base" SET search_path TO clavis;
+ALTER ROLE modulus_app  IN DATABASE :"base" SET search_path TO modulus;
+ALTER ROLE vector_app   IN DATABASE :"base" SET search_path TO vector;
+ALTER ROLE matrix_app   IN DATABASE :"base" SET search_path TO matrix;
 
 -- Une transaction ouverte et oubliée garde ses verrous, dont le verrou d'écriture de l'outil (voir
 -- docs/architecture-postgres.md, § 4.5) : elle est coupée au bout de 5 minutes d'inactivité.
-ALTER ROLE keystone_app IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE codex_app    IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE cursus_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE vigie_app    IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE arche_app    IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE crucible_app IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE clavis_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE modulus_app  IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE vector_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
-ALTER ROLE matrix_app   IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE keystone_app IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE codex_app    IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE cursus_app   IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE vigie_app    IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE arche_app    IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE crucible_app IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE clavis_app   IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE modulus_app  IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE vector_app   IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE matrix_app   IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
 
 -- bi_reader (Power BI, demande M-14 d'Arche) : toute transaction en lecture seule ; une requête de plus de 2 minutes
 -- est arrêtée, une transaction ouverte et oubliée coupée au bout de 5 minutes.
-ALTER ROLE bi_reader IN DATABASE epc2i SET default_transaction_read_only TO on;
-ALTER ROLE bi_reader IN DATABASE epc2i SET statement_timeout TO '120s';
-ALTER ROLE bi_reader IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE bi_reader IN DATABASE :"base" SET default_transaction_read_only TO on;
+ALTER ROLE bi_reader IN DATABASE :"base" SET statement_timeout TO '120s';
+ALTER ROLE bi_reader IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
 
 -- matrix_gestion (M-18) : sans search_path, chaque nom de table d'une vue pub_ s'écrit avec son schéma (une définition
 -- ne dépend jamais du réglage de la session) ; un verrou attendu plus de 5 s abandonne la publication plutôt que de
 -- bloquer les outils qui lisent ou écrivent la table.
-ALTER ROLE matrix_gestion IN DATABASE epc2i SET search_path TO '';
-ALTER ROLE matrix_gestion IN DATABASE epc2i SET lock_timeout TO '5s';
-ALTER ROLE matrix_gestion IN DATABASE epc2i SET idle_in_transaction_session_timeout TO '5min';
+ALTER ROLE matrix_gestion IN DATABASE :"base" SET search_path TO '';
+ALTER ROLE matrix_gestion IN DATABASE :"base" SET lock_timeout TO '5s';
+ALTER ROLE matrix_gestion IN DATABASE :"base" SET idle_in_transaction_session_timeout TO '5min';
 
 -- Extensions demandées par les outils (voir l'en-tête) : pg_trgm pour Codex. Rejeu : le schéma garde son
 -- propriétaire et ses droits, l'extension n'est créée que si elle manque (une restauration de codex.dump la suppose).

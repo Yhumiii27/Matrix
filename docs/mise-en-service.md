@@ -1,6 +1,6 @@
 # Fiche de mise en service sur le serveur commun
 
-État au 09/11/2026. Cette fiche met en service, dans l'ordre, ce qui est livré dans les dépôts mais pas encore appliqué sur le serveur `epc2i` :
+État au 09/11/2026. Cette fiche met en service, dans l'ordre, ce qui est livré dans les dépôts mais pas encore appliqué sur le serveur `atrium` :
 
 - le déploiement de Matrix : connexion Entra ID, visionneuse et éditeur, glossaire et règles de qualité, publications en `security_barrier` ;
 - les demandes D13 et D12 de Vigie, M-21 de Crucible, CX-01 de Codex et du lot 16 de Cursus ;
@@ -8,8 +8,10 @@
 
 Chaque étape dit qui la fait, où, et comment vérifier.
 
+Renommage de la suite en Atrium (décision M-26 du 27/11/2026) : cette fiche emploie les nouveaux noms (base `atrium`, hôte `atrium-postgres`, `/opt/atrium/`). Tant que le serveur en service n'est pas renommé, il garde `epc2i` et `epc2i-postgres` ; les fichiers du dépôt acceptent les deux. Le renommage lui-même : `docs/renommage-atrium.md`.
+
 Conventions de la fiche :
-- `psql … -f partage/NN.sql` s'exécute depuis `infra/postgres/` du dépôt Matrix, ou dans le conteneur `postgres`, où ces fichiers sont dans `/opt/epc2i/`.
+- `psql … -f partage/NN.sql` s'exécute depuis `infra/postgres/` du dépôt Matrix, ou dans le conteneur `postgres`, où ces fichiers sont dans `/opt/atrium/`.
 - « Écran Publications » désigne l'écran de Matrix, bloc « Demandes à traiter ». Un bouton n'y apparaît que lorsque l'objet visé existe sur le serveur.
 - Une étape qui échoue s'arrête sans rien changer : corriger, puis la rejouer. Tous les fichiers sont rejouables.
 
@@ -17,7 +19,7 @@ Conventions de la fiche :
 
 | | Action | Vérification |
 |---|---|---|
-| 0.1 | Lancer une sauvegarde : tâche planifiée Coolify du conteneur `postgres`, ou `sh /opt/epc2i/sauvegarde/sauvegarder.sh` à la main. | Un dossier daté du jour dans `/sauvegardes`, un fichier par schéma. |
+| 0.1 | Lancer une sauvegarde : tâche planifiée Coolify du conteneur `postgres`, ou `sh /opt/atrium/sauvegarde/sauvegarder.sh` à la main. | Un dossier daté du jour dans `/sauvegardes`, un fichier par schéma. |
 | 0.2 | Noter l'état du socle : `SELECT gravite, objet, constat FROM droits.verifier() WHERE gravite = 'erreur';` (en `postgres`). | Résultat vide. Sinon, régler ces erreurs avant toute autre étape. |
 
 ## 1. Socle PostgreSQL
@@ -26,9 +28,9 @@ Conventions de la fiche :
 |---|---|---|
 | 1.1 | Redéployer le service `postgres` dans Coolify, pour que l'image contienne les derniers `init/` et `partage/`. | Le conteneur redémarre sans erreur. |
 | 1.2 | Rejouer le socle (`infra/postgres/README.md`, « Rejouer le socle ») : `docker compose exec postgres sh -c 'for f in /docker-entrypoint-initdb.d/*.sql; do psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f "$f" \|\| exit 1; done'`. Il pose `droits.accorder_execution`, indispensable aux liens d'écriture (D13, D12, M-19). | `SELECT to_regprocedure('droits.accorder_execution(text,text)') IS NOT NULL;` renvoie `t`. |
-| 1.4 | Purge du journal de Cursus (« ok pour la purge par rôle dédié sur Cursus », décision M-24 du 25/11/2026) : ajouter `CURSUS_PURGE_PASSWORD` à la ressource `postgres` (facultatif ; cochée « Available at Build Time »), redéployer et rejouer 1.2 : le rôle `cursus_purge` est créé (`NOLOGIN` sans la variable). Ses droits ne sont posés qu'une fois la migration `0035_journal_ajout_seul` de Cursus passée (étape 2) : rejouer alors `init/03-droits.sql`, puis poser `CURSUS_PURGE_DATABASE_URL=postgres://cursus_purge:…@epc2i-postgres:5432/epc2i` dans l'application Cursus et la redémarrer. | `SELECT par, supprimees_un_an FROM cursus.journal_purges ORDER BY id DESC LIMIT 1;` renvoie une ligne `cursus_purge` du jour ; `droits.verifier()` sans erreur ni « attention » sur `cursus_purge`. |
-| 1.3 | Modulus (« validé » du 24/11/2026) : le rejeu de 1.2 crée le rôle `modulus_app` et le schéma `modulus`, sans table, publication ni lien. Sans `MODULUS_APP_PASSWORD` (facultatif, comme `CLAVIS_APP_PASSWORD`), le rôle existe en `NOLOGIN` ; le jour du déploiement de Modulus, ajouter la variable à la ressource `postgres` (cochée « Available at Build Time »), redéployer et rejouer 1.2, puis écrire `/etc/epc2i/modulus.env` (port 3800, `DATABASE_URL=postgres://modulus_app:…@hôte:5432/epc2i`, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'modulus';` renvoie `modulus \| modulus_app` ; `droits.verifier()` sans erreur. |
-| 1.5 | Vector (« validé » du 25/11/2026, décision M-25) : le rejeu de 1.2 crée le rôle `vector_app` et le schéma `vector`, sans publication ni lien. Sans `VECTOR_APP_PASSWORD` (facultatif, comme `MODULUS_APP_PASSWORD`), le rôle existe en `NOLOGIN` ; le jour du déploiement de Vector, ajouter la variable à la ressource `postgres` (cochée « Available at Build Time »), redéployer et rejouer 1.2, puis écrire `/etc/epc2i/vector.env` (port 3900, `DATABASE_URL=postgres://vector_app:…@hôte:5432/epc2i`, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'vector';` renvoie `vector \| vector_app` ; `droits.verifier()` sans erreur. |
+| 1.4 | Purge du journal de Cursus (« ok pour la purge par rôle dédié sur Cursus », décision M-24 du 25/11/2026) : ajouter `CURSUS_PURGE_PASSWORD` à la ressource `postgres` (facultatif ; cochée « Available at Build Time »), redéployer et rejouer 1.2 : le rôle `cursus_purge` est créé (`NOLOGIN` sans la variable). Ses droits ne sont posés qu'une fois la migration `0035_journal_ajout_seul` de Cursus passée (étape 2) : rejouer alors `init/03-droits.sql`, puis poser `CURSUS_PURGE_DATABASE_URL=postgres://cursus_purge:…@atrium-postgres:5432/atrium` dans l'application Cursus et la redémarrer. | `SELECT par, supprimees_un_an FROM cursus.journal_purges ORDER BY id DESC LIMIT 1;` renvoie une ligne `cursus_purge` du jour ; `droits.verifier()` sans erreur ni « attention » sur `cursus_purge`. |
+| 1.3 | Modulus (« validé » du 24/11/2026) : le rejeu de 1.2 crée le rôle `modulus_app` et le schéma `modulus`, sans table, publication ni lien. Sans `MODULUS_APP_PASSWORD` (facultatif, comme `CLAVIS_APP_PASSWORD`), le rôle existe en `NOLOGIN` ; le jour du déploiement de Modulus, ajouter la variable à la ressource `postgres` (cochée « Available at Build Time »), redéployer et rejouer 1.2, puis écrire `/etc/atrium/modulus.env` (port 3800, `DATABASE_URL=postgres://modulus_app:…@hôte:5432/atrium`, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'modulus';` renvoie `modulus \| modulus_app` ; `droits.verifier()` sans erreur. |
+| 1.5 | Vector (« validé » du 25/11/2026, décision M-25) : le rejeu de 1.2 crée le rôle `vector_app` et le schéma `vector`, sans publication ni lien. Sans `VECTOR_APP_PASSWORD` (facultatif, comme `MODULUS_APP_PASSWORD`), le rôle existe en `NOLOGIN` ; le jour du déploiement de Vector, ajouter la variable à la ressource `postgres` (cochée « Available at Build Time »), redéployer et rejouer 1.2, puis écrire `/etc/atrium/vector.env` (port 3900, `DATABASE_URL=postgres://vector_app:…@hôte:5432/atrium`, `docs/installation-directe.md` § 13). | `SELECT nspname, pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'vector';` renvoie `vector \| vector_app` ; `droits.verifier()` sans erreur. |
 
 ## 2. Migrations des outils
 
@@ -48,12 +50,12 @@ En `matrix_app`, sauf mention contraire (`partage/README.md`, « Fichiers et ord
 
 | | Commande | Contenu |
 |---|---|---|
-| 3.1 | `psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql` | Rejoué pour la filiale `SMC` « EPC France » et le site `smc` « Saint-Martin-de-Crau » (M-6 de Crucible). |
+| 3.1 | `psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql` | Rejoué pour la filiale `SMC` « EPC France » et le site `smc` « Saint-Martin-de-Crau » (M-6 de Crucible). |
 | 3.2 | Idem avec `12-matrix-liens.sql`, `13-matrix-publications.sql`, `15-matrix-edition.sql` | Registres des liens et des publications, saisies (rejouables, sans effet s'ils sont à jour). |
 | 3.3 | Idem avec `16-matrix-historique.sql` | Historique des schémas sur le serveur (`matrix.historique_schemas`). |
 | 3.4 | Idem avec `17-matrix-glossaire-qualite.sql` | Glossaire métier et règles de qualité (`matrix.glossaire`, `matrix.regles_qualite`). |
 | 3.5 | `20` à `80` avec le rôle de chaque outil, **pas `60`** (« NE PLUS JOUER ») ; pas ceux d'un outil déjà repris par `14-reprise-publications.sql` | Contrôle des prérequis des outils. |
-| 3.6 | `psql -h hôte -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql` (sans `-1`) | Convention des liens et droits des lecteurs. |
+| 3.6 | `psql -h hôte -U postgres -d atrium -v ON_ERROR_STOP=1 -f partage/90-droits.sql` (sans `-1`) | Convention des liens et droits des lecteurs. |
 | 3.7 | `95-matrix-journal-unifie.sql`, `96-matrix-rex-unifie.sql` (en `matrix_app`) | Journal et REX unifiés. |
 
 Vérification : `SELECT to_regclass('matrix.historique_schemas'), to_regclass('matrix.glossaire'), to_regclass('matrix.regles_qualite');` ne renvoie aucun nul, et `droits.verifier()` aucune erreur.
@@ -73,8 +75,8 @@ Variables à poser dans Coolify, sur le service Matrix :
 
 | Variable | Valeur |
 |---|---|
-| `MATRIX_DATABASE_URL` | `postgres://matrix_app:<MATRIX_APP_PASSWORD>@epc2i-postgres:5432/epc2i` (déjà posée si Matrix lit le serveur) |
-| `MATRIX_GESTION_DATABASE_URL` | `postgres://matrix_gestion:<MATRIX_GESTION_PASSWORD>@epc2i-postgres:5432/epc2i`. Sans elle, les publications restent en brouillon. |
+| `MATRIX_DATABASE_URL` | `postgres://matrix_app:<MATRIX_APP_PASSWORD>@atrium-postgres:5432/atrium` (déjà posée si Matrix lit le serveur) |
+| `MATRIX_GESTION_DATABASE_URL` | `postgres://matrix_gestion:<MATRIX_GESTION_PASSWORD>@atrium-postgres:5432/atrium`. Sans elle, les publications restent en brouillon. |
 | `MATRIX_ENTRA_TENANT_ID`, `MATRIX_ENTRA_CLIENT_ID`, `MATRIX_ENTRA_CLIENT_SECRET` | Valeurs de l'étape 4 |
 | `MATRIX_PUBLIC_URL` | `https://<adresse de Matrix>`, sans « / » final |
 | `MATRIX_SESSION_SECRET` | 32 caractères au moins, aléatoire : `openssl rand -base64 48`, sans « $ » ou avec l'option « littéral » de Coolify |

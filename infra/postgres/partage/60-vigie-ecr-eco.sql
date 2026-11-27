@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 60 : demandes (ECR) et ordres (ECO) de modification, tenus par Vigie (D12).
+-- Partage des données de la suite Atrium, fichier 60 : demandes (ECR) et ordres (ECO) de modification, tenus par Vigie (D12).
 --
 -- ╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗
 -- ║ NE PLUS JOUER. Spécification réalisée par Vigie : sa migration 0029_convergence_m02_ecr_eco (lot 5 de M-02,  ║
@@ -22,7 +22,7 @@
 -- npm run db:generate ; les vues vont dans une migration SQL écrite à la main (drizzle-kit ne gère pas ces vues) ;
 -- les droits des lecteurs restent dans 90-droits.sql.
 -- Exécution (une fois le module construit) : en tant que vigie_app, après les migrations de Vigie (voir README.md).
---   psql "postgres://vigie_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/60-vigie-ecr-eco.sql
+--   psql "postgres://vigie_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/60-vigie-ecr-eco.sql
 -- Rejouable (CREATE TABLE IF NOT EXISTS, CREATE OR REPLACE VIEW). Droits : 90-droits.sql.
 -- Valeurs calculées, jamais stockées (convention de Vigie, CLAUDE.md) : pending_dispositions et locked.
 

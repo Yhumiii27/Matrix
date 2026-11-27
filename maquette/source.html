@@ -410,12 +410,12 @@ const APPS = {
   cursus: { nom: 'Cursus', role: tr('HR: training, time, travel'), moteur: 'SQLite (node:sqlite)', orm: tr('none'), port: 3210, init: 'Cu', donnees: 'CURSUS_DB (data/cursus.db)' },
   vigie: { nom: 'Vigie', role: tr('QHSE: events, risks, prevention'), moteur: tr('Embedded PostgreSQL (PGlite)'), orm: 'Drizzle', port: 3200, init: 'V', donnees: 'VIGIE_DATA_DIR' },
   arche: { nom: 'Arche', role: tr('Subsidiaries’ CAPEX (DIG-PRODI method) — being framed, tables planned'), moteur: tr('PostgreSQL (planned; PGlite in development)'), orm: tr('Drizzle (planned)'), port: 3400, init: 'A', donnees: tr('schema {schema} (planned)', { schema: 'arche' }) },
-  crucible: { nom: 'Crucible', role: tr('Shared R&D test resources: bookings and arbitration'), moteur: tr('PostgreSQL (EPC2I shared server)'), orm: 'Drizzle', port: 3500, init: 'Cr', donnees: tr('schema {schema}', { schema: 'crucible' }) },
+  crucible: { nom: 'Crucible', role: tr('Shared R&D test resources: bookings and arbitration'), moteur: tr('PostgreSQL (Atrium shared server)'), orm: 'Drizzle', port: 3500, init: 'Cr', donnees: tr('schema {schema}', { schema: 'crucible' }) },
   // Outils du registre de Norma (norma/registre/outils.json) arrivés après les six premiers.
-  clavis: { nom: 'Clavis', role: tr('Directory, access, central sign-in'), moteur: tr('PostgreSQL (EPC2I shared server)'), orm: 'Drizzle', port: 3600, init: 'Cl', donnees: tr('schema {schema}', { schema: 'clavis' }) },
-  matrix: { nom: 'Matrix', role: tr('Shared PostgreSQL server, publications, links between tools'), moteur: tr('PostgreSQL (EPC2I shared server)'), orm: tr('none (versioned SQL)'), port: 3700, init: 'M', donnees: tr('schema {schema}', { schema: 'matrix' }) },
-  modulus: { nom: 'Modulus', role: tr('Sales and estimating: machine catalogue, standard BOM, prices, deals, know-how — being framed'), moteur: tr('PostgreSQL (EPC2I shared server, planned)'), orm: tr('Drizzle (planned)'), port: 3800, init: 'Mo', donnees: tr('schema {schema} (planned)', { schema: 'modulus' }) },
-  vector: { nom: 'Vector', role: tr('Domestic and international shipments: requests, packing, transport, customs, documents, tracking, costs — being built'), moteur: tr('PostgreSQL (EPC2I shared server, planned)'), orm: tr('Drizzle (planned)'), port: 3900, init: 'Ve', donnees: tr('schema {schema} (planned)', { schema: 'vector' }) },
+  clavis: { nom: 'Clavis', role: tr('Directory, access, central sign-in'), moteur: tr('PostgreSQL (Atrium shared server)'), orm: 'Drizzle', port: 3600, init: 'Cl', donnees: tr('schema {schema}', { schema: 'clavis' }) },
+  matrix: { nom: 'Matrix', role: tr('Shared PostgreSQL server, publications, links between tools'), moteur: tr('PostgreSQL (Atrium shared server)'), orm: tr('none (versioned SQL)'), port: 3700, init: 'M', donnees: tr('schema {schema}', { schema: 'matrix' }) },
+  modulus: { nom: 'Modulus', role: tr('Sales and estimating: machine catalogue, standard BOM, prices, deals, know-how — being framed'), moteur: tr('PostgreSQL (Atrium shared server, planned)'), orm: tr('Drizzle (planned)'), port: 3800, init: 'Mo', donnees: tr('schema {schema} (planned)', { schema: 'modulus' }) },
+  vector: { nom: 'Vector', role: tr('Domestic and international shipments: requests, packing, transport, customs, documents, tracking, costs — being built'), moteur: tr('PostgreSQL (Atrium shared server, planned)'), orm: tr('Drizzle (planned)'), port: 3900, init: 'Ve', donnees: tr('schema {schema} (planned)', { schema: 'vector' }) },
 };
 const APP_IDS = Object.keys(APPS);
 const css = getComputedStyle(document.documentElement);
@@ -635,7 +635,7 @@ new MutationObserver(() => {
   if (d && !d.contains(document.activeElement)) (d.querySelector('.drawer-body input:not([disabled]):not([type=checkbox]), .drawer-body textarea, .drawer-body select') || d.querySelector('button'))?.focus();
 }).observe(document.body, { childList: true, subtree: true });
 
-// ── Affichage sombre / clair (Norma : cookie epc2i-theme, attribut data-theme de <html>, posé par le serveur) ──
+// ── Affichage sombre / clair (Norma : cookie atrium-theme, attribut data-theme de <html>, posé par le serveur) ──
 (() => {
   const marquer = t => document.querySelectorAll('[data-theme-choix]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoix === t)));
   marquer(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
@@ -643,9 +643,9 @@ new MutationObserver(() => {
     const b = e.target.closest('[data-theme-choix]'); if (!b) return;
     const t = b.dataset.themeChoix === 'light' ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
-    document.cookie = `epc2i-theme=${t}; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `atrium-theme=${t}; path=/; max-age=31536000; samesite=lax`;
     marquer(t);
-    document.dispatchEvent(new Event('epc2i-theme'));
+    document.dispatchEvent(new Event('atrium-theme'));
   });
 })();
 
@@ -847,7 +847,7 @@ RENDER.accueil = () => {
   const date = new Date(CAT.generatedAt).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   $('s-accueil').innerHTML = `<div class="wrap">
     <div class="top">
-      <div><p class="text-muted">${tr('{date} · Here is the state of the EPC2i suite’s databases.', { date: date[0].toUpperCase() + date.slice(1) })}</p></div>
+      <div><p class="text-muted">${tr('{date} · Here is the state of the Atrium suite’s databases.', { date: date[0].toUpperCase() + date.slice(1) })}</p></div>
       <div class="actions"><button class="btn btn-primary" data-go="bibliotheque">${icon('db', 14)} ${tr('Open the library')}</button><button class="btn btn-secondary" data-go="graphe">${icon('graph', 14)} ${tr('Link graph')}</button></div>
     </div>
     <div class="kpis">
@@ -1024,7 +1024,7 @@ const Graph = (() => {
   // Couleurs du graphe lues dans les variables du thème courant ; relues au changement d'affichage (sombre / clair).
   const couleurs = () => Object.assign(C, { text: cssv('--color-text'), muted: cssv('--color-neutral-500'), rule: cssv('--color-neutral-800'), surface: cssv('--color-surface'), bg: cssv('--color-bg'), accent: cssv('--color-accent'), accent3: cssv('--color-accent-300'), n600: cssv('--color-neutral-600'), n700: cssv(document.documentElement.dataset.theme === 'light' ? '--color-neutral-600' : '--color-neutral-700'), ext: cssv('--app-externe') }); // en clair, les liens prennent un pas plus soutenu (fond blanc)
   couleurs();
-  document.addEventListener('epc2i-theme', () => { couleurs(); if (cy) { cy.style(STYLE()); draw(); } });
+  document.addEventListener('atrium-theme', () => { couleurs(); if (cy) { cy.style(STYLE()); draw(); } });
   const statColor = s => s === 'reel' ? C.accent : s === 'partiel' ? C.accent3 : C.n600;
 
   function render() {
@@ -1645,7 +1645,7 @@ RENDER.referentiels = () => {
     else if (type === 'pays') html = sel(EDITION.referentiels.pays.map(p => [p.iso2, `${p.iso2} · ${p.nom_fr}`]));
     else if (type === 'site') html = sel([['', '—'], ...EDITION.referentiels.sites.map(x => [x.code, x.libelle])]);
     else if (type === 'zone') html = sel([['', '—'], ...EDITION.referentiels.zones.map(x => [x.code, `${x.code} · ${x.libelle}`])]);
-    else if (type === 'filiale') html = sel([['', '— (EPC2i)'], ...EDITION.referentiels.filiales.map(x => [x.code, `${x.code} · ${x.nom}`])]);
+    else if (type === 'filiale') html = sel([['', tr('— (group)')], ...EDITION.referentiels.filiales.map(x => [x.code, `${x.code} · ${x.nom}`])]);
     else if (type === 'parent') html = sel([['', '—'], ...EDITION.referentiels[liste].filter((u, j) => j !== edition.i && u.code && u.niveau !== 'equipe').map(u => [u.code, `${u.code} · ${u.libelle_fr}`])]);
     else html = `<input class="input ${k === 'code' || k === 'iso2' || k === 'iso3' ? 'mono' : ''}" id="${id}" data-k="${k}" ${type === 'nombre' ? 'type="number" step="1"' : type === 'degres' ? 'type="number" step="any"' : ''} placeholder="${esc(ph || '')}" value="${esc(v)}">`;
     return `<div class="field"><label class="field-label" for="${id}">${esc(libelle)}</label>${html}</div>`;
@@ -2491,7 +2491,7 @@ RENDER.administration = () => {
   const draw = () => {
     let body = '';
     if (tab === 'connexions') body = `<div class="table-wrap"><table class="table"><thead><tr><th>${tr('Database')}</th><th>${tr('Today')}</th><th>${tr('Target validated on 15/10/2026')}</th><th>${tr('Role of the tool')}</th><th>${tr('Access of Matrix')}</th></tr></thead><tbody>
-      ${APP_IDS.map(a => `<tr><td class="nowrap">${appMark(a)} ${APPS[a].nom}</td><td>${esc(APPS[a].moteur)}<div class="sub text-muted mono">${esc(APPS[a].donnees)}</div></td><td>${tr('Schema {schema} of the database {db}', { schema: `<span class="mono">${a}</span>`, db: '<span class="mono">epc2i</span>' })}${a === 'cursus' ? `<div class="sub text-muted">${tr('migration from SQLite, 37 foreign keys to declare')}</div>` : ''}</td><td class="mono">${a}_app</td><td><span class="mono">matrix_lecture</span><div class="sub text-muted">${a === 'cursus' || a === 'vigie' ? tr('read only, sensitive columns excluded') : tr('read only')}</div></td></tr>`).join('')}
+      ${APP_IDS.map(a => `<tr><td class="nowrap">${appMark(a)} ${APPS[a].nom}</td><td>${esc(APPS[a].moteur)}<div class="sub text-muted mono">${esc(APPS[a].donnees)}</div></td><td>${tr('Schema {schema} of the database {db}', { schema: `<span class="mono">${a}</span>`, db: '<span class="mono">atrium</span>' })}${a === 'cursus' ? `<div class="sub text-muted">${tr('migration from SQLite, 37 foreign keys to declare')}</div>` : ''}</td><td class="mono">${a}_app</td><td><span class="mono">matrix_lecture</span><div class="sub text-muted">${a === 'cursus' || a === 'vigie' ? tr('read only, sensitive columns excluded') : tr('read only')}</div></td></tr>`).join('')}
       <tr><td class="nowrap">${icon('matrix', 16)} Matrix</td><td class="text-muted">—</td><td>${tr('Schema {schema}', { schema: '<span class="mono">matrix</span>' })}</td><td class="mono">matrix_app</td><td class="text-muted">${tr('catalogue, mappings, history')}</td></tr></tbody></table></div>
       <p class="note" style="margin-top:14px">${tr('Shared PostgreSQL server with one schema per tool: validated on 15 October 2026. Each tool remains the sole owner of its schema and does not see the others’. Matrix reads everything read only, without the sensitive columns. In development and in the Mac application, each tool keeps its embedded database.')}</p>`;
     else if (tab === 'collecte') {

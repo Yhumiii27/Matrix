@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 40 : contrôle des prérequis des vues publiées par Codex (schéma codex).
+-- Partage des données de la suite Atrium, fichier 40 : contrôle des prérequis des vues publiées par Codex (schéma codex).
 --
 -- Lot M17-3 (02/11/2026, décisions M-17 et M-18 de Matrix) : ce fichier ne recopie plus les vues pub_ de Codex. Il
 -- contrôle seulement que le schéma codex porte les migrations, tables, colonnes et index dont elles dépendent, et pose les prérequis encore manquants (IF NOT EXISTS, sans effet une fois la migration passée).
@@ -10,7 +10,7 @@
 -- Les anciennes copies sont dans l'historique git (dernière version : commit 8d4c228, avant le lot M17-3).
 -- Un échec ici signale une migration de Codex manquante : la lancer, puis rejouer ce fichier et 90-droits.sql.
 -- Exécution : en tant que codex_app (ou en superutilisateur), avant 90-droits.sql :
---   psql "postgres://codex_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/40-codex.sql
+--   psql "postgres://codex_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/40-codex.sql
 -- Rejouable : rien n'est créé ni modifié une fois les migrations de Codex passées.
 
 \set ON_ERROR_STOP on

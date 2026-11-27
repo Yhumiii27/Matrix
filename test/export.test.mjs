@@ -13,13 +13,13 @@ const catalogue = { apps: [
   ] },
   { id: 'codex', tables: [{ name: 'documents', domain: 'Documents', pk: ['id'], uniques: [], columns: [{ name: 'id', type: 'text', nullable: false }], fks: [] }] },
 ] };
-const edition = { documentation: { 'keystone.projects': { description: 'Projets EPC2i', responsable: 'PMO', note: 'Clé : code' } } };
+const edition = { documentation: { 'keystone.projects': { description: 'Projets du groupe', responsable: 'PMO', note: 'Clé : code' } } };
 const sante = { vues: [{ vue: 'keystone.pub_projets', lecteurs: ['codex_app', 'matrix_lecture'], sources: ['keystone.projects.code'],
   lignage: [{ colonne: 'code', genre: 'directe', sources: [{ table: 'keystone.projects', colonne: 'code' }] }] }] };
 
 test('fiches : documentation de Matrix, sensibles, références, vues qui publient', () => {
   const [p, c] = fiches(catalogue, { edition, sante, outil: 'keystone' });
-  assert.equal(p.description, 'Projets EPC2i');
+  assert.equal(p.description, 'Projets du groupe');
   assert.equal(p.responsable, 'PMO');
   assert.equal(p.colonnes.find(x => x.nom === 'client_id').reference.table, 'clients');
   assert.deepEqual(p.publiee_par, [{ vue: 'keystone.pub_projets', lecteurs: ['codex_app'], colonnes: [{ colonne: 'code', genre: 'directe', sources: ['code'] }] }]);
@@ -32,7 +32,7 @@ test('CSV : BOM, séparateur « ; », guillemets, formule neutralisée', () => {
   assert.ok(t.startsWith('﻿outil;table;domaine;'));
   const lignes = t.trim().split('\r\n');
   assert.equal(lignes.length, 4);
-  assert.match(lignes[1], /^Keystone;projects;Portefeuille;Projets EPC2i;3;id;1;;PMO;keystone\.pub_projets;$/);
+  assert.match(lignes[1], /^Keystone;projects;Portefeuille;Projets du groupe;3;id;1;;PMO;keystone\.pub_projets;$/);
   assert.match(lignes[2], /^Keystone;clients;Organisation;"'=HYPERLINK\(""x""\); ""clients""";2;id;0;iban;;;$/);
   const c = csvColonnes(fiches(catalogue));
   assert.match(c, /\r\nKeystone;projects;client_id;uuid;non;;clients\.id;;\r\n/);

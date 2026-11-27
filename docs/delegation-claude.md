@@ -1,4 +1,4 @@
-# Délégation à Claude — administration de l'infrastructure EPC2I
+# Délégation à Claude — administration de l'infrastructure Atrium
 
 Version du 24/11/2026, alignée sur les règles communes de la suite (`norma/REGLES.md` § 10, Norma 1.0 du 24/11/2026,
 qui prévalent). Elle resserre la délégation du 10/11/2026 validée par Guillaume Garrigue (« Validé », conversation du

@@ -12,9 +12,9 @@ set -euo pipefail
 cd "$(dirname "$0")/../infra/postgres"
 export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}"
 admin() { PGOPTIONS="-c client_min_messages=warning" PGPASSWORD="${POSTGRES_PASSWORD:-}" psql -X -q -v ON_ERROR_STOP=1 -U postgres "$@"; }
-outil() { PGOPTIONS="-c client_min_messages=warning" PGPASSWORD="${KEYSTONE_APP_PASSWORD:?KEYSTONE_APP_PASSWORD manquant}" psql -X -q -v ON_ERROR_STOP=1 -U keystone_app -d epc2i "$@"; }
-gestion() { PGOPTIONS="-c client_min_messages=warning" PGPASSWORD="${MATRIX_GESTION_PASSWORD:?MATRIX_GESTION_PASSWORD manquant}" psql -X -q -v ON_ERROR_STOP=1 -U matrix_gestion -d epc2i "$@"; }
-matrix() { PGOPTIONS="-c client_min_messages=warning" PGPASSWORD="${MATRIX_APP_PASSWORD:?MATRIX_APP_PASSWORD manquant}" psql -X -q -v ON_ERROR_STOP=1 -U matrix_app -d epc2i "$@"; }
+outil() { PGOPTIONS="-c client_min_messages=warning" PGPASSWORD="${KEYSTONE_APP_PASSWORD:?KEYSTONE_APP_PASSWORD manquant}" psql -X -q -v ON_ERROR_STOP=1 -U keystone_app -d atrium "$@"; }
+gestion() { PGOPTIONS="-c client_min_messages=warning" PGPASSWORD="${MATRIX_GESTION_PASSWORD:?MATRIX_GESTION_PASSWORD manquant}" psql -X -q -v ON_ERROR_STOP=1 -U matrix_gestion -d atrium "$@"; }
+matrix() { PGOPTIONS="-c client_min_messages=warning" PGPASSWORD="${MATRIX_APP_PASSWORD:?MATRIX_APP_PASSWORD manquant}" psql -X -q -v ON_ERROR_STOP=1 -U matrix_app -d atrium "$@"; }
 etape() { echo; echo "── $*"; }
 
 etape "Socle : init/01 à 03 (rejoués : l'image les a déjà joués au premier démarrage)"
@@ -27,8 +27,8 @@ echo "  pays : $(matrix -Atc 'SELECT count(*) FROM matrix.pays') · organigramme
 
 etape "Registre appliqué par appliquer-liens.sh (90-droits.sql), deux passages"
 etat=$(mktemp -u)
-PGPASSWORD="${POSTGRES_PASSWORD:-}" EPC2I_LIENS_ETAT="$etat" sh partage/appliquer-liens.sh
-second=$(PGPASSWORD="${POSTGRES_PASSWORD:-}" EPC2I_LIENS_ETAT="$etat" sh partage/appliquer-liens.sh)
+PGPASSWORD="${POSTGRES_PASSWORD:-}" ATRIUM_LIENS_ETAT="$etat" sh partage/appliquer-liens.sh
+second=$(PGPASSWORD="${POSTGRES_PASSWORD:-}" ATRIUM_LIENS_ETAT="$etat" sh partage/appliquer-liens.sh)
 echo "$second"
 grep -q 'concordent' <<< "$second" || { echo "Le second passage aurait dû ne rien appliquer." >&2; exit 1; }
 echo "  liens inscrits : $(matrix -Atc 'SELECT count(*) FROM matrix.liens')"
@@ -40,12 +40,12 @@ matrix -1 -f partage/16-matrix-historique.sql > /dev/null   # historique des sch
 matrix -1 -f partage/17-matrix-glossaire-qualite.sql > /dev/null   # glossaire et règles de qualité (M-04), lus par les tests avec base
 outil -1 -c "CREATE TABLE keystone.ci_essai (id int PRIMARY KEY, code text NOT NULL, note text);
              CREATE VIEW keystone.pub_ci_essai AS SELECT id, code FROM keystone.ci_essai;" > /dev/null
-admin -d epc2i -v outils=keystone -1 -f partage/14-reprise-publications.sql > /dev/null
-proprio=$(admin -d epc2i -Atc "SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'keystone.pub_ci_essai'::regclass")
+admin -d atrium -v outils=keystone -1 -f partage/14-reprise-publications.sql > /dev/null
+proprio=$(admin -d atrium -Atc "SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'keystone.pub_ci_essai'::regclass")
 [ "$proprio" = matrix_gestion ] || { echo "Propriétaire après reprise : $proprio (matrix_gestion attendu)" >&2; exit 1; }
 inscrite=$(matrix -Atc "SELECT etat || ' ' || origine || ' ' || jsonb_array_length(contrat) FROM matrix.publications WHERE vue = 'keystone.pub_ci_essai'")
 [ "$inscrite" = "appliquee reprise 2" ] || { echo "Registre après reprise : « $inscrite »" >&2; exit 1; }
-admin -d epc2i -v outils=keystone -1 -f partage/14-reprise-publications.sql > /dev/null   # rejouable
+admin -d atrium -v outils=keystone -1 -f partage/14-reprise-publications.sql > /dev/null   # rejouable
 gestion -1 -c "CREATE OR REPLACE VIEW keystone.pub_ci_essai AS SELECT id, code, note FROM keystone.ci_essai" > /dev/null
 if gestion -1 -c "CREATE OR REPLACE VIEW keystone.pub_ci_essai AS SELECT id, note FROM keystone.ci_essai" > /dev/null 2>&1; then
   echo "Une colonne publiée a pu être retirée." >&2; exit 1; fi
@@ -59,9 +59,9 @@ etape "REX unifié (96) en matrix_app ; 95 attend les pub_journal des outils, ab
 matrix -1 -f partage/96-matrix-rex-unifie.sql > /dev/null
 
 etape "droits.verifier() : aucune erreur"
-erreurs=$(admin -d epc2i -Atc "SELECT count(*) FROM droits.verifier() WHERE gravite = 'erreur'")
-admin -d epc2i -c "SELECT gravite, count(*) FROM droits.verifier() GROUP BY 1 ORDER BY 1"
-[ "$erreurs" = 0 ] || { admin -d epc2i -c "SELECT * FROM droits.verifier() WHERE gravite = 'erreur'"; exit 1; }
+erreurs=$(admin -d atrium -Atc "SELECT count(*) FROM droits.verifier() WHERE gravite = 'erreur'")
+admin -d atrium -c "SELECT gravite, count(*) FROM droits.verifier() GROUP BY 1 ORDER BY 1"
+[ "$erreurs" = 0 ] || { admin -d atrium -c "SELECT * FROM droits.verifier() WHERE gravite = 'erreur'"; exit 1; }
 
 etape "verifier-droits.sql"
 sortie=$(admin -d postgres -f verifier-droits.sql 2>&1) || { echo "$sortie" >&2; exit 1; }
@@ -69,10 +69,20 @@ grep 'Tous les cas sont conformes' <<< "$sortie"
 
 etape "Socle rejoué après le partage : toujours sans erreur"
 for f in init/0*.sql; do admin -d postgres -f "$f" > /dev/null; done
-[ "$(admin -d epc2i -Atc "SELECT count(*) FROM droits.verifier() WHERE gravite = 'erreur'")" = 0 ]
+[ "$(admin -d atrium -Atc "SELECT count(*) FROM droits.verifier() WHERE gravite = 'erreur'")" = 0 ]
+echo "  ok"
+
+etape "Sauvegarde (sauvegarder.sh) : rôle atrium_sauvegarde, base atrium, un fichier par schéma"
+dest=$(mktemp -d)
+PGPASSWORD="" ATRIUM_SAUVEGARDE_PASSWORD="${ATRIUM_SAUVEGARDE_PASSWORD:?ATRIUM_SAUVEGARDE_PASSWORD manquant}" ATRIUM_SAUVEGARDE_DIR="$dest" \
+  sh sauvegarde/sauvegarder.sh | grep -E 'début|terminée'
+dossier=$(find "$dest" -mindepth 1 -maxdepth 1 -type d -name '20*' | head -1)
+[ -n "$dossier" ] && (cd "$dossier" && sha256sum -c --quiet SHA256SUMS) || { echo "Sauvegarde absente ou empreintes fausses." >&2; exit 1; }
+for s in keystone codex matrix droits; do [ -s "$dossier/$s.dump" ] || { echo "$s.dump manquant" >&2; exit 1; }; done
+rm -rf "$dest"
 echo "  ok"
 
 etape "Nettoyage de la vue d'essai (la ligne du registre reste, retirée)"
-admin -d epc2i -1 -c "DROP VIEW keystone.pub_ci_essai; DROP TABLE keystone.ci_essai;" > /dev/null
+admin -d atrium -1 -c "DROP VIEW keystone.pub_ci_essai; DROP TABLE keystone.ci_essai;" > /dev/null
 matrix -c "UPDATE matrix.publications SET etat = 'retiree', modifie_par = 'ci' WHERE vue = 'keystone.pub_ci_essai'" > /dev/null
 echo "  ok"

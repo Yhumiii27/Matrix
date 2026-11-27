@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 15 : ce que le service informatique saisit dans Matrix, sur le serveur commun
+-- Partage des données de la suite Atrium, fichier 15 : ce que le service informatique saisit dans Matrix, sur le serveur commun
 -- (écart E-04, docs/proposition.md § 6).
 --
 -- Jusqu'ici, la documentation des tables, les décisions sur les doublons et le journal des modifications vivaient dans
@@ -11,7 +11,7 @@
 -- (SELECT … FOR UPDATE) et écrit son entrée de journal ; une modification préparée sur une version dépassée (maj_le ou
 -- option changée entre-temps par quelqu'un d'autre) est refusée au lieu d'écraser la précédente.
 -- Exécution : en tant que matrix_app, après 12-matrix-liens.sql :
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/15-matrix-edition.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/15-matrix-edition.sql
 -- Rejouable. Au premier démarrage qui trouve ces tables vides, Matrix y reprend le contenu d'edition.json.
 
 \set ON_ERROR_STOP on

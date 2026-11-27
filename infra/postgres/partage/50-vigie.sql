@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 50 : contrôle des prérequis des vues publiées par Vigie (schéma vigie).
+-- Partage des données de la suite Atrium, fichier 50 : contrôle des prérequis des vues publiées par Vigie (schéma vigie).
 --
 -- Lot M17-3 (02/11/2026, décisions M-17 et M-18 de Matrix) : ce fichier ne recopie plus les vues pub_ de Vigie. Il
 -- contrôle seulement que le schéma vigie porte les migrations, tables, colonnes et index dont elles dépendent.
@@ -10,7 +10,7 @@
 -- Les anciennes copies sont dans l'historique git (dernière version : commit 8d4c228, avant le lot M17-3).
 -- Un échec ici signale une migration de Vigie manquante : la lancer, puis rejouer ce fichier et 90-droits.sql.
 -- Exécution : en tant que vigie_app (ou en superutilisateur), avant 90-droits.sql :
---   psql "postgres://vigie_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/50-vigie.sql
+--   psql "postgres://vigie_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/50-vigie.sql
 -- Rejouable : rien n'est créé ni modifié une fois les migrations de Vigie passées.
 
 \set ON_ERROR_STOP on

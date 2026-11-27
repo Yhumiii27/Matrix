@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 70 : contrôle des prérequis des vues publiées par Arche (schéma arche).
+-- Partage des données de la suite Atrium, fichier 70 : contrôle des prérequis des vues publiées par Arche (schéma arche).
 --
 -- Lot M17-3 (02/11/2026, décisions M-17 et M-18 de Matrix) : ce fichier ne recopie plus les vues pub_ d'Arche. Il
 -- contrôle seulement que le schéma arche porte les migrations, tables, colonnes et index dont elles dépendent.
@@ -10,7 +10,7 @@
 -- Les anciennes copies sont dans l'historique git (dernière version : commit 8d4c228, avant le lot M17-3).
 -- Un échec ici signale une migration d'Arche manquante : la lancer, puis rejouer ce fichier et 90-droits.sql.
 -- Exécution : en tant que arche_app (ou en superutilisateur), avant 90-droits.sql :
---   psql "postgres://arche_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/70-arche.sql
+--   psql "postgres://arche_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/70-arche.sql
 -- Rejouable : rien n'est créé ni modifié une fois les migrations d'Arche passées.
 
 \set ON_ERROR_STOP on

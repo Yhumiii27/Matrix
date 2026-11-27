@@ -38,8 +38,8 @@ before(async () => {
     ('${LECTEUR}', 'keystone', true, 'admin', null, 'director', true, now()); RESET ROLE`);
   fournisseur = await demarrerFournisseur({ comptes: {
     // Les rôles du jeton sont ignorés : seul compte ce que dit clavis.pub_acces.
-    admin: { name: 'Claire Bardet', oid: ADMIN, email: 'c.bardet@epc2i.example', roles: ['Matrix.Lecture'] },
-    lecteur: { name: 'Marc Petit', oid: LECTEUR, email: 'm.petit@epc2i.example', roles: ['Matrix.Administrateur'] },
+    admin: { name: 'Claire Bardet', oid: ADMIN, email: 'c.bardet@atrium.example', roles: ['Matrix.Lecture'] },
+    lecteur: { name: 'Marc Petit', oid: LECTEUR, email: 'm.petit@atrium.example', roles: ['Matrix.Administrateur'] },
   } });
   data = mkdtempSync(join(tmpdir(), 'matrix-clavis-'));
   const port = 20000 + Math.floor(Math.random() * 20000);

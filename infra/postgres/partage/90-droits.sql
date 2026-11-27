@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 90 : droits des lecteurs sur les vues pub_, et contrôle des vues.
+-- Partage des données de la suite Atrium, fichier 90 : droits des lecteurs sur les vues pub_, et contrôle des vues.
 --
 -- Ce que fait le script, dans une seule transaction :
 --   1. Contrôle des vues pub_ des cinq schémas. Il échoue, avant tout GRANT, si une vue pub_ :
@@ -23,7 +23,7 @@
 -- le rôle de chaque outil, SET ROLE). Après les migrations des outils (qui créent leurs vues pub_) et les fichiers
 -- 10 à 80 (60 seulement une fois le module ECR / ECO de Vigie construit). Sans l'option -1 : le fichier ouvre
 -- lui-même sa transaction.
---   psql -h <hôte> -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql
+--   psql -h <hôte> -U postgres -d atrium -v ON_ERROR_STOP=1 -f partage/90-droits.sql
 -- Rejouable : un GRANT déjà posé ne change rien ; une vue absente est signalée (WARNING) et passée.
 --
 -- Rappel : matrix_lecture n'est pas traité ici. Le déclencheur droits_ddl (init/03-droits.sql) lui donne déjà les
@@ -32,7 +32,14 @@
 \set ON_ERROR_STOP on
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
 \pset pager off
-\connect epc2i
+-- Base commune : atrium, ou epc2i tant que le serveur en service n'est pas renommé (docs/renommage-atrium.md) ;
+-- -v base=<nom> l'impose.
+\if :{?base}
+\else
+  SELECT coalesce((SELECT datname FROM pg_database WHERE datname IN ('atrium', 'epc2i')
+                   ORDER BY datname <> 'atrium' LIMIT 1), 'atrium') AS base \gset
+\endif
+\connect :base
 
 BEGIN;
 

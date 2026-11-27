@@ -45,24 +45,24 @@ jobs:
       MATRIX_GESTION_PASSWORD: ci-gestion
       BI_READER_PASSWORD: ci-bi
       CURSUS_PURGE_PASSWORD: ci-purge
-      EPC2I_SAUVEGARDE_PASSWORD: ci-sauvegarde
+      ATRIUM_SAUVEGARDE_PASSWORD: ci-sauvegarde
       PGHOST: 127.0.0.1
       PGPORT: 5432
     steps:
       - uses: actions/checkout@v5
       - name: Image du serveur commun (infra/postgres/Dockerfile)
-        run: docker build -t epc2i-postgres infra/postgres
+        run: docker build -t atrium-postgres infra/postgres
       - name: Démarrage, init/ joué au premier démarrage
         run: |
-          docker run -d --name epc2i-postgres -p 127.0.0.1:5432:5432 \
+          docker run -d --name atrium-postgres -p 127.0.0.1:5432:5432 \
             -e POSTGRES_PASSWORD -e KEYSTONE_APP_PASSWORD -e CODEX_APP_PASSWORD -e CURSUS_APP_PASSWORD -e VIGIE_APP_PASSWORD \
-            -e ARCHE_APP_PASSWORD -e CRUCIBLE_APP_PASSWORD -e MATRIX_APP_PASSWORD -e MATRIX_GESTION_PASSWORD -e BI_READER_PASSWORD -e CURSUS_PURGE_PASSWORD -e EPC2I_SAUVEGARDE_PASSWORD \
-            epc2i-postgres
+            -e ARCHE_APP_PASSWORD -e CRUCIBLE_APP_PASSWORD -e MATRIX_APP_PASSWORD -e MATRIX_GESTION_PASSWORD -e BI_READER_PASSWORD -e CURSUS_PURGE_PASSWORD -e ATRIUM_SAUVEGARDE_PASSWORD \
+            atrium-postgres
           for i in $(seq 1 60); do
-            docker exec epc2i-postgres pg_isready -h 127.0.0.1 -U postgres -d epc2i -q && exit 0
+            docker exec atrium-postgres pg_isready -h 127.0.0.1 -U postgres -d atrium -q && exit 0
             sleep 2
           done
-          docker logs epc2i-postgres; exit 1
+          docker logs atrium-postgres; exit 1
       - name: Client psql
         run: command -v psql || { sudo apt-get update -q && sudo apt-get install -y -q postgresql-client; }
       - name: Socle, partage de Matrix, droits
@@ -75,9 +75,9 @@ jobs:
       - name: Tests avec base (référentiels, sonde, publications)
         run: npm test
         env:
-          MATRIX_TEST_DATABASE_URL: postgres://matrix_app:ci-matrix@127.0.0.1:5432/epc2i
-          MATRIX_TEST_GESTION_URL: postgres://matrix_gestion:ci-gestion@127.0.0.1:5432/epc2i
-          MATRIX_TEST_ADMIN_URL: postgres://postgres:ci-postgres@127.0.0.1:5432/epc2i
+          MATRIX_TEST_DATABASE_URL: postgres://matrix_app:ci-matrix@127.0.0.1:5432/atrium
+          MATRIX_TEST_GESTION_URL: postgres://matrix_gestion:ci-gestion@127.0.0.1:5432/atrium
+          MATRIX_TEST_ADMIN_URL: postgres://postgres:ci-postgres@127.0.0.1:5432/atrium
       - name: Journaux du serveur (en cas d'échec)
         if: failure()
-        run: docker logs epc2i-postgres 2>&1 | tail -100
+        run: docker logs atrium-postgres 2>&1 | tail -100

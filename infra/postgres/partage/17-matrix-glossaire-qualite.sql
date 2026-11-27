@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 17 : glossaire métier et règles de qualité des données, saisis par la DSI dans
+-- Partage des données de la suite Atrium, fichier 17 : glossaire métier et règles de qualité des données, saisis par la DSI dans
 -- Matrix (décision M-04 du 04/11/2026 : « DSI seule » ; écarts E-08 et E-09).
 --
 --   - matrix.glossaire : un terme métier par ligne (définition, synonymes, domaine, propriétaire, colonnes des outils
@@ -9,7 +9,7 @@
 -- maj_le sert de version : une modification préparée sur une version dépassée est refusée (outils/saisies-pg.mjs).
 -- Chaque modification est écrite dans matrix.journal (fichier 15), dans la même transaction.
 -- Exécution : en tant que matrix_app, après 15-matrix-edition.sql :
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/17-matrix-glossaire-qualite.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/17-matrix-glossaire-qualite.sql
 -- Rejouable.
 
 \set ON_ERROR_STOP on

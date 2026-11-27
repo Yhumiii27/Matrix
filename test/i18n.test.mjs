@@ -14,7 +14,7 @@ test('langue : français par défaut, anglais seulement sur demande', () => {
   assert.equal(langOf('de'), 'fr');
   assert.equal(langOf('en'), 'en');
   assert.equal(langueDeRequete(''), 'fr');
-  assert.equal(langueDeRequete('epc2i-theme=light; matrix-lang=en'), 'en');
+  assert.equal(langueDeRequete('atrium-theme=light; matrix-lang=en'), 'en');
   assert.match(langCookie('en'), /^matrix-lang=en; path=\/; max-age=31536000; samesite=lax$/);
   assert.equal(avecLangue('<html lang="fr" data-theme="dark">', 'en'), '<html lang="en" data-theme="dark">');
   assert.equal(avecLangue('<html data-theme="dark">', 'fr'), '<html data-theme="dark" lang="fr">');

@@ -1,4 +1,10 @@
--- Serveur PostgreSQL commun EPC2I, étape 1 sur 3 : base epc2i et rôles.
+-- Serveur PostgreSQL commun de la suite Atrium, étape 1 sur 3 : base atrium et rôles.
+--
+-- Renommage de la suite en Atrium (décision du propriétaire du 27/11/2026, docs/renommage-atrium.md) : la base s'appelle
+-- atrium et le rôle des sauvegardes atrium_sauvegarde. Le temps du renommage du serveur en service, ce fichier s'adapte à
+-- ce qu'il trouve : base atrium si elle existe, sinon la base epc2i d'avant le renommage, sinon il crée atrium ; de même
+-- pour le rôle des sauvegardes (atrium_sauvegarde, sinon epc2i_sauvegarde, sinon il crée atrium_sauvegarde). Il ne
+-- renomme jamais rien lui-même : le renommage est une étape de docs/renommage-atrium.md. -v base=<nom> impose la base.
 --
 -- Lancement :
 --   - automatique au premier démarrage du conteneur (image officielle, dossier /docker-entrypoint-initdb.d) ;
@@ -9,7 +15,8 @@
 -- Rejouable : le script crée ce qui manque, puis remet les attributs, les appartenances et les mots de passe
 -- aux valeurs ci-dessous. Les mots de passe sont lus dans l'environnement, et aucun ne peut être vide :
 --   KEYSTONE_APP_PASSWORD  CODEX_APP_PASSWORD  CURSUS_APP_PASSWORD  VIGIE_APP_PASSWORD  ARCHE_APP_PASSWORD
---   CRUCIBLE_APP_PASSWORD  MATRIX_APP_PASSWORD  MATRIX_GESTION_PASSWORD  EPC2I_SAUVEGARDE_PASSWORD
+--   CRUCIBLE_APP_PASSWORD  MATRIX_APP_PASSWORD  MATRIX_GESTION_PASSWORD  ATRIUM_SAUVEGARDE_PASSWORD
+--   (ATRIUM_SAUVEGARDE_PASSWORD : à défaut, l'ancienne variable EPC2I_SAUVEGARDE_PASSWORD, le temps du renommage)
 --
 -- Rôles créés :
 --   keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app
@@ -37,7 +44,8 @@
 --                                                   sans CURSUS_PURGE_PASSWORD, le rôle existe sans pouvoir se connecter
 --   matrix_lecture  (groupe)                        SELECT sur les schémas des outils, colonnes sensibles exclues
 --   matrix_admin    (groupe)                        tous les droits ; attribué nominativement (droits.declarer_admin)
---   epc2i_sauvegarde                                connexion des sauvegardes, membre de pg_read_all_data
+--   atrium_sauvegarde                               connexion des sauvegardes, membre de pg_read_all_data (epc2i_sauvegarde
+--                                                   avant le renommage : le rôle en place garde son nom jusqu'à l'étape)
 
 \set ON_ERROR_STOP on
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script transaction ouverte.
@@ -59,7 +67,8 @@ END $$;
 \getenv mdp_crucible_app CRUCIBLE_APP_PASSWORD
 \getenv mdp_matrix_app MATRIX_APP_PASSWORD
 \getenv mdp_matrix_gestion MATRIX_GESTION_PASSWORD
-\getenv mdp_epc2i_sauvegarde EPC2I_SAUVEGARDE_PASSWORD
+\getenv mdp_atrium_sauvegarde ATRIUM_SAUVEGARDE_PASSWORD
+\getenv mdp_ancien_sauvegarde EPC2I_SAUVEGARDE_PASSWORD
 \getenv mdp_bi_reader BI_READER_PASSWORD
 \getenv mdp_clavis_app CLAVIS_APP_PASSWORD
 \getenv mdp_modulus_app MODULUS_APP_PASSWORD
@@ -97,9 +106,30 @@ END $$;
 \else
   \set mdp_matrix_gestion ''
 \endif
-\if :{?mdp_epc2i_sauvegarde}
+\if :{?mdp_atrium_sauvegarde}
 \else
-  \set mdp_epc2i_sauvegarde ''
+  \set mdp_atrium_sauvegarde ''
+\endif
+\if :{?mdp_ancien_sauvegarde}
+\else
+  \set mdp_ancien_sauvegarde ''
+\endif
+-- Renommage en Atrium : ATRIUM_SAUVEGARDE_PASSWORD, sinon l'ancienne EPC2I_SAUVEGARDE_PASSWORD (même mot de passe).
+SELECT CASE WHEN :'mdp_atrium_sauvegarde' <> '' THEN :'mdp_atrium_sauvegarde' ELSE :'mdp_ancien_sauvegarde' END AS mdp_sauvegarde \gset
+\unset mdp_atrium_sauvegarde
+\unset mdp_ancien_sauvegarde
+-- Rôle des sauvegardes : atrium_sauvegarde, ou epc2i_sauvegarde tant que le serveur en service n'est pas renommé.
+SELECT coalesce((SELECT rolname FROM pg_roles WHERE rolname IN ('atrium_sauvegarde', 'epc2i_sauvegarde')
+                 ORDER BY rolname <> 'atrium_sauvegarde' LIMIT 1), 'atrium_sauvegarde') AS role_sauvegarde \gset
+-- Base commune : atrium, ou epc2i tant que le serveur en service n'est pas renommé (sauf -v base=…).
+\if :{?base}
+\else
+  SELECT coalesce((SELECT datname FROM pg_database WHERE datname IN ('atrium', 'epc2i')
+                   ORDER BY datname <> 'atrium' LIMIT 1), 'atrium') AS base \gset
+\endif
+SELECT :'base' <> 'atrium' OR :'role_sauvegarde' <> 'atrium_sauvegarde' AS avant_renommage \gset
+\if :avant_renommage
+  \echo 'Renommage en Atrium pas encore fait sur ce serveur : base' :base ', rôle des sauvegardes' :role_sauvegarde '(docs/renommage-atrium.md).'
 \endif
 
 SELECT string_agg(variable, ', ' ORDER BY variable) AS mdp_manquants
@@ -107,7 +137,7 @@ FROM (VALUES ('KEYSTONE_APP_PASSWORD', :'mdp_keystone_app'), ('CODEX_APP_PASSWOR
              ('CURSUS_APP_PASSWORD', :'mdp_cursus_app'), ('VIGIE_APP_PASSWORD', :'mdp_vigie_app'),
              ('ARCHE_APP_PASSWORD', :'mdp_arche_app'), ('CRUCIBLE_APP_PASSWORD', :'mdp_crucible_app'),
              ('MATRIX_APP_PASSWORD', :'mdp_matrix_app'), ('MATRIX_GESTION_PASSWORD', :'mdp_matrix_gestion'),
-             ('EPC2I_SAUVEGARDE_PASSWORD', :'mdp_epc2i_sauvegarde')) AS v(variable, mdp)
+             ('ATRIUM_SAUVEGARDE_PASSWORD', :'mdp_sauvegarde')) AS v(variable, mdp)
 WHERE mdp = '' \gset
 \if :{?mdp_manquants}
   \echo 'Variables d''environnement absentes ou vides :' :mdp_manquants
@@ -119,42 +149,42 @@ FROM (VALUES ('KEYSTONE_APP_PASSWORD', :'mdp_keystone_app'), ('CODEX_APP_PASSWOR
              ('CURSUS_APP_PASSWORD', :'mdp_cursus_app'), ('VIGIE_APP_PASSWORD', :'mdp_vigie_app'),
              ('ARCHE_APP_PASSWORD', :'mdp_arche_app'), ('CRUCIBLE_APP_PASSWORD', :'mdp_crucible_app'),
              ('MATRIX_APP_PASSWORD', :'mdp_matrix_app'), ('MATRIX_GESTION_PASSWORD', :'mdp_matrix_gestion'),
-             ('EPC2I_SAUVEGARDE_PASSWORD', :'mdp_epc2i_sauvegarde')) AS v(variable, mdp)
+             ('ATRIUM_SAUVEGARDE_PASSWORD', :'mdp_sauvegarde')) AS v(variable, mdp)
 WHERE length(mdp) < 16 \gset
 \if :{?mdp_courts}
   \echo 'Attention : mots de passe de moins de 16 caractères :' :mdp_courts
 \endif
 
--- ── 2. Base epc2i ────────────────────────────────────────────────────────
+-- ── 2. Base atrium ───────────────────────────────────────────────────────
 -- Tri binaire (C) et classes de caractères Unicode (C.UTF-8) : les mêmes réglages que PGlite, pour que les
 -- outils trient comme aujourd'hui. Sans locale C.UTF-8 sur le système, repli sur C (avec un avertissement).
 SELECT coalesce((SELECT collctype FROM pg_collation
                  WHERE collprovider = 'c' AND lower(collname) IN ('c.utf8', 'c.utf-8') ORDER BY collname LIMIT 1),
-                'C') AS ctype_epc2i \gset
-\if :{?ctype_epc2i}
+                'C') AS ctype_base \gset
+\if :{?ctype_base}
 \else
-  \set ctype_epc2i C
+  \set ctype_base C
 \endif
-SELECT :'ctype_epc2i' = 'C' AS ctype_repli \gset
+SELECT :'ctype_base' = 'C' AS ctype_repli \gset
 \if :ctype_repli
-  \echo 'Attention : locale C.UTF-8 absente, la base epc2i est créée avec LC_CTYPE = C.'
+  \echo 'Attention : locale C.UTF-8 absente, la base' :base 'est créée avec LC_CTYPE = C.'
 \endif
 
-SELECT format('CREATE DATABASE epc2i WITH TEMPLATE template0 ENCODING %L LC_COLLATE %L LC_CTYPE %L',
-              'UTF8', 'C', :'ctype_epc2i')
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'epc2i') \gexec
+SELECT format('CREATE DATABASE %I WITH TEMPLATE template0 ENCODING %L LC_COLLATE %L LC_CTYPE %L',
+              :'base', 'UTF8', 'C', :'ctype_base')
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'base') \gexec
 
 -- Fuseau UTC et format ISO, comme PGlite : les dates et horodatages lus par les outils ne changent pas.
-ALTER DATABASE epc2i SET timezone TO 'UTC';
-ALTER DATABASE epc2i SET datestyle TO 'ISO, MDY';
-COMMENT ON DATABASE epc2i IS 'Serveur commun EPC2I : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix). Voir infra/postgres/README.md dans Matrix.';
+ALTER DATABASE :"base" SET timezone TO 'UTC';
+ALTER DATABASE :"base" SET datestyle TO 'ISO, MDY';
+COMMENT ON DATABASE :"base" IS 'Serveur commun de la suite Atrium : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix). Voir infra/postgres/README.md dans Matrix.';
 
 -- ── 3. Rôles ─────────────────────────────────────────────────────────────
 BEGIN;
 
 SELECT format('CREATE ROLE %I', nom)
 FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app',
-                  'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'epc2i_sauvegarde', 'bi_reader',
+                  'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', :'role_sauvegarde', 'bi_reader',
                   'clavis_app', 'modulus_app', 'vector_app', 'cursus_purge']) AS nom
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = nom) \gexec
 
@@ -169,7 +199,7 @@ FROM (VALUES ('keystone_app', :'mdp_keystone_app'), ('codex_app', :'mdp_codex_ap
              ('cursus_app', :'mdp_cursus_app'), ('vigie_app', :'mdp_vigie_app'), ('arche_app', :'mdp_arche_app'),
              ('crucible_app', :'mdp_crucible_app'),
              ('matrix_app', :'mdp_matrix_app'), ('matrix_gestion', :'mdp_matrix_gestion'),
-             ('epc2i_sauvegarde', :'mdp_epc2i_sauvegarde')) AS v(nom, mdp) \gexec
+             (:'role_sauvegarde', :'mdp_sauvegarde')) AS v(nom, mdp) \gexec
 
 -- Power BI (bi_reader) : connexion seulement si BI_READER_PASSWORD est fourni (facultatif, contrairement aux autres).
 \if :{?mdp_bi_reader}
@@ -222,7 +252,7 @@ WHERE r.rolname = 'cursus_purge' \gexec
 -- Matrix lit les schémas des outils par le groupe matrix_lecture.
 GRANT matrix_lecture TO matrix_app;
 -- Sauvegardes : lecture de toutes les données, colonnes sensibles comprises (pg_dump).
-GRANT pg_read_all_data TO epc2i_sauvegarde;
+GRANT pg_read_all_data TO :"role_sauvegarde";
 -- Administration : un membre de matrix_admin peut prendre le rôle d'un outil (SET ROLE) pour une opération de
 -- structure exceptionnelle, sans en hériter les droits au quotidien. Ses requêtes sont journalisées.
 GRANT keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, matrix_app, matrix_gestion TO matrix_admin WITH INHERIT FALSE, SET TRUE;
@@ -242,14 +272,14 @@ COMMENT ON ROLE bi_reader IS 'Connexion de Power BI (demande M-14 d''Arche) : tr
 COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, sauf les colonnes de droits.colonnes_sensibles.';
 COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les sept schémas. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';
 COMMENT ON ROLE cursus_purge IS 'Connexion de la purge du journal des actions de Cursus (décision M-24) : supprime les seules lignes échues de cursus.journal (12 mois, 36 pour la paie) par cursus.purger_journal() ; droits : CONNECT, USAGE sur cursus, SELECT (id, at, action, paie) et DELETE sur journal, SELECT sur journal_actions_paie, INSERT et SELECT (id) sur journal_purges, EXECUTE sur purger_journal(), rien d''autre (init/03-droits.sql). Sans CURSUS_PURGE_PASSWORD : NOLOGIN.';
-COMMENT ON ROLE epc2i_sauvegarde IS 'Connexion des sauvegardes (pg_dump) : membre de pg_read_all_data.';
+COMMENT ON ROLE :"role_sauvegarde" IS 'Connexion des sauvegardes (pg_dump) : membre de pg_read_all_data.';
 
 -- ── 4. Accès à la base ───────────────────────────────────────────────────
--- Personne ne se connecte à epc2i sans droit explicite ; aucun rôle (hors superutilisateur) n'y crée de schéma.
-REVOKE ALL ON DATABASE epc2i FROM PUBLIC;
-GRANT CONNECT ON DATABASE epc2i
-  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, epc2i_sauvegarde, bi_reader, cursus_purge;
+-- Personne ne se connecte à la base commune sans droit explicite ; aucun rôle (hors superutilisateur) n'y crée de schéma.
+REVOKE ALL ON DATABASE :"base" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"base"
+  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, :"role_sauvegarde", bi_reader, cursus_purge;
 
 COMMIT;
 
-\echo 'Étape 1 terminée : base epc2i et rôles en place.'
+\echo 'Étape 1 terminée : base' :base 'et rôles en place.'

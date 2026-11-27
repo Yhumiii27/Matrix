@@ -2,33 +2,44 @@
 # Application automatique du registre des liens de Matrix (matrix.liens) : rejoue 90-droits.sql quand c'est utile.
 #
 # Dans le conteneur postgres (tâche planifiée Coolify, ou à la main) :
-#   docker compose exec postgres sh /opt/epc2i/partage/appliquer-liens.sh
+#   docker compose exec postgres sh /opt/atrium/partage/appliquer-liens.sh
 #
 # 90-droits.sql est rejoué si l'une de ces conditions est vraie, sinon rien n'est fait :
 #   - premier passage dans ce conteneur, ou 90-droits.sql a changé depuis le dernier passage réussi (redéploiement) ;
 #   - un lien autorisé dans matrix.liens n'a pas son droit SELECT alors que la vue existe ;
 #   - un rôle d'outil lit une vue pub_ d'un autre schéma sans lien autorisé (refusé, demandé ou hors registre) ;
 #   - matrix.liens n'existe pas encore (90 applique alors la convention telle quelle) ;
-#   - EPC2I_LIENS_FORCER=1.
+#   - ATRIUM_LIENS_FORCER=1.
 # 90-droits.sql s'exécute dans une seule transaction terminée par droits.verifier() : une erreur annule tout et la tâche
 # échoue (code de sortie non nul), le serveur garde ses droits précédents.
 #
 # Variables :
 #   PGHOST, PGPORT    serveur (défaut : socket local du conteneur)
 #   PGUSER            défaut postgres (superutilisateur, ou administrateur membre de matrix_admin)
-#   EPC2I_PARTAGE_DIR dossier de 90-droits.sql (défaut : dossier de ce script)
-#   EPC2I_LIENS_ETAT  fichier d'état, empreinte du dernier 90-droits.sql appliqué (défaut /tmp/epc2i-liens.etat :
+#   ATRIUM_BASE       base commune (défaut : atrium si elle existe, sinon epc2i, nom d'avant le renommage)
+#   ATRIUM_PARTAGE_DIR dossier de 90-droits.sql (défaut : dossier de ce script)
+#   ATRIUM_LIENS_ETAT fichier d'état, empreinte du dernier 90-droits.sql appliqué (défaut /tmp/atrium-liens.etat :
 #                     effacé à chaque redéploiement du conteneur, ce qui provoque un passage complet)
-#   EPC2I_LIENS_FORCER 1 pour rejouer 90-droits.sql sans condition
+#   ATRIUM_LIENS_FORCER 1 pour rejouer 90-droits.sql sans condition
+# Renommage de la suite en Atrium (docs/renommage-atrium.md) : les anciennes variables EPC2I_PARTAGE_DIR,
+# EPC2I_LIENS_ETAT et EPC2I_LIENS_FORCER sont lues quand les nouvelles manquent, jusqu'au nettoyage de la fiche.
 
 set -eu
 
-DIR="${EPC2I_PARTAGE_DIR:-$(cd "$(dirname "$0")" && pwd)}"
+DIR="${ATRIUM_PARTAGE_DIR:-${EPC2I_PARTAGE_DIR:-$(cd "$(dirname "$0")" && pwd)}}"
 FICHIER="$DIR/90-droits.sql"
-ETAT="${EPC2I_LIENS_ETAT:-/tmp/epc2i-liens.etat}"
+ETAT="${ATRIUM_LIENS_ETAT:-${EPC2I_LIENS_ETAT:-/tmp/atrium-liens.etat}}"
+FORCER="${ATRIUM_LIENS_FORCER:-${EPC2I_LIENS_FORCER:-0}}"
 VERROU="$ETAT.verrou"
 export PGUSER="${PGUSER:-postgres}"
-export PGDATABASE=epc2i
+# Base commune : atrium, ou epc2i tant que le serveur en service n'est pas renommé.
+if [ -n "${ATRIUM_BASE:-}" ]; then
+  PGDATABASE="$ATRIUM_BASE"
+else
+  PGDATABASE=$(psql -XAtq -d postgres -c "SELECT coalesce((SELECT datname FROM pg_database WHERE datname IN ('atrium', 'epc2i') ORDER BY datname <> 'atrium' LIMIT 1), 'atrium')") \
+    || { echo "[liens] serveur injoignable" >&2; exit 1; }
+fi
+export PGDATABASE
 
 [ -f "$FICHIER" ] || { echo "[liens] $FICHIER introuvable" >&2; exit 1; }
 
@@ -45,7 +56,7 @@ trap 'rmdir "$VERROU" 2>/dev/null || true' EXIT INT TERM
 
 empreinte=$(sha256sum "$FICHIER" | cut -d' ' -f1)
 motif=""
-if [ "${EPC2I_LIENS_FORCER:-0}" = 1 ]; then
+if [ "$FORCER" = 1 ]; then
   motif="passage forcé"
 elif [ ! -f "$ETAT" ] || [ "$(cat "$ETAT")" != "$empreinte" ]; then
   motif="90-droits.sql nouveau dans ce conteneur"
@@ -119,9 +130,9 @@ if [ -z "$motif" ]; then
   exit 0
 fi
 
-echo "[liens] $(date -Iseconds) : $motif, passage de 90-droits.sql (serveur ${PGHOST:-local}, rôle $PGUSER)"
+echo "[liens] $(date -Iseconds) : $motif, passage de 90-droits.sql (serveur ${PGHOST:-local}, base $PGDATABASE, rôle $PGUSER)"
 sortie=$(mktemp)
-if psql -X -v ON_ERROR_STOP=1 -f "$FICHIER" > "$sortie" 2>&1; then
+if psql -X -v ON_ERROR_STOP=1 -v base="$PGDATABASE" -f "$FICHIER" > "$sortie" 2>&1; then
   # Seuls les messages utiles : liens retirés, vues absentes, contrôles.
   grep -E 'NOTICE|WARNING' "$sortie" | sed 's/^.*\(NOTICE\|WARNING\): */[liens]   /' || true
   printf '%s\n' "$empreinte" > "$ETAT"

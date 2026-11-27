@@ -12,7 +12,7 @@
 //
 // Variables (en plus de MATRIX_ENTRA_TENANT_ID, MATRIX_ENTRA_CLIENT_ID, MATRIX_ENTRA_CLIENT_SECRET) :
 //   MATRIX_ALERTES_DESTINATAIRES  adresses de la DSI, séparées par des virgules (active les alertes) ;
-//   MATRIX_ALERTES_EXPEDITEUR     boîte aux lettres d'envoi (ex. matrix@epc2i.fr), à laquelle l'application Matrix a
+//   MATRIX_ALERTES_EXPEDITEUR     boîte aux lettres d'envoi (ex. matrix@entreprise.example), à laquelle l'application Matrix a
 //                                 le droit Mail.Send (permission d'application, limitée à cette boîte par une
 //                                 stratégie d'accès d'Exchange Online).
 

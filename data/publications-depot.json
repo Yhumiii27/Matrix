@@ -177,63 +177,63 @@
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_avancement_projets",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_jalons_projets",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_avenants",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_reserves",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_livrables",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_catalogue_machines",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_reponses_besoins",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "keystone.pub_expeditions",
    "lecteur": "bi_reader",
    "nature": "lecture",
    "demande": "Keystone → Matrix, 01/11/2026, point (1) (K-203b)",
-   "motif": "Power BI du contrôle de gestion : projets d'EPC2i (côté vente seulement, aucun coût interne)"
+   "motif": "Power BI du contrôle de gestion : projets de l'entreprise (côté vente seulement, aucun coût interne)"
   },
   {
    "vue": "cursus.pub_presences_prevues",

@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 95 : journal unifié de Matrix (D18 option A).
+-- Partage des données de la suite Atrium, fichier 95 : journal unifié de Matrix (D18 option A).
 --
 -- Chaque outil garde son journal et publie une vue pub_journal aux colonnes communes : Keystone (migration
 -- 0035_share, audit_entries et activity_events), Codex (migration 0001_partage, audit_log), Vigie (migration
@@ -11,7 +11,7 @@
 -- 18/10/2026 sur les vues de Keystone, Codex et Vigie). Une pub_journal qui s'en écarte fait échouer ce fichier.
 -- C'est la seule vue du partage qui lit d'autres schémas. Elle n'est pas une vue pub_ : aucun outil ne la lit.
 -- Exécution : en tant que matrix_app, après 90-droits.sql (qui accorde les pub_journal à matrix_app).
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/95-matrix-journal-unifie.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/95-matrix-journal-unifie.sql
 -- Les outils pas encore basculés (pub_journal absente ou non accordée, par exemple Cursus) sont laissés de côté avec
 -- un WARNING : rejouer ce fichier après leur bascule et 90-droits.sql. Rejouable. Données personnelles (noms des
 -- auteurs) : écran réservé à l'administrateur des données ; durée de conservation à fixer.

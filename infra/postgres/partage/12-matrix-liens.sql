@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 12 : registre des liens entre outils, administré par Matrix.
+-- Partage des données de la suite Atrium, fichier 12 : registre des liens entre outils, administré par Matrix.
 --
 -- Un lien est le droit d'un outil (lecteur) de lire la vue pub_ d'un autre outil. Matrix les administre (décision du
 -- 24/10/2026 : « Matrix doit devenir un outil de type dataverse, il administre toutes les tables et autorise ou non
@@ -12,7 +12,7 @@
 -- Matrix ne pose aucun droit lui-même : matrix_app n'a aucun droit d'administration. Une décision prise dans Matrix
 -- prend effet au passage suivant de 90-droits.sql (administrateur ou tâche planifiée).
 -- Exécution : en tant que matrix_app, avant 90-droits.sql :
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/12-matrix-liens.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/12-matrix-liens.sql
 -- Rejouable.
 
 \set ON_ERROR_STOP on

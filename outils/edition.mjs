@@ -168,7 +168,7 @@ function validerSites(lignes, pays, filiales = []) {
     if (!libelle) throw new Error(`Site ${code} : le libellé est obligatoire`);
     const pays_iso2 = String(s.pays_iso2 ?? 'FR').trim().toUpperCase();
     if (!iso.has(pays_iso2)) throw new Error(`Site ${code} : pays ${pays_iso2} absent de la liste des pays`);
-    // D21 : site d'une filiale du groupe (usine, terrain) ; vide pour un site d'EPC2i.
+    // D21 : site d'une filiale du groupe (usine, terrain) ; vide pour un site du groupe hors filiale.
     const filiale_code = texte(s.filiale_code, 3, `Site ${code}, filiale`)?.toUpperCase() || null;
     if (filiale_code && !fil.has(filiale_code)) throw new Error(`Site ${code} : filiale ${filiale_code} absente de la liste des filiales`);
     // M-11 d'Arche : coordonnées WGS 84 (carte des CAPEX), saisies ensemble ou pas du tout.

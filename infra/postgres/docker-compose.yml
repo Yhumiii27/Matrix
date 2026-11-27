@@ -1,5 +1,12 @@
-# Serveur PostgreSQL commun EPC2I : une base epc2i, un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector,
-# matrix).
+# Serveur PostgreSQL commun de la suite Atrium : une base atrium, un schéma par outil (keystone, codex, cursus, vigie, arche,
+# crucible, clavis, modulus, vector, matrix).
+#
+# Renommage de la suite en Atrium (décisions M-26 et M-28 du 27/11/2026, docs/renommage-atrium.md). Les volumes
+# s'appellent atrium_pgdata et atrium_sauvegardes. ATTENTION : Coolify nomme chaque volume
+# « <identifiant de la ressource>_<clé> » ; sur le serveur en service, ces clés désignent des volumes qui n'existent
+# qu'une fois la copie des anciens (…_epc2i_pgdata, …_epc2i_sauvegardes) faite à l'étape 4 de la fiche. Déployer ce
+# fichier avant cette copie démarrerait une base neuve et vide (les anciennes données restent intactes dans les anciens
+# volumes) : la ressource postgres garde son déploiement automatique coupé jusqu'à la fenêtre (prérequis P1).
 #
 # Mise en service : voir README.md (Coolify ou poste local). Les mots de passe viennent de l'environnement
 # (fichier .env à côté de ce fichier en local, variables de la ressource dans Coolify) ; aucun n'est écrit ici.
@@ -7,7 +14,7 @@
 # Les scripts de init/ sont exécutés une seule fois, au premier démarrage, quand le volume de données est vide.
 # Ensuite, on les rejoue à la main avec psql (ils sont rejouables) : voir README.md, « Rejouer le socle ».
 
-name: epc2i-postgres
+name: atrium-postgres
 
 services:
   postgres:
@@ -40,11 +47,15 @@ services:
       BI_READER_PASSWORD: ${BI_READER_PASSWORD:-}
       # Facultatif : sans lui, le rôle cursus_purge (purge du journal de Cursus, M-24) existe sans pouvoir se connecter.
       CURSUS_PURGE_PASSWORD: ${CURSUS_PURGE_PASSWORD:-}
-      EPC2I_SAUVEGARDE_PASSWORD: ${EPC2I_SAUVEGARDE_PASSWORD:?EPC2I_SAUVEGARDE_PASSWORD manquant}
+      # Rôle des sauvegardes (atrium_sauvegarde). L'ancienne variable EPC2I_SAUVEGARDE_PASSWORD est encore acceptée à
+      # sa place, le temps du renommage : init/01 et sauvegarder.sh prennent la nouvelle, sinon l'ancienne, et init/01
+      # refuse si les deux sont vides (docs/renommage-atrium.md).
+      ATRIUM_SAUVEGARDE_PASSWORD: ${ATRIUM_SAUVEGARDE_PASSWORD:-}
+      EPC2I_SAUVEGARDE_PASSWORD: ${EPC2I_SAUVEGARDE_PASSWORD:-}
       # Lus par sauvegarde/sauvegarder.sh.
-      EPC2I_SAUVEGARDE_DIR: /sauvegardes
-      EPC2I_SAUVEGARDE_JOURS: ${EPC2I_SAUVEGARDE_JOURS:-14}
-      # Heure des journaux du serveur. Les sessions sur epc2i restent en UTC, comme PGlite (init/01).
+      ATRIUM_SAUVEGARDE_DIR: /sauvegardes
+      ATRIUM_SAUVEGARDE_JOURS: ${ATRIUM_SAUVEGARDE_JOURS:-14}
+      # Heure des journaux du serveur. Les sessions sur la base commune restent en UTC, comme PGlite (init/01).
       TZ: Europe/Paris
     command:
       - postgres
@@ -69,22 +80,27 @@ services:
     volumes:
       # Image 16 : données dans /var/lib/postgresql/data ($PGDATA). Ne pas changer ce montage sans changer de version
       # majeure selon la procédure (le volume en service a été initialisé en 16).
-      - epc2i_pgdata:/var/lib/postgresql/data
-      - epc2i_sauvegardes:/sauvegardes
+      # Volumes renommés : voir l'en-tête (copie des anciens volumes avant le premier déploiement).
+      - atrium_pgdata:/var/lib/postgresql/data
+      - atrium_sauvegardes:/sauvegardes
     ports:
       # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils
       # déployés dans Coolify passent par le réseau Docker : voir README.md.
-      - "127.0.0.1:${EPC2I_PG_PORT:-5432}:5432"
+      - "127.0.0.1:${ATRIUM_PG_PORT:-5432}:5432"
     networks:
       partage:
-        # Nom d'hôte fixe des outils (DATABASE_URL=postgres://<outil>_app:…@epc2i-postgres:5432/epc2i). Le nom du
+        # Nom d'hôte fixe des outils (DATABASE_URL=postgres://<outil>_app:…@atrium-postgres:5432/atrium). Le nom du
         # conteneur donné par Coolify porte la date du déploiement et change à chaque redéploiement.
+        # epc2i-postgres : ancien nom, gardé le temps que chaque outil passe au nouveau (docs/renommage-atrium.md) ;
+        # à retirer à l'étape « Nettoyage », une fois plus aucune DATABASE_URL ne le nomme.
         aliases:
+          - atrium-postgres
           - epc2i-postgres
     healthcheck:
       # 127.0.0.1 : le serveur temporaire de l'initialisation n'écoute pas en TCP, le service n'est donc
       # déclaré prêt qu'après les scripts de init/.
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d epc2i"]
+      # Base postgres : elle existe avant comme après le renommage de la base commune.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -93,9 +109,9 @@ services:
 networks:
   # Réseau Docker des outils : « coolify » dans Coolify ; en local, à créer une fois (docker network create coolify).
   partage:
-    name: ${EPC2I_DOCKER_NETWORK:-coolify}
+    name: ${ATRIUM_DOCKER_NETWORK:-coolify}
     external: true
 
 volumes:
-  epc2i_pgdata:
-  epc2i_sauvegardes:
+  atrium_pgdata:
+  atrium_sauvegardes:

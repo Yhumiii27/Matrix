@@ -11,7 +11,7 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 
 ## 1. Principe retenu
 
-- **Un serveur, une base, un schéma par outil.** Le serveur PostgreSQL (16, décision du 15/10/2026 confirmée le 22/10/2026 : P-01) porte la base `epc2i`. Chaque outil a son schéma et un rôle de connexion qui en est le seul propriétaire. Un outil n'écrit jamais dans le schéma d'un autre : les écritures restent des API (flux de `data/flux.json`). Pour lire, il suit la convention de partage (`infra/postgres/partage/README.md`, `docs/convergence-des-donnees.md`, § 1.3) : l'outil qui fait foi publie des vues `pub_*` dans son schéma, et le lecteur reçoit `USAGE` sur ce schéma et `SELECT` sur ces seules vues. Lire une vue publiée n'est pas un accès au schéma : « un schéma par outil » reste vrai.
+- **Un serveur, une base, un schéma par outil.** Le serveur PostgreSQL (16, décision du 15/10/2026 confirmée le 22/10/2026 : P-01) porte la base `atrium`. Chaque outil a son schéma et un rôle de connexion qui en est le seul propriétaire. Un outil n'écrit jamais dans le schéma d'un autre : les écritures restent des API (flux de `data/flux.json`). Pour lire, il suit la convention de partage (`infra/postgres/partage/README.md`, `docs/convergence-des-donnees.md`, § 1.3) : l'outil qui fait foi publie des vues `pub_*` dans son schéma, et le lecteur reçoit `USAGE` sur ce schéma et `SELECT` sur ces seules vues. Lire une vue publiée n'est pas un accès au schéma : « un schéma par outil » reste vrai.
 - **Matrix lit tout, sauf les colonnes sensibles.** Il se connecte en `matrix_app`, membre du groupe `matrix_lecture`. L'écriture dans les schémas des outils passe par un administrateur nominatif, membre de `matrix_admin`, dont chaque requête est journalisée.
 - **Chaque outil garde sa base embarquée en repli.** Sans `DATABASE_URL`, Keystone, Codex et Vigie ouvrent PGlite, et Cursus ouvre SQLite, comme aujourd'hui : développement, tests, application Mac (`desktop/`). Avec `DATABASE_URL`, l'outil se connecte au serveur commun, dans son schéma. En PGlite, Keystone et Vigie gardent le schéma `public` (décision P-02 du 18/10/2026, § 4.2) ; Codex utilise son schéma `codex` dans les deux modes.
 - **Chaque outil applique ses migrations au démarrage**, avec le journal dans son propre schéma (`<schéma>.__drizzle_migrations`, ou `cursus.schema_migrations`). Aucun rôle d'outil n'a le droit `CREATE` sur la base : il ne peut pas créer de schéma. D'où un petit migrateur commun (§ 4.3), parce que `migrate()` de Drizzle commence toujours par `CREATE SCHEMA IF NOT EXISTS`, que PostgreSQL refuse dans ce cas (vérifié sur les trois outils Drizzle).
@@ -23,9 +23,9 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 
 | Élément | Valeur | Raison |
 |---|---|---|
-| Base | `epc2i`, UTF-8 | Décision M-01. |
+| Base | `atrium`, UTF-8 | Décision M-01. |
 | Tri | `LC_COLLATE = C`, `LC_CTYPE = C.UTF-8` | Mêmes réglages que PGlite 0.5.8 (vérifié) : les listes triées par les outils ne changent pas d'ordre. Un tri français est une question ouverte (P-12). |
-| Fuseau des sessions | `UTC` (`ALTER DATABASE epc2i SET timezone`) | PGlite est en `Etc/GMT0` : Keystone lit les horodatages en chaînes, qui gardent le même format. Les journaux du serveur restent en heure de Paris. |
+| Fuseau des sessions | `UTC` (`ALTER DATABASE atrium SET timezone`) | PGlite est en `Etc/GMT0` : Keystone lit les horodatages en chaînes, qui gardent le même format. Les journaux du serveur restent en heure de Paris. |
 | Format de date | `ISO, MDY` | Valeur de PGlite. |
 | Schéma `public` | fermé à tous (`REVOKE ALL … FROM PUBLIC`) | Un objet créé sans schéma échoue au lieu d'atterrir là. |
 | Transactions oubliées | `idle_in_transaction_session_timeout = 5min` pour les rôles des outils | Une transaction ouverte et oubliée garderait ses verrous : le verrou d'écriture de Keystone et de Vigie, les verrous de ligne de Codex (§ 4.5). |
@@ -43,7 +43,7 @@ Sommaire : 1. Principe · 2. Conventions · 3. Colonnes sensibles · 4. Règles 
 | `matrix_app` | connexion | `matrix` | `matrix` | Tout sur `matrix` ; membre de `matrix_lecture`. |
 | `matrix_lecture` | groupe | | | `USAGE` sur `keystone`, `codex`, `cursus`, `vigie`, `arche`, `crucible` et `droits` ; `SELECT` sur leurs tables et vues, sauf les colonnes sensibles ; aucun droit sur les séquences ; lecture de `droits.colonnes_sensibles` et de `droits.verifier()`. |
 | `matrix_admin` | groupe, attribué nominativement | | | Tous les droits sur les tables, séquences et fonctions des sept schémas ; peut prendre le rôle d'un outil (`SET ROLE`, sans en hériter) ; modifie la liste des colonnes sensibles, sauf celles de la convention. |
-| `epc2i_sauvegarde` | connexion | | | Membre de `pg_read_all_data` : lit tout, colonnes sensibles comprises, pour `pg_dump`. |
+| `atrium_sauvegarde` | connexion | | | Membre de `pg_read_all_data` : lit tout, colonnes sensibles comprises, pour `pg_dump`. |
 | `postgres` | superutilisateur | `droits` | | Administration du socle seulement, jamais dans un outil. |
 
 Le schéma `droits` est un sixième schéma, technique. Il porte la liste des colonnes sensibles et les fonctions de contrôle. Il appartient au superutilisateur, parce que le propriétaire d'un schéma peut supprimer tout objet qu'il contient : placé dans `matrix`, le dispositif serait à la merci de `matrix_app`, lui-même membre de `matrix_lecture`.
@@ -111,7 +111,7 @@ Faits sur PostgreSQL 16.15, avec le script d'entrée officiel de l'image (`docke
 - `infra/postgres/verifier-droits.sql` : 94 cas conformes à ce premier essai (96 depuis l'ajout des cas 135 et 136, ci-dessous), dont `GRANT` de l'outil à `matrix_lecture` ou à `PUBLIC`, ajout et renommage de colonne, renommage de table, vues (colonne sensible, ligne entière, vue sur vue), partitions, sauvegarde, administration, et convention de partage (cas 100 à 134 : lecture d'une vue `pub_` d'un autre outil acceptée ; table, colonne, séquence, vue non publiée, écriture, `CREATE`, vue `pub_` sensible ou dépendant d'un autre schéma signalés ; cas 135 et 136 ajoutés depuis : lecteur attendu qui perd son droit).
 - Partage en place (15/10/2026, PostgreSQL 16.15 neuf) : socle, migrations des quatre outils, Cursus et sa démonstration, vues `*_v1`, puis `infra/postgres/partage/` deux fois dans l'ordre de son README. `droits.verifier()` ne renvoie aucune ligne et `verifier-droits.sql` passe ses 94 cas. Chaque outil lit exactement les vues accordées et aucune table d'un autre schéma (détail dans `infra/postgres/partage/README.md`, « Essais »).
 - Coût : la migration de base de Keystone prend 3,3 s avec le déclencheur et 2,0 s sans, soit 2 ms par commande.
-- Contre-essai du 15/10/2026 sur un PostgreSQL 16.15 neuf, en connexions réelles par mot de passe : scripts passés deux fois sur base vide puis rejoués sur base remplie, sans aucun changement d'état ; migrations du dépôt de chaque outil, `"public".` remplacé par le schéma (370, 38 et 58 références), puis migrations de base régénérées : 203, 22 et 36 tables dans le bon schéma, journal dans le schéma de l'outil, aucun objet dans `public` ; démonstration de Cursus générée par son code (417 lignes) et chargée avec toutes les contraintes actives ; 315 cas d'isolation entre rôles ; 292 relations et 2 722 colonnes essayées une à une par `matrix_app` : 16 refusées, exactement celles de la liste ; table protégée recréée, colonne sensible ajoutée dans les deux ordres, `GRANT` de l'outil, vues ; sauvegarde par `epc2i_sauvegarde`, puis restauration dans une base neuve et par la procédure du README.
+- Contre-essai du 15/10/2026 sur un PostgreSQL 16.15 neuf, en connexions réelles par mot de passe : scripts passés deux fois sur base vide puis rejoués sur base remplie, sans aucun changement d'état ; migrations du dépôt de chaque outil, `"public".` remplacé par le schéma (370, 38 et 58 références), puis migrations de base régénérées : 203, 22 et 36 tables dans le bon schéma, journal dans le schéma de l'outil, aucun objet dans `public` ; démonstration de Cursus générée par son code (417 lignes) et chargée avec toutes les contraintes actives ; 315 cas d'isolation entre rôles ; 292 relations et 2 722 colonnes essayées une à une par `matrix_app` : 16 refusées, exactement celles de la liste ; table protégée recréée, colonne sensible ajoutée dans les deux ordres, `GRANT` de l'outil, vues ; sauvegarde par `atrium_sauvegarde`, puis restauration dans une base neuve et par la procédure du README.
 - Essai du 18/10/2026 après la bascule de Keystone et de Vigie (PostgreSQL 16.15 neuf, port 5443) : socle, puis migrateurs réels des outils dans leur schéma (Keystone `db:migrate`, 212 tables ; Codex `main`, 22 ; Vigie en démonstration, 52 ; Cursus : `infra/postgres/cursus/schema.sql`, 28) ; partage joué deux fois (10, 20, 30, 40, 50, 90, 95), état des droits identique après le second passage et après un rejeu de `init/03` ; les 22 vues `pub_` de Keystone, Codex et Vigie identiques avant et après 30, 40 et 50 (définition, options, commentaire) ; `droits.verifier()` sans erreur ; `verifier-droits.sql` : 139 cas conformes, dont 30 sur les tables de Vigie (15 entrées de santé refusées à Matrix, puis signalées une à une par `droits.verifier()` quand elles redeviennent lisibles) ; chaque outil lit exactement ses vues accordées (52 lectures, 1 016 refus, aucune hors `pub_`).
 - Contre-essai après relecture (15/10/2026, PostgreSQL 16.15 neuf, port 55441) : partage joué deux fois, `droits.verifier()` sans aucune ligne, `verifier-droits.sql` à 96 cas (cas 135 et 136 : un lecteur prévu par `partage/90-droits.sql` qui perd son `SELECT` ou son `USAGE` est signalé). Restauration de `cursus` partage en place : le `DROP SCHEMA cursus CASCADE` emporte `matrix.journal_unifie` ; après `pg_restore --no-privileges`, `droits.verifier()` signale 8 erreurs (lecteurs sans `USAGE`) et 1 attention ; le rejeu du fichier de l'outil, de 90 et de 95 rétablit tout (procédure : `infra/postgres/README.md`, « Restaurer le schéma d'un outil »).
 
@@ -122,7 +122,7 @@ Faits sur PostgreSQL 16.15, avec le script d'entrée officiel de l'image (`docke
 - La liste protège des colonnes nommées, pas des valeurs. Une copie dans une autre table (`CREATE TABLE … AS SELECT`, table de sauvegarde laissée par une migration) est lisible par Matrix tant qu'elle n'est pas inscrite (constaté au contre-essai).
 - Une fonction `SECURITY DEFINER` créée par un outil contournerait les droits par colonne. Les privilèges par défaut retirent `EXECUTE` à `PUBLIC` sur les fonctions des outils (vérifié : appel refusé à Matrix) ; aucun outil n'en crée aujourd'hui. Un `GRANT EXECUTE` explicite de l'outil à `matrix_lecture` rouvre l'accès : `droits.verifier()` le signale (gravité `attention`).
 - Un superutilisateur peut désactiver le déclencheur (`ALTER EVENT TRIGGER droits_ddl DISABLE`). `droits.verifier()` le signale en erreur.
-- `epc2i_sauvegarde` et les administrateurs lisent tout : leurs mots de passe et les fichiers de sauvegarde sont aussi sensibles que la base.
+- `atrium_sauvegarde` et les administrateurs lisent tout : leurs mots de passe et les fichiers de sauvegarde sont aussi sensibles que la base.
 
 ## 4. Règles communes aux trois outils Drizzle
 
@@ -179,7 +179,7 @@ Le bloc `migrations` ne sert qu'aux commandes de drizzle-kit (`migrate`, `studio
 
 Principe commun aux trois outils, mis en œuvre par chacun : `applyMigrations` de `src/db/migrations.ts` dans Codex (§ 6.1 ; le `migrateSchema` ci-dessous est la première version, celle de la bascule du 15/10/2026, retirée au lot 11), `applyServerMigrations` dans Keystone (§ 5.1), `migrateServer` dans Vigie (§ 7.1). Ces deux derniers ajoutent la réécriture `"public".` → `"<schéma>".` de chaque instruction (P-02) et ne servent que sur le serveur ; PGlite y garde `migrate()` de Drizzle (journal `drizzle.__drizzle_migrations`), qui ne pose pas de problème en base embarquée. Partout : journal `<schéma>.__drizzle_migrations`, verrou `hashtext('<schéma>.migrations')` pris avant de créer ou de lire le journal, jamais de `CREATE SCHEMA` sur le serveur commun.
 
-`migrate(db, { migrationsSchema })` de Drizzle place bien le journal dans le schéma de l'outil, mais lance d'abord `CREATE SCHEMA IF NOT EXISTS` (`drizzle-orm/pg-core/dialect.js:54`). PostgreSQL vérifie le droit `CREATE` sur la base avant de constater que le schéma existe : `ERROR: permission denied for database epc2i`. Accorder ce droit permettrait à l'outil de créer d'autres schémas, contre la convention. Chaque outil reçoit donc ce migrateur, qui tient le même journal que Drizzle (table `<schéma>.__drizzle_migrations`, colonnes `id`, `hash`, `created_at`, même règle d'ordre) :
+`migrate(db, { migrationsSchema })` de Drizzle place bien le journal dans le schéma de l'outil, mais lance d'abord `CREATE SCHEMA IF NOT EXISTS` (`drizzle-orm/pg-core/dialect.js:54`). PostgreSQL vérifie le droit `CREATE` sur la base avant de constater que le schéma existe : `ERROR: permission denied for database atrium`. Accorder ce droit permettrait à l'outil de créer d'autres schémas, contre la convention. Chaque outil reçoit donc ce migrateur, qui tient le même journal que Drizzle (table `<schéma>.__drizzle_migrations`, colonnes `id`, `hash`, `created_at`, même règle d'ordre) :
 
 ```ts
 // Codex, première bascule (15/10/2026) : src/db/migrate.ts, remplacé au lot 11 par src/db/migrations.ts (§ 6.1)
@@ -216,7 +216,7 @@ export async function migrateSchema(db: DB, migrationsFolder: string): Promise<v
 
 Essais : la même logique a tourné sur PGlite puis sur le serveur en tant que `codex_app`, avec deux instances lancées en même temps (23 tables, une seule ligne au journal). Un journal créé avant la prise du verrou donne, au premier démarrage simultané, une erreur `duplicate key … pg_type_typname_nsp_index` (constaté par l'analyse Keystone) : le verrou passe donc en tête, dans les trois outils.
 
-Les clés de verrou consultatif sont communes à toute la base `epc2i` : chaque outil dérive les siennes de son nom de schéma pour ne jamais bloquer un autre outil : `hashtext('<schéma>.migrations')` pour les migrations, `hashtext('<schéma>.ecritures')` pour les écritures (§ 4.5). Keystone : `keystone.migrations`, `keystone.ecritures` ; Vigie : `vigie.migrations`, `vigie.ecritures` ; Codex : `codex.migrations` (verrou de session pris avant de lire le journal) et `codex.seed` (remplissage), pas de verrou d'écriture global (§ 4.5) ; ses autres verrous consultatifs (`codex:import`, `codex:transfer`) sont pris dans la transaction.
+Les clés de verrou consultatif sont communes à toute la base `atrium` : chaque outil dérive les siennes de son nom de schéma pour ne jamais bloquer un autre outil : `hashtext('<schéma>.migrations')` pour les migrations, `hashtext('<schéma>.ecritures')` pour les écritures (§ 4.5). Keystone : `keystone.migrations`, `keystone.ecritures` ; Vigie : `vigie.migrations`, `vigie.ecritures` ; Codex : `codex.migrations` (verrou de session pris avant de lire le journal) et `codex.seed` (remplissage), pas de verrou d'écriture global (§ 4.5) ; ses autres verrous consultatifs (`codex:import`, `codex:transfer`) sont pris dans la transaction.
 
 ### 4.4 Politique des dépôts sur les migrations
 
@@ -346,7 +346,7 @@ Pas de reprise (P-03, 18/10/2026) : le schéma `keystone` part vide, rempli par 
 
 ### 5.5 Variables
 
-`DATABASE_URL` (`postgres://keystone_app:…@hôte:5432/epc2i`, variable d'exécution seulement), `DATABASE_POOL_MAX` (connexions par processus, 10 par défaut), `KEYSTONE_SEED` (`demo` ou `production`, obligatoire pour remplir le schéma vide au premier `db:migrate`), `KEYSTONE_DATA_DIR` (fichiers déposés et base PGlite de `next build`). Inchangées : `KEYSTONE_DIST_DIR`, `CURSUS_API_URL`, `CURSUS_API_KEY`, `KEYSTONE_API_KEY`, `VIGIE_API_URL`, `NEXT_PUBLIC_*`.
+`DATABASE_URL` (`postgres://keystone_app:…@hôte:5432/atrium`, variable d'exécution seulement), `DATABASE_POOL_MAX` (connexions par processus, 10 par défaut), `KEYSTONE_SEED` (`demo` ou `production`, obligatoire pour remplir le schéma vide au premier `db:migrate`), `KEYSTONE_DATA_DIR` (fichiers déposés et base PGlite de `next build`). Inchangées : `KEYSTONE_DIST_DIR`, `CURSUS_API_URL`, `CURSUS_API_KEY`, `KEYSTONE_API_KEY`, `VIGIE_API_URL`, `NEXT_PUBLIC_*`.
 
 ## 6. Codex
 
@@ -415,7 +415,7 @@ Aucun `GRANT` dans les migrations de Vigie : les droits de Matrix sont posés pa
 ### 7.3 Données et variables
 
 - Données : pas de reprise (P-03) ; une base PostgreSQL de l'ancienne disposition est refusée à l'ouverture. Sur un serveur vide, Vigie démarre sur l'écran « Créer le premier site » ; la bêta démarre avec `VIGIE_DEMO=1`. Copier `/data/uploads`.
-- Variables : `DATABASE_URL` (`postgres://vigie_app:…@hôte:5432/epc2i`, variable d'exécution seulement), `VIGIE_DEMO=1` (démonstration : jeu de données, sélecteur de rôle), `VIGIE_UPLOAD_DIR` (pièces jointes), `VIGIE_BACKUP_DIR`, `VIGIE_DATA_DIR` (repli PGlite), `VIGIE_TODAY` (démonstration). Le pool est fixé à 10 connexions dans le code.
+- Variables : `DATABASE_URL` (`postgres://vigie_app:…@hôte:5432/atrium`, variable d'exécution seulement), `VIGIE_DEMO=1` (démonstration : jeu de données, sélecteur de rôle), `VIGIE_UPLOAD_DIR` (pièces jointes), `VIGIE_BACKUP_DIR`, `VIGIE_DATA_DIR` (repli PGlite), `VIGIE_TODAY` (démonstration). Le pool est fixé à 10 connexions dans le code.
 
 ## 8. Cursus
 
@@ -525,7 +525,7 @@ Aucun `GRANT` dans les migrations de Cursus. Le déclencheur `droits_ddl` donne 
 Script `server/scripts/sqlite-vers-postgres.ts` (prototype de 137 lignes essayé, dans `infra/postgres/correctifs/cursus-prototype.diff`) :
 
 ```
-DATABASE_URL=postgres://cursus_app:…@hôte:5432/epc2i node server/scripts/sqlite-vers-postgres.ts --sqlite /data/cursus.db [--verifier] [--remplacer]
+DATABASE_URL=postgres://cursus_app:…@hôte:5432/atrium node server/scripts/sqlite-vers-postgres.ts --sqlite /data/cursus.db [--verifier] [--remplacer]
 ```
 
 1. Copie horodatée du fichier SQLite et de ses fichiers `-wal` et `-shm`. Tout le travail se fait sur la copie : le constructeur `Db` modifie la base qu'il ouvre.
@@ -570,7 +570,7 @@ Le socle est prêt avant son code :
 ## 8 ter. Crucible
 
 Crucible (dépôt `Yhumiii27/Crucible`) planifie et arbitre les moyens d'essais R&D partagés (laboratoire 67, partagé avec
-EPC France ; PDE, laboratoire PDE, atelier mécanique). Au 22/10/2026, sa livraison 1 (plateforme) est faite, en
+la filiale partenaire ; PDE, laboratoire PDE, atelier mécanique). Au 22/10/2026, sa livraison 1 (plateforme) est faite, en
 PostgreSQL seulement, migrations `0000` à `0002` ; ses demandes au socle sont M-1 à M-6 de son `docs/DEMANDES-MATRIX.md`.
 Même démarche qu'Arche (M-07) :
 
@@ -584,7 +584,7 @@ Même démarche qu'Arche (M-07) :
   Vigie et Matrix lisent `crucible.pub_moyens` et `pub_reservations` (livraison L3 de Crucible). Les vues absentes sont
   signalées sans erreur jusqu'à leur création ;
 - référentiel des sites (M-6) : le laboratoire 67 et le PDE n'y sont pas encore, leur localisation n'étant pas connue
-  (question P-1 de Crucible) ; l'entité EPC France attend la liste réelle des filiales (D21, C-5 d'Arche) ;
+  (question P-1 de Crucible) ; l'entité partenaire attend la liste réelle des filiales (D21, C-5 d'Arche) ;
 - doublons (`data/doublons.json`, `docs/doublons-a-trancher.md`, 22/10/2026) : application des décisions déjà prises
   (D01 et D07 à D09 : Cursus fait foi pour les opérateurs, leurs habilitations et leurs absences ; D02 : lien vers
   Keystone, les projets R&D absents de Keystone restant dans Crucible (S-1 de Crucible) ; D14 et D21 : sites et entités
@@ -606,7 +606,7 @@ publiées : `arche.pub_rex_v2` (migration `0016` d'Arche, 23/10/2026) et `keysto
 |---|---|---|---|---|
 | 1 | `ref_source` | text | `'lessons_learned:' \|\| id` | `'rex_entries:' \|\| id` |
 | 2 | `outil` | text | `'keystone'` | `'arche'` |
-| 3 | `projet_code` | text | `projects.code` | projet EPC2i lié, sinon null |
+| 3 | `projet_code` | text | `projects.code` | projet de l'entreprise lié, sinon null |
 | 4 | `capex_code` | text | null (le CAPEX du projet quand Keystone le connaîtra, R-190) | code du CAPEX |
 | 5 | `numero` | text | `number` | null si Arche n'en tient pas |
 | 6 | `categorie` | text | `theme` | catégorie |
@@ -820,7 +820,7 @@ absent, erreur) et Matrix la recrée.
 
 ## 9. Heures validées : D06, option A, réversible
 
-Le circuit, les contrats (`data/contrats/heures-validees.schema.json`, `absences-validees.schema.json`) et les changements fonctionnels de chaque outil sont dans `docs/remplacement-lucca.md`. Ce qui concerne la base de données :
+Le circuit, les contrats (`data/contrats/heures-validees-v2.schema.json`, `absences-validees-v2.schema.json` ; version 1 gardée le temps de la transition) et les changements fonctionnels de chaque outil sont dans `docs/remplacement-lucca.md`. Ce qui concerne la base de données :
 
 | Point | Règle |
 |---|---|
@@ -889,7 +889,7 @@ Changements dans Matrix :
 
 | Risque | Effet | Parade |
 |---|---|---|
-| `migrate()` de Drizzle utilisé par erreur | Démarrage impossible (`permission denied for database epc2i`). | Migrateur commun (§ 4.3) ; message dans le dépannage du socle. |
+| `migrate()` de Drizzle utilisé par erreur | Démarrage impossible (`permission denied for database atrium`). | Migrateur commun (§ 4.3) ; message dans le dépannage du socle. |
 | Courses entre transactions avec un pool | Erreurs de clé unique, numéros en double, mises à jour perdues (constatés dans les quatre outils). | Verrou d'écriture par outil, verrou d'actions de Cursus ; tout calcul « plus grand + 1 » dans la transaction de l'écriture (`createProject` de Keystone, références de Vigie, § 4.5). |
 | `DATABASE_URL` connue au build | `next build` migre ou interroge le serveur. | Garde `NEXT_PHASE` ; variable d'exécution seulement. |
 | Application Mac ou tests branchés sur le serveur | Écritures de développement dans la base commune. | `DATABASE_URL` vide dans les applications Mac et dans `vitest`. |
@@ -933,7 +933,7 @@ Changements dans Matrix :
 | P-06 | Réseau : les cinq outils seront-ils sur le même serveur Coolify (réseau Docker, sans TLS) ? Sinon, quel certificat, et PgBouncer est-il prévu ? |
 | P-07 | Qui détient le mot de passe du superutilisateur `postgres`, et qui reçoit un rôle d'administrateur nominatif ? |
 | P-08 | Sauvegardes : destination hors du serveur, chiffrement, durée de conservation des sauvegardes et des journaux. L'objectif de 15 minutes de Keystone (I-1b) s'applique-t-il à tout le serveur ? Il demande l'archivage continu des journaux de transactions (pgBackRest ou WAL-G), en plus du `pg_dump` nocturne. |
-| P-09 | Coolify : à confirmer à la première mise en service, la lecture des montages relatifs (`./init`) depuis le répertoire de base et le nom d'hôte du conteneur vu par les outils. Constat du 19/10/2026 : le nom du conteneur porte la date du déploiement (`postgres-<identifiant>-AAAAMMJJTHHMMSS`) et le nom sans date ne se résout pas ; le compose donne donc l'alias fixe `epc2i-postgres` sur le réseau `coolify`. |
+| P-09 | Coolify : à confirmer à la première mise en service, la lecture des montages relatifs (`./init`) depuis le répertoire de base et le nom d'hôte du conteneur vu par les outils. Constat du 19/10/2026 : le nom du conteneur porte la date du déploiement (`postgres-<identifiant>-AAAAMMJJTHHMMSS`) et le nom sans date ne se résout pas ; le compose donne donc l'alias fixe `atrium-postgres` sur le réseau `coolify`. |
 | P-10 | D06 : date de la confirmation ou de l'abandon du remplacement de Lucca (M-03), et qui bascule `sourceHeures`. |
 | P-11 | Données de démonstration : acceptées sur le serveur de bêta ; en production, faut-il un remplissage « référence » par outil (zones, calendriers, utilisateurs pour Keystone, registre des types pour Codex, sites pour Vigie) ? |
 | P-12 | Tri : faut-il, plus tard, un tri français (collation ICU `fr-FR`) pour les listes affichées ? Il changerait l'ordre actuel, aligné sur PGlite. |

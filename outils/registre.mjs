@@ -1,4 +1,4 @@
-// Outils de la suite EPC2I, d'après le registre de Norma (norma/registre/outils.json, copie contrôlée par
+// Outils de la suite Atrium, d'après le registre de Norma (norma/registre/outils.json, copie contrôlée par
 // npm run norma:check) : la seule source des listes d'outils de Matrix. Un outil ajouté au registre (Clavis, Modulus, Vector…)
 // entre dans ces listes à la reprise de la copie de Norma, sans liste à recopier dans chaque module.
 

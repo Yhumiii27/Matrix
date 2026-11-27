@@ -41,7 +41,7 @@ test('rôle : le plus élevé des rôles applicatifs, sinon aucun', () => {
   assert.equal(roleDepuisAcces({ role: 'Matrix.Administrateur', ouvert: false }, c), null);
   assert.equal(roleDepuisAcces({ role: 'pm', ouvert: true }, c), null);
   assert.equal(roleDepuisAcces(null, c), null);
-  assert.deepEqual(personneDepuisJeton({ name: ' Claire Bardet ', oid: 'o1', preferred_username: 'c.bardet@epc2i.fr' }), { nom: 'Claire Bardet', oid: 'o1', email: 'c.bardet@epc2i.fr' });
+  assert.deepEqual(personneDepuisJeton({ name: ' Claire Bardet ', oid: 'o1', preferred_username: 'c.bardet@atrium.example' }), { nom: 'Claire Bardet', oid: 'o1', email: 'c.bardet@atrium.example' });
 });
 
 test('jeton signé : données, échéance, clé', () => {
@@ -59,9 +59,9 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 let fournisseur, base, proc, data;
 before(async () => {
   fournisseur = await demarrerFournisseur({ comptes: {
-    admin: { name: 'Claire Bardet', oid: 'oid-claire', email: 'c.bardet@epc2i.example', roles: ['Matrix.Administrateur'] },
-    lecteur: { name: 'Marc Petit', oid: 'oid-marc', email: 'm.petit@epc2i.example', roles: ['Matrix.Lecture'] },
-    sansRole: { name: 'Sans Rôle', oid: 'oid-x', email: 'x@epc2i.example', roles: ['Vigie.Salarie'] },
+    admin: { name: 'Claire Bardet', oid: 'oid-claire', email: 'c.bardet@atrium.example', roles: ['Matrix.Administrateur'] },
+    lecteur: { name: 'Marc Petit', oid: 'oid-marc', email: 'm.petit@atrium.example', roles: ['Matrix.Lecture'] },
+    sansRole: { name: 'Sans Rôle', oid: 'oid-x', email: 'x@atrium.example', roles: ['Vigie.Salarie'] },
     nonAffecte: { name: 'Hors appli', oid: 'oid-y', nonAffecte: true },
   } });
   data = mkdtempSync(join(tmpdir(), 'matrix-entra-'));

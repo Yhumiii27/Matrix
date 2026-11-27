@@ -1,4 +1,4 @@
-# Partage des données entre outils (base epc2i)
+# Partage des données entre outils (base atrium)
 
 Ce dossier crée les vues `pub_*` que chaque outil publie, les référentiels de Matrix et les droits des lecteurs.
 
@@ -45,14 +45,14 @@ Les fichiers de l'étape 2 sont indépendants entre eux et ne créent aucune vue
 Commandes :
 
 ```sh
-psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
-psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/12-matrix-liens.sql
+psql "postgres://matrix_app:…@hôte:5432/atrium"  -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
+psql "postgres://matrix_app:…@hôte:5432/atrium"  -v ON_ERROR_STOP=1 -1 -f partage/12-matrix-liens.sql
 # … 13, 15, 16 et 17 (matrix_app), sur le même modèle
-psql "postgres://cursus_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/20-cursus.sql
+psql "postgres://cursus_app:…@hôte:5432/atrium"  -v ON_ERROR_STOP=1 -1 -f partage/20-cursus.sql
 # … 30 (keystone_app), 40 (codex_app), 50 (vigie_app), 70 (arche_app), 80 (crucible_app), sur le même modèle ; pas 60 (module ECR / ECO absent de Vigie)
-psql -h hôte -U postgres -d epc2i -v ON_ERROR_STOP=1 -f partage/90-droits.sql   # sans -1 : le fichier ouvre sa transaction
-psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/95-matrix-journal-unifie.sql
-psql "postgres://matrix_app:…@hôte:5432/epc2i"  -v ON_ERROR_STOP=1 -1 -f partage/96-matrix-rex-unifie.sql
+psql -h hôte -U postgres -d atrium -v ON_ERROR_STOP=1 -f partage/90-droits.sql   # sans -1 : le fichier ouvre sa transaction
+psql "postgres://matrix_app:…@hôte:5432/atrium"  -v ON_ERROR_STOP=1 -1 -f partage/95-matrix-journal-unifie.sql
+psql "postgres://matrix_app:…@hôte:5432/atrium"  -v ON_ERROR_STOP=1 -1 -f partage/96-matrix-rex-unifie.sql
 ```
 
 Tous les fichiers sont rejouables.
@@ -65,25 +65,25 @@ Une décision prise dans l'écran « Liens entre outils » de Matrix est écrite
 
 | Réglage | Valeur |
 |---|---|
-| Commande | `sh /opt/epc2i/partage/appliquer-liens.sh` |
+| Commande | `sh /opt/atrium/partage/appliquer-liens.sh` |
 | Fréquence | toutes les 15 minutes (`*/15 * * * *`) : une décision prend effet en 15 minutes au plus |
 | Rôle | `postgres` par le socket local du conteneur (défaut) ; `PGUSER` pour un administrateur membre de `matrix_admin` |
 
 Le script rejoue `90-droits.sql` seulement dans ces cas, et écrit la raison :
 
-- premier passage dans le conteneur, ou `90-droits.sql` changé depuis le dernier passage réussi. L'empreinte du fichier est gardée dans `/tmp/epc2i-liens.etat` (`EPC2I_LIENS_ETAT`), effacé à chaque redéploiement : un redéploiement provoque donc toujours un passage ;
+- premier passage dans le conteneur, ou `90-droits.sql` changé depuis le dernier passage réussi. L'empreinte du fichier est gardée dans `/tmp/atrium-liens.etat` (`ATRIUM_LIENS_ETAT`), effacé à chaque redéploiement : un redéploiement provoque donc toujours un passage ;
 - « n lien(s) à appliquer » : un lien autorisé dont la vue existe n'a pas son `SELECT`. C'est le cas d'une autorisation récente, ou d'une vue publiée depuis le dernier passage ;
 - « n lien(s) à retirer » : un rôle d'outil lit une vue `pub_` d'un autre schéma sans lien autorisé (refusé, demandé ou hors registre) ;
 - « registre absent » : `12-matrix-liens.sql` n'a pas encore été joué ;
-- `EPC2I_LIENS_FORCER=1`.
+- `ATRIUM_LIENS_FORCER=1`.
 
 Dans tous les autres cas, il écrit « registre et droits concordent, rien à appliquer » et n'ouvre aucune transaction.
 
 Après un passage, il n'affiche que les messages utiles de 90 : liens retirés, vues absentes, contrôles. Une erreur (vue non conforme, `droits.verifier()` en erreur) annule toute la transaction de 90 : la tâche échoue avec un code non nul et la sortie complète, les droits restent ceux d'avant. La tâche suivante réessaie.
 
-Deux passages ne se chevauchent pas : le verrou `/tmp/epc2i-liens.etat.verrou` est repris s'il a plus de 30 minutes.
+Deux passages ne se chevauchent pas : le verrou `/tmp/atrium-liens.etat.verrou` est repris s'il a plus de 30 minutes.
 
-Lancement à la main : `docker compose exec postgres sh /opt/epc2i/partage/appliquer-liens.sh`.
+Lancement à la main : `docker compose exec postgres sh /opt/atrium/partage/appliquer-liens.sh`.
 
 ## Dépendances
 
@@ -112,7 +112,7 @@ Lancement à la main : `docker compose exec postgres sh /opt/epc2i/partage/appli
 | Vues `*_v1` de `cursus` lues par `matrix_lecture` ou `matrix_app` | Accepté (vues de contrôle de Matrix). |
 | Lecteur inscrit dans `droits.partage_lecteurs` sans `USAGE` sur le schéma ou sans `SELECT` sur la vue | Erreur (droit perdu, par exemple à la restauration d'un schéma). |
 | Vue inscrite dans `droits.partage_lecteurs` absente, ou `matrix.journal_unifie` absente alors que le partage est en place | Attention. |
-| `USAGE` sur le schéma `extensions` (`pg_trgm`, `../init/02-schemas.sql`) | Accepté pour `codex_app` seul (et `epc2i_sauvegarde`, par `pg_read_all_data`) ; pour tout autre rôle, erreur ; `CREATE` : erreur. Les fonctions de `pg_trgm` y restent hors de la convention de partage : installées dans `codex`, elles seraient un droit `EXECUTE` croisé pour chaque lecteur des vues `codex.pub_*`. |
+| `USAGE` sur le schéma `extensions` (`pg_trgm`, `../init/02-schemas.sql`) | Accepté pour `codex_app` seul (et `atrium_sauvegarde`, par `pg_read_all_data`) ; pour tout autre rôle, erreur ; `CREATE` : erreur. Les fonctions de `pg_trgm` y restent hors de la convention de partage : installées dans `codex`, elles seraient un droit `EXECUTE` croisé pour chaque lecteur des vues `codex.pub_*`. |
 
 `90-droits.sql` appelle `droits.verifier()` à la fin de sa transaction. Une erreur annule tous ses `GRANT`. Le cas 99 de `../verifier-droits.sql` (« droits.verifier() sans erreur ») passe sur un serveur où le partage est en place, et les cas 100 à 138 (et 71 à 73 pour `extensions`) éprouvent chaque ligne du tableau ci-dessus.
 

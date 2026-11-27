@@ -1,4 +1,4 @@
--- Contrôle des droits du serveur commun EPC2I, en conditions réelles.
+-- Contrôle des droits du serveur commun de la suite Atrium, en conditions réelles.
 --
 -- Lancement, en superutilisateur, après les scripts d'initialisation :
 --   psql -h <hôte> -U postgres -d postgres -v ON_ERROR_STOP=1 -f verifier-droits.sql
@@ -20,7 +20,19 @@
 -- Sans afficheur page par page : dans un terminal web (Coolify), il bloquait le script avant le ROLLBACK final,
 -- transaction ouverte, et tout lancement suivant attendait ses verrous.
 \pset pager off
-\connect epc2i
+-- Base commune : atrium, ou epc2i tant que le serveur en service n'est pas renommé (docs/renommage-atrium.md) ;
+-- -v base=<nom> l'impose.
+\if :{?base}
+\else
+  SELECT coalesce((SELECT datname FROM pg_database WHERE datname IN ('atrium', 'epc2i')
+                   ORDER BY datname <> 'atrium' LIMIT 1), 'atrium') AS base \gset
+\endif
+\connect :base
+-- Rôle des sauvegardes : atrium_sauvegarde, ou epc2i_sauvegarde avant le renommage.
+SELECT coalesce((SELECT rolname FROM pg_roles WHERE rolname IN ('atrium_sauvegarde', 'epc2i_sauvegarde')
+                 ORDER BY rolname <> 'atrium_sauvegarde' LIMIT 1), 'atrium_sauvegarde') AS role_sauvegarde \gset
+-- Lu aussi dans les blocs DO (current_setting), où psql n'interpole pas ses variables.
+SELECT set_config('verifier.role_sauvegarde', :'role_sauvegarde', false) \g /dev/null
 
 BEGIN;
 
@@ -123,8 +135,8 @@ BEGIN
     (42, 'lire la colonne sensible d''une partition', 'matrix_app', 'SELECT secret FROM vigie.zz_part_1', 'refusé'),
     (43, 'lire la colonne autorisée d''une partition', 'matrix_app', 'SELECT id FROM vigie.zz_part_1', 'autorisé'),
     -- Sauvegarde et administration.
-    (50, 'sauvegarde : lire la colonne sensible', 'epc2i_sauvegarde', 'SELECT secret FROM vigie.zz_essai', 'autorisé'),
-    (51, 'sauvegarde : écrire', 'epc2i_sauvegarde', 'INSERT INTO vigie.zz_essai (id) VALUES (2)', 'refusé'),
+    (50, 'sauvegarde : lire la colonne sensible', current_setting('verifier.role_sauvegarde'), 'SELECT secret FROM vigie.zz_essai', 'autorisé'),
+    (51, 'sauvegarde : écrire', current_setting('verifier.role_sauvegarde'), 'INSERT INTO vigie.zz_essai (id) VALUES (2)', 'refusé'),
     (52, 'administration : lire la colonne sensible', 'matrix_admin', 'SELECT secret FROM vigie.zz_essai', 'autorisé'),
     (53, 'administration : écrire', 'matrix_admin', 'INSERT INTO vigie.zz_essai (id, secret) VALUES (3, ''x'')', 'autorisé'),
     (54, 'administration : réappliquer les droits', 'matrix_admin', 'SELECT droits.appliquer_droits()', 'autorisé'),
@@ -316,10 +328,10 @@ FROM (VALUES
   (81, 'matrix_admin n''hérite pas des droits de vigie_app', 'matrix_admin', 'non', pg_has_role('matrix_admin', 'vigie_app', 'USAGE')),
   (82, 'keystone_app est étranger à codex_app', 'keystone_app', 'non', pg_has_role('keystone_app', 'codex_app', 'MEMBER')),
   (83, 'matrix_app hérite de matrix_lecture', 'matrix_app', 'oui', pg_has_role('matrix_app', 'matrix_lecture', 'USAGE')),
-  (84, 'epc2i_sauvegarde hérite de pg_read_all_data', 'epc2i_sauvegarde', 'oui', pg_has_role('epc2i_sauvegarde', 'pg_read_all_data', 'USAGE')),
-  (85, 'keystone_app sans droit CREATE sur la base', 'keystone_app', 'non', has_database_privilege('keystone_app', 'epc2i', 'CREATE')),
+  (84, 'le rôle des sauvegardes hérite de pg_read_all_data', :'role_sauvegarde', 'oui', pg_has_role(:'role_sauvegarde', 'pg_read_all_data', 'USAGE')),
+  (85, 'keystone_app sans droit CREATE sur la base', 'keystone_app', 'non', has_database_privilege('keystone_app', current_database(), 'CREATE')),
   (86, 'cursus_purge n''hérite pas des droits de cursus_app', 'cursus_purge', 'non', pg_has_role('cursus_purge', 'cursus_app', 'USAGE')),
-  (87, 'cursus_purge sans droit CREATE sur la base', 'cursus_purge', 'non', has_database_privilege('cursus_purge', 'epc2i', 'CREATE'))
+  (87, 'cursus_purge sans droit CREATE sur la base', 'cursus_purge', 'non', has_database_privilege('cursus_purge', current_database(), 'CREATE'))
 ) AS t(n, cas, role, attendu, ok);
 
 -- Administrateur nominatif.

@@ -7,14 +7,14 @@ const ENTRA = { MATRIX_ENTRA_TENANT_ID: 't', MATRIX_ENTRA_CLIENT_ID: 'c', MATRIX
 
 test('configuration : inactive sans destinataires, erreurs signalées, active complète', () => {
   assert.deepEqual(lireConfigAlertes({}), { active: false, erreurs: [] });
-  const partielle = lireConfigAlertes({ MATRIX_ALERTES_DESTINATAIRES: 'dsi@epc2i.example, pas-une-adresse' });
+  const partielle = lireConfigAlertes({ MATRIX_ALERTES_DESTINATAIRES: 'dsi@atrium.example, pas-une-adresse' });
   assert.equal(partielle.active, false);
   assert.ok(partielle.erreurs.some(e => /adresse invalide \(pas-une-adresse\)/.test(e)));
   assert.ok(partielle.erreurs.some(e => /EXPEDITEUR manquant/.test(e)));
   assert.ok(partielle.erreurs.some(e => /MATRIX_ENTRA_CLIENT_SECRET manquant/.test(e)));
-  const c = lireConfigAlertes({ ...ENTRA, MATRIX_ALERTES_DESTINATAIRES: 'a@epc2i.example; b@epc2i.example a@epc2i.example', MATRIX_ALERTES_EXPEDITEUR: 'matrix@epc2i.example' });
+  const c = lireConfigAlertes({ ...ENTRA, MATRIX_ALERTES_DESTINATAIRES: 'a@atrium.example; b@atrium.example a@atrium.example', MATRIX_ALERTES_EXPEDITEUR: 'matrix@atrium.example' });
   assert.equal(c.active, true);
-  assert.deepEqual(c.destinataires, ['a@epc2i.example', 'b@epc2i.example']);
+  assert.deepEqual(c.destinataires, ['a@atrium.example', 'b@atrium.example']);
   assert.equal(c.urlGraph, 'https://graph.microsoft.com');
 });
 
@@ -77,17 +77,17 @@ function faux({ jeton = 200, envoi = 202 } = {}) {
   };
   return { appels, fetchFn };
 }
-const cfg = lireConfigAlertes({ ...ENTRA, MATRIX_ALERTES_DESTINATAIRES: 'dsi@epc2i.example', MATRIX_ALERTES_EXPEDITEUR: 'matrix@epc2i.example' });
+const cfg = lireConfigAlertes({ ...ENTRA, MATRIX_ALERTES_DESTINATAIRES: 'dsi@atrium.example', MATRIX_ALERTES_EXPEDITEUR: 'matrix@atrium.example' });
 
 test('envoi : jeton d’application puis sendMail de la boîte d’envoi', async () => {
   const f = faux();
   await envoyer(cfg, { sujet: 'S', texte: 'T' }, f.fetchFn);
   assert.equal(f.appels[0].url, 'https://login.microsoftonline.com/t/oauth2/v2.0/token');
   assert.match(String(f.appels[0].init.body), /grant_type=client_credentials/);
-  assert.equal(f.appels[1].url, 'https://graph.microsoft.com/v1.0/users/matrix%40epc2i.example/sendMail');
+  assert.equal(f.appels[1].url, 'https://graph.microsoft.com/v1.0/users/matrix%40atrium.example/sendMail');
   assert.equal(f.appels[1].init.headers.authorization, 'Bearer JETON');
   const corps = JSON.parse(f.appels[1].init.body);
-  assert.deepEqual(corps.message.toRecipients, [{ emailAddress: { address: 'dsi@epc2i.example' } }]);
+  assert.deepEqual(corps.message.toRecipients, [{ emailAddress: { address: 'dsi@atrium.example' } }]);
   assert.equal(corps.message.subject, 'S');
   await assert.rejects(envoyer(cfg, { sujet: 'S', texte: 'T' }, faux({ envoi: 403 }).fetchFn), /Mail\.Send/);
   await assert.rejects(envoyer(cfg, { sujet: 'S', texte: 'T' }, faux({ jeton: 401 }).fetchFn), /jeton Microsoft refusé/);

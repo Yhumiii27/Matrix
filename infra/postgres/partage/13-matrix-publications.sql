@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 13 : registre des publications, administré par Matrix (décision M-18).
+-- Partage des données de la suite Atrium, fichier 13 : registre des publications, administré par Matrix (décision M-18).
 --
 -- Une publication est une vue pub_ d'un outil : ce que l'outil donne à lire aux autres. Depuis M-18 (01/11/2026),
 -- Matrix la définit (écran « Publications ») et l'applique lui-même, par le rôle matrix_gestion, propriétaire des vues
@@ -9,7 +9,7 @@
 -- Écrit par matrix_app (brouillons de l'écran) et par matrix_gestion (application) ; amorcé par
 -- 14-reprise-publications.sql (vues existantes reprises, origine « reprise »).
 -- Exécution : en tant que matrix_app, après 12-matrix-liens.sql :
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/13-matrix-publications.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/13-matrix-publications.sql
 -- Rejouable.
 
 \set ON_ERROR_STOP on

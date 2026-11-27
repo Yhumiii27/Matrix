@@ -1,4 +1,4 @@
--- Partage des données EPC2I, fichier 96 : REX unifié de Matrix (D22 option A).
+-- Partage des données de la suite Atrium, fichier 96 : REX unifié de Matrix (D22 option A).
 --
 -- Keystone garde les leçons apprises des projets, Arche le REX des CAPEX ; chacun publie une vue au contrat commun du
 -- REX (docs/architecture-postgres.md, § 8 quater) : keystone.pub_rex (demande « Matrix → Keystone — Publier les leçons
@@ -11,7 +11,7 @@
 -- Une vue dont les 15 premières colonnes s'écartent du contrat fait échouer ce fichier.
 -- Elle n'est pas une vue pub_ : aucun outil ne la lit.
 -- Exécution : en tant que matrix_app, après 90-droits.sql (qui accorde les vues REX à matrix_app).
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/96-matrix-rex-unifie.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/96-matrix-rex-unifie.sql
 -- Une vue absente ou non accordée (outil pas encore migré sur le serveur) est laissée de côté avec un WARNING ;
 -- si aucune n'est lisible, rien n'est créé (WARNING). Rejouer ce fichier après chaque publication et 90-droits.sql.
 -- Rejouable. Données personnelles : le nom de l'auteur seulement, comme le journal unifié.

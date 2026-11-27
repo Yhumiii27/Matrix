@@ -1,9 +1,9 @@
--- Partage des données EPC2I, fichier 10 : référentiels publiés par Matrix (schéma matrix).
+-- Partage des données de la suite Atrium, fichier 10 : référentiels publiés par Matrix (schéma matrix).
 --
 -- Décisions : D17 pays ISO, D14 sites, D15 organigramme à niveaux, D21 zones et filiales du groupe, correspondances d'identifiants pour la
 -- transition (D01 personnes, D02 projets, D08 titres, D10 documents, D14 sites, D15 unités).
 -- Exécution : en tant que matrix_app, propriétaire du schéma matrix (voir README.md).
---   psql "postgres://matrix_app:…@hôte:5432/epc2i" -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
+--   psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql
 -- Rejouable : CREATE TABLE IF NOT EXISTS, CREATE OR REPLACE, amorçage en ON CONFLICT DO NOTHING (une valeur
 -- corrigée plus tard dans Matrix n'est jamais écrasée).
 -- Droits : aucun ici. Les lecteurs reçoivent USAGE et SELECT dans 90-droits.sql.
@@ -128,7 +128,7 @@ ON CONFLICT (code) DO NOTHING;
 -- ── 3 bis. D21 Zones et filiales du groupe ───────────────────────────────
 -- Décision du 22/10/2026 (option A) : Matrix fait foi pour les zones, les filiales et leurs sites. Arche les lit au
 -- lieu de créer ses tables zones, subsidiaries et sites ; Keystone relie ses clients au code de la filiale
--- (clients.code3). Amorçage limité à EPC France (demande M-6 de Crucible, plus bas) : la liste réelle est attendue (question C-5 d'Arche) ; les filiales fictives de la
+-- (clients.code3). Amorçage limité à la filiale partenaire (demande M-6 de Crucible, plus bas) : la liste réelle est attendue (question C-5 d'Arche) ; les filiales fictives de la
 -- démonstration d'Arche (APM, SAI) restent dans Arche.
 CREATE TABLE IF NOT EXISTS matrix.zones (
   code         text        NOT NULL,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS matrix.zones (
   CONSTRAINT zones_libelle_check CHECK (btrim(libelle) <> '')
 );
 COMMENT ON TABLE matrix.zones IS 'D21 : zones du groupe (Directeurs de Zone), publiées par Matrix (vue matrix.pub_zones). Lues par Arche.';
-COMMENT ON COLUMN matrix.zones.responsable IS 'Directeur de Zone (nom ; pas de matricule : il peut ne pas être salarié d''EPC2i).';
+COMMENT ON COLUMN matrix.zones.responsable IS 'Directeur de Zone (nom ; pas de matricule : il peut ne pas être salarié de l''entreprise).';
 CREATE OR REPLACE TRIGGER zones_modifie_le BEFORE UPDATE ON matrix.zones
   FOR EACH ROW EXECUTE FUNCTION matrix.maj_modifie_le();
 
@@ -172,20 +172,20 @@ CREATE INDEX IF NOT EXISTS filiales_zone_idx ON matrix.filiales (zone_code);
 CREATE OR REPLACE TRIGGER filiales_modifie_le BEFORE UPDATE ON matrix.filiales
   FOR EACH ROW EXECUTE FUNCTION matrix.maj_modifie_le();
 
--- Sites des filiales (usines, terrains) dans la liste unique des sites (D14) : filiale_code vide pour un site d'EPC2i.
+-- Sites des filiales (usines, terrains) dans la liste unique des sites (D14) : filiale_code vide pour un site de l'entreprise.
 ALTER TABLE matrix.sites ADD COLUMN IF NOT EXISTS filiale_code text;
 ALTER TABLE matrix.sites DROP CONSTRAINT IF EXISTS sites_filiale_fk;
 ALTER TABLE matrix.sites ADD CONSTRAINT sites_filiale_fk FOREIGN KEY (filiale_code) REFERENCES matrix.filiales (code) ON UPDATE CASCADE ON DELETE RESTRICT;
-COMMENT ON COLUMN matrix.sites.filiale_code IS 'D21 : filiale propriétaire du site (usine, terrain d''un CAPEX d''Arche) ; vide pour un site d''EPC2i.';
+COMMENT ON COLUMN matrix.sites.filiale_code IS 'D21 : filiale propriétaire du site (usine, terrain d''un CAPEX d''Arche) ; vide pour un site de l''entreprise.';
 CREATE INDEX IF NOT EXISTS sites_filiale_idx ON matrix.sites (filiale_code);
 
--- Demande M-6 de Crucible (réponse du 04/11/2026) : la filiale EPC France (code SMC) et son site de
+-- Demande M-6 de Crucible (réponse du 04/11/2026) : la filiale partenaire (code SMC) et son site de
 -- Saint-Martin-de-Crau, où sont le laboratoire 67 et le PDE (moyens d'essai de Crucible). Les autres filiales
 -- attendent la liste réelle (question C-5 d'Arche). Amorçage seulement : Matrix fait foi ensuite.
-INSERT INTO matrix.filiales (code, nom, pays_iso2, devise, ordre) VALUES ('SMC', 'EPC France', 'FR', 'EUR', 10)
+INSERT INTO matrix.filiales (code, nom, pays_iso2, devise, ordre) VALUES ('SMC', 'Filiale partenaire', 'FR', 'EUR', 10)
 ON CONFLICT (code) DO NOTHING;
 INSERT INTO matrix.sites (code, libelle, ville, pays_iso2, ordre, filiale_code) VALUES
-  ('smc', 'Saint-Martin-de-Crau — EPC France (laboratoire 67, PDE)', 'Saint-Martin-de-Crau', 'FR', 40, 'SMC')
+  ('smc', 'Saint-Martin-de-Crau — Filiale partenaire (laboratoire 67, PDE)', 'Saint-Martin-de-Crau', 'FR', 40, 'SMC')
 ON CONFLICT (code) DO NOTHING;
 
 -- Coordonnées des sites et cadre des zones (demandes M-11 et M-12 d'Arche, 23/10/2026) : carte des CAPEX d'Arche.
@@ -389,7 +389,7 @@ SELECT s.code,       -- Codex : sites.key (cache) ; Vigie : sites.id ; Cursus : 
        s.pays_iso2,  -- Keystone, Cursus : pays du site
        s.ordre,      -- Codex : sites.sort (cache) ; Vigie : sites.sort (cache)
        s.actif,      -- tous : listes de choix (un site fermé reste lisible pour l'historique)
-       s.filiale_code, -- D21, ajout du 22/10/2026 en fin de vue : Arche (site d'un CAPEX) ; vide pour un site d'EPC2i
+       s.filiale_code, -- D21, ajout du 22/10/2026 en fin de vue : Arche (site d'un CAPEX) ; vide pour un site de l'entreprise
        s.latitude,   -- M-11 d'Arche, ajout du 23/10/2026 en fin de vue : carte des CAPEX
        s.longitude
 FROM matrix.sites s;

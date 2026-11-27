@@ -2,11 +2,11 @@
 
 @norma/REGLES.md
 
-Les règles ci-dessus sont les règles communes de la suite EPC2I : copie versionnée de Norma (`norma/VERSION`), contrôlée
+Les règles ci-dessus sont les règles communes de la suite Atrium : copie versionnée de Norma (`norma/VERSION`), contrôlée
 par `npm run norma:check` ; elles se changent dans le dépôt `Yhumiii27/Norma`, jamais ici. Ce qui suit est propre à Matrix.
 
 - Répondre en français.
-- L'administration de l'infrastructure EPC2I (GitHub, Coolify, serveur PostgreSQL commun) suit
+- L'administration de l'infrastructure Atrium (GitHub, Coolify, serveur PostgreSQL commun) suit
   `docs/delegation-claude.md` : ce que Claude fait seul, ce qu'il fait après un « validé », ce qu'il ne fait jamais.
 - Reste à faire de Matrix : tenu dans Norma (`reste-a-faire/matrix.json`, page globale
   https://claude.ai/artifact/Rs7kooJdowShdYUqNS8jQf ; REGLES § 3), plus de liste propre à Matrix.
@@ -18,7 +18,7 @@ par `npm run norma:check` ; elles se changent dans le dépôt `Yhumiii27/Norma`,
 - Mise en service sur le serveur commun : `docs/mise-en-service.md` ; installation directe sur le serveur interne (sans
   Docker, répétée le 24 novembre 2026) : `docs/installation-directe.md`. Décisions : `docs/decisions.md`.
 - Port de Matrix : 3700 (registre de Norma, défaut de `serveur.mjs`) ; l'image Docker garde le port interne 3000.
-- Affichage sombre / clair : cookie `epc2i-theme`, attribut `data-theme` posé par `serveur.mjs` (`outils/theme.mjs`) ;
+- Affichage sombre / clair : cookie `atrium-theme`, attribut `data-theme` posé par `serveur.mjs` (`outils/theme.mjs`) ;
   thèmes et jetons pris dans `norma/charte/nocturne.css`, jamais recopiés.
 - Coque commune de Norma 2.0, logo de Norma 2.3 (`norma/charte/COQUE.md`) : `maquette/source.html` écrit le HTML de la coque avec les classes
   de `norma/charte/coque.css` (barre latérale `.coque-side` et recherche de pages ⌘K, un en-tête `.coque-header` par écran,

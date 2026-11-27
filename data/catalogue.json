@@ -37769,7 +37769,7 @@
       "id"
      ],
      "domain": "CAPEX",
-     "description": "lots (N-12 pour la liste) ; machines = lots alimentés par les projets EPC2i",
+     "description": "lots (N-12 pour la liste) ; machines = lots alimentés par les projets Keystone",
      "vueLe": "2026-10-22T10:26:05.620Z"
     },
     {
@@ -39574,7 +39574,7 @@
       "entity_code"
      ],
      "domain": "Organisation et droits",
-     "description": "Partner entities a facility is shared with (laboratoire 67 → EPC France).",
+     "description": "Partner entities a facility is shared with (laboratoire 67 → Filiale partenaire).",
      "vueLe": "2026-10-22T15:20:33.000Z"
     },
     {

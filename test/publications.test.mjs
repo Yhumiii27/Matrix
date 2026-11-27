@@ -119,6 +119,25 @@ test('dépôt : DM-1 et DM-2 de Clavis, colonnes ajoutées en fin de vue, contra
     'ouvert', 'maj_le', 'roles', 'perimetre']);
 });
 
+test('dépôt : confidentialité et équipe des projets de Keystone (27/11/2026), colonnes en fin de vue, contrat v1', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const depot = JSON.parse(await readFile(new URL('../data/publications-depot.json', import.meta.url), 'utf8'));
+  const def = vue => depot.publications.find(p => p.vue === vue)?.definition ?? assert.fail(`${vue} absente du dépôt`);
+  // Contrat D02 v1 + colonnes ajoutées en fin (R-190, R-196), puis confidentialite.
+  assert.deepEqual(colonnesPubliees(def('keystone.pub_projets')), ['code', 'numero', 'code_analytique', 'nature', 'nom', 'client_id', 'client',
+    'client_code3', 'phase_code', 'phase', 'imputable', 'chef_projet_matricule', 'chef_projet_nom', 'ville', 'pays', 'fournisseurs', 'maj_le',
+    'capex_code', 'besoin_ref', 'client_interne', 'filiale_code', 'categorie', 'confidentialite']);
+  assert.match(def('keystone.pub_projets'), /WHEN 'confidential' THEN 'confidentiel' ELSE 'normal'/);
+  assert.deepEqual(colonnesPubliees(def('keystone.pub_equipes_projets')), ['projet_code', 'matricule', 'personne_nom', 'email', 'origine',
+    'activite', 'personne_clavis_id', 'role', 'maj_le']);
+  // Annuaire interne seulement : jamais un contact externe.
+  assert.match(def('keystone.pub_equipes_projets'), /WHERE pe\.client_id IS NULL/);
+  for (const t of def('keystone.pub_equipes_projets').matchAll(/\b(?:FROM|JOIN)\s+([a-z_.]+)/g)) assert.ok(t[1].startsWith('keystone.'), t[1]);
+  const lecteurs = depot.liens.filter(l => l.vue === 'keystone.pub_equipes_projets').map(l => l.lecteur);
+  for (const l of ['ingenium_app', 'codex_app']) assert.ok(lecteurs.includes(l), l);
+  assert.ok(depot.liens.filter(l => l.vue === 'keystone.pub_equipes_projets').every(l => l.nature === 'lecture'));
+});
+
 test('dépôt : liens de DI-M1 (Ingenium) et DM-3 (Clavis), seulement vers des vues que Matrix connaît', async () => {
   const { readFile } = await import('node:fs/promises');
   const depot = JSON.parse(await readFile(new URL('../data/publications-depot.json', import.meta.url), 'utf8'));
@@ -126,7 +145,7 @@ test('dépôt : liens de DI-M1 (Ingenium) et DM-3 (Clavis), seulement vers des v
   assert.equal(new Set(cles).size, cles.length, 'un seul lien par vue, lecteur et nature');
   const ingenium = depot.liens.filter(l => l.lecteur === 'ingenium_app').map(l => l.vue).sort();
   assert.deepEqual(ingenium, ['clavis.pub_acces', 'clavis.pub_personnes', 'codex.pub_documents', 'keystone.pub_activites',
-    'keystone.pub_affectations', 'keystone.pub_articles', 'keystone.pub_jalons_projets', 'keystone.pub_nomenclatures',
+    'keystone.pub_affectations', 'keystone.pub_articles', 'keystone.pub_equipes_projets', 'keystone.pub_jalons_projets', 'keystone.pub_nomenclatures',
     'keystone.pub_pack_ingenierie', 'keystone.pub_projets', 'matrix.pub_filiales', 'matrix.pub_sites', 'vigie.pub_demandes_recues',
     'vigie.pub_eco_approbations', 'vigie.pub_eco_effectivite', 'vigie.pub_ordres_modification']);
   // En attente de leur publication : aucun lien préparé tant que la vue n'a pas de définition dans Matrix.

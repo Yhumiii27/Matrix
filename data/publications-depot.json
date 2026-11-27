@@ -3,11 +3,19 @@
  "publications": [
   {
    "vue": "keystone.pub_projets",
-   "demande": "Keystone → Matrix, 01/11/2026, point (2) : colonne categorie en fin de vue (R-196, demande K-3 de Crucible)",
+   "demande": "Keystone → Matrix, 27/11/2026 (décisions du propriétaire, ING-29) : colonne confidentialite en fin de vue (normal | confidentiel). Avant : 01/11/2026, point (2), colonne categorie (R-196, demande K-3 de Crucible)",
    "mode": "sql",
-   "definition": "SELECT p.code,\n       p.number             AS numero,\n       p.analytic_code      AS code_analytique,\n       p.kind               AS nature,\n       p.name               AS nom,\n       p.client_id,\n       c.name               AS client,\n       c.code3              AS client_code3,\n       p.stage              AS phase_code,\n       ls.label             AS phase,\n       (p.stage NOT IN ('clos', 'annule')) AS imputable,\n       pm.matricule         AS chef_projet_matricule,\n       coalesce(pm.full_name, pm.short_name) AS chef_projet_nom,\n       ps.city              AS ville,\n       ps.country_name      AS pays,\n       (SELECT string_agg(DISTINCT su.name, ' · ' ORDER BY su.name)\n          FROM keystone.purchase_orders po\n          JOIN keystone.suppliers su ON su.id = po.supplier_id\n         WHERE po.project_id = p.id AND po.status NOT IN ('draft', 'cancelled')) AS fournisseurs,\n       p.updated_at         AS maj_le,\n       p.capex_code,\n       p.besoin_ref,\n       coalesce(c.is_internal, false) AS client_interne,\n       c.subsidiary_code    AS filiale_code,\n       p.category           AS categorie\nFROM keystone.projects p\nLEFT JOIN keystone.clients c           ON c.id = p.client_id\nLEFT JOIN keystone.persons pm          ON pm.id = p.pm_person_id\nLEFT JOIN keystone.lifecycle_stages ls ON ls.code = p.stage\nLEFT JOIN keystone.project_sites ps    ON ps.project_id = p.id",
-   "description": "Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) + client_interne, filiale_code (R-190, client interne = filiale du groupe) + categorie (R-196 : client | rd, projet R&D pour Crucible) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app.",
-   "note": "Définition identique à la migration 0071_project_category_share de Keystone. La vue appartient encore à Keystone : elle s'applique après sa reprise par Matrix (partage/14) ; d'ici là, le serveur a déjà categorie par la migration 0071."
+   "definition": "SELECT p.code,\n       p.number             AS numero,\n       p.analytic_code      AS code_analytique,\n       p.kind               AS nature,\n       p.name               AS nom,\n       p.client_id,\n       c.name               AS client,\n       c.code3              AS client_code3,\n       p.stage              AS phase_code,\n       ls.label             AS phase,\n       (p.stage NOT IN ('clos', 'annule')) AS imputable,\n       pm.matricule         AS chef_projet_matricule,\n       coalesce(pm.full_name, pm.short_name) AS chef_projet_nom,\n       ps.city              AS ville,\n       ps.country_name      AS pays,\n       (SELECT string_agg(DISTINCT su.name, ' · ' ORDER BY su.name)\n          FROM keystone.purchase_orders po\n          JOIN keystone.suppliers su ON su.id = po.supplier_id\n         WHERE po.project_id = p.id AND po.status NOT IN ('draft', 'cancelled')) AS fournisseurs,\n       p.updated_at         AS maj_le,\n       p.capex_code,\n       p.besoin_ref,\n       coalesce(c.is_internal, false) AS client_interne,\n       c.subsidiary_code    AS filiale_code,\n       p.category           AS categorie,\n       (CASE p.confidentiality WHEN 'confidential' THEN 'confidentiel' ELSE 'normal' END)::text AS confidentialite\nFROM keystone.projects p\nLEFT JOIN keystone.clients c           ON c.id = p.client_id\nLEFT JOIN keystone.persons pm          ON pm.id = p.pm_person_id\nLEFT JOIN keystone.lifecycle_stages ls ON ls.code = p.stage\nLEFT JOIN keystone.project_sites ps    ON ps.project_id = p.id",
+   "description": "Contrat D02 v1 + capex_code, besoin_ref (R-190, en fin de vue) + client_interne, filiale_code (R-190, client interne = filiale du groupe) + categorie (R-196 : client | rd, projet R&D pour Crucible) + confidentialite (ING-29 : normal | confidentiel ; un projet confidentiel n'est montré qu'à son équipe, keystone.pub_equipes_projets) : tous les projets Keystone, internes compris (nature). Lecteurs : codex_app, cursus_app, vigie_app, matrix_app, arche_app, crucible_app, ingenium_app.",
+   "note": "Requête de référence de Keystone (src/server/publications/definitions.ts, pubProjetsDefinition) : définition de 0071 colonne pour colonne, confidentialite ajoutée en fin. À appliquer seulement une fois la migration 0085_project_confidentiality de Keystone déployée (colonne projects.confidentiality) ; d'ici là la vue garde la définition de 0071."
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "demande": "Keystone → Matrix, 27/11/2026 (décisions du propriétaire, ING-29) : « Keystone publie qui fait partie de l'équipe des projets et les autres outils peuvent s'en servir »",
+   "mode": "sql",
+   "definition": "SELECT p.code                                AS projet_code,\n       pe.matricule,\n       coalesce(pe.full_name, pe.short_name) AS personne_nom,\n       pe.email,\n       e.origine,\n       e.activite,\n       u.entra_object_id                     AS personne_clavis_id,\n       e.role,\n       max(e.maj_le)                         AS maj_le\nFROM (SELECT p0.id AS project_id, p0.pm_person_id AS person_id, 'equipe'::text AS origine, NULL::text AS activite, 'pm'::text AS role, p0.updated_at AS maj_le\n        FROM keystone.projects p0\n       WHERE p0.pm_person_id IS NOT NULL\n      UNION ALL\n      SELECT m.project_id, m.person_id, 'equipe', NULL, m.project_role, p1.updated_at\n        FROM keystone.project_members m\n        JOIN keystone.projects p1 ON p1.id = m.project_id\n      UNION ALL\n      SELECT t.project_id, t.assignee_person_id, 'affectation', coalesce(a.name, t.title), NULL, t.updated_at\n        FROM keystone.tasks t\n        LEFT JOIN keystone.activities a ON a.id = t.activity_id\n       WHERE t.assignee_person_id IS NOT NULL\n      UNION ALL\n      SELECT a2.project_id, aa.person_id, 'affectation', a2.name, NULL, p2.updated_at\n        FROM keystone.activity_assignments aa\n        JOIN keystone.activities a2 ON a2.id = aa.activity_id\n        JOIN keystone.projects p2   ON p2.id = a2.project_id\n       WHERE aa.person_id IS NOT NULL\n      UNION ALL\n      SELECT st.project_id, st.person_id, 'partie_prenante', NULL, st.role, st.updated_at\n        FROM keystone.stakeholders st\n       WHERE st.person_id IS NOT NULL) e\nJOIN keystone.projects p   ON p.id = e.project_id\nJOIN keystone.persons pe   ON pe.id = e.person_id\nLEFT JOIN keystone.users u ON u.person_id = pe.id\nWHERE pe.client_id IS NULL\n  AND NOT pe.is_contract_role\nGROUP BY p.code, pe.id, pe.matricule, pe.full_name, pe.short_name, pe.email, e.origine, e.activite, u.entra_object_id, e.role",
+   "description": "Contrat v1 : équipe de chaque projet Keystone, une ligne par projet, personne, origine, activité et rôle — origine equipe (équipe nommée R-041), affectation (tâche ou activité du planning, activite = activité ou titre de la tâche), partie_prenante (partie prenante personne interne). Projets confidentiels compris : les lecteurs filtrent sur l'appartenance. Annuaire interne seulement (matricule, nom, adresse professionnelle, identifiant Clavis personne_clavis_id) ; jamais un contact externe. Lecteurs : ingenium_app, codex_app, crucible_app, vigie_app, arche_app, vector_app, modulus_app, matrix_app.",
+   "note": "Requête de référence de Keystone (src/server/publications/definitions.ts, pubEquipesProjetsDefinition ; contrat docs/delivery-9/notes-confidentiality.md § 3). Lit les tables existantes de Keystone : applicable dès maintenant, à appliquer avec pub_projets une fois la migration 0085 de Keystone déployée."
   },
   {
    "vue": "vigie.pub_etudes_securite",
@@ -536,6 +544,62 @@
    "nature": "lecture",
    "demande": "Clavis → Matrix, DM-3 du 24/11/2026 (lot E), « validé » du propriétaire du 27/11/2026",
    "motif": "Écran « Arrivées et départs » de Clavis : arrivées des 60 prochains jours et départs des 30 derniers (matricule, nom, poste, site_code, entree, sortie du contrat D01 v1), lus à l'affichage et rapprochés par le matricule ; rien n'est copié (Clavis ne garde que le jour d'activation qu'il pose, people.activate_on)"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "codex_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "crucible_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "vigie_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "arche_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "vector_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "modulus_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
+  },
+  {
+   "vue": "keystone.pub_equipes_projets",
+   "lecteur": "matrix_app",
+   "nature": "lecture",
+   "demande": "Keystone, 27/11/2026 (ING-29)",
+   "motif": "Équipe des projets Keystone : un projet apparaît pour les membres de son équipe, un projet confidentiel n'est montré qu'à eux"
   }
  ]
 }

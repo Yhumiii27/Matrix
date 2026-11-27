@@ -35,6 +35,9 @@
 --   vector_app                                      connexion de Vector (expéditions), propriétaire du schéma vector ;
 --                                                   sans VECTOR_APP_PASSWORD, le rôle existe sans pouvoir se connecter
 --                                                   (serveur où Vector n'est pas déployé)
+--   ingenium_app                                    connexion d'Ingenium (ingénierie), propriétaire du schéma ingenium ;
+--                                                   sans INGENIUM_APP_PASSWORD, le rôle existe sans pouvoir se
+--                                                   connecter (serveur où Ingenium n'est pas déployé)
 --   bi_reader                                       connexion de Power BI (demande M-14 d'Arche) : lecture seule, rien
 --                                                   d'autre que les vues pub_ que le registre des liens lui accorde ;
 --                                                   sans BI_READER_PASSWORD, le rôle existe sans pouvoir se connecter
@@ -73,6 +76,7 @@ END $$;
 \getenv mdp_clavis_app CLAVIS_APP_PASSWORD
 \getenv mdp_modulus_app MODULUS_APP_PASSWORD
 \getenv mdp_vector_app VECTOR_APP_PASSWORD
+\getenv mdp_ingenium_app INGENIUM_APP_PASSWORD
 \getenv mdp_cursus_purge CURSUS_PURGE_PASSWORD
 \if :{?mdp_keystone_app}
 \else
@@ -177,7 +181,7 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'base') \gexec
 -- Fuseau UTC et format ISO, comme PGlite : les dates et horodatages lus par les outils ne changent pas.
 ALTER DATABASE :"base" SET timezone TO 'UTC';
 ALTER DATABASE :"base" SET datestyle TO 'ISO, MDY';
-COMMENT ON DATABASE :"base" IS 'Serveur commun de la suite Atrium : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix). Voir infra/postgres/README.md dans Matrix.';
+COMMENT ON DATABASE :"base" IS 'Serveur commun de la suite Atrium : un schéma par outil (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium, matrix). Voir infra/postgres/README.md dans Matrix.';
 
 -- ── 3. Rôles ─────────────────────────────────────────────────────────────
 BEGIN;
@@ -185,7 +189,7 @@ BEGIN;
 SELECT format('CREATE ROLE %I', nom)
 FROM unnest(ARRAY['keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app',
                   'crucible_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', :'role_sauvegarde', 'bi_reader',
-                  'clavis_app', 'modulus_app', 'vector_app', 'cursus_purge']) AS nom
+                  'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'cursus_purge']) AS nom
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = nom) \gexec
 
 -- Rôles de groupe : pas de connexion directe.
@@ -236,6 +240,16 @@ SELECT CASE WHEN :'mdp_modulus_app' = '' THEN 'ALTER ROLE modulus_app WITH NOLOG
 SELECT CASE WHEN :'mdp_vector_app' = '' THEN 'ALTER ROLE vector_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD NULL'
             ELSE format('ALTER ROLE vector_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'mdp_vector_app') END \gexec
 
+-- Ingenium (ingénierie : registre des disciplines, P&ID, référentiel technique, nomenclatures d'ingénierie, plans, pack et
+-- dossier technique ; « validé » du propriétaire du 27/11/2026, demande DI-M1 d'Ingenium) : de même, connexion seulement si
+-- INGENIUM_APP_PASSWORD est fourni, pour que le socle se rejoue sans elle sur un serveur où Ingenium n'est pas déployé.
+\if :{?mdp_ingenium_app}
+\else
+  \set mdp_ingenium_app ''
+\endif
+SELECT CASE WHEN :'mdp_ingenium_app' = '' THEN 'ALTER ROLE ingenium_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD NULL'
+            ELSE format('ALTER ROLE ingenium_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'mdp_ingenium_app') END \gexec
+
 -- Purge du journal des actions de Cursus (« ok pour la purge par rôle dédié sur Cursus », décision M-24 du 25/11/2026) :
 -- connexion seulement si CURSUS_PURGE_PASSWORD est fourni, comme bi_reader ; jamais membre d'un autre rôle. Ses droits
 -- (aucun autre que la purge des lignes échues) sont posés par init/03-droits.sql une fois la migration 0035 de Cursus passée.
@@ -255,7 +269,7 @@ GRANT matrix_lecture TO matrix_app;
 GRANT pg_read_all_data TO :"role_sauvegarde";
 -- Administration : un membre de matrix_admin peut prendre le rôle d'un outil (SET ROLE) pour une opération de
 -- structure exceptionnelle, sans en hériter les droits au quotidien. Ses requêtes sont journalisées.
-GRANT keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, matrix_app, matrix_gestion TO matrix_admin WITH INHERIT FALSE, SET TRUE;
+GRANT keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, ingenium_app, matrix_app, matrix_gestion TO matrix_admin WITH INHERIT FALSE, SET TRUE;
 
 COMMENT ON ROLE keystone_app IS 'Connexion de Keystone : propriétaire du schéma keystone ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
 COMMENT ON ROLE codex_app IS 'Connexion de Codex : propriétaire du schéma codex ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/).';
@@ -266,11 +280,12 @@ COMMENT ON ROLE crucible_app IS 'Connexion de Crucible (moyens d''essais R&D par
 COMMENT ON ROLE clavis_app IS 'Connexion de Clavis (annuaire et accès aux outils) : propriétaire du schéma clavis ; ailleurs, seulement SELECT sur les vues pub_ accordées. matrix_lecture ne lit ni les comptes ni les clients et codes de connexion (tables fermées, droits.colonnes_sensibles). Sans CLAVIS_APP_PASSWORD : NOLOGIN.';
 COMMENT ON ROLE modulus_app IS 'Connexion de Modulus (commercial et chiffrage : catalogue machines, BOM standard, prix, affaires, savoir-faire) : propriétaire du schéma modulus ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/). Sans MODULUS_APP_PASSWORD : NOLOGIN.';
 COMMENT ON ROLE vector_app IS 'Connexion de Vector (expéditions nationales et internationales : demandes, colisage, transport, douane, documents, suivi, coûts) : propriétaire du schéma vector ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/). Sans VECTOR_APP_PASSWORD : NOLOGIN.';
+COMMENT ON ROLE ingenium_app IS 'Connexion d''Ingenium (ingénierie : registre des disciplines, P&ID, référentiel technique, nomenclatures d''ingénierie, plans, pack et dossier technique) : propriétaire du schéma ingenium ; ailleurs, seulement SELECT sur les vues pub_ accordées (convention de partage, infra/postgres/partage/). Sans INGENIUM_APP_PASSWORD : NOLOGIN.';
 COMMENT ON ROLE matrix_app IS 'Connexion de Matrix : propriétaire du schéma matrix, lit les outils par matrix_lecture.';
 COMMENT ON ROLE matrix_gestion IS 'Connexion de Matrix pour l''administration (décision M-18) : propriétaire des vues pub_ des outils, USAGE et CREATE sur leurs schémas, SELECT sur leurs tables, GRANT et REVOKE des liens ; aucune écriture dans les tables, aucun attribut d''administration.';
 COMMENT ON ROLE bi_reader IS 'Connexion de Power BI (demande M-14 d''Arche) : transactions en lecture seule, SELECT sur les seules vues pub_ que le registre des liens de Matrix lui accorde (lecteur bi_reader), rien d''autre. Sans BI_READER_PASSWORD : NOLOGIN.';
-COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, sauf les colonnes de droits.colonnes_sensibles.';
-COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les sept schémas. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';
+COMMENT ON ROLE matrix_lecture IS 'Groupe : SELECT sur keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium, sauf les colonnes de droits.colonnes_sensibles.';
+COMMENT ON ROLE matrix_admin IS 'Groupe : tous les droits sur les schémas des outils. Attribué nominativement par droits.declarer_admin (requêtes journalisées).';
 COMMENT ON ROLE cursus_purge IS 'Connexion de la purge du journal des actions de Cursus (décision M-24) : supprime les seules lignes échues de cursus.journal (12 mois, 36 pour la paie) par cursus.purger_journal() ; droits : CONNECT, USAGE sur cursus, SELECT (id, at, action, paie) et DELETE sur journal, SELECT sur journal_actions_paie, INSERT et SELECT (id) sur journal_purges, EXECUTE sur purger_journal(), rien d''autre (init/03-droits.sql). Sans CURSUS_PURGE_PASSWORD : NOLOGIN.';
 COMMENT ON ROLE :"role_sauvegarde" IS 'Connexion des sauvegardes (pg_dump) : membre de pg_read_all_data.';
 
@@ -278,7 +293,7 @@ COMMENT ON ROLE :"role_sauvegarde" IS 'Connexion des sauvegardes (pg_dump) : mem
 -- Personne ne se connecte à la base commune sans droit explicite ; aucun rôle (hors superutilisateur) n'y crée de schéma.
 REVOKE ALL ON DATABASE :"base" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"base"
-  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, :"role_sauvegarde", bi_reader, cursus_purge;
+  TO keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, ingenium_app, matrix_app, matrix_gestion, matrix_lecture, matrix_admin, :"role_sauvegarde", bi_reader, cursus_purge;
 
 COMMIT;
 

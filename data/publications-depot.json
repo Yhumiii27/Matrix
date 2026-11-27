@@ -82,11 +82,11 @@
   },
   {
    "vue": "clavis.pub_personnes",
-   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
+   "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire). DM-2 de Clavis, 24/11/2026 (lot D), « validé » du propriétaire du 27/11/2026 : colonnes type et proprietaire_id en fin de vue",
    "mode": "sql",
-   "definition": "SELECT p.id                               AS personne_id,\n       p.matricule,\n       p.given_name                       AS prenom,\n       p.family_name                      AS nom,\n       p.display_name                     AS nom_affiche,\n       p.email,\n       p.job_title                        AS poste,\n       p.department                       AS departement,\n       p.unit                             AS pole,\n       p.manager_id                       AS responsable_id,\n       (p.enabled AND p.present)          AS dans_annuaire,\n       (p.enabled AND p.present AND p.activated) AS actif,\n       p.updated_at                       AS maj_le\nFROM clavis.people p",
-   "description": "Annuaire de l'entreprise tenu par Clavis (données internes publiques seulement : nom, e-mail professionnel, poste, département, pôle, responsable, matricule). personne_id = identifiant stable de la personne (oid du jeton de connexion). actif : la personne peut ouvrir les applications (présente dans l'annuaire et activée par la DSI). Lecteurs : tous les outils et matrix_app.",
-   "note": "Requête de référence : src/server/publications/definitions.ts de Clavis, exécutée par son test definitions.test.ts. Aucune colonne de clavis.users, oidc_clients, oidc_codes (fermées, convention)."
+   "definition": "SELECT p.id                               AS personne_id,\n       p.matricule,\n       p.given_name                       AS prenom,\n       p.family_name                      AS nom,\n       p.display_name                     AS nom_affiche,\n       p.email,\n       p.job_title                        AS poste,\n       p.department                       AS departement,\n       p.unit                             AS pole,\n       p.manager_id                       AS responsable_id,\n       (p.enabled AND p.present)          AS dans_annuaire,\n       (p.enabled AND p.present AND p.activated) AS actif,\n       p.updated_at                       AS maj_le,\n       p.kind                             AS type,\n       p.owner_person_id                  AS proprietaire_id\nFROM clavis.people p",
+   "description": "Annuaire de l'entreprise tenu par Clavis (données internes publiques seulement : nom, e-mail professionnel, poste, département, pôle, responsable, matricule). personne_id = identifiant stable de la personne (oid du jeton de connexion). actif : la personne peut ouvrir les applications (présente dans l'annuaire et activée par la DSI). type = person (un salarié de l'annuaire) ou service (compte de service : boîte fonctionnelle, borne, poste partagé) ; proprietaire_id = pour un compte de service, la personne qui en répond (null sinon). Lecteurs : tous les outils et matrix_app.",
+   "note": "Requête de référence : src/server/publications/definitions.ts de Clavis (PUB_PERSONNES), exécutée par son test definitions.test.ts. Aucune colonne de clavis.users, oidc_clients, oidc_codes (fermées, convention). Les treize premières colonnes sont inchangées ; type et proprietaire_id lisent clavis.people.kind et owner_person_id (migration 0007_lot_d_settings de Clavis) : s'applique une fois cette migration passée sur le serveur commun, sinon « Appliquer » échoue sans rien changer."
   },
   {
    "vue": "clavis.pub_acces",
@@ -127,6 +127,14 @@
    "definition": "SELECT 'audit_log:' || a.id::text        AS ref_source,\n       'audit'::text                     AS nature,\n       a.at                              AS quand,\n       u.name                            AS qui,\n       a.user_id                         AS qui_ref,\n       u.role                            AS qui_role,\n       a.action,\n       a.doc_id                          AS objet,\n       a.detail,\n       d.project_code                    AS projet,\n       u.matricule                       AS qui_matricule\nFROM codex.audit_log a\nJOIN codex.users u          ON u.id = a.user_id\nLEFT JOIN codex.documents d ON d.id = a.doc_id\nWHERE a.doc_id IS NULL\n   OR NOT (a.doc_id IN (SELECT x.id FROM codex.documents x WHERE x.type_code = 'DPE')\n           OR a.doc_id IN (SELECT y.id FROM codex.destroyed_documents y))",
    "description": "Contrat D18 v1 : journal d'audit de Codex aux colonnes communes, sans les entrées des enregistrements du dossier du personnel (documents de type DPE, et documents détruits de codex.destroyed_documents, lot 16). Lecteur : matrix_app (matrix.journal_unifie).",
    "note": "Définition de la migration 0001_partage de Codex (seule à créer cette vue), commentaires retirés, plus le filtre du lot 16 ; aucune colonne ajoutée, retirée, renommée ni déplacée (contrat vérifié sur PostgreSQL 16 le 26/11/2026, migrations 0000 à 0006 de Codex rejouées). La vue appartient encore à codex_app tant qu'elle n'est pas reprise par Matrix (partage/14-reprise-publications.sql, -v outils=codex) : « Appliquer » le refuse avant. Lit codex.destroyed_documents, créée par la migration 0006_lot16_dossier_personnel de Codex : avant cette migration, « Appliquer » échoue (relation absente), la publication passe à l'état « erreur » et la vue en service reste inchangée ; l'appliquer une fois 0006 passée sur le serveur commun. matrix_gestion lit la nouvelle table par les droits par défaut de codex_app (init/03-droits.sql)."
+  },
+  {
+   "vue": "ingenium.pub_journal",
+   "demande": "Ingenium → Matrix, DI-M1 (complément de la livraison 1, Ingenium#2), « validé » du propriétaire du 27/11/2026",
+   "mode": "sql",
+   "definition": "SELECT 'audit_entries:' || a.id::text AS ref_source,\n       'audit'::text                                       AS nature,\n       a.occurred_at                                       AS quand,\n       a.actor_name                                        AS qui,\n       a.actor_user_id::text                               AS qui_ref,\n       a.actor_role                                        AS qui_role,\n       a.area                                              AS action,\n       a.object_ref                                        AS objet,\n       a.change                                            AS detail,\n       CASE WHEN a.object_ref ~ '^[A-Z]{3}-[0-9]{3}$' THEN a.object_ref END AS projet,\n       NULL::text                                          AS qui_matricule\nFROM ingenium.audit_entries a",
+   "description": "Journal d'audit d'Ingenium au contrat commun D18 v1 (matrix.journal_unifie) : ref_source, nature, quand, qui, qui_ref, qui_role, action, objet, detail, projet (code de projet Keystone quand l'objet en est un), qui_matricule (toujours nul : Ingenium ne garde pas le matricule de ses utilisateurs). Lecteur : matrix_app (convention de partage/90-droits.sql).",
+   "note": "Requête de référence : src/server/publications/definitions.ts d'Ingenium (PUB_JOURNAL, testée par definitions.test.ts ; le motif du code projet y vient de PG_FORMATS.projectCode, recopié ici). À appliquer une fois le schéma ingenium créé (ajouts/ingenium.sql) et la table ingenium.audit_entries migrée par Ingenium : avant, « Appliquer » échoue sans rien changer."
   }
  ],
  "liens": [
@@ -409,6 +417,125 @@
    "nature": "lecture",
    "demande": "Clavis, 23/11/2026 : une seule base pour tous les outils ; l'annuaire et les accès se lisent dans la base, sans copie par outil (décision du propriétaire)",
    "motif": "Droits de la personne lus dans la base à la connexion et pendant la session, sans copie de l'annuaire (le logiciel ne garde que l'identifiant de la personne)"
+  },
+  {
+   "vue": "keystone.pub_projets",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Projets Keystone auxquels se rattachent les registres d'ingénierie (code projet, client, phase) ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "keystone.pub_affectations",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Équipe de chaque projet Keystone : qui travaille sur l'ingénierie d'un projet (droits par projet) ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "keystone.pub_jalons_projets",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Jalons des projets Keystone : échéances de l'ingénierie (pack, revues, libération des plans) ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "keystone.pub_activites",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Activités des projets Keystone : rattachement des lignes de nomenclature d'ingénierie ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "keystone.pub_articles",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Articles de Keystone, source du référentiel technique jusqu'à sa bascule dans Ingenium (docs/spec/06-transition.md d'Ingenium) ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "keystone.pub_nomenclatures",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Nomenclatures de Keystone, source des nomenclatures d'ingénierie jusqu'à leur bascule dans Ingenium ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "keystone.pub_pack_ingenierie",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Complétude du pack d'ingénierie de Keystone, repris par Ingenium à sa bascule (même contrat) ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "codex.pub_documents",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Documents de Codex cités par les registres d'ingénierie (plans, livrables, dossier technique) : identifiant, révision et état, jamais le fichier ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "vigie.pub_ordres_modification",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Ordres de modification (ECO) de Vigie qui touchent les articles, nomenclatures et plans d'Ingenium (CV-06 : ECR et ECO restent dans Vigie) ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "vigie.pub_eco_approbations",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Clés d'approbation des ECO : l'Ingénierie donne la clé du responsable ingénierie ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "vigie.pub_eco_effectivite",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Effectivité des ECO sur les articles, nomenclatures et projets suivis par Ingenium ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "vigie.pub_demandes_recues",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "État des demandes qu'Ingenium dépose chez Vigie par ses fonctions pub_ (lien d'exécution à venir, DI-V1) ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "clavis.pub_acces",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Droits de la personne lus dans la base à la connexion et pendant la session (Norma § 6), sans copie de l'annuaire ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "clavis.pub_personnes",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Nom, e-mail, poste et responsable des personnes lus dans la base, sans copie de l'annuaire ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "matrix.pub_sites",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Sites de l'entreprise (codes de Matrix) des projets et des équipements ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "matrix.pub_filiales",
+   "lecteur": "ingenium_app",
+   "nature": "lecture",
+   "demande": "Ingenium → Matrix, DI-M1, « validé » du propriétaire du 27/11/2026",
+   "motif": "Filiales (codes de Matrix) des projets et des équipements ; affichage et contrôle des données d'ingénierie, jamais de copie durable hors des miroirs en lecture"
+  },
+  {
+   "vue": "cursus.pub_salaries",
+   "lecteur": "clavis_app",
+   "nature": "lecture",
+   "demande": "Clavis → Matrix, DM-3 du 24/11/2026 (lot E), « validé » du propriétaire du 27/11/2026",
+   "motif": "Écran « Arrivées et départs » de Clavis : arrivées des 60 prochains jours et départs des 30 derniers (matricule, nom, poste, site_code, entree, sortie du contrat D01 v1), lus à l'affichage et rapprochés par le matricule ; rien n'est copié (Clavis ne garde que le jour d'activation qu'il pose, people.activate_on)"
   }
  ]
 }

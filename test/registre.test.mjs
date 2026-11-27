@@ -1,4 +1,4 @@
-// Listes d'outils tirées du registre de Norma (MX-N05) : Clavis, Matrix, Modulus et Vector y figurent.
+// Listes d'outils tirées du registre de Norma (MX-N05) : Clavis, Matrix, Modulus, Vector et Ingenium y figurent.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,11 +11,12 @@ test('les listes d’outils suivent le registre de Norma', () => {
   const registre = JSON.parse(readFileSync(new URL('../norma/registre/outils.json', import.meta.url), 'utf8')).outils.map(o => o.code);
   assert.deepEqual([...TOUS_LES_OUTILS].sort(), [...registre].sort());
   assert.deepEqual(TOUS_LES_OUTILS.slice(0, 6), ['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible']);
-  for (const o of ['clavis', 'modulus', 'vector']) { assert.ok(AUTRES_OUTILS.includes(o)); assert.ok(PUBLIES.includes(o)); assert.ok(OUTILS_JOURNAL.includes(o)); }
+  for (const o of ['clavis', 'modulus', 'vector', 'ingenium']) { assert.ok(AUTRES_OUTILS.includes(o)); assert.ok(PUBLIES.includes(o)); assert.ok(OUTILS_JOURNAL.includes(o)); }
   assert.ok(!AUTRES_OUTILS.includes('matrix'));
-  for (const o of ['clavis', 'matrix', 'modulus', 'vector']) { assert.ok(SCHEMAS_LIENS.includes(o)); assert.ok(LECTEURS.includes(`${o}_app`)); }
+  for (const o of ['clavis', 'matrix', 'modulus', 'vector', 'ingenium']) { assert.ok(SCHEMAS_LIENS.includes(o)); assert.ok(LECTEURS.includes(`${o}_app`)); }
   assert.equal(NOMS_OUTILS.modulus, 'Modulus');
   assert.equal(NOMS_OUTILS.vector, 'Vector');
+  assert.equal(NOMS_OUTILS.ingenium, 'Ingenium');
 });
 
 test('la page connaît chaque outil du registre (pastille, couleur des deux thèmes)', () => {

@@ -219,6 +219,13 @@ BEGIN
     (203, 'Vector : créer une table dans public', 'vector_app', 'CREATE TABLE public.zz_v (id integer)', 'refusé'),
     (204, 'un autre outil lit une table de Vector', 'arche_app', 'SELECT 1 FROM vector.zz_v', 'refusé'),
     (205, 'Matrix lit une table de Vector', 'matrix_app', 'SELECT id FROM vector.zz_v', 'autorisé'),
+    -- Ingenium (27/11/2026, DI-M1) : de même.
+    (210, 'Ingenium : créer une table dans son schéma', 'ingenium_app', 'CREATE TABLE ingenium.zz_i (id integer)', 'autorisé'),
+    (211, 'Ingenium : créer une table dans le schéma d''un autre outil', 'ingenium_app', 'CREATE TABLE arche.zz_i (id integer)', 'refusé'),
+    (212, 'Ingenium : lire une table d''un autre outil', 'ingenium_app', 'SELECT id FROM arche.zz_a', 'refusé'),
+    (213, 'Ingenium : créer une table dans public', 'ingenium_app', 'CREATE TABLE public.zz_i (id integer)', 'refusé'),
+    (214, 'un autre outil lit une table d''Ingenium', 'arche_app', 'SELECT 1 FROM ingenium.zz_i', 'refusé'),
+    (215, 'Matrix lit une table d''Ingenium', 'matrix_app', 'SELECT id FROM ingenium.zz_i', 'autorisé'),
     -- Purge du journal de Cursus (décision M-24, 25/11/2026) : cursus_purge n'a rien d'autre que ses droits sur le journal.
     (153, 'Purge de Cursus : créer une table dans cursus', 'cursus_purge', 'CREATE TABLE cursus.zz_p (id integer)', 'refusé'),
     (154, 'Purge de Cursus : lire une table de Cursus hors du journal', 'cursus_purge', 'SELECT id FROM cursus.zz_ouverte', 'refusé'),

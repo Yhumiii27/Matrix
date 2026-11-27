@@ -5,7 +5,7 @@ directement par SSH. Chaque commande de ce guide a été jouée lors de la **ré
 PostgreSQL 16 neuf, les quatre outils sur leur branche `main`, l'annuaire réel importé, un vrai navigateur du premier mot de
 passe jusqu'à chaque outil). Les écarts trouvés et leurs corrections sont au § 12.
 
-Cursus, Vigie, Arche, Crucible, Modulus et Vector suivent le même schéma ensuite (§ 13).
+Cursus, Vigie, Arche, Crucible, Modulus, Vector et Ingenium suivent le même schéma ensuite (§ 13).
 
 ## 0. Ce qu'il faut avant de commencer
 
@@ -42,7 +42,7 @@ Mots de passe des rôles, générés une fois :
 
 ```bash
 cd /etc/atrium && {
-  for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MODULUS VECTOR MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
+  for v in KEYSTONE CODEX CURSUS VIGIE ARCHE CRUCIBLE CLAVIS MODULUS VECTOR INGENIUM MATRIX; do echo "${v}_APP_PASSWORD=$(openssl rand -hex 24)"; done
   echo "MATRIX_GESTION_PASSWORD=$(openssl rand -hex 24)"
   echo "BI_READER_PASSWORD=$(openssl rand -hex 24)"
   echo "CURSUS_PURGE_PASSWORD=$(openssl rand -hex 24)"
@@ -376,3 +376,21 @@ EOF
 
 Les autres variables (connexion par Clavis avec `VECTOR_ACCESS_FROM_CLAVIS=on`, secret de session) suivent le
 `.env.example` de Vector.
+
+**Ingenium** (ingénierie, « validé » du propriétaire du 27/11/2026, demande DI-M1, décision M-29) : un socle neuf crée le
+rôle `ingenium_app` et le schéma `ingenium` ; sur un serveur déjà installé, sans rejouer `init/01` (les mots de passe n'y
+changent pas) : `sudo -u postgres psql -v ON_ERROR_STOP=1 -d postgres -f infra/postgres/ajouts/ingenium.sql`, puis
+`init/03-droits.sql` de même. Sans `INGENIUM_APP_PASSWORD`, le rôle existe sans pouvoir se connecter. Le jour de son
+déploiement : `INGENIUM_APP_PASSWORD` dans `postgres.env`, rejeu de `init/01` à `03`, puis `/etc/atrium/ingenium.env`,
+port **4000** (registre de Norma) :
+
+```bash
+cat > ingenium.env <<EOF
+NODE_ENV=production
+PORT=4000
+DATABASE_URL=postgres://ingenium_app:$INGENIUM_APP_PASSWORD@$DB
+EOF
+```
+
+Les autres variables (connexion par Clavis avec `INGENIUM_ACCESS_FROM_CLAVIS=on`, secret de session) suivent le
+`.env.example` d'Ingenium.

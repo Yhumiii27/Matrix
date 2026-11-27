@@ -5,7 +5,7 @@
 -- Rejouable : tout est recréé ou remis à jour dans une seule transaction.
 --
 -- Ce que fait le script :
---   1. matrix_lecture : USAGE sur keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector ; SELECT sur les tables futures par
+--   1. matrix_lecture : USAGE sur keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium ; SELECT sur les tables futures par
 --      ALTER DEFAULT PRIVILEGES ; matrix_admin : tous les droits sur les sept schémas ; matrix_gestion (M-18) : USAGE et
 --      CREATE sur les six schémas des outils, SELECT sur toutes leurs tables (présentes et futures), lecture de
 --      droits.colonnes_sensibles, et rien d'autre.
@@ -27,7 +27,7 @@
 -- sensible. Les migrations des outils n'ont rien à faire, et rejouer droits.appliquer_droits() après une
 -- migration reste possible (contrôle de sécurité, sans effet si tout est en ordre).
 --
--- Règles appliquées à matrix_lecture, relation par relation (schémas keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector) :
+-- Règles appliquées à matrix_lecture, relation par relation (schémas keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium) :
 --   - table sans colonne listée               SELECT sur la table ;
 --   - table avec colonnes listées             SELECT sur chaque autre colonne, rien sur les colonnes listées ;
 --   - table listée avec la colonne « * »      table entière fermée, colonnes futures comprises (données de santé,
@@ -61,8 +61,8 @@ DROP EVENT TRIGGER IF EXISTS droits_ddl;
 DROP EVENT TRIGGER IF EXISTS droits_suppression;
 
 -- ── 1. Accès aux schémas et privilèges par défaut ───────────────────────
-GRANT USAGE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector TO matrix_lecture;
-GRANT USAGE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix TO matrix_admin;
+GRANT USAGE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium TO matrix_lecture;
+GRANT USAGE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium, matrix TO matrix_admin;
 
 -- Tables, vues et séquences créées plus tard par chaque outil. Le SELECT de matrix_lecture porte sur la table
 -- entière ; droits_ddl le réduit aussitôt aux colonnes autorisées (voir l'en-tête).
@@ -75,6 +75,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE crucible_app IN SCHEMA crucible GRANT SELECT O
 ALTER DEFAULT PRIVILEGES FOR ROLE clavis_app   IN SCHEMA clavis   GRANT SELECT ON TABLES TO matrix_lecture;
 ALTER DEFAULT PRIVILEGES FOR ROLE modulus_app  IN SCHEMA modulus  GRANT SELECT ON TABLES TO matrix_lecture;
 ALTER DEFAULT PRIVILEGES FOR ROLE vector_app   IN SCHEMA vector   GRANT SELECT ON TABLES TO matrix_lecture;
+ALTER DEFAULT PRIVILEGES FOR ROLE ingenium_app IN SCHEMA ingenium GRANT SELECT ON TABLES TO matrix_lecture;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app IN SCHEMA keystone GRANT ALL ON TABLES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE codex_app    IN SCHEMA codex    GRANT ALL ON TABLES TO matrix_admin;
@@ -85,6 +86,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE crucible_app IN SCHEMA crucible GRANT ALL ON T
 ALTER DEFAULT PRIVILEGES FOR ROLE clavis_app   IN SCHEMA clavis   GRANT ALL ON TABLES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE modulus_app  IN SCHEMA modulus  GRANT ALL ON TABLES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE vector_app   IN SCHEMA vector   GRANT ALL ON TABLES TO matrix_admin;
+ALTER DEFAULT PRIVILEGES FOR ROLE ingenium_app IN SCHEMA ingenium GRANT ALL ON TABLES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE matrix_app   IN SCHEMA matrix   GRANT ALL ON TABLES TO matrix_admin;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app IN SCHEMA keystone GRANT ALL ON SEQUENCES TO matrix_admin;
@@ -96,6 +98,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE crucible_app IN SCHEMA crucible GRANT ALL ON S
 ALTER DEFAULT PRIVILEGES FOR ROLE clavis_app   IN SCHEMA clavis   GRANT ALL ON SEQUENCES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE modulus_app  IN SCHEMA modulus  GRANT ALL ON SEQUENCES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE vector_app   IN SCHEMA vector   GRANT ALL ON SEQUENCES TO matrix_admin;
+ALTER DEFAULT PRIVILEGES FOR ROLE ingenium_app IN SCHEMA ingenium GRANT ALL ON SEQUENCES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE matrix_app   IN SCHEMA matrix   GRANT ALL ON SEQUENCES TO matrix_admin;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app IN SCHEMA keystone GRANT EXECUTE ON ROUTINES TO matrix_admin;
@@ -107,6 +110,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE crucible_app IN SCHEMA crucible GRANT EXECUTE 
 ALTER DEFAULT PRIVILEGES FOR ROLE clavis_app   IN SCHEMA clavis   GRANT EXECUTE ON ROUTINES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE modulus_app  IN SCHEMA modulus  GRANT EXECUTE ON ROUTINES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE vector_app   IN SCHEMA vector   GRANT EXECUTE ON ROUTINES TO matrix_admin;
+ALTER DEFAULT PRIVILEGES FOR ROLE ingenium_app IN SCHEMA ingenium GRANT EXECUTE ON ROUTINES TO matrix_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE matrix_app   IN SCHEMA matrix   GRANT EXECUTE ON ROUTINES TO matrix_admin;
 
 -- matrix_gestion (décision M-18) : Matrix crée et gère les vues pub_ dans le schéma de chaque outil, à l'adresse que
@@ -114,10 +118,10 @@ ALTER DEFAULT PRIVILEGES FOR ROLE matrix_app   IN SCHEMA matrix   GRANT EXECUTE 
 -- colonnes des tables (un filtre peut porter sur une colonne sensible sans la publier ; Matrix refuse de publier une
 -- colonne de droits.colonnes_sensibles, et droits.verifier() le contrôle). Aucune écriture : ni INSERT, ni UPDATE, ni
 -- DELETE, ni EXECUTE sur les fonctions des outils.
-GRANT USAGE, CREATE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector TO matrix_gestion;
+GRANT USAGE, CREATE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium TO matrix_gestion;
 -- Un lien autorisé donne au lecteur USAGE sur le schéma de la vue : Matrix le transmet (lot P2).
-GRANT USAGE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector TO matrix_gestion WITH GRANT OPTION;
-GRANT SELECT ON ALL TABLES IN SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector TO matrix_gestion;
+GRANT USAGE ON SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium TO matrix_gestion WITH GRANT OPTION;
+GRANT SELECT ON ALL TABLES IN SCHEMA keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium TO matrix_gestion;
 ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app IN SCHEMA keystone GRANT SELECT ON TABLES TO matrix_gestion;
 ALTER DEFAULT PRIVILEGES FOR ROLE codex_app    IN SCHEMA codex    GRANT SELECT ON TABLES TO matrix_gestion;
 ALTER DEFAULT PRIVILEGES FOR ROLE cursus_app   IN SCHEMA cursus   GRANT SELECT ON TABLES TO matrix_gestion;
@@ -127,9 +131,10 @@ ALTER DEFAULT PRIVILEGES FOR ROLE crucible_app IN SCHEMA crucible GRANT SELECT O
 ALTER DEFAULT PRIVILEGES FOR ROLE clavis_app   IN SCHEMA clavis   GRANT SELECT ON TABLES TO matrix_gestion;
 ALTER DEFAULT PRIVILEGES FOR ROLE modulus_app  IN SCHEMA modulus  GRANT SELECT ON TABLES TO matrix_gestion;
 ALTER DEFAULT PRIVILEGES FOR ROLE vector_app   IN SCHEMA vector   GRANT SELECT ON TABLES TO matrix_gestion;
+ALTER DEFAULT PRIVILEGES FOR ROLE ingenium_app IN SCHEMA ingenium GRANT SELECT ON TABLES TO matrix_gestion;
 
 -- Une fonction SECURITY DEFINER d'un outil, exécutable par PUBLIC, contournerait les droits par colonne.
-ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, matrix_app
+ALTER DEFAULT PRIVILEGES FOR ROLE keystone_app, codex_app, cursus_app, vigie_app, arche_app, crucible_app, clavis_app, modulus_app, vector_app, ingenium_app, matrix_app
   REVOKE EXECUTE ON ROUTINES FROM PUBLIC;
 
 -- ── 2. Schéma droits ─────────────────────────────────────────────────────
@@ -147,13 +152,13 @@ CREATE TABLE IF NOT EXISTS droits.colonnes_sensibles (
   ajoute_le    timestamptz NOT NULL DEFAULT now(),
   ajoute_par   text NOT NULL DEFAULT session_user,
   CONSTRAINT colonnes_sensibles_pkey PRIMARY KEY (schema_nom, table_nom, colonne_nom),
-  CONSTRAINT colonnes_sensibles_schema_ck CHECK (schema_nom IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector')),
+  CONSTRAINT colonnes_sensibles_schema_ck CHECK (schema_nom IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium')),
   CONSTRAINT colonnes_sensibles_origine_ck CHECK (origine IN ('convention', 'proposition', 'ajout'))
 );
 -- Rejeu sur un serveur existant : la liste des schémas admis suit celle des outils (Arche et Crucible ajoutés le 22/10/2026).
 ALTER TABLE droits.colonnes_sensibles DROP CONSTRAINT IF EXISTS colonnes_sensibles_schema_ck;
 ALTER TABLE droits.colonnes_sensibles ADD CONSTRAINT colonnes_sensibles_schema_ck
-  CHECK (schema_nom IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector'));
+  CHECK (schema_nom IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium'));
 GRANT SELECT ON droits.colonnes_sensibles TO matrix_gestion;
 COMMENT ON TABLE droits.colonnes_sensibles IS 'Colonnes que matrix_lecture ne lit jamais ; colonne_nom = ''*'' ferme la table entière. origine : convention (décision du 15/10/2026 et données de santé de Vigie, retirée par un superutilisateur seulement), proposition (à confirmer), ajout.';
 
@@ -176,15 +181,15 @@ CREATE TABLE IF NOT EXISTS droits.partage_lecteurs (
   pose_le   timestamptz NOT NULL DEFAULT now(),
   pose_par  text        NOT NULL DEFAULT session_user,
   CONSTRAINT partage_lecteurs_pkey PRIMARY KEY (vue, lecteur),
-  CONSTRAINT partage_lecteurs_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector|matrix)\.pub_[a-z0-9_]+$'),
-  CONSTRAINT partage_lecteurs_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'bi_reader'))
+  CONSTRAINT partage_lecteurs_vue_check CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector|ingenium|matrix)\.pub_[a-z0-9_]+$'),
+  CONSTRAINT partage_lecteurs_lecteur_check CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'matrix_app', 'bi_reader'))
 );
 ALTER TABLE droits.partage_lecteurs DROP CONSTRAINT IF EXISTS partage_lecteurs_vue_check;
 ALTER TABLE droits.partage_lecteurs ADD CONSTRAINT partage_lecteurs_vue_check
-  CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector|matrix)\.pub_[a-z0-9_]+$');
+  CHECK (vue ~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector|ingenium|matrix)\.pub_[a-z0-9_]+$');
 ALTER TABLE droits.partage_lecteurs DROP CONSTRAINT IF EXISTS partage_lecteurs_lecteur_check;
 ALTER TABLE droits.partage_lecteurs ADD CONSTRAINT partage_lecteurs_lecteur_check
-  CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'bi_reader'));
+  CHECK (lecteur IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'matrix_app', 'bi_reader'));
 -- Matrix y inscrit et en retire les lecteurs des liens qu'il applique lui-même (M-18, lot P2).
 GRANT SELECT, INSERT, DELETE ON droits.partage_lecteurs TO matrix_gestion;
 COMMENT ON TABLE droits.partage_lecteurs IS 'Convention de partage : lecteurs attendus de chaque vue pub_ (schéma.vue, rôle), écrits par partage/90-droits.sql et contrôlés par droits.verifier().';
@@ -299,7 +304,7 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
 AS $$
   SELECT coalesce((
     SELECT c.relkind = 'v'
-           AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix')
+           AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix')
            AND (c.relname LIKE 'pub\_%'
                 OR (n.nspname = 'cursus' AND c.relname LIKE '%\_v1' AND p_role IN ('matrix_lecture', 'matrix_app')))
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -350,7 +355,7 @@ BEGIN
   SELECT n.nspname, c.relname, c.relkind, c.relacl INTO v_nsp, v_nom, v_kind, v_acl
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE c.oid = p_rel;
-  IF NOT FOUND OR v_nsp NOT IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix')
+  IF NOT FOUND OR v_nsp NOT IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix')
      OR v_kind NOT IN ('r', 'p', 'v', 'm', 'f', 'S') THEN
     RETURN;
   END IF;
@@ -435,7 +440,7 @@ BEGIN
   FOR v_rel IN
     SELECT c.oid
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND c.relkind IN ('r', 'p', 'f', 'S', 'v', 'm')
+    WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND c.relkind IN ('r', 'p', 'f', 'S', 'v', 'm')
     ORDER BY CASE WHEN c.relkind IN ('v', 'm') THEN 1 ELSE 0 END, n.nspname, c.relname
   LOOP
     PERFORM droits._appliquer_relation(v_rel);
@@ -477,7 +482,7 @@ BEGIN
   FOR r IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
     IF r.command_tag IN ('GRANT', 'REVOKE') THEN
       v_tout := true;   -- la commande ne dit pas quelle relation elle touche
-    ELSIF r.classid = 'pg_class'::regclass AND r.schema_name IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') THEN
+    ELSIF r.classid = 'pg_class'::regclass AND r.schema_name IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') THEN
       v_rels := v_rels || r.objid;
     END IF;
   END LOOP;
@@ -549,7 +554,7 @@ BEGIN
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector') AND c.relkind IN ('r', 'p', 'f')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium') AND c.relkind IN ('r', 'p', 'f')
     AND a.attname = ANY (droits._colonnes_listees(c.oid))
     AND has_column_privilege('matrix_lecture', c.oid, a.attnum, 'SELECT');
 
@@ -560,7 +565,7 @@ BEGIN
               THEN 'table fermée en entier (droits.colonnes_sensibles, colonne « * » : données de santé, journal de consultation) lisible par matrix_lecture'
               ELSE 'relation lisible par matrix_lecture alors qu''elle doit être fermée' END
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium')
     AND ((c.relkind IN ('v', 'm') AND droits._vue_sensible(c.oid))
          OR (c.relkind IN ('r', 'p', 'f') AND droits._etat_table(c.oid) = 'fermee'))
     AND has_any_column_privilege('matrix_lecture', c.oid, 'SELECT');
@@ -572,7 +577,7 @@ BEGIN
   SELECT 'erreur', format('%I.%I', n.nspname, c.relname),
          'vue publiée qui lit une colonne sensible (droits.colonnes_sensibles), une ligne entière d''une table protégée ou une table fermée'
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND c.relkind = 'v'
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND c.relkind = 'v'
     AND (c.relname LIKE 'pub\_%' OR (n.nspname = 'cursus' AND c.relname LIKE '%\_v1'))
     AND droits._vue_sensible(c.oid);
   RETURN QUERY
@@ -584,7 +589,7 @@ BEGIN
                   AND d.refclassid = 'pg_class'::regclass AND d.refobjid <> v.oid
   JOIN pg_class t ON t.oid = d.refobjid AND t.relkind IN ('r', 'p', 'v', 'm', 'f')
   JOIN pg_namespace nt ON nt.oid = t.relnamespace
-  WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND v.relkind = 'v'
+  WHERE nv.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND v.relkind = 'v'
     AND (v.relname LIKE 'pub\_%' OR (nv.nspname = 'cursus' AND v.relname LIKE '%\_v1'))
     AND t.relnamespace <> v.relnamespace;
   -- Propriétaire (M-18) : les vues pub_ des six outils appartiennent à matrix_gestion, qui les gère ; une vue pub_
@@ -604,7 +609,7 @@ BEGIN
               ELSE format('vue publiée qui appartient à %s au lieu de %s', pg_get_userbyid(c.relowner),
                           CASE WHEN c.relname LIKE 'pub\_%' AND n.nspname <> 'matrix' THEN 'matrix_gestion' ELSE pg_get_userbyid(n.nspowner) END) END
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND c.relkind = 'v'
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND c.relkind = 'v'
     AND (c.relname LIKE 'pub\_%' OR (n.nspname = 'cursus' AND c.relname LIKE '%\_v1'))
     AND (c.relowner <> CASE WHEN c.relname LIKE 'pub\_%' AND n.nspname <> 'matrix' THEN (SELECT oid FROM pg_roles WHERE rolname = 'matrix_gestion') ELSE n.nspowner END
          OR EXISTS (SELECT FROM unnest(c.reloptions) AS o(opt)
@@ -614,13 +619,13 @@ BEGIN
   SELECT 'erreur', format('%I.%I', n.nspname, c.relname), 'objet de matrix_gestion autre qu''une vue pub_ d''un outil'
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE c.relowner = (SELECT oid FROM pg_roles WHERE rolname = 'matrix_gestion')
-    AND NOT (c.relkind = 'v' AND c.relname LIKE 'pub\_%' AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector'));
+    AND NOT (c.relkind = 'v' AND c.relname LIKE 'pub\_%' AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium'));
   RETURN QUERY
   SELECT 'erreur', format('%I.%I', n.nspname, c.relname), format('matrix_gestion a le droit %s', p.priv)
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits') AND c.relkind IN ('r', 'p', 'm', 'f')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits') AND c.relkind IN ('r', 'p', 'm', 'f')
     AND (has_table_privilege('matrix_gestion', c.oid, p.priv)
          OR (p.priv IN ('INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege('matrix_gestion', c.oid, p.priv)))
     -- Registre des publications (partage/13) : Matrix y enregistre ce qu'il vient d'appliquer.
@@ -631,7 +636,7 @@ BEGIN
   SELECT 'erreur', format('matrix_gestion, %I.%I(%s)', n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)),
          'matrix_gestion peut exécuter une fonction d''un outil (une fonction peut écrire)'
   FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium')
     AND has_schema_privilege('matrix_gestion', n.oid, 'USAGE')
     AND has_function_privilege('matrix_gestion', f.oid, 'EXECUTE');
   -- Une vue pub_ ne publie jamais de colonne sensible : contrôlé plus haut (droits._vue_sensible), quel que soit son
@@ -642,37 +647,37 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', format('%s, %I.%I', r.nom, n.nspname, c.relname),
          format('droit %s croisé : un outil ne reçoit que SELECT sur les vues pub_ d''un autre schéma', p.priv)
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('bi_reader', '-')) AS r(nom, propre)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('ingenium_app', 'ingenium'), ('bi_reader', '-')) AS r(nom, propre)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits') AND n.nspname <> r.propre
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits') AND n.nspname <> r.propre
     AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
     AND (has_table_privilege(x.oid, c.oid, p.priv)
          OR (p.priv IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege(x.oid, c.oid, p.priv)))
     AND NOT (p.priv = 'SELECT' AND droits._vue_publiee(c.oid, r.nom));
   RETURN QUERY
   SELECT 'erreur', format('%s, %I.%I', r.nom, n.nspname, c.relname), format('droit %s croisé sur une séquence', p.priv)
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('bi_reader', '-')) AS r(nom, propre)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('ingenium_app', 'ingenium'), ('bi_reader', '-')) AS r(nom, propre)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN (VALUES ('USAGE'), ('SELECT'), ('UPDATE')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND n.nspname <> r.propre AND c.relkind = 'S'
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND n.nspname <> r.propre AND c.relkind = 'S'
     AND has_sequence_privilege(x.oid, c.oid, p.priv);
   RETURN QUERY
   SELECT 'erreur', format('%s, %I.%I(%s)', r.nom, n.nspname, f.proname, pg_get_function_identity_arguments(f.oid)),
          'droit EXECUTE croisé sur une fonction'
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('bi_reader', '-')) AS r(nom, propre)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('ingenium_app', 'ingenium'), ('bi_reader', '-')) AS r(nom, propre)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_proc f
   JOIN pg_namespace n ON n.oid = f.pronamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits') AND n.nspname <> r.propre
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits') AND n.nspname <> r.propre
     AND has_schema_privilege(x.oid, n.oid, 'USAGE')
     AND has_function_privilege(x.oid, f.oid, 'EXECUTE')
     -- Lien d'exécution (M-18, lot P4) : une fonction pub_ d'un outil, accordée d'après le registre.
-    AND NOT (n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector') AND f.proname LIKE 'pub\_%');
+    AND NOT (n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium') AND f.proname LIKE 'pub\_%');
   -- Fonctions pub_ des outils (écritures, M-18) : jamais exécutables par PUBLIC ; SECURITY DEFINER à search_path fixé.
   RETURN QUERY
   SELECT CASE WHEN f.proacl IS NULL OR EXISTS (SELECT FROM aclexplode(f.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE')
@@ -682,7 +687,7 @@ BEGIN
               THEN 'fonction pub_ exécutable par PUBLIC : REVOKE EXECUTE … FROM PUBLIC dans la migration de l''outil (seul le registre des liens l''accorde)'
               ELSE 'fonction pub_ qui n''est pas SECURITY DEFINER à search_path fixé : Matrix ne l''accordera pas' END
   FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector') AND f.proname LIKE 'pub\_%'
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium') AND f.proname LIKE 'pub\_%'
     AND (f.proacl IS NULL OR EXISTS (SELECT FROM aclexplode(f.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE')
          OR NOT f.prosecdef OR NOT EXISTS (SELECT FROM unnest(f.proconfig) AS c(x) WHERE c.x LIKE 'search\_path=%'));
 
@@ -714,7 +719,7 @@ BEGIN
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'droits') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'droits') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
     AND (has_table_privilege('matrix_app', c.oid, p.priv)
          OR (p.priv IN ('INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege('matrix_app', c.oid, p.priv)));
 
@@ -724,7 +729,7 @@ BEGIN
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
     AND (has_table_privilege('matrix_lecture', c.oid, p.priv)
          OR (p.priv IN ('INSERT', 'UPDATE', 'REFERENCES') AND has_any_column_privilege('matrix_lecture', c.oid, p.priv)));
   RETURN QUERY
@@ -732,7 +737,7 @@ BEGIN
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN (VALUES ('USAGE'), ('UPDATE')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix') AND c.relkind = 'S'
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix') AND c.relkind = 'S'
     AND has_sequence_privilege('matrix_lecture', c.oid, p.priv);
 
   -- Fonction SECURITY DEFINER d'un outil que matrix_lecture peut appeler : elle lit avec les droits de l'outil,
@@ -743,7 +748,7 @@ BEGIN
          'fonction SECURITY DEFINER exécutable par matrix_lecture : elle lit avec les droits de l''outil, colonnes sensibles comprises ; retirer le GRANT EXECUTE ou la rendre SECURITY INVOKER'
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector') AND p.prosecdef
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium') AND p.prosecdef
     AND has_function_privilege('matrix_lecture', p.oid, 'EXECUTE');
 
   -- Relations que Matrix ne lit pas.
@@ -755,7 +760,7 @@ BEGIN
               WHEN droits._etat_table(c.oid) = 'fermee' THEN 'table fermée à matrix_lecture : colonne de la liste absente (pas encore créée, renommée ou supprimée) ou table renommée ; mettez à jour droits.colonnes_sensibles'
               ELSE 'table illisible par matrix_lecture' END
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium') AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
     AND NOT has_any_column_privilege('matrix_lecture', c.oid, 'SELECT');
 
   -- Entrées de la liste sans objet.
@@ -776,18 +781,18 @@ BEGIN
   SELECT 'erreur', s.nsp,
          CASE WHEN n.oid IS NULL THEN 'schéma absent' ELSE format('propriétaire %s au lieu de %s', pg_get_userbyid(n.nspowner), s.proprio) END
   FROM (VALUES ('keystone', 'keystone_app'), ('codex', 'codex_app'), ('cursus', 'cursus_app'),
-               ('vigie', 'vigie_app'), ('arche', 'arche_app'), ('crucible', 'crucible_app'), ('clavis', 'clavis_app'), ('modulus', 'modulus_app'), ('vector', 'vector_app'), ('matrix', 'matrix_app')) AS s(nsp, proprio)
+               ('vigie', 'vigie_app'), ('arche', 'arche_app'), ('crucible', 'crucible_app'), ('clavis', 'clavis_app'), ('modulus', 'modulus_app'), ('vector', 'vector_app'), ('ingenium', 'ingenium_app'), ('matrix', 'matrix_app')) AS s(nsp, proprio)
   LEFT JOIN pg_namespace n ON n.nspname = s.nsp
   WHERE n.oid IS NULL OR pg_get_userbyid(n.nspowner) <> s.proprio;
 
   -- Accès des rôles aux schémas : chaque outil chez soi, plus la convention de partage. Un outil peut avoir USAGE
-  -- sur le schéma d'un autre (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, matrix) s'il y lit au moins une vue pub_ ; ses autres
+  -- sur le schéma d'un autre (keystone, codex, cursus, vigie, arche, crucible, clavis, modulus, vector, ingenium, matrix) s'il y lit au moins une vue pub_ ; ses autres
   -- droits dans ce schéma sont contrôlés plus haut (droits croisés). CREATE croisé : toujours une erreur. Le schéma
   -- extensions (init/02 : pg_trgm) n'est ouvert qu'à codex_app, et au rôle des sauvegardes (atrium_sauvegarde, epc2i_sauvegarde avant le renommage) par pg_read_all_data ; CREATE
   -- n'y est accordé à aucun de ces rôles.
   RETURN QUERY
   SELECT 'erreur', format('%s, schéma %s', r.nom, n.nspname),
-         CASE WHEN p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix')
+         CASE WHEN p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix')
               THEN 'droit USAGE inattendu : aucune vue pub_ de ce schéma n''est accordée au rôle'
               ELSE format('droit %s inattendu', p.priv) END
   FROM (VALUES ('keystone_app', ARRAY['keystone'], ARRAY['keystone'], true),
@@ -799,24 +804,25 @@ BEGIN
                ('clavis_app', ARRAY['clavis'], ARRAY['clavis'], true),
                ('modulus_app', ARRAY['modulus'], ARRAY['modulus'], true),
                ('vector_app', ARRAY['vector'], ARRAY['vector'], true),
-               ('matrix_app', ARRAY['matrix', 'keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'droits'], ARRAY['matrix'], false),
-               ('matrix_lecture', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'droits'], ARRAY[]::text[], false),
-               ('matrix_gestion', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits'], ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector'], false),
+               ('ingenium_app', ARRAY['ingenium'], ARRAY['ingenium'], true),
+               ('matrix_app', ARRAY['matrix', 'keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'droits'], ARRAY['matrix'], false),
+               ('matrix_lecture', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'droits'], ARRAY[]::text[], false),
+               ('matrix_gestion', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits'], ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium'], false),
                -- Power BI : USAGE seulement là où il lit une vue pub_ (contrôle « lecteur » ci-dessous).
                ('bi_reader', ARRAY[]::text[], ARRAY[]::text[], true),
-               ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits'], ARRAY[]::text[], false),
+               ('matrix_admin', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits'], ARRAY[]::text[], false),
                -- Rôle des sauvegardes : atrium_sauvegarde ; epc2i_sauvegarde tant que le serveur n'est pas renommé
                -- (docs/renommage-atrium.md, à retirer ensuite). Le JOIN sur pg_roles ignore le nom absent.
-               ('atrium_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false),
-               ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false)
+               ('atrium_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false),
+               ('epc2i_sauvegarde', ARRAY['keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits', 'public', 'extensions'], ARRAY[]::text[], false)
        ) AS r(nom, usage_ok, create_ok, lecteur)
   JOIN pg_roles x ON x.rolname = r.nom
   CROSS JOIN pg_namespace n
   CROSS JOIN (VALUES ('USAGE'), ('CREATE')) AS p(priv)
-  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions')
+  WHERE n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits', 'public', 'extensions')
     AND NOT (n.nspname::text = ANY (CASE WHEN p.priv = 'USAGE' THEN r.usage_ok ELSE r.create_ok END))
     AND has_schema_privilege(x.oid, n.oid, p.priv)
-    AND NOT (p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix')
+    AND NOT (p.priv = 'USAGE' AND r.lecteur AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix')
              AND (EXISTS (SELECT FROM pg_class v
                           WHERE v.relnamespace = n.oid AND v.relkind = 'v' AND v.relname LIKE 'pub\_%'
                             AND has_table_privilege(x.oid, v.oid, 'SELECT'))
@@ -827,12 +833,12 @@ BEGIN
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'droit CREATE sur la base (il permettrait de créer un schéma)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'atrium_sauvegarde', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'atrium_sauvegarde', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
     AND has_database_privilege(r.oid, v_db, 'CREATE');
   RETURN QUERY
   SELECT 'erreur', r.rolname::text, 'attribut d''administration (SUPERUSER, CREATEROLE, CREATEDB, REPLICATION ou BYPASSRLS)'
   FROM pg_roles r
-  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'atrium_sauvegarde', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
+  WHERE r.rolname IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'matrix_app', 'matrix_gestion', 'matrix_lecture', 'matrix_admin', 'atrium_sauvegarde', 'epc2i_sauvegarde', 'bi_reader', 'cursus_purge')
     AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls);
 
   -- Purge du journal des actions de Cursus (décision M-24) : cursus_purge n'a que ses droits (section 5 ter), n'est membre
@@ -848,7 +854,7 @@ BEGIN
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) AS p(priv)
   WHERE x.rolname = 'cursus_purge'
-    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions')
+    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits', 'public', 'extensions')
     AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
     AND has_table_privilege(x.oid, c.oid, p.priv)
     AND NOT (n.nspname = 'cursus' AND (c.relname, p.priv) IN (('journal', 'DELETE'), ('journal_actions_paie', 'SELECT'), ('journal_purges', 'INSERT')));
@@ -860,7 +866,7 @@ BEGIN
   JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
   CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')) AS p(priv)
   WHERE x.rolname = 'cursus_purge'
-    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions')
+    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits', 'public', 'extensions')
     AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
     AND NOT has_table_privilege(x.oid, c.oid, p.priv)
     AND has_column_privilege(x.oid, c.oid, a.attnum, p.priv)
@@ -880,7 +886,7 @@ BEGIN
   CROSS JOIN pg_namespace n
   CROSS JOIN (VALUES ('USAGE'), ('CREATE')) AS p(priv)
   WHERE x.rolname = 'cursus_purge'
-    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'matrix', 'droits', 'public', 'extensions')
+    AND n.nspname IN ('keystone', 'codex', 'cursus', 'vigie', 'arche', 'crucible', 'clavis', 'modulus', 'vector', 'ingenium', 'matrix', 'droits', 'public', 'extensions')
     AND has_schema_privilege(x.oid, n.oid, p.priv)
     AND NOT (n.nspname = 'cursus' AND p.priv = 'USAGE');
   RETURN QUERY
@@ -931,7 +937,7 @@ BEGIN
   RETURN QUERY
   SELECT 'attention', r.nom, format('search_path attendu sur la base commune : %s', r.nsp)
   FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'),
-               ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('matrix_app', 'matrix')) AS r(nom, nsp)
+               ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('ingenium_app', 'ingenium'), ('matrix_app', 'matrix')) AS r(nom, nsp)
   WHERE NOT EXISTS (SELECT FROM pg_db_role_setting d JOIN pg_roles x ON x.oid = d.setrole
                     WHERE x.rolname = r.nom AND d.setdatabase = v_db AND format('search_path=%s', r.nsp) = ANY (d.setconfig));
 
@@ -948,7 +954,7 @@ BEGIN
   -- Privilèges par défaut de matrix_lecture.
   RETURN QUERY
   SELECT 'attention', format('%s, schéma %s', r.nom, r.nsp), 'privilège par défaut SELECT pour matrix_lecture absent (rejouer init/03-droits.sql)'
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector')) AS r(nom, nsp)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('ingenium_app', 'ingenium')) AS r(nom, nsp)
   WHERE NOT EXISTS (SELECT FROM pg_default_acl d
                     JOIN pg_roles x ON x.oid = d.defaclrole
                     JOIN pg_namespace n ON n.oid = d.defaclnamespace
@@ -957,7 +963,7 @@ BEGIN
                       AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = 'matrix_lecture') AND a.privilege_type = 'SELECT');
   RETURN QUERY
   SELECT 'attention', format('%s, schéma %s', r.nom, r.nsp), 'privilège par défaut SELECT pour matrix_gestion absent : une nouvelle table ne pourrait pas être publiée (rejouer init/03-droits.sql)'
-  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector')) AS r(nom, nsp)
+  FROM (VALUES ('keystone_app', 'keystone'), ('codex_app', 'codex'), ('cursus_app', 'cursus'), ('vigie_app', 'vigie'), ('arche_app', 'arche'), ('crucible_app', 'crucible'), ('clavis_app', 'clavis'), ('modulus_app', 'modulus'), ('vector_app', 'vector'), ('ingenium_app', 'ingenium')) AS r(nom, nsp)
   WHERE EXISTS (SELECT FROM pg_roles WHERE rolname = 'matrix_gestion')
     AND NOT EXISTS (SELECT FROM pg_default_acl d
                     JOIN pg_roles x ON x.oid = d.defaclrole
@@ -1107,10 +1113,10 @@ DECLARE
   v_nb bigint;
   v_autorise boolean;
 BEGIN
-  IF p_fonction !~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector)\.pub_[a-z0-9_]+$' THEN
+  IF p_fonction !~ '^(keystone|codex|cursus|vigie|arche|crucible|clavis|modulus|vector|ingenium)\.pub_[a-z0-9_]+$' THEN
     RAISE EXCEPTION 'fonction invalide : % (attendu : <outil>.pub_<verbe>_<objet>)', p_fonction;
   END IF;
-  IF p_lecteur NOT IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'matrix_app')
+  IF p_lecteur NOT IN ('keystone_app', 'codex_app', 'cursus_app', 'vigie_app', 'arche_app', 'crucible_app', 'clavis_app', 'modulus_app', 'vector_app', 'ingenium_app', 'matrix_app')
      OR p_lecteur = v_schema || '_app' THEN
     RAISE EXCEPTION 'outil appelant invalide : %', p_lecteur;
   END IF;

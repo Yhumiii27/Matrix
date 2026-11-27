@@ -109,6 +109,38 @@ test('dépôt : lot 16 de Codex, enregistrements du dossier du personnel (DPE) h
   assert.ok(!depot.publications.some(p => p.vue === 'codex.pub_enregistrements_personnel'));
 });
 
+test('dépôt : DM-1 et DM-2 de Clavis, colonnes ajoutées en fin de vue, contrats d’origine inchangés', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const depot = JSON.parse(await readFile(new URL('../data/publications-depot.json', import.meta.url), 'utf8'));
+  const def = vue => depot.publications.find(p => p.vue === vue)?.definition ?? assert.fail(`${vue} absente du dépôt`);
+  assert.deepEqual(colonnesPubliees(def('clavis.pub_personnes')), ['personne_id', 'matricule', 'prenom', 'nom', 'nom_affiche', 'email',
+    'poste', 'departement', 'pole', 'responsable_id', 'dans_annuaire', 'actif', 'maj_le', 'type', 'proprietaire_id']);
+  assert.deepEqual(colonnesPubliees(def('clavis.pub_acces')), ['personne_id', 'application', 'autorise', 'niveau', 'domaine', 'role',
+    'ouvert', 'maj_le', 'roles', 'perimetre']);
+});
+
+test('dépôt : liens de DI-M1 (Ingenium) et DM-3 (Clavis), seulement vers des vues que Matrix connaît', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const depot = JSON.parse(await readFile(new URL('../data/publications-depot.json', import.meta.url), 'utf8'));
+  const cles = depot.liens.map(l => `${l.vue}|${l.lecteur}|${l.nature}`);
+  assert.equal(new Set(cles).size, cles.length, 'un seul lien par vue, lecteur et nature');
+  const ingenium = depot.liens.filter(l => l.lecteur === 'ingenium_app').map(l => l.vue).sort();
+  assert.deepEqual(ingenium, ['clavis.pub_acces', 'clavis.pub_personnes', 'codex.pub_documents', 'keystone.pub_activites',
+    'keystone.pub_affectations', 'keystone.pub_articles', 'keystone.pub_jalons_projets', 'keystone.pub_nomenclatures',
+    'keystone.pub_pack_ingenierie', 'keystone.pub_projets', 'matrix.pub_filiales', 'matrix.pub_sites', 'vigie.pub_demandes_recues',
+    'vigie.pub_eco_approbations', 'vigie.pub_eco_effectivite', 'vigie.pub_ordres_modification']);
+  // En attente de leur publication : aucun lien préparé tant que la vue n'a pas de définition dans Matrix.
+  assert.ok(depot.publications.find(p => p.vue === 'vigie.pub_etudes_securite')?.attendue);
+  assert.ok(!depot.publications.some(p => p.vue.startsWith('modulus.')));
+  for (const v of ['vigie.pub_etudes_securite', 'modulus.pub_catalogue_machines']) assert.ok(!ingenium.includes(v), v);
+  assert.ok(depot.liens.every(l => l.nature === 'lecture' || l.nature === 'execution'));
+  assert.ok(depot.liens.some(l => l.vue === 'cursus.pub_salaries' && l.lecteur === 'clavis_app' && l.nature === 'lecture'));
+  // Journal d'Ingenium au contrat D18 v1 (matrix.journal_unifie, partage/95), lu par matrix_app.
+  const journal = depot.publications.find(p => p.vue === 'ingenium.pub_journal')?.definition ?? assert.fail('ingenium.pub_journal absente');
+  assert.deepEqual(colonnesPubliees(journal), ['ref_source', 'nature', 'quand', 'qui', 'qui_ref', 'qui_role', 'action', 'objet', 'detail', 'projet', 'qui_matricule']);
+  assert.doesNotMatch(journal, /\$\{/, 'motif du code projet recopié, pas de gabarit');
+});
+
 const APP = process.env.MATRIX_TEST_DATABASE_URL, GESTION = process.env.MATRIX_TEST_GESTION_URL, ADMIN = process.env.MATRIX_TEST_ADMIN_URL;
 test('serveur : publier, lier, refuser une rupture de contrat ou une colonne sensible, retirer',
   { skip: !(APP && GESTION && ADMIN) && 'MATRIX_TEST_DATABASE_URL, MATRIX_TEST_GESTION_URL ou MATRIX_TEST_ADMIN_URL absent' }, async () => {

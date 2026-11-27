@@ -31,6 +31,11 @@ Ce qui ne porte pas l'ancien nom et ne change donc pas : identifiant (UUID) de l
 consultatifs et `application_name` des outils (relevé du 27/11/2026 dans tous les dépôts : aucun ne contient l'ancien
 nom), noms des dossiers de sauvegarde (horodatages).
 
+Ingenium (rôle `ingenium_app`, schéma `ingenium`, DI-M1 du 27/11/2026) suit la même règle : ni son rôle ni son schéma ne
+portent l'ancien nom, `compter.sql` le compte, et `ajouts/ingenium.sql` lit la base (`atrium`, sinon `epc2i`) comme les
+autres scripts : il se joue avant comme après la fenêtre. S'il est déployé avant la fenêtre, sa ressource entre dans le
+relevé (§ 5) et dans les étapes 5.1 et 6.4 comme les autres applications.
+
 ## 2. Principe
 
 - **Les fichiers joués sur le serveur acceptent les deux noms** pendant la transition : `init/01` à `03`,

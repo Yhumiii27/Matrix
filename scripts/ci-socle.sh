@@ -72,6 +72,16 @@ for f in init/0*.sql; do admin -d postgres -f "$f" > /dev/null; done
 [ "$(admin -d atrium -Atc "SELECT count(*) FROM droits.verifier() WHERE gravite = 'erreur'")" = 0 ]
 echo "  ok"
 
+etape "Ajout d'Ingenium sur un serveur en service (ajouts/ingenium.sql, DI-M1) : rejouable, connexion gardée"
+avant=$(admin -d atrium -Atc "SELECT rolcanlogin FROM pg_roles WHERE rolname = 'ingenium_app'")
+admin -d postgres -f ajouts/ingenium.sql > /dev/null
+admin -d postgres -f ajouts/ingenium.sql > /dev/null
+admin -d postgres -f init/03-droits.sql > /dev/null
+[ "$(admin -d atrium -Atc "SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'ingenium'")" = ingenium_app ] || { echo "Schéma ingenium absent ou mal possédé." >&2; exit 1; }
+[ "$(admin -d atrium -Atc "SELECT rolcanlogin FROM pg_roles WHERE rolname = 'ingenium_app'")" = "$avant" ] || { echo "ajouts/ingenium.sql a changé la connexion d'ingenium_app." >&2; exit 1; }
+[ "$(admin -d atrium -Atc "SELECT count(*) FROM droits.verifier() WHERE gravite = 'erreur'")" = 0 ]
+echo "  ok"
+
 etape "Sauvegarde (sauvegarder.sh) : rôle atrium_sauvegarde, base atrium, un fichier par schéma"
 dest=$(mktemp -d)
 PGPASSWORD="" ATRIUM_SAUVEGARDE_PASSWORD="${ATRIUM_SAUVEGARDE_PASSWORD:?ATRIUM_SAUVEGARDE_PASSWORD manquant}" ATRIUM_SAUVEGARDE_DIR="$dest" \

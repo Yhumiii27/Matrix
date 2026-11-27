@@ -108,11 +108,11 @@ Format d'une entrée :
 - Détails techniques : `partage/95-matrix-journal-unifie.sql`, `serveur.mjs`, `outils/collecteur.mjs`, `data/catalogue.json` (11 tables), flux F22 à F27, doublons (D23 nouveau).
 - Validé par Guillaume le : 2026-10-22
 
-## [2026-10-22] Crucible → Matrix — M-6 · Sites du laboratoire 67 et du PDE, entité EPC France
-- Statut : FAITE (04/11/2026, réponse de Guillaume : « Labo 67 = SMC, PDE=SMC, EPC France=SMC », SMC = Saint-Martin-de-Crau. Filiale `SMC` « EPC France » (FR, EUR) et site `smc` « Saint-Martin-de-Crau — EPC France (laboratoire 67, PDE) » rattaché à cette filiale, dans `data/referentiels.json` et l'amorçage de `partage/10-matrix-referentiels.sql` ; publiés par `matrix.pub_filiales` et `matrix.pub_sites`. Le laboratoire 67 et le PDE ne sont pas des sites mais des moyens d'essai de Crucible sur le site `smc`. Sur le serveur en service : rejouer `partage/10` en `matrix_app`, ou les saisir dans l'écran « Référentiels » si la liste des sites y a déjà été modifiée)
-- Demande : ajouter au référentiel des sites de Matrix le site du laboratoire 67 et celui du PDE, s'ils ne sont pas Lyon, Le Havre ou Marseille ; ajouter EPC France à la liste des filiales (D21).
+## [2026-10-22] Crucible → Matrix — M-6 · Sites du laboratoire 67 et du PDE, entité partenaire
+- Statut : FAITE (04/11/2026, réponse de Guillaume, (reformulé, 27/11/2026) le laboratoire 67, le PDE et la filiale partenaire relèvent tous trois du code SMC ; SMC = Saint-Martin-de-Crau. Filiale `SMC` « Filiale partenaire » (FR, EUR) et site `smc` « Saint-Martin-de-Crau — Filiale partenaire (laboratoire 67, PDE) » rattaché à cette filiale, dans `data/referentiels.json` et l'amorçage de `partage/10-matrix-referentiels.sql` ; publiés par `matrix.pub_filiales` et `matrix.pub_sites`. Le laboratoire 67 et le PDE ne sont pas des sites mais des moyens d'essai de Crucible sur le site `smc`. Sur le serveur en service : rejouer `partage/10` en `matrix_app`, ou les saisir dans l'écran « Référentiels » si la liste des sites y a déjà été modifiée)
+- Demande : ajouter au référentiel des sites de Matrix le site du laboratoire 67 et celui du PDE, s'ils ne sont pas Lyon, Le Havre ou Marseille ; ajouter la filiale partenaire à la liste des filiales (D21).
 - Justification : `crucible.sites` et `crucible.entities` doivent reprendre les codes de Matrix (décisions D14 et D21) au lieu de tenir leur propre liste.
-- Détails techniques : saisie dans l'écran « Référentiels » de Matrix (`data/referentiels.json`, tables `matrix.sites` et `matrix.filiales`). Il manque la localisation des deux sites (question P-1 de Crucible) et le code à 3 lettres d'EPC France.
+- Détails techniques : saisie dans l'écran « Référentiels » de Matrix (`data/referentiels.json`, tables `matrix.sites` et `matrix.filiales`). Il manque la localisation des deux sites (question P-1 de Crucible) et le code à 3 lettres de la filiale partenaire.
 - Validé par Guillaume le : 2026-11-04
 
 ## [2026-10-22] Vigie → Matrix — Déclarer sensibles les colonnes de santé des maladies professionnelles

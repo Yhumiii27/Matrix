@@ -50,7 +50,7 @@ En `matrix_app`, sauf mention contraire (`partage/README.md`, « Fichiers et ord
 
 | | Commande | Contenu |
 |---|---|---|
-| 3.1 | `psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql` | Rejoué pour la filiale `SMC` « EPC France » et le site `smc` « Saint-Martin-de-Crau » (M-6 de Crucible). |
+| 3.1 | `psql "postgres://matrix_app:…@hôte:5432/atrium" -v ON_ERROR_STOP=1 -1 -f partage/10-matrix-referentiels.sql` | Rejoué pour la filiale `SMC` « Filiale partenaire » et le site `smc` « Saint-Martin-de-Crau » (M-6 de Crucible). |
 | 3.2 | Idem avec `12-matrix-liens.sql`, `13-matrix-publications.sql`, `15-matrix-edition.sql` | Registres des liens et des publications, saisies (rejouables, sans effet s'ils sont à jour). |
 | 3.3 | Idem avec `16-matrix-historique.sql` | Historique des schémas sur le serveur (`matrix.historique_schemas`). |
 | 3.4 | Idem avec `17-matrix-glossaire-qualite.sql` | Glossaire métier et règles de qualité (`matrix.glossaire`, `matrix.regles_qualite`). |

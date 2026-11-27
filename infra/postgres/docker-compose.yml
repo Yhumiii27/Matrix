@@ -1,10 +1,12 @@
 # Serveur PostgreSQL commun de la suite Atrium : une base atrium, un schéma par outil (keystone, codex, cursus, vigie, arche,
 # crucible, clavis, modulus, vector, matrix).
 #
-# Renommage de la suite en Atrium (décision du 27/11/2026, docs/renommage-atrium.md). Deux identifiants gardent
-# volontairement leur ancien nom, parce que les changer créerait des volumes neufs et vides (Coolify nomme chaque volume
-# « <identifiant de la ressource>_<clé> ») : un redéploiement démarrerait alors une base vide, sans données. Ce sont les
-# clés des volumes epc2i_pgdata et epc2i_sauvegardes ; elles ne se renomment pas, ni ici ni dans Coolify.
+# Renommage de la suite en Atrium (décisions M-26 et M-28 du 27/11/2026, docs/renommage-atrium.md). Les volumes
+# s'appellent atrium_pgdata et atrium_sauvegardes. ATTENTION : Coolify nomme chaque volume
+# « <identifiant de la ressource>_<clé> » ; sur le serveur en service, ces clés désignent des volumes qui n'existent
+# qu'une fois la copie des anciens (…_epc2i_pgdata, …_epc2i_sauvegardes) faite à l'étape 4 de la fiche. Déployer ce
+# fichier avant cette copie démarrerait une base neuve et vide (les anciennes données restent intactes dans les anciens
+# volumes) : la ressource postgres garde son déploiement automatique coupé jusqu'à la fenêtre (prérequis P1).
 #
 # Mise en service : voir README.md (Coolify ou poste local). Les mots de passe viennent de l'environnement
 # (fichier .env à côté de ce fichier en local, variables de la ressource dans Coolify) ; aucun n'est écrit ici.
@@ -78,9 +80,9 @@ services:
     volumes:
       # Image 16 : données dans /var/lib/postgresql/data ($PGDATA). Ne pas changer ce montage sans changer de version
       # majeure selon la procédure (le volume en service a été initialisé en 16).
-      # Clés epc2i_* gardées (voir l'en-tête) : un autre nom serait un volume neuf et vide.
-      - epc2i_pgdata:/var/lib/postgresql/data
-      - epc2i_sauvegardes:/sauvegardes
+      # Volumes renommés : voir l'en-tête (copie des anciens volumes avant le premier déploiement).
+      - atrium_pgdata:/var/lib/postgresql/data
+      - atrium_sauvegardes:/sauvegardes
     ports:
       # Écoute locale seulement (administration par tunnel SSH, outils lancés sur le même hôte). Les outils
       # déployés dans Coolify passent par le réseau Docker : voir README.md.
@@ -111,5 +113,5 @@ networks:
     external: true
 
 volumes:
-  epc2i_pgdata:
-  epc2i_sauvegardes:
+  atrium_pgdata:
+  atrium_sauvegardes:

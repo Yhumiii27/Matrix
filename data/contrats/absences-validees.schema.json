@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:epc2i:contrats:absences-validees",
   "title": "Absences validées : messages epc2i.absence.validee/1 et epc2i.absence.annulee/1",
-  "description": "Corps de POST {KEYSTONE_URL}/api/integrations/cursus/events envoyé par Cursus quand une absence est validée ou annulée (D07 : Cursus fait foi ; Keystone garde une copie en lecture). Le message porte une catégorie simple (congé ou absence) et jamais le motif (décision Keystone NEW-CURSUS-4). Les demandes en attente ne sont pas envoyées. Référence : docs/remplacement-lucca.md (dépôt Matrix). Toute évolution part de ce fichier.",
+  "description": "Version 1, remplacée par la version 2 (absences-validees-v2.schema.json, identifiants atrium.….…/2, renommage en Atrium, M-28) ; gardée le temps de la transition (docs/remplacement-lucca.md § 3.11), puis retirée. Corps de POST {KEYSTONE_URL}/api/integrations/cursus/events envoyé par Cursus quand une absence est validée ou annulée (D07 : Cursus fait foi ; Keystone garde une copie en lecture). Le message porte une catégorie simple (congé ou absence) et jamais le motif (décision Keystone NEW-CURSUS-4). Les demandes en attente ne sont pas envoyées. Référence : docs/remplacement-lucca.md (dépôt Matrix). Toute évolution part de ce fichier.",
   "oneOf": [
     { "$ref": "#/$defs/absenceValidee" },
     { "$ref": "#/$defs/absenceAnnulee" }

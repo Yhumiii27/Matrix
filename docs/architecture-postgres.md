@@ -570,7 +570,7 @@ Le socle est prêt avant son code :
 ## 8 ter. Crucible
 
 Crucible (dépôt `Yhumiii27/Crucible`) planifie et arbitre les moyens d'essais R&D partagés (laboratoire 67, partagé avec
-EPC France ; PDE, laboratoire PDE, atelier mécanique). Au 22/10/2026, sa livraison 1 (plateforme) est faite, en
+la filiale partenaire ; PDE, laboratoire PDE, atelier mécanique). Au 22/10/2026, sa livraison 1 (plateforme) est faite, en
 PostgreSQL seulement, migrations `0000` à `0002` ; ses demandes au socle sont M-1 à M-6 de son `docs/DEMANDES-MATRIX.md`.
 Même démarche qu'Arche (M-07) :
 
@@ -584,7 +584,7 @@ Même démarche qu'Arche (M-07) :
   Vigie et Matrix lisent `crucible.pub_moyens` et `pub_reservations` (livraison L3 de Crucible). Les vues absentes sont
   signalées sans erreur jusqu'à leur création ;
 - référentiel des sites (M-6) : le laboratoire 67 et le PDE n'y sont pas encore, leur localisation n'étant pas connue
-  (question P-1 de Crucible) ; l'entité EPC France attend la liste réelle des filiales (D21, C-5 d'Arche) ;
+  (question P-1 de Crucible) ; l'entité partenaire attend la liste réelle des filiales (D21, C-5 d'Arche) ;
 - doublons (`data/doublons.json`, `docs/doublons-a-trancher.md`, 22/10/2026) : application des décisions déjà prises
   (D01 et D07 à D09 : Cursus fait foi pour les opérateurs, leurs habilitations et leurs absences ; D02 : lien vers
   Keystone, les projets R&D absents de Keystone restant dans Crucible (S-1 de Crucible) ; D14 et D21 : sites et entités
@@ -820,7 +820,7 @@ absent, erreur) et Matrix la recrée.
 
 ## 9. Heures validées : D06, option A, réversible
 
-Le circuit, les contrats (`data/contrats/heures-validees.schema.json`, `absences-validees.schema.json`) et les changements fonctionnels de chaque outil sont dans `docs/remplacement-lucca.md`. Ce qui concerne la base de données :
+Le circuit, les contrats (`data/contrats/heures-validees-v2.schema.json`, `absences-validees-v2.schema.json` ; version 1 gardée le temps de la transition) et les changements fonctionnels de chaque outil sont dans `docs/remplacement-lucca.md`. Ce qui concerne la base de données :
 
 | Point | Règle |
 |---|---|

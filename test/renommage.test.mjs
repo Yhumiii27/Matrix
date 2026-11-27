@@ -40,12 +40,28 @@ test('socle : nouveaux noms par défaut, anciens acceptés le temps du renommage
   const lire = f => readFileSync(new URL(`../infra/postgres/${f}`, import.meta.url), 'utf8');
   const compose = lire('docker-compose.yml');
   assert.match(compose, /aliases:\s*- atrium-postgres\s*- epc2i-postgres/);
-  // Clés des volumes jamais renommées : un autre nom serait un volume neuf et vide (base vide au redéploiement).
-  assert.match(compose, /- epc2i_pgdata:\/var\/lib\/postgresql\/data/);
-  assert.match(compose, /- epc2i_sauvegardes:\/sauvegardes/);
+  // Volumes renommés (M-28) : les nouvelles clés désignent des volumes vides tant que la copie de l'étape 4 de la fiche
+  // n'est pas faite ; la fiche et le compose le disent, et la copie se répète dans scripts/essai-renommage.sh.
+  assert.match(compose, /- atrium_pgdata:\/var\/lib\/postgresql\/data/);
+  assert.match(compose, /- atrium_sauvegardes:\/sauvegardes/);
+  assert.doesNotMatch(compose, /^\s*-?\s*epc2i_(pgdata|sauvegardes):/m);
+  assert.match(compose, /déploiement automatique coupé/);
+  assert.match(readFileSync(new URL('../docs/renommage-atrium.md', import.meta.url), 'utf8'), /cp -a/);
   assert.match(lire('Dockerfile'), /ln -s \/opt\/atrium \/opt\/epc2i/);
   for (const f of ['init/01-base-et-roles.sql', 'init/02-schemas.sql', 'init/03-droits.sql', 'partage/90-droits.sql', 'verifier-droits.sql'])
     assert.match(lire(f), /datname IN \('atrium', 'epc2i'\)/, f);
   assert.match(lire('sauvegarde/sauvegarder.sh'), /atrium_sauvegarde epc2i_sauvegarde/);
   assert.match(lire('partage/appliquer-liens.sh'), /datname IN \('atrium', 'epc2i'\)/);
+});
+
+test('contrats de messages : la version 2 (atrium.…/2) porte exactement les champs de la version 1', () => {
+  const lire = f => JSON.parse(readFileSync(new URL(`../data/contrats/${f}`, import.meta.url), 'utf8'));
+  for (const nom of ['heures-validees', 'absences-validees']) {
+    const v1 = lire(`${nom}.schema.json`), v2 = lire(`${nom}-v2.schema.json`);
+    assert.equal(v2.$id, `urn:atrium:contrats:${nom}:2`);
+    assert.doesNotMatch(JSON.stringify(v2), /epc2i/i, nom);
+    const sansEnTete = ({ $id, description, ...reste }) => reste;
+    const v1en2 = JSON.parse(JSON.stringify(sansEnTete(v1)).replace(/epc2i\.([a-z_]+)\.([a-z_]+)\/1/g, 'atrium.$1.$2/2'));
+    assert.deepEqual(sansEnTete(v2), v1en2, nom);
+  }
 });

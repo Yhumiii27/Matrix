@@ -49,7 +49,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Doublon · Critique**
 
-**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés de l'entreprise y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche. Crucible (22/10/2026, livraison 1) : crucible.users porte les comptes Entra ; crucible.people (prévue) porte les opérateurs planifiables avec leur matricule Cursus. Application de l'option A : les salariés de l'entreprise viennent de cursus.pub_salaries (lecture accordée à crucible_app, demande CU-2 de Crucible) ; les personnes d'EPC France, absentes de Cursus, restent saisies dans Crucible.
+**Ce que contiennent les tables.** 11 des 25 personnes de Codex figurent aussi dans Keystone (Marie Lefebvre, Romain Aubert, Julien Wagner, Pauline Noguès…), sous un autre identifiant. Cursus et Vigie décrivent d'autres populations, sans aucun nom commun. Aucune table ne partage de clé avec une autre. Arche (22/10/2026, spécification) : arche.users porte les comptes Entra du groupe et des filiales ; les salariés de l'entreprise y sont identifiés par leur matricule Cursus (option A), les personnes des filiales, absentes de Cursus, restent des comptes Arche. Crucible (22/10/2026, livraison 1) : crucible.users porte les comptes Entra ; crucible.people (prévue) porte les opérateurs planifiables avec leur matricule Cursus. Application de l'option A : les salariés de l'entreprise viennent de cursus.pub_salaries (lecture accordée à crucible_app, demande CU-2 de Crucible) ; les personnes de la filiale partenaire, absentes de Cursus, restent saisies dans Crucible.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -58,7 +58,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Codex | `users` | Utilisateurs de la GED et comptes système | 25 personnes + comptes codex, keystone, vigie ; id texte |
 | Vigie | `people` | Personnel suivi dans la matrice d'habilitations | 12 personnes, noms provisoires entre crochets ([T. Nguyen]) |
 | Arche | `users` | Comptes Arche (Entra ID), personnes du groupe et des filiales | prévue (spécification d'Arche, livraison 0) |
-| Crucible | `users` | Comptes Crucible (Entra ID) : l'entreprise et les entités partenaires (EPC France) | réelle (migration 0000_platform de Crucible) |
+| Crucible | `users` | Comptes Crucible (Entra ID) : l'entreprise et les entités partenaires (filiale partenaire) | réelle (migration 0000_platform de Crucible) |
 | Crucible | `people` | Personnes planifiables : opérateurs, techniciens, pyrotechniciens | prévue (spécification de Crucible, docs/spec/02-objets.md) |
 
 **Colonnes qui se correspondent**
@@ -615,7 +615,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 
 **Chevauchement · Majeur**
 
-**Ce que contiennent les tables.** Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets de l'entreprise dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles. Crucible (22/10/2026, livraison 1) : crucible.entities (l'entreprise et sa filiale française) recoupe la liste des filiales. Application de l'option A : EPC France entre dans matrix.filiales (demande M-6 de Crucible ; code à 3 lettres, par exemple EFR) et crucible.entities en devient le miroir, la nature « interne » ou « partenaire » restant propre à Crucible ; matrix.pub_filiales est accordée à crucible_app.
+**Ce que contiennent les tables.** Arche (spécification du 22/10/2026) crée ses propres tables zones, subsidiaries et sites. Or la filiale est aussi le client des projets de l'entreprise dans Keystone (keystone.clients, code à 3 lettres ; contrôle R-190 d'Arche), et Matrix publie déjà la liste unique des sites (D14) et l'organigramme à niveaux (D15). Sans décision, la même filiale serait saisie dans Arche et dans Keystone, avec deux codes possibles. Crucible (22/10/2026, livraison 1) : crucible.entities (l'entreprise et sa filiale française) recoupe la liste des filiales. Application de l'option A : la filiale partenaire entre dans matrix.filiales (demande M-6 de Crucible ; code à 3 lettres, par exemple EFR) et crucible.entities en devient le miroir, la nature « interne » ou « partenaire » restant propre à Crucible ; matrix.pub_filiales est accordée à crucible_app.
 
 | Outil | Table | Rôle | Contenu |
 |---|---|---|---|
@@ -623,7 +623,7 @@ Tables qui décrivent le même objet dans plusieurs outils (Keystone, Codex, Cur
 | Arche | `subsidiaries` | Filiales : code à 3 lettres, pays, zone, devise | prévue (spécification d'Arche) |
 | Arche | `sites` | Usines et terrains des filiales | prévue (spécification d'Arche) |
 | Keystone | `clients` | Clients des projets de l'entreprise, dont les filiales (code3) | Les filiales commandent les machines à l'entreprise |
-| Crucible | `entities` | Entités : l'entreprise (exploitante), partenaires des installations partagées (EPC France) | réelle (migration 0000_platform de Crucible) |
+| Crucible | `entities` | Entités : l'entreprise (exploitante), partenaires des installations partagées (filiale partenaire) | réelle (migration 0000_platform de Crucible) |
 
 **Colonnes qui se correspondent**
 

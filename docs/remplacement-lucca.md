@@ -3,8 +3,10 @@
 Document de préparation du 15 octobre 2026. Il repose sur la lecture du code de Keystone (commit 9bd597e), de Cursus (commit f70619f) et de Vigie, et sur des essais faits sur des copies. Les dépôts des quatre outils n'ont pas été modifiés.
 
 Contrats publiés avec ce document :
-- `data/contrats/heures-validees.schema.json` : messages `epc2i.heures.validees/1` et `epc2i.heures.annulees/1`, et réponse `epc2i.heures.site_mois/1` lue par Vigie ;
-- `data/contrats/absences-validees.schema.json` : messages `epc2i.absence.validee/1` et `epc2i.absence.annulee/1`.
+- `data/contrats/heures-validees-v2.schema.json` : messages `atrium.heures.validees/2` et `atrium.heures.annulees/2`, et réponse `atrium.heures.site_mois/2` lue par Vigie ;
+- `data/contrats/absences-validees-v2.schema.json` : messages `atrium.absence.validee/2` et `atrium.absence.annulee/2`.
+
+La version 1 (mêmes champs, anciens identifiants) reste dans `data/contrats/heures-validees.schema.json` et `absences-validees.schema.json` le temps de la transition (§ 3.11).
 
 Les numéros de ligne renvoient aux fichiers de chaque dépôt.
 
@@ -129,13 +131,13 @@ Règles communes :
 
 **Sans serveur distant.** Sans `KEYSTONE_URL`, Cursus garde son comportement actuel (une ligne dans `journal`) et marque le message `simule`. C'est le cas des applications de bureau : `desktop/CursusApp.swift` ne fixe pas `KEYSTONE_URL` et `desktop/KeystoneApp.swift` ne fixe pas `CURSUS_API_URL`. Les tests de Keystone envoient les exemples des fichiers JSON Schema à la route. Aucun mode de repli ne demande donc de route de rattrapage.
 
-### 3.3 Heures validées : `epc2i.heures.validees/1`
+### 3.3 Heures validées : `atrium.heures.validees/2`
 
 Envoyé par `temps.validate`. Exemple : une feuille validée une première fois, rouverte, puis validée à nouveau (version 3).
 
 ```json
 {
-  "schema": "epc2i.heures.validees/1",
+  "schema": "atrium.heures.validees/2",
   "message_id": "3f0c6a1e-6b7d-4c39-9a0e-2d1f7b0c5e11",
   "type": "heures.validees",
   "source": "cursus",
@@ -231,7 +233,7 @@ Exemple : la feuille 412 du § 3.3 est rouverte une seconde fois (version 4).
 
 ```json
 {
-  "schema": "epc2i.heures.annulees/1",
+  "schema": "atrium.heures.annulees/2",
   "message_id": "9b1d2c3e-4f50-4a61-8b72-c3d4e5f60718",
   "type": "heures.annulees",
   "source": "cursus",
@@ -245,13 +247,13 @@ Exemple : la feuille 412 du § 3.3 est rouverte une seconde fois (version 4).
 - **Feuille déjà transmise à Sage Paie** (`feuilles.sage = true`). La réouverture reste possible. La nouvelle validation doit alors garder les mêmes totaux par jour que ceux transmis. Cursus les garde dans une nouvelle colonne `feuilles.sage_jours`, remplie par `temps.pushSage`. On peut donc corriger la répartition entre projets sans toucher à la paie. Si les totaux changent, `temps.validate` refuse et renvoie vers les RH : la régularisation de paie reste à définir (L-09).
 - **Absences.** Une nouvelle action `absence.annuler` (RH ou valideur) passe une absence validée au statut `annulee`, augmente `version` et émet `absence.annulee`. Une modification de dates se fait par une annulation suivie d'une nouvelle absence.
 
-### 3.5 Absences validées : `epc2i.absence.validee/1`
+### 3.5 Absences validées : `atrium.absence.validee/2`
 
 Envoyé par `absence.demander` quand le manager pose l'absence lui-même, et par `absence.decider` quand il valide (`server/src/actions/absences.ts:21, 34`). Les demandes en attente ne partent pas. Exemple : un congé du jeudi 5 au vendredi 13 novembre 2026, avec le 11 novembre férié.
 
 ```json
 {
-  "schema": "epc2i.absence.validee/1",
+  "schema": "atrium.absence.validee/2",
   "message_id": "5a7e9c10-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
   "type": "absence.validee",
   "source": "cursus",
@@ -274,7 +276,7 @@ Envoyé par `absence.demander` quand le manager pose l'absence lui-même, et par
 Annulation :
 
 ```json
-{ "schema": "epc2i.absence.annulee/1", "message_id": "6b8f0d21-3c4e-4f60-9bac-1d2e3f405b6c", "type": "absence.annulee",
+{ "schema": "atrium.absence.annulee/2", "message_id": "6b8f0d21-3c4e-4f60-9bac-1d2e3f405b6c", "type": "absence.annulee",
   "source": "cursus", "emis_le": "2026-10-12T14:30:01+02:00",
   "absence": { "id": "57", "matricule": "EMP-0014", "version": 2, "annule_le": "2026-10-12T14:30:00+02:00" } }
 ```
@@ -293,12 +295,12 @@ Annulation :
 
 Les lignes de l'absence sont supprimées puis réinsérées quand la version est supérieure à celle de l'en-tête. Nouvelle contrainte `UNIQUE(source, external_id, week_start)`. Les deux codes `conge` et `absence` sont insérés par la migration elle-même, avec `days_per_week = 5` : la colonne est obligatoire (`schema/resources.ts:104`), mais l'écran Congés lit les jours de `leave_entries.days`, remplis par le message ; `days_per_week` ne sert qu'au jeu de démonstration (`seed/resources.ts:64`). Le seed ne remplit qu'une base vide (`src/server/db/seed/index.ts:68`).
 
-### 3.6 Heures travaillées pour Vigie : `epc2i.heures.site_mois/1`
+### 3.6 Heures travaillées pour Vigie : `atrium.heures.site_mois/2`
 
 `GET {CURSUS_URL}/api/integrations/vigie/heures-travaillees?depuis=2025-10&jusqua=2026-10`, en-tête `X-Api-Key`. Réponse décrite par `#/$defs/heuresSiteMois` dans `heures-validees.schema.json` :
 
 ```json
-{ "schema": "epc2i.heures.site_mois/1", "source": "cursus", "calcule_le": "2026-10-15T06:00:00+02:00",
+{ "schema": "atrium.heures.site_mois/2", "source": "cursus", "calcule_le": "2026-10-15T06:00:00+02:00",
   "mois": [ { "mois": "2026-09", "site": "lyon", "heures_salaries": 4120, "heures_interim": 310, "heures_ecole": 56,
               "feuilles_attendues": 104, "feuilles_validees": 98, "complet": false } ] }
 ```
@@ -425,6 +427,25 @@ Le flux H4 (`buildSagePayload`, `shared/rules/temps.ts:128-141`) ne change pas d
 | `semaine` | `${année civile du lundi}-S${semaine ISO}` (l. 137) | La semaine du lundi 29/12/2025 part en « 2025-S01 » au lieu de « 2026-S01 », celle du 30/12/2024 en « 2024-S01 » (essai sous `TZ=Europe/Paris`). | Année ISO, celle du jeudi de la semaine (lot C3). |
 | `envoye_le` | `${today}T09:00:00+02:00` en dur (l. 134) | Faux en hiver (+01:00) ; l'heure est fixe. | Horodatage réel, avec le décalage d'Europe/Paris du moment (lot C3). |
 | `periode_paie` | Mois de l'envoi, `today.slice(0, 7)` (l. 133) | Une feuille envoyée en novembre pour une semaine d'octobre est rangée en novembre. | À trancher par la DRH (L-14) : mois de l'envoi, mois travaillé, ou ventilation au jour. |
+
+### 3.11 Version 2 des messages (renommage de la suite en Atrium)
+
+Décision M-28 du 27/11/2026 : les identifiants des messages perdent l'ancien nom de la suite. La version 2 porte
+exactement les champs et les règles de la version 1 (`test/renommage.test.mjs` le vérifie) ; seuls changent `schema`
+(`atrium.heures.validees/2`, `atrium.heures.annulees/2`, `atrium.heures.site_mois/2`, `atrium.absence.validee/2`,
+`atrium.absence.annulee/2`) et l'identifiant du fichier (`urn:atrium:contrats:…:2`).
+
+| Étape | Qui | Quoi |
+|---|---|---|
+| 1 | Keystone (récepteur des heures et des absences), Vigie (lecteur de `site_mois`) | Accepter `…/1` et `…/2` : même traitement, la valeur de `schema` seule diffère. |
+| 2 | Cursus (émetteur) | Envoyer `…/2` dès que les récepteurs l'acceptent ; un message renvoyé garde son `message_id`, et peut passer en `/2`. |
+| 3 | Keystone, Vigie | Après la période de transition (un mois sans message `/1` reçu, renvois compris), refuser `/1`. |
+| 4 | Matrix | Retirer `heures-validees.schema.json` et `absences-validees.schema.json` (version 1). |
+
+Relevé du 27/11/2026 : ni Keystone (`src/domain/cursus-events.ts`) ni Cursus (`server/src/integrations/keystone/`)
+n'émettent ni ne contrôlent encore le champ `schema` (ils s'appuient sur `type`, inchangé) ; la transition ne
+demande donc que d'écrire `/2` là où le champ sera posé. Elle ne dépend pas du renommage du serveur commun
+(`docs/renommage-atrium.md`, prérequis P7).
 
 ## 4. Prérequis bloquants
 
@@ -616,7 +637,7 @@ D06 passerait alors à l'option B (« Lucca fait foi ; Cursus et Keystone import
 
 | Outil | Action |
 |---|---|
-| Keystone | `hr.hours_source` revient à `lucca`. Les heures Lucca arrivent par l'import CSV `lucca_hours` (lot K6), ou par un adaptateur Lucca qui produit `epc2i.heures.validees/1` avec `source = 'lucca'` vers la même route. Le coût de cet adaptateur dépend de l'API Lucca, non étudiée. Recalcul, écrans et requêtes ne changent pas. |
+| Keystone | `hr.hours_source` revient à `lucca`. Les heures Lucca arrivent par l'import CSV `lucca_hours` (lot K6), ou par un adaptateur Lucca qui produit `atrium.heures.validees/2` avec `source = 'lucca'` vers la même route. Le coût de cet adaptateur dépend de l'API Lucca, non étudiée. Recalcul, écrans et requêtes ne changent pas. |
 | Keystone, saisie sur les tâches | Avec `hr.hours_source = 'lucca'`, « Log » réapparaît et `time_entries` accepte de nouveau la saisie (lot K7 : le code n'a pas été supprimé). `tasks.logged_h` ne compte plus que `time_entries` : les heures reçues de Cursus restent dans `hr_timesheet_lines`, sans effet sur les tâches. |
 | Cursus | `sourceHeures` passe à `lucca` : plus de message `heures.*`. Les absences continuent (D07 est définitive), sauf réponse contraire à L-01. Avec l'option B, Cursus garde la validation et importe les heures Lucca : coût à chiffrer à ce moment-là. |
 | Vigie | `VIGIE_HEURES_CURSUS_DEPUIS` vidé : le tableau de bord relit la source d'avant, dont les lignes n'ont pas été touchées (clé `(month, site_id, source)`). Si Cursus garde les feuilles validées, Vigie peut continuer de le lire ; sinon, `source = 'lucca'` par un import à prévoir. |
